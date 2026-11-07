@@ -172,6 +172,16 @@ a.row { text-decoration: none; color: inherit; }
 /* Browse tab: search, Browse / Connections views, poster grid with one-tap marks. */
 .cast-home .search { position: sticky; top: calc(var(--top-h, 56px) - 1px); z-index: 15; margin: 0 -4px; padding: 1px 4px 8px; background: var(--bg); }
 .cast-home .search::before { content: ""; position: absolute; left: 0; right: 0; bottom: 100%; height: 40px; background: var(--bg); }
+/* Phones: the header scrolls away and the search box alone sticks to the very top (no header-height maths, no gap to show posters through). */
+@media (max-width: 719px) {
+  body:has(.cast-home) .top { position: static; }
+  .cast-home .search { top: 0; padding-top: calc(env(safe-area-inset-top, 0px) + 8px); transform: translateZ(0); }
+  .cast-home .search::before { display: none; }
+  .grid { isolation: isolate; }
+}
+@media (max-width: 559px) {
+  .grid .qm-b { width: 30px; height: 30px; } .grid .qm-b svg { width: 16px; height: 16px; } .grid .qm.over { right: 4px; bottom: 4px; gap: 4px; }
+}
 .views { display: flex; gap: 22px; margin: 6px 0 2px; border-bottom: 1px solid var(--line); }
 .views button { padding: 10px 0 9px; font: 700 20px/1 var(--display); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); border-bottom: 3px solid transparent; margin-bottom: -1px; }
 .views button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--gold-fill); }
