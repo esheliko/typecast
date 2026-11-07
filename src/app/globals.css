@@ -122,6 +122,22 @@ label.l { display: block; font: 500 12px var(--mono); letter-spacing: .08em; tex
 .pagebar { display: flex; align-items: center; justify-content: space-between; padding: 8px 0 0; }
 .back { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px 6px 8px; border-radius: 999px; background: var(--chip); font-weight: 600; font-size: 14px; }
 .page { padding-top: 12px; }
+.filters { margin-top: 18px; }
+.filters .l { margin-top: 16px; }
+.filters .chips + .chips, .filters .chips + .inline { margin-top: 10px; }
+.filters .picker { margin-top: 16px; position: relative; }
+.filters .picker .l { margin-top: 0; }
+.filters .years { display: flex; align-items: center; gap: 10px; }
+.filters .years input { width: 96px; }
+.filters .two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px; }
+.filters .two select { width: 100%; }
+.filters .two .l { margin-top: 0; }
+.suggest { list-style: none; margin: 6px 0 0; padding: 4px; }
+.suggest button { display: block; width: 100%; text-align: left; background: none; border: 0; border-radius: 8px; padding: 8px 10px; cursor: pointer; }
+.suggest button:hover, .suggest button:focus-visible { background: var(--chip); }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 16px 10px; margin-top: 14px; }
+.grid .tile { display: flex; flex-direction: column; min-width: 0; }
+.grid .tile img, .grid .tile .ph { width: 100%; height: auto; aspect-ratio: 2 / 3; }
 .home:has(.results) .extras { display: none; }
 details.credit > summary { list-style: none; cursor: pointer; }
 details.credit > summary::-webkit-details-marker { display: none; }

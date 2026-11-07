@@ -3,6 +3,7 @@ export type Status = "watching" | "watchlist" | "watched";
 export const STATUS_LABEL: Record<Status, string> = { watching: "Watching", watchlist: "To watch", watched: "Watched" };
 
 export interface Item { key: string; type: MediaType; id: number; title: string; year: string; poster: string | null }
+export interface BrowseItem extends Item { rating: number }
 export interface Related extends Item { rel: string }
 export interface Credit extends Item { role: string; votes: number }
 export interface CastMember { id: number; name: string; photo: string | null; role: string }
