@@ -1,38 +1,26 @@
 "use client";
 import { useState, useTransition } from "react";
-import { sendCode, verifyCode } from "./actions";
+import { signIn } from "./actions";
 
 export default function LoginForm() {
   const [email, setEmail] = useState("");
-  const [code, setCode] = useState("");
-  const [step, setStep] = useState<"email" | "code">("email");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [pending, start] = useTransition();
 
-  function send(e: React.FormEvent) {
+  function submit(e: React.FormEvent) {
     e.preventDefault(); setError("");
-    start(async () => { const r = await sendCode(email); if (r.error) setError(r.error); else setStep("code"); });
+    start(async () => { const r = await signIn(email, password); if (r?.error) setError(r.error); });
   }
-  function verify(e: React.FormEvent) {
-    e.preventDefault(); setError("");
-    start(async () => { const r = await verifyCode(email, code); if (r?.error) setError(r.error); });
-  }
-  return step === "email" ? (
-    <form onSubmit={send}>
-      <p className="muted" style={{ margin: 0 }}>Sign in with your email. We send a code, no password needed.</p>
+  return (
+    <form onSubmit={submit}>
+      <p className="muted" style={{ margin: 0 }}>Sign in to your Typecast library.</p>
       <label className="l" htmlFor="email" style={{ margin: 0 }}>Email</label>
-      <input id="email" type="email" autoComplete="email" inputMode="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
-      <button className="btn gold" type="submit" disabled={pending} style={{ justifyContent: "center" }}>{pending ? "Sending…" : "Send code"}</button>
+      <input id="email" type="email" autoComplete="username" inputMode="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
+      <label className="l" htmlFor="password" style={{ margin: 0 }}>Password</label>
+      <input id="password" type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+      <button className="btn gold" type="submit" disabled={pending} style={{ justifyContent: "center" }}>{pending ? "Signing in…" : "Sign in"}</button>
       {error && <p className="err" role="alert" style={{ margin: 0 }}>{error}</p>}
-    </form>
-  ) : (
-    <form onSubmit={verify}>
-      <p className="muted" style={{ margin: 0 }}>We sent a code to <b>{email}</b>. Enter it below.</p>
-      <label className="l" htmlFor="code" style={{ margin: 0 }}>Code</label>
-      <input id="code" className="code" inputMode="numeric" autoComplete="one-time-code" required value={code} onChange={(e) => setCode(e.target.value.replace(/\s/g, ""))} maxLength={10} />
-      <button className="btn gold" type="submit" disabled={pending} style={{ justifyContent: "center" }}>{pending ? "Checking…" : "Sign in"}</button>
-      {error && <p className="err" role="alert" style={{ margin: 0 }}>{error}</p>}
-      <button type="button" className="small muted" onClick={() => { setStep("email"); setCode(""); setError(""); }}>Use a different email</button>
     </form>
   );
 }
