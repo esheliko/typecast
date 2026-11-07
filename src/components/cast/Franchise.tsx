@@ -13,8 +13,15 @@ export interface Group { label: string; items: Item[] }
  * The checklist for one group. Each row has the usual one-tap marks, and the group header
  * offers "All watched" so a franchise you have mostly seen is marked in a couple of taps.
  */
-export function FranchiseList({ groups, onNavigate }: { groups: Group[]; onNavigate?: () => void }) {
+export function FranchiseList({ groups: raw, onNavigate, include }: { groups: Group[]; onNavigate?: () => void; include?: Item }) {
   const { get, markMany } = useLib();
+  // The title you came from belongs in its own franchise: slot it in by year (before later entries of the same year).
+  const groups = include ? raw.map((g) => {
+    if (g.items.some((i) => i.key === include.key)) return g;
+    const at = g.items.findIndex((i) => i.year >= include.year);
+    const items = [...g.items]; items.splice(at < 0 ? items.length : at, 0, include);
+    return { ...g, items };
+  }) : raw;
   return (
     <div className="fr">
       {groups.map((g) => {
@@ -73,7 +80,7 @@ export function FranchiseSheet({ it, load, onClose }: { it: Item; load: (it: Ite
         </div>
         {!groups ? <p className="muted"><span className="spin" />Finding related titles</p>
           : groups.length === 0 ? <p className="muted">Nothing related found.</p>
-          : <FranchiseList groups={groups} onNavigate={onClose} />}
+          : <FranchiseList groups={groups} include={it} onNavigate={onClose} />}
       </div>
     </div>
   );
