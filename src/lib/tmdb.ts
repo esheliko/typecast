@@ -62,29 +62,30 @@ export async function search(q: string, kind: "all" | "person" | "title" = "all"
     if (seen.has(id)) continue;
     seen.add(id);
     const name = h.kind === "person" ? h.name : h.title;
-    scored.push({ h, s: matchScore(q, name, r.popularity ?? 0) });
+    scored.push({ h, s: matchScore(q, name, r.popularity ?? 0, r.vote_average ?? 0, r.vote_count ?? 0) });
   }
   return scored.sort((a, b) => b.s - a.s).map((x) => x.h).slice(0, kind === "all" ? 16 : 8);
 }
 
 const norm = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/&/g, " and ").replace(/[^a-z0-9]+/g, " ").trim();
 
-/** Higher is better: exact name, then name starting with the query, then whole words, then anywhere; popularity breaks ties. */
-function matchScore(q: string, name: string, popularity: number): number {
+/** Higher is better: exact name, then name starting with the query, then whole words, then anywhere; popularity and rating weigh in heavily. */
+function matchScore(q: string, name: string, popularity: number, rating = 0, votes = 0): number {
   const a = norm(q), b = norm(name);
   const words = a.split(" ");
   const bw = b.split(" ");
   let s = 0;
-  if (b === a) s = 1000;
-  else if (b.startsWith(a + " ")) s = 800;
-  else if (b.startsWith(a)) s = 700;
-  else if ((" " + b + " ").includes(" " + a + " ")) s = 500;
-  else if (b.includes(a)) s = 400;
+  if (b === a) s = 300;
+  else if (b.startsWith(a + " ")) s = 220;
+  else if (b.startsWith(a)) s = 200;
+  else if ((" " + b + " ").includes(" " + a + " ")) s = 150;
+  else if (b.includes(a)) s = 100;
   else {
     const hit = words.filter((w) => bw.some((x) => x.startsWith(w))).length;
-    s = 300 * (hit / words.length);
+    s = 100 * (hit / words.length);
   }
-  return s + Math.min(Math.log10(1 + popularity) * 20, 60);
+  // Name match sets the tier, but popularity and rating (weighted by vote count) can lift a well-known title over an obscure exact match.
+  return s + Math.min(Math.log10(1 + popularity) * 100, 300) + rating * Math.min(votes / 1000, 1) * 10;
 }
 
 const daysFrom = (n: number) => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10);
