@@ -178,6 +178,23 @@ export function franchiseBase(title: string): string {
 }
 
 /**
+ * Every name a title's franchise might go by: its own base ("Toy Story 4" -> "toy story") and the franchise a
+ * subtitle names ("Rogue One: A Star Wars Story" -> "rogue one", "star wars").
+ */
+export function franchiseNames(title: string): string[] {
+  const out: string[] = [];
+  const base = franchiseBase(title);
+  if (base) out.push(base);
+  const tail = title.split(/\s*[:\u2013\u2014]\s*|\s+-\s+/).slice(1).join(" ");
+  const m = /^(?:an?|the)\s+(.+?)\s+(?:story|movie|film|saga|adventure|chapter)$/i.exec(tail.trim());
+  if (m) {
+    const n = plain(m[1]);
+    if ((n.length >= 8 || n.split(" ").length >= 2) && !out.includes(n)) out.push(n);
+  }
+  return out;
+}
+
+/**
  * Titles that go with this one: the rest of its collection (Iron Man 2, 3), and everything under a shared
  * "universe" theme (the whole Marvel Cinematic Universe). Unreleased titles are left out, nothing can be watched yet.
  */
@@ -193,38 +210,60 @@ export const getFranchise = cache(async (type: MediaType, id: number): Promise<F
     .sort((a, b) => when(a).localeCompare(when(b)))
     .map((r) => item(t, r)).filter((i) => !have.has(i.key) && have.add(i.key));
 
-  const base = franchiseBase(d.title ?? d.name ?? "");
+  const names = franchiseNames(d.title ?? d.name ?? "");
   const kws: any[] = (type === "movie" ? d.keywords?.keywords : d.keywords?.results) ?? [];
-  const kw = kws.find((k) => UNIVERSE_KW.test(k.name));
-  const themeParams = kw ? { with_keywords: String(kw.id), sort_by: "popularity.desc", include_adult: "false", "vote_count.gte": "150", [`${date}.lte`]: today() } : null;
+  const startsWith = (n: string) => names.some((b) => n === b || n.startsWith(b + " "));
 
-  // The collection, the same-name search and the theme pages don't depend on each other: fetch them together, then assemble in order.
-  const [coll, named, themed] = await Promise.all([
+  // Themes: a "universe"-style keyword, or a keyword that is the franchise's own name (the "star wars" keyword on Rogue One).
+  // When the title doesn't carry such a keyword, look the franchise name up as a keyword.
+  const themeKws: { id: number; name: string }[] = [];
+  const addKw = (k: any) => { if (k && !themeKws.some((t) => t.id === k.id)) themeKws.push({ id: k.id, name: k.name }); };
+  addKw(kws.find((k) => UNIVERSE_KW.test(k.name)));
+  addKw(kws.find((k) => names.includes(plain(k.name))));
+  if (!themeKws.length && names.length) {
+    const found = await Promise.all(names.map((n) => tmdb("/search/keyword", { query: n }, 24 * HOUR).then((r) => (r.results ?? []).find((k: any) => plain(k.name) === n)).catch(() => null)));
+    found.forEach(addKw);
+  }
+  const themeFor = (kw: { id: number }) => Promise.all([1, 2, 3].map((p) => tmdb(`/discover/${type}`, {
+    with_keywords: String(kw.id), sort_by: "popularity.desc", include_adult: "false", "vote_count.gte": "150", [`${date}.lte`]: today(), page: String(p),
+  }, 24 * HOUR).catch(() => ({ results: [] })))).catch(() => null);
+
+  // The collections, the same-name searches and the theme pages don't depend on each other: fetch them together, then assemble in order.
+  const [coll, extraColls, named, themed] = await Promise.all([
     d.belongs_to_collection?.id ? tmdb(`/collection/${d.belongs_to_collection.id}`, {}, 24 * HOUR).catch(() => null) : null,
-    // Sequels and spin-offs TMDB never linked (a film and its later series): other titles that start with this one's name.
-    base ? Promise.all((["movie", "tv"] as const).map((t) =>
-      tmdb(`/search/${t}`, { query: base, include_adult: "false" }, 24 * HOUR).then((r) => (r.results ?? []).map((x: any) => ({ x, t }))).catch(() => []))).catch(() => null) : null,
-    themeParams ? Promise.all([1, 2, 3].map((p) => tmdb(`/discover/${type}`, { ...themeParams, page: String(p) }, 24 * HOUR).catch(() => ({ results: [] })))).catch(() => null) : null,
+    // Collections TMDB didn't link to this title, found by the franchise name (the "Star Wars Collection" for Rogue One).
+    Promise.all(names.map((n) => tmdb("/search/collection", { query: n }, 24 * HOUR)
+      .then((r) => Promise.all((r.results ?? []).filter((c: any) => startsWith(plain(c.name ?? "")) && c.id !== d.belongs_to_collection?.id).slice(0, 2)
+        .map((c: any) => tmdb(`/collection/${c.id}`, {}, 24 * HOUR).catch(() => null))))
+      .catch(() => []))).then((a) => a.flat().filter(Boolean)).catch(() => []),
+    // Sequels and spin-offs TMDB never linked (a film and its later series): other titles that start with a franchise name.
+    names.length ? Promise.all(names.flatMap((n) => (["movie", "tv"] as const).map((t) =>
+      tmdb(`/search/${t}`, { query: n, include_adult: "false" }, 24 * HOUR).then((r) => (r.results ?? []).map((x: any) => ({ x, t }))).catch(() => [])))).catch(() => null) : null,
+    Promise.all(themeKws.map(themeFor)),
   ]);
 
   if (coll) {
     const items = keep(coll.parts ?? [], "movie");
     if (items.length) out.push({ label: coll.name || d.belongs_to_collection.name || "Same collection", items });
   }
+  for (const c of extraColls as any[]) {
+    const items = keep(c.parts ?? [], "movie");
+    if (items.length) out.push({ label: c.name || "Same collection", items });
+  }
   if (named) {
     const items: Item[] = [];
     for (const { x, t } of named.flat()) {
-      const n = plain(x.title ?? x.name ?? "");
-      if ((n === base || n.startsWith(base + " ")) && (x.vote_count ?? 0) >= 10) items.push(...keep([x], t));
+      if (startsWith(plain(x.title ?? x.name ?? "")) && (x.vote_count ?? 0) >= 10) items.push(...keep([x], t));
     }
     items.sort((a, b) => a.year.localeCompare(b.year));
-    const head = (d.title ?? d.name ?? base).split(/\s*[:\u2013\u2014]\s*/)[0];
-    if (items.length) out.push({ label: `More "${head}"`, items: items.slice(0, 20) });
+    const head = names.length > 1 ? names[names.length - 1] : (d.title ?? d.name ?? names[0]).split(/\s*[:\u2013\u2014]\s*/)[0];
+    if (items.length) out.push({ label: `More "${niceName(head)}"`, items: items.slice(0, 20) });
   }
-  if (themed && kw) {
-    const items = keep(themed.flatMap((p) => p.results ?? []), type).slice(0, 80);
-    if (items.length) out.push({ label: niceName(kw.name), items });
-  }
+  themed.forEach((pages, i) => {
+    if (!pages) return;
+    const items = keep(pages.flatMap((p: any) => p.results ?? []), type).slice(0, 80);
+    if (items.length) out.push({ label: niceName(themeKws[i].name), items });
+  });
   return out;
 });
 
