@@ -1,9 +1,9 @@
 "use client";
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { setStatus } from "@/app/actions";
-import { STATUS_LABEL, type Item, type Mark, type Status } from "@/lib/types";
+import { PRIORITY_LABEL, STATUS_LABEL, type Item, type Mark, type Priority, type Status } from "@/lib/types";
 
-interface Ctx { get: (key: string) => Mark | undefined; mark: (it: Item, status: Status | null) => void }
+interface Ctx { get: (key: string) => Mark | undefined; mark: (it: Item, status: Status | null, priority?: Priority) => void }
 const LibCtx = createContext<Ctx | null>(null);
 
 export function useLib() {
@@ -28,7 +28,7 @@ export function LibProvider({ initial, children }: { initial: Record<string, Mar
   useEffect(() => {
     setOver((o) => {
       const next = { ...o }; let changed = false;
-      for (const k of Object.keys(o)) if ((initial[k]?.status ?? null) === (o[k]?.status ?? null)) { delete next[k]; changed = true; }
+      for (const k of Object.keys(o)) if ((initial[k]?.status ?? null) === (o[k]?.status ?? null) && initial[k]?.priority === o[k]?.priority) { delete next[k]; changed = true; }
       return changed ? next : o;
     });
   }, [initial]);
@@ -42,9 +42,9 @@ export function LibProvider({ initial, children }: { initial: Record<string, Mar
     timer.current = setTimeout(() => setToast(null), t.undo ? 5000 : 3500);
   }, []);
 
-  const save = useCallback(async (it: Item, status: Status | null, prev: Mark | null) => {
-    setOver((o) => ({ ...o, [it.key]: status ? { status, rich: prev?.rich ?? false } : null }));
-    try { await setStatus({ type: it.type, id: it.id, title: it.title, year: it.year, poster: it.poster }, status); return true; }
+  const save = useCallback(async (it: Item, status: Status | null, prev: Mark | null, priority?: Priority) => {
+    setOver((o) => ({ ...o, [it.key]: status ? { status, priority: priority ?? prev?.priority ?? "someday", rich: prev?.rich ?? false } : null }));
+    try { await setStatus({ type: it.type, id: it.id, title: it.title, year: it.year, poster: it.poster }, status, priority); return true; }
     catch {
       setOver((o) => ({ ...o, [it.key]: prev }));
       show({ msg: `Could not save ${it.title}. Check your connection.`, err: true });
@@ -52,17 +52,17 @@ export function LibProvider({ initial, children }: { initial: Record<string, Mar
     }
   }, [show]);
 
-  const mark = useCallback((it: Item, status: Status | null) => {
+  const mark = useCallback((it: Item, status: Status | null, priority?: Priority) => {
     const k = it.key;
     const prev = (k in overRef.current ? overRef.current[k] : live.current[k]) ?? null;
-    if ((prev?.status ?? null) === status) return;
+    if ((prev?.status ?? null) === status && (priority === undefined || prev?.priority === priority)) return;
     if (status === null && prev?.rich && !window.confirm(`Remove ${it.title}? Your rating and notes for it will be deleted.`)) return;
-    save(it, status, prev).then((ok) => {
+    save(it, status, prev, priority).then((ok) => {
       if (!ok) return;
-      const msg = status ? `${it.title}: ${STATUS_LABEL[status]}` : `Removed ${it.title}`;
+      const msg = status ? `${it.title}: ${status === "watchlist" && priority === "must" ? PRIORITY_LABEL.must : STATUS_LABEL[status]}` : `Removed ${it.title}`;
       // Undo after removing a title with a rating or note cannot bring those back, so offer it only when it can.
       const canUndo = !(status === null && prev?.rich);
-      show({ msg, undo: canUndo ? () => { setToast(null); save(it, prev?.status ?? null, status ? { status, rich: false } : null); } : undefined });
+      show({ msg, undo: canUndo ? () => { setToast(null); save(it, prev?.status ?? null, status ? { status, priority: priority ?? "someday", rich: false } : null, prev?.priority); } : undefined });
     });
   }, [save, show]);
 

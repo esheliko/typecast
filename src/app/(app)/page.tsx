@@ -38,7 +38,7 @@ export default async function Home({ searchParams }: { searchParams: SP }) {
     : browse(list, filters.type, 1).then((r) => ({ ...r, page: 1 }))
   ).catch(() => null);
 
-  const marks: Record<string, Mark> = Object.fromEntries(lib.map((l) => [l.key, { status: l.status, rich: l.rating > 0 || !!l.note.trim() }]));
+  const marks: Record<string, Mark> = Object.fromEntries(lib.map((l) => [l.key, { status: l.status, priority: l.priority, rich: l.rating > 0 || !!l.note.trim() }]));
   const watching = lib.filter((l) => l.status === "watching").map((l) => ({
     key: l.key, type: l.type, id: l.id, title: l.title, year: l.year, poster: l.poster, rating: 0,
     sub: l.progress ? `S${l.progress.s} E${l.progress.e}` : l.year,

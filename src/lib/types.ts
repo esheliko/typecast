@@ -35,7 +35,7 @@ export interface EnrichedMember extends CastMember {
 }
 
 /** How the cast tab sees a library entry: enough to draw a mark and to warn before deleting a rating or note. */
-export interface Mark { status: Status; rich: boolean }
+export interface Mark { status: Status; priority: Priority; rich: boolean }
 
 export interface PersonLite { id: number; name: string; photo: string | null }
 /** A title two people were both in, with the part each played. */

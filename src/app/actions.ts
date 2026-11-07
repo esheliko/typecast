@@ -8,15 +8,16 @@ const STATUSES = ["watching", "watchlist", "watched"];
 const where = (type: MediaType, id: number) => ({ tmdb_type: type, tmdb_id: id });
 const done = () => revalidatePath("/", "layout");
 
-export async function setStatus(item: { type: MediaType; id: number; title: string; year: string; poster: string | null }, status: Status | null) {
+export async function setStatus(item: { type: MediaType; id: number; title: string; year: string; poster: string | null }, status: Status | null, priority?: Priority) {
   const { sb, user } = await requireUser();
   if (status === null) {
     const { error } = await sb.from("library_items").delete().eq("user_id", user.id).match(where(item.type, item.id));
     if (error) throw new Error(error.message);
   } else {
     if (!STATUSES.includes(status)) throw new Error("Bad status");
+    if (priority !== undefined && priority !== "someday" && priority !== "must") throw new Error("Bad priority");
     const { error } = await sb.from("library_items").upsert(
-      { user_id: user.id, ...where(item.type, item.id), title: item.title, year: item.year, poster_path: item.poster, status, updated_at: new Date().toISOString() },
+      { user_id: user.id, ...where(item.type, item.id), title: item.title, year: item.year, poster_path: item.poster, status, ...(priority ? { priority } : {}), updated_at: new Date().toISOString() },
       { onConflict: "user_id,tmdb_type,tmdb_id" },
     );
     if (error) throw new Error(error.message);
