@@ -10,8 +10,8 @@ import type { Item } from "@/lib/types";
 export interface Group { label: string; items: Item[] }
 
 /**
- * The checklist for one group. Each row has the usual one-tap marks, and a row also offers
- * "everything up to here", so a franchise you have mostly seen is marked in a couple of taps.
+ * The checklist for one group. Each row has the usual one-tap marks, and the group header
+ * offers "All watched" so a franchise you have mostly seen is marked in a couple of taps.
  */
 export function FranchiseList({ groups, onNavigate }: { groups: Group[]; onNavigate?: () => void }) {
   const { get, markMany } = useLib();
@@ -27,9 +27,7 @@ export function FranchiseList({ groups, onNavigate }: { groups: Group[]; onNavig
               {open.length > 0 && <button type="button" className="btn sm" onClick={() => markMany(open, "watched")}>All watched · {open.length}</button>}
             </div>
             <ul className="rows card">
-              {g.items.map((it, n) => {
-                const before = g.items.slice(0, n + 1).filter((i) => !get(i.key));
-                return (
+              {g.items.map((it) => (
                   <li key={it.key} className={`fr-row${get(it.key)?.status === "watched" ? " done" : ""}`}>
                     <TitleLink className="fr-main" k={it.key} onClick={onNavigate}>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -41,13 +39,9 @@ export function FranchiseList({ groups, onNavigate }: { groups: Group[]; onNavig
                     </TitleLink>
                     <div className="fr-act">
                       <QuickMark it={it} variant="inline" quiet />
-                      {before.length > 1 && !get(it.key) && (
-                        <button type="button" className="fr-upto" onClick={() => markMany(before, "watched")}>Watched all up to here · {before.length}</button>
-                      )}
                     </div>
                   </li>
-                );
-              })}
+              ))}
             </ul>
           </section>
         );
