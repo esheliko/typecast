@@ -24,7 +24,8 @@ export default function QuickMark({ it, variant = "over", quiet }: { it: Item; v
   const prio = onList ? m?.priority ?? "someday" : defaultPriority;
   const must = prio === "must";
   return (
-    <div className={`qm ${variant}`} role="group" aria-label={`Mark ${it.title}`}>
+    // Pressing a mark button must not take focus from whatever has it (e.g. the search box), so you can search, mark, search again.
+    <div className={`qm ${variant}`} role="group" aria-label={`Mark ${it.title}`} onMouseDown={(e) => e.preventDefault()}>
       <button type="button" className="qm-b watching" aria-pressed={inProgress} onClick={() => mark(it, inProgress ? null : "watching", undefined, quiet)}
         aria-label={partial ? "Partly watched. Tap to remove" : inProgress ? "In progress. Tap to remove" : "Mark in progress"} title={partial ? "Partly watched" : "Watching now"}>
         <svg viewBox="0 0 24 24" aria-hidden="true">{partial ? EYE_HALF : EYE}</svg>
