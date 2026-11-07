@@ -22,18 +22,19 @@ export function GlimpseProvider({ children }: { children: React.ReactNode }) {
   const close = useCallback(() => { setSpec(null); setBig(null); const o = opener.current; if (o && document.contains(o)) o.focus({ preventScroll: true }); }, []);
 
   const q = spec?.tabs[tab]?.q;
+  // Each query is fetched once. No abort on cleanup: storing the "loading" state re-runs this effect, which would cancel its own request.
+  const asked = useRef(new Set<string>());
   useEffect(() => {
-    if (!q || res[q]) return;
-    const ctl = new AbortController();
+    if (!q || asked.current.has(q)) return;
+    asked.current.add(q);
     setRes((r) => ({ ...r, [q]: { state: "loading" } }));
-    fetch(`/api/glimpse?q=${encodeURIComponent(q)}`, { signal: ctl.signal })
+    fetch(`/api/glimpse?q=${encodeURIComponent(q)}`)
       .then(async (r) => {
         const j = await r.json().catch(() => ({})) as { configured?: boolean; images?: GlimpseImage[]; error?: string };
-        setRes((m) => ({ ...m, [q]: r.ok ? { state: "ok", images: j.images ?? [], configured: j.configured !== false } : { state: "error", msg: j.error ?? "Image search failed" } }));
+        setRes((m) => ({ ...m, [q]: r.ok ? { state: "ok", images: j.images ?? [], configured: j.configured !== false } : { state: "error", msg: j.error ?? `Image search failed (${r.status})` } }));
       })
-      .catch((e) => { if (e.name !== "AbortError") setRes((m) => { const n = { ...m }; delete n[q]; return n; }); });
-    return () => ctl.abort();
-  }, [q, res]);
+      .catch(() => { asked.current.delete(q); setRes((m) => ({ ...m, [q]: { state: "error", msg: "Could not reach image search. Check your connection." } })); });
+  }, [q]);
 
   useEffect(() => {
     if (!spec) return;
@@ -99,7 +100,7 @@ export function GlimpseButton({ spec, label }: { spec: GlimpseSpec; label?: stri
   const text = label ?? `See images of ${spec.heading}`;
   return (
     <button type="button" className="gl-b" onClick={() => open(spec)} aria-label={text} title={text}>
-      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2.5" /><circle cx="9" cy="10" r="1.8" /><path d="M21 16l-5-5-9 9" /></svg>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="M15.5 15.5L21 21" /></svg>
     </button>
   );
 }
