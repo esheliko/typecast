@@ -116,8 +116,8 @@ export function Modal({ children }: { children: React.ReactNode }) {
         <div className="sheet">
           <div className="sheet-bar">
             <div className="sheet-nav">
-              <button type="button" className="back strong" disabled={pos.i === 0} onClick={() => router.back()} aria-label="Back to previous title"><span aria-hidden="true">&#8249;</span> Back</button>
-              <button type="button" className="back strong" disabled={pos.i >= pos.n - 1} onClick={() => router.forward()} aria-label="Forward to next title">Forward <span aria-hidden="true">&#8250;</span></button>
+              <button type="button" className="back strong" disabled={pos.i === 0} onClick={() => router.back()} aria-label="Back to previous title"><span aria-hidden="true">&#8249;</span></button>
+              <button type="button" className="back strong" disabled={pos.i >= pos.n - 1} onClick={() => router.forward()} aria-label="Forward to next title"><span aria-hidden="true">&#8250;</span></button>
             </div>
             <div className="sheet-nav">
               {/* A plain link on purpose: it loads the full page instead of opening another popup. */}

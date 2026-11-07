@@ -286,7 +286,8 @@ li.row { gap: 10px; }
 .sheet-body { padding: 0 max(16px, env(safe-area-inset-left, 0px)) calc(48px + env(safe-area-inset-bottom, 0px)); }
 .sheet-bar { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; justify-content: space-between; padding: 14px max(16px, env(safe-area-inset-left, 0px)); background: var(--bg); border-bottom: 1px solid var(--line); }
 .sheet-nav { display: flex; align-items: center; gap: 8px; }
-.back.strong { background: var(--gold-fill); color: var(--on-gold); padding: 8px 14px; font-size: 15px; }
+.back.strong { width: 34px; height: 34px; padding: 0; justify-content: center; font-size: 22px; line-height: 1; border: 1px solid var(--line); }
+.back.strong:not([disabled]):hover { background: var(--gold-fill); color: var(--on-gold); }
 .back[disabled] { opacity: .35; cursor: default; }
 .sheet .page { padding-top: 0; }
 .row .qm.inline { flex: none; gap: 4px; }
