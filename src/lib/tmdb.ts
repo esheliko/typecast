@@ -132,7 +132,11 @@ export async function getTitle(type: MediaType, id: number): Promise<Title> {
     seasons: type === "tv" ? (d.seasons ?? []).filter((s: any) => s.season_number > 0).map((s: any) => ({ n: s.season_number, eps: s.episode_count })) : [],
     imdbId: d.external_ids?.imdb_id || d.imdb_id || null,
     people, prov, collection: d.belongs_to_collection?.id ?? null,
-    related: (d.recommendations?.results ?? []).slice(0, 8).map((r: any): Related => ({ ...item(type, r), rel: "Recommended" })),
+    related: (d.recommendations?.results ?? []).slice(0, 8).map((r: any): Related => {
+      const mine = new Map<number, string>((d.genres ?? []).map((g: any) => [g.id, g.name]));
+      const shared = ((r.genre_ids ?? []) as number[]).filter((g) => mine.has(g)).map((g) => mine.get(g)!).slice(0, 3);
+      return { ...item(type, r), rel: shared.length ? `Recommended for fans of this: also ${shared.join(", ")}` : "Recommended for fans of this" };
+    }),
   };
 }
 

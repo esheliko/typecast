@@ -1,18 +1,15 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { FranchiseList, type Group } from "./Franchise";
 import { useLib } from "./LibState";
 
 /**
- * "Same franchise" block on a title page. It opens by itself once you have marked this title as seen,
- * which is the moment you want to go through the others, and stays folded away until then.
+ * "Same franchise" block on a title page. Folded away by default to keep the page short; tap to open.
  */
 export default function TitleFranchise({ groups, titleKey }: { groups: Group[]; titleKey: string }) {
   const { get } = useLib();
-  const s = get(titleKey)?.status;
-  const seenThis = !!s && s !== "watchlist";
-  const [open, setOpen] = useState(seenThis);
-  useEffect(() => { if (seenThis) setOpen(true); }, [seenThis]);
+  void titleKey;
+  const [open, setOpen] = useState(false);
   const keys = [...new Set(groups.flatMap((g) => g.items.map((i) => i.key)))];
   const left = keys.filter((k) => !get(k)).length;
   const names = groups.map((g) => g.label).join(" · ");

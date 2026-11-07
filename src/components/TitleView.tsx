@@ -34,13 +34,21 @@ export async function loadTitle(p: TitleParams) {
 /** Enriched cast, computed once per request even though both cast sections ask for it. */
 const castOf = cache((t: Title, lib: LibItem[]) => enrich(t.people, lib, t.key));
 
-function CrewSection({ id, t }: { id: CrewId; t: Title }) {
-  const people = t.crewBy[id];
-  if (!people.length) return null;
+/** Consecutive crew details share one card; each category is a small label beside its people, not a header of its own. */
+function CrewSection({ ids, t }: { ids: CrewId[]; t: Title }) {
+  const groups = ids.filter((id) => t.crewBy[id].length);
+  if (!groups.length) return null;
   return (
     <>
-      <h2>{detailLabel(id, t.type)}</h2>
-      <div className="card pad"><ul className="credits">{people.map((c) => <CrewRow key={c.id} c={c} />)}</ul></div>
+      <h2>Crew</h2>
+      <div className="card pad crew-card">
+        {groups.map((id) => (
+          <div key={id} className="crew-group">
+            <div className="crew-label">{detailLabel(id, t.type)}</div>
+            <ul className="credits">{t.crewBy[id].map((c) => <CrewRow key={c.id} c={c} />)}</ul>
+          </div>
+        ))}
+      </div>
     </>
   );
 }
@@ -90,15 +98,22 @@ async function CastSection(props: CastProps) {
 /** Every section the user chose, in the order they chose. Crew is already in hand; cast streams in behind its own spinner. */
 function Details({ t, lib, order }: { t: Title; lib: LibItem[]; order: DetailId[] }) {
   const casts = order.filter((i) => i === "cast_main" || i === "cast_rest");
+  // Merge runs of adjacent crew details into one block.
+  const blocks: (DetailId | CrewId[])[] = [];
+  for (const id of order) {
+    const last = blocks[blocks.length - 1];
+    if (isCrewId(id) && Array.isArray(last)) last.push(id);
+    else blocks.push(isCrewId(id) ? [id] : id);
+  }
   return (
     <>
-      {order.map((id) => id === "cast_main" || id === "cast_rest" ? (
+      {blocks.map((id) => Array.isArray(id) ? <CrewSection key={id[0]} ids={id} t={t} /> : id === "cast_main" || id === "cast_rest" ? (
         // The cast is already known from the title itself, so show it right away; "you know them from" fills in behind it.
         <Suspense key={id} fallback={<CastBlock part={id} t={t} lib={lib} first={id === casts[0]} last={id === casts[casts.length - 1]} pending
           people={t.people.map((c) => ({ ...c, hits: [], also: [], top: [] }))} />}>
           <CastSection part={id} t={t} lib={lib} first={id === casts[0]} last={id === casts[casts.length - 1]} />
         </Suspense>
-      ) : <CrewSection key={id} id={id} t={t} />)}
+      ) : null)}
     </>
   );
 }
@@ -120,10 +135,12 @@ async function Related({ t, origin }: { t: Title; origin?: Item | null }) {
   if (!list.length) return null;
   return (
     <>
-      <h2>Related</h2>
-      <div className="card"><ul className="rows">
-        {list.map((r) => <li key={r.key}><MarkRow it={r} sub={r.rel} small /></li>)}
-      </ul></div>
+      <details className="cw" style={{ marginTop: 22 }}>
+        <summary>Related<span className="cw-n">{list.length}</span></summary>
+        <div className="card"><ul className="rows">
+          {list.map((r) => <li key={r.key}><MarkRow it={r} sub={r.rel} small /></li>)}
+        </ul></div>
+      </details>
     </>
   );
 }
