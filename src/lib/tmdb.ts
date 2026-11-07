@@ -42,10 +42,48 @@ function hit(r: any, media?: string): SearchHit | null {
 
 /** Search everything, or only people / only titles (used by the connection pickers). */
 export async function search(q: string, kind: "all" | "person" | "title" = "all"): Promise<SearchHit[]> {
-  const path = kind === "person" ? "/search/person" : "/search/multi";
-  const d = await tmdb(path, { query: q, include_adult: "false" }, HOUR);
-  const out = (d.results ?? []).map((r: any) => hit(r, kind === "person" ? "person" : undefined)).filter(Boolean) as SearchHit[];
-  return out.filter((h) => kind === "all" || h.kind === kind).slice(0, kind === "all" ? 16 : 8);
+  // TMDB ranks mostly by popularity, so a short query like "la la" can bury the right title.
+  // Pull several result sets, then re-rank them ourselves by how well the name matches.
+  const calls: [string, string?, string?][] =
+    kind === "person" ? [["/search/person", "person"], ["/search/person", "person", "2"]]
+    : kind === "title" ? [["/search/movie", "movie"], ["/search/tv", "tv"], ["/search/multi"], ["/search/movie", "movie", "2"]]
+    : [["/search/multi"], ["/search/multi", undefined, "2"], ["/search/movie", "movie"], ["/search/tv", "tv"], ["/search/person", "person"]];
+  const sets = await Promise.all(calls.map(([path, media, page]) =>
+    tmdb(path, { query: q, include_adult: "false", ...(page ? { page } : {}) }, HOUR)
+      .then((d) => (d.results ?? []).map((r: any) => ({ r, media })))
+      .catch((e) => { if (path === "/search/multi" && !page) throw e; return []; })));
+  const seen = new Set<string>();
+  const scored: { h: SearchHit; s: number }[] = [];
+  for (const { r, media } of sets.flat() as { r: any; media?: string }[]) {
+    const h = hit(r, media);
+    if (!h || (kind !== "all" && h.kind !== kind)) continue;
+    const id = h.kind === "person" ? `p:${h.id}` : h.key;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    const name = h.kind === "person" ? h.name : h.title;
+    scored.push({ h, s: matchScore(q, name, r.popularity ?? 0) });
+  }
+  return scored.sort((a, b) => b.s - a.s).map((x) => x.h).slice(0, kind === "all" ? 16 : 8);
+}
+
+const norm = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/&/g, " and ").replace(/[^a-z0-9]+/g, " ").trim();
+
+/** Higher is better: exact name, then name starting with the query, then whole words, then anywhere; popularity breaks ties. */
+function matchScore(q: string, name: string, popularity: number): number {
+  const a = norm(q), b = norm(name);
+  const words = a.split(" ");
+  const bw = b.split(" ");
+  let s = 0;
+  if (b === a) s = 1000;
+  else if (b.startsWith(a + " ")) s = 800;
+  else if (b.startsWith(a)) s = 700;
+  else if ((" " + b + " ").includes(" " + a + " ")) s = 500;
+  else if (b.includes(a)) s = 400;
+  else {
+    const hit = words.filter((w) => bw.some((x) => x.startsWith(w))).length;
+    s = 300 * (hit / words.length);
+  }
+  return s + Math.min(Math.log10(1 + popularity) * 20, 60);
 }
 
 const daysFrom = (n: number) => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10);
