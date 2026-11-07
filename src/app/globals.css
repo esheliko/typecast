@@ -259,14 +259,14 @@ li.row { gap: 10px; }
 .dorder-move .chip { margin-left: 0; min-width: 40px; text-align: center; }
 .dorder-move .chip:disabled { opacity: .35; }
 /* Title popup: opens over the page you were on, which keeps its scroll position, list and filters. */
-.modal { position: fixed; inset: 0; z-index: 40; overflow-y: auto; overscroll-behavior: contain; background: rgb(8 10 14 / .6); display: flex; justify-content: center; align-items: flex-start; padding-top: calc(28px + env(safe-area-inset-top, 0px)); outline: none; animation: modal-fade .15s ease-out; }
-.sheet { width: 100%; max-width: 680px; min-height: 100%; box-sizing: border-box; background: var(--bg); border-radius: 18px 18px 0 0; padding: 0 max(16px, env(safe-area-inset-left, 0px)) calc(48px + env(safe-area-inset-bottom, 0px)); box-shadow: 0 -8px 40px rgb(0 0 0 / .35); animation: up .2s ease-out; }
+.modal { position: fixed; inset: 0; z-index: 40; overflow-y: auto; overscroll-behavior: contain; background: rgb(8 10 14 / .6); display: flex; justify-content: center; align-items: flex-start; outline: none; animation: modal-fade .15s ease-out; }
+.sheet { width: 100%; max-width: 680px; margin-top: calc(28px + env(safe-area-inset-top, 0px)); min-height: calc(100% - 28px - env(safe-area-inset-top, 0px)); box-sizing: border-box; background: var(--bg); border-radius: 18px 18px 0 0; padding: 0 max(16px, env(safe-area-inset-left, 0px)) calc(48px + env(safe-area-inset-bottom, 0px)); box-shadow: 0 -8px 40px rgb(0 0 0 / .35); animation: up .2s ease-out; }
 .sheet-bar { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; justify-content: space-between; padding: 12px 0 8px; background: var(--bg); border-radius: 18px 18px 0 0; }
 .sheet .page { padding-top: 0; }
 .row .qm.inline { flex: none; gap: 4px; }
 .row .qm.inline .qm-b { width: 34px; height: 34px; }
 .more .row { padding-right: 0; }
-@media (min-width: 720px) { .modal { padding: 40px 0; } .sheet { min-height: 0; margin-bottom: 0; border-radius: 18px; } .sheet-bar { border-radius: 18px 18px 0 0; } }
+@media (min-width: 720px) { .sheet { min-height: 0; margin: 40px 0; border-radius: 18px; } .sheet-bar { border-radius: 18px 18px 0 0; } }
 @keyframes modal-fade { from { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .modal, .sheet { animation: none; } }
 
