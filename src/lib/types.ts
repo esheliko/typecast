@@ -15,8 +15,10 @@ export interface Title extends Item {
   prov: Record<string, ProviderGroup>; collection: number | null; related: Related[];
 }
 export interface Person { id: number; name: string; photo: string | null; dept: string; bio: string; known: Credit[] }
+export interface BrowseItem extends Item { vote: number }
+export type BrowseList = "trending" | "popular" | "top" | "new" | "soon";
 export type SearchHit =
-  | ({ kind: "title" } & Item)
+  | ({ kind: "title" } & BrowseItem)
   | { kind: "person"; id: number; name: string; photo: string | null; dept: string; knownFor: string[] };
 
 export interface LibItem extends Item {
@@ -29,3 +31,18 @@ export interface EnrichedMember extends CastMember {
   also: string[];
   top: Credit[];
 }
+
+/** How the cast tab sees a library entry: enough to draw a mark and to warn before deleting a rating or note. */
+export interface Mark { status: Status; rich: boolean }
+
+export interface PersonLite { id: number; name: string; photo: string | null }
+/** A title two people were both in, with the part each played. */
+export interface SharedTitle extends Item { votes: number; roles: [string, string] }
+/** Someone who worked with both people, and where. */
+export interface Bridge { person: PersonLite; viaA: Credit; viaB: Credit }
+export interface PeopleLink { a: PersonLite; b: PersonLite; shared: SharedTitle[]; bridges: Bridge[] }
+/** An actor in both titles, with the part they played in each. */
+export interface SharedActor extends PersonLite { roles: [string, string] }
+export interface TitlesLink { a: Item; b: Item; shared: SharedActor[] }
+/** An actor who keeps turning up in the user's library. */
+export interface Regular extends PersonLite { titles: { key: string; title: string; role: string }[] }

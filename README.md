@@ -8,6 +8,8 @@ Next.js (App Router) on Vercel, Supabase for the database and password sign-in, 
 src/app            pages, API routes and server actions
 src/lib/tmdb.ts    TMDB client (server only, the token never reaches the browser)
 src/lib/enrich.ts  "where do I know them from": exact matching of cast credits against your library
+src/lib/connect.ts shared titles between two actors (or co-stars linking them), shared cast between two titles, your regulars
+src/components/cast  the Cast tab: browse grid with one-tap Watched / To watch, and Connections
 src/lib/library.ts reads your library and settings from Supabase
 supabase/migrations/0001_init.sql   tables and row-level security
 artifact.html      the earlier single-file claude.ai artifact (not part of the site)

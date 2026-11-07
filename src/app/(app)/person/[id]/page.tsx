@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
+import Link from "next/link";
 import BackButton from "@/components/BackButton";
 import { TitleRow } from "@/components/ui";
 import { img } from "@/lib/img";
@@ -33,7 +34,10 @@ export default async function PersonPage({ params }: Props) {
       <div className="sh-top" style={{ marginTop: 14 }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         {p.photo && <img className="sh-poster" src={img(p.photo, "w185")} alt="" />}
-        <div style={{ minWidth: 0 }}><h1 className="sh-title">{p.name}</h1><div className="sh-meta">{p.dept}</div></div>
+        <div style={{ minWidth: 0 }}>
+          <h1 className="sh-title">{p.name}</h1><div className="sh-meta">{p.dept}</div>
+          <Link className="btn sm gold" href={`/?view=connect&a=${p.id}`} style={{ marginTop: 12 }}>Connect with another actor</Link>
+        </div>
       </div>
       {p.bio && <p className="small muted" style={{ margin: "14px 0 0" }}>{p.bio}{p.bio.length >= 360 ? "…" : ""}</p>}
       {mine.length > 0 && <><h2>In your library</h2>{rows(mine)}</>}

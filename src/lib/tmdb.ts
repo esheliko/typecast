@@ -1,4 +1,4 @@
-import type { CastMember, Credit, Item, MediaType, Person, ProviderGroup, Related, SearchHit, Title } from "./types";
+import type { BrowseItem, BrowseList, CastMember, Credit, Item, MediaType, Person, ProviderGroup, Related, SearchHit, Title } from "./types";
 
 const BASE = process.env.TMDB_BASE_URL ?? "https://api.themoviedb.org/3";
 const HOUR = 3600;
@@ -31,19 +31,44 @@ function item(type: MediaType, r: any): Item {
   return { key: `${type}:${r.id}`, type, id: r.id, title: r.title ?? r.name ?? "", year: yr(r.release_date ?? r.first_air_date), poster: r.poster_path ?? null };
 }
 
-export async function search(q: string): Promise<SearchHit[]> {
-  const d = await tmdb("/search/multi", { query: q, include_adult: "false" }, HOUR);
-  const out: SearchHit[] = [];
-  for (const r of d.results ?? []) {
-    if (r.media_type === "person") out.push({ kind: "person", id: r.id, name: r.name, photo: r.profile_path ?? null, dept: r.known_for_department ?? "", knownFor: (r.known_for ?? []).map((k: any) => k.title ?? k.name).slice(0, 3) });
-    else if (r.media_type === "movie" || r.media_type === "tv") out.push({ kind: "title", ...item(r.media_type, r) });
-  }
-  return out.slice(0, 14);
+function hit(r: any, media?: string): SearchHit | null {
+  const m = media ?? r.media_type;
+  if (m === "person") return { kind: "person", id: r.id, name: r.name, photo: r.profile_path ?? null, dept: r.known_for_department ?? "", knownFor: (r.known_for ?? []).map((k: any) => k.title ?? k.name).slice(0, 3) };
+  if (m === "movie" || m === "tv") return { kind: "title", ...item(m, r), vote: r.vote_average ?? 0 };
+  return null;
 }
 
-export async function trending(): Promise<Item[]> {
-  const d = await tmdb("/trending/all/week", {}, HOUR);
-  return (d.results ?? []).filter((r: any) => r.media_type === "movie" || r.media_type === "tv").slice(0, 12).map((r: any) => item(r.media_type, r));
+/** Search everything, or only people / only titles (used by the connection pickers). */
+export async function search(q: string, kind: "all" | "person" | "title" = "all"): Promise<SearchHit[]> {
+  const path = kind === "person" ? "/search/person" : "/search/multi";
+  const d = await tmdb(path, { query: q, include_adult: "false" }, HOUR);
+  const out = (d.results ?? []).map((r: any) => hit(r, kind === "person" ? "person" : undefined)).filter(Boolean) as SearchHit[];
+  return out.filter((h) => kind === "all" || h.kind === kind).slice(0, kind === "all" ? 16 : 8);
+}
+
+const today = () => new Date().toISOString().slice(0, 10);
+const daysFrom = (n: number) => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10);
+
+/** One page of a browse list. Lists without a genre use TMDB's curated endpoints; with a genre they go through /discover. */
+export async function browse(list: BrowseList, type: MediaType, genre: number | null, page: number): Promise<{ items: BrowseItem[]; more: boolean }> {
+  const date = type === "movie" ? "primary_release_date" : "first_air_date";
+  let path: string; let params: Record<string, string> = { page: String(page) };
+  const disc = (extra: Record<string, string>) => { path = `/discover/${type}`; params = { ...params, include_adult: "false", ...(genre ? { with_genres: String(genre) } : {}), ...extra }; };
+  path = "";
+  if (list === "soon") disc({ sort_by: "popularity.desc", [`${date}.gte`]: daysFrom(1), [`${date}.lte`]: daysFrom(180) });
+  else if (genre) {
+    if (list === "top") disc({ sort_by: "vote_average.desc", "vote_count.gte": type === "movie" ? "800" : "250" });
+    else if (list === "new") disc({ sort_by: "popularity.desc", [`${date}.gte`]: daysFrom(-75), [`${date}.lte`]: today() });
+    else disc({ sort_by: "popularity.desc" });
+  } else {
+    path = list === "trending" ? `/trending/${type}/week`
+      : list === "popular" ? `/${type}/popular`
+      : list === "top" ? `/${type}/top_rated`
+      : type === "movie" ? "/movie/now_playing" : "/tv/on_the_air";
+  }
+  const d = await tmdb(path, params, HOUR);
+  const items = (d.results ?? []).map((r: any): BrowseItem => ({ ...item(type, r), vote: r.vote_average ?? 0 }));
+  return { items, more: page < Math.min(d.total_pages ?? 1, 30) };
 }
 
 export async function getTitle(type: MediaType, id: number): Promise<Title> {
@@ -79,7 +104,7 @@ export async function getCollection(id: number): Promise<Related[]> {
 }
 
 const BAD_ROLE = /\b(self|himself|herself|themselves|archive footage|uncredited)\b/i;
-export async function getPerson(id: number): Promise<Person> {
+async function personRaw(id: number) {
   const d = await tmdb(`/person/${id}`, { append_to_response: "combined_credits" }, 24 * HOUR);
   const cc = d.combined_credits ?? {};
   const seen = new Set<string>(); const known: Credit[] = [];
@@ -95,7 +120,27 @@ export async function getPerson(id: number): Promise<Person> {
   }
   if (d.known_for_department === "Directing") for (const r of cc.crew ?? []) if (r.job === "Director") add(r, "Director");
   known.sort((a, b) => b.votes - a.votes);
+  return { d, known };
+}
+
+export async function getPerson(id: number): Promise<Person> {
+  const { d, known } = await personRaw(id);
   return { id: d.id, name: d.name, photo: d.profile_path ?? null, dept: d.known_for_department ?? "", bio: (d.biography ?? "").slice(0, 360), known: known.slice(0, 60) };
+}
+
+/** Every acting (or directing) credit for a person, most-voted first. Same request as getPerson, so it shares its cache. */
+export async function getAllCredits(id: number): Promise<{ id: number; name: string; photo: string | null; known: Credit[] }> {
+  const { d, known } = await personRaw(id);
+  return { id: d.id, name: d.name, photo: d.profile_path ?? null, known };
+}
+
+/** The full billed cast of a film, or everyone who appeared across a series. */
+export async function getCast(type: MediaType, id: number, limit = 60): Promise<CastMember[]> {
+  const d = await tmdb(type === "tv" ? `/tv/${id}/aggregate_credits` : `/movie/${id}/credits`, {}, 24 * HOUR);
+  return (d.cast ?? []).filter((c: any) => !BAD_ROLE.test(type === "tv" ? c.roles?.[0]?.character ?? "" : c.character ?? "")).slice(0, limit).map((c: any) => ({
+    id: c.id, name: c.name, photo: c.profile_path ?? null,
+    role: type === "tv" ? c.roles?.[0]?.character ?? "" : c.character ?? "",
+  }));
 }
 
 export async function getEpisode(tv: number, s: number, e: number) {

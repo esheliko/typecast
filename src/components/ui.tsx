@@ -28,18 +28,3 @@ export function TitleRow({ it, lib, sub, small }: { it: Item; lib?: LibItem | nu
     </Link>
   );
 }
-
-export function PosterStrip({ items, sub }: { items: (Item & { sub?: string })[]; sub?: (i: Item) => string }) {
-  return (
-    <div className="strip">
-      {items.map((t) => (
-        <Link key={t.key} className="tile" href={href(t.key)}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          {t.poster ? <img src={img(t.poster, "w342")} alt="" loading="lazy" /> : <div className="ph" />}
-          <span className="row-title">{t.title}</span>
-          <span className="row-sub mono">{sub ? sub(t) : `${t.year} · ${typeLabel(t.type)}`}</span>
-        </Link>
-      ))}
-    </div>
-  );
-}

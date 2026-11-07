@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
@@ -37,6 +38,7 @@ async function Cast({ t, lib }: { t: Title; lib: LibItem[] }) {
   return (
     <>
       <h2>Cast</h2>
+      <p className="small" style={{ margin: "-4px 0 10px" }}><Link href={`/?view=connect&t=${t.key}`}>Compare this cast with another title</Link></p>
       <div className="card pad">
         <CastFilter><ul className="credits">{people.map((c) => <CreditRow key={c.id} c={c} libKeys={libKeys} />)}</ul></CastFilter>
       </div>
