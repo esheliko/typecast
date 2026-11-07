@@ -47,7 +47,7 @@ export default function Search({ onActive }: { onActive: (on: boolean) => void }
     <>
       <form className="search" role="search" onSubmit={(e) => { e.preventDefault(); input.current?.blur(); }}>
         <div className="field">
-          <input ref={input} type="search" aria-label="Search films, series and actors" placeholder="Search a film, series or actor" value={q}
+          <input ref={input} type="search" aria-label="Search films, series and people" placeholder="Search a film, series or person" value={q}
             onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => { if (e.key === "Escape") setQ(""); }} enterKeyHint="search" autoComplete="off" />
         </div>
       </form>
@@ -58,7 +58,7 @@ export default function Search({ onActive }: { onActive: (on: boolean) => void }
           {hits && state !== "error" && hits.length === 0 && <p className="muted" style={{ marginTop: 20 }}>Nothing found for &quot;{term}&quot;.</p>}
           {people.length > 0 && (
             <>
-              <h2>Actors</h2>
+              <h2>People</h2>
               <div className="chips scroll people">
                 {people.map((h) => h.kind === "person" && (
                   <Link key={h.id} className="person-chip" href={`/person/${h.id}`}>

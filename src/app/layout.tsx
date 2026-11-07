@@ -5,7 +5,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: { default: "Typecast", template: "%s · Typecast" },
-  description: "Find out where you know actors from, track what you watch, and see where to stream it.",
+  description: "Find out where you know the cast and crew from, track what you watch, and see where to stream it.",
   applicationName: "Typecast",
   appleWebApp: { capable: true, title: "Typecast", statusBarStyle: "black-translucent" },
   icons: { icon: "/icons/icon.svg", apple: "/icons/apple-touch-icon.png" },

@@ -49,7 +49,7 @@ export default function BrowseFilters({ q, genres, canFilterMine, active }: { q:
         <input inputMode="numeric" maxLength={4} placeholder="To" aria-label="To year" value={to} onChange={(e) => setTo(e.target.value.replace(/\D/g, ""))} />
       </div>
 
-      <TagPicker kind="person" label="Actor or director" placeholder="Search a person" value={q.people} onChange={(people) => go({ people })} />
+      <TagPicker kind="person" label="Cast or crew" placeholder="Search a person" value={q.people} onChange={(people) => go({ people })} />
       <TagPicker kind="company" label="Studio or company" placeholder="Pixar, A24, Marvel Studios…" value={q.companies} onChange={(companies) => go({ companies })} />
       <TagPicker kind="keyword" label="Theme or keyword" placeholder="heist, time travel, based on novel…" value={q.keywords} onChange={(keywords) => go({ keywords })} />
       <p className="small muted" style={{ margin: "6px 0 0" }}>With several people, titles must feature all of them. Studios and themes match any.</p>

@@ -10,7 +10,7 @@ import type { Item, PeopleLink, PersonLite, Regular, SearchHit, TitlesLink } fro
 export type Mode = "people" | "titles";
 type Pick = { kind: "person"; p: PersonLite } | { kind: "title"; t: Item };
 
-/** Find what links two actors, or which actors two titles share. */
+/** Find what links two people, or which actors two titles share. */
 export default function Connect({ initialMode, initialA }: { initialMode: Mode; initialA: Pick | null }) {
   const [mode, setMode] = useState<Mode>(initialMode);
   const [a, setA] = useState<Pick | null>(initialA);
@@ -36,16 +36,16 @@ export default function Connect({ initialMode, initialA }: { initialMode: Mode; 
   return (
     <section aria-label="Connections">
       <div className="seg wide" role="group" aria-label="Connect">
-        <button type="button" aria-pressed={mode === "people"} onClick={() => switchMode("people")}>Two actors</button>
+        <button type="button" aria-pressed={mode === "people"} onClick={() => switchMode("people")}>Two people</button>
         <button type="button" aria-pressed={mode === "titles"} onClick={() => switchMode("titles")}>Two titles</button>
       </div>
       <p className="muted small" style={{ margin: "10px 0 12px" }}>
-        {mode === "people" ? "See every title two actors were both in. If there are none, see who links them." : "See which actors were in both, and who they played."}
+        {mode === "people" ? "See every title two people worked on together. If there are none, see who links them." : "See which actors were in both, and who they played."}
       </p>
       <div className="pair">
-        <Picker kind={kind} value={a} onChange={setA} label={mode === "people" ? "First actor" : "First title"} />
+        <Picker kind={kind} value={a} onChange={setA} label={mode === "people" ? "First person" : "First title"} />
         <span className="pair-and" aria-hidden="true">+</span>
-        <Picker kind={kind} value={b} onChange={setB} label={mode === "people" ? "Second actor" : "Second title"} autoFocus={!!a && !b} />
+        <Picker kind={kind} value={b} onChange={setB} label={mode === "people" ? "Second person" : "Second title"} autoFocus={!!a && !b} />
       </div>
 
       {state === "loading" && <p className="muted" style={{ marginTop: 16 }}><span className="spin" />{mode === "people" ? "Comparing filmographies" : "Comparing casts"}</p>}
@@ -192,7 +192,7 @@ function Picker({ kind, value, onChange, label, autoFocus }: { kind: "person" | 
   const id = `pk-${label.replace(/\s/g, "")}`;
   return (
     <div className="pick">
-      <input ref={input} type="search" value={q} placeholder={kind === "person" ? "Search an actor" : "Search a film or series"} aria-label={label}
+      <input ref={input} type="search" value={q} placeholder={kind === "person" ? "Search a person" : "Search a film or series"} aria-label={label}
         role="combobox" aria-expanded={open && hits.length > 0} aria-controls={id} aria-autocomplete="list" autoComplete="off"
         onChange={(e) => { setQ(e.target.value); setOpen(true); }} onFocus={() => setOpen(true)} onBlur={() => setTimeout(() => setOpen(false), 150)}
         onKeyDown={(e) => {

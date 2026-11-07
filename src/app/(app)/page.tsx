@@ -12,8 +12,8 @@ const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) 
 
 /**
  * The Browse tab. Browse quick lists or detailed filters with one-tap Watched / To watch on every poster,
- * and Connections between actors and titles.
- * Links in: /?view=connect&a=<person id> starts a connection from that actor, &t=<movie:id> from that title.
+ * and Connections between people and titles.
+ * Links in: /?view=connect&a=<person id> starts a connection from that person, &t=<movie:id> from that title.
  */
 export default async function Home({ searchParams }: { searchParams: SP }) {
   const sp = await searchParams;

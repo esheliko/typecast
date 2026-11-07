@@ -36,7 +36,7 @@ export default async function PersonPage({ params }: Props) {
         {p.photo && <img className="sh-poster" src={img(p.photo, "w185")} alt="" />}
         <div style={{ minWidth: 0 }}>
           <h1 className="sh-title">{p.name}</h1><div className="sh-meta">{p.dept}</div>
-          <Link className="btn sm gold" href={`/?view=connect&a=${p.id}`} style={{ marginTop: 12 }}>Connect with another actor</Link>
+          <Link className="btn sm gold" href={`/?view=connect&a=${p.id}`} style={{ marginTop: 12 }}>Connect with another person</Link>
         </div>
       </div>
       {p.bio && <p className="small muted" style={{ margin: "14px 0 0" }}>{p.bio}{p.bio.length >= 360 ? "…" : ""}</p>}
