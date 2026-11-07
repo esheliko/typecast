@@ -36,6 +36,8 @@ export interface BrowseProps {
   first: Page | null;
   genres: Record<MediaType, Tag[]>;
   canFilterMine: boolean;
+  /** Decades your marks barely touch; shown as a quiet "try another angle" row under "For you". */
+  nudges?: { label: string; from: string; to: string }[];
 }
 
 /** Number of filters set, not counting Films / Series. */
@@ -50,7 +52,7 @@ function countFilters(q: BrowseQuery) {
 const SNAP = "tc:browse";
 interface Snap { url: string; salt: number; list: BrowseList; type: BrowseType; pages: Record<string, Page>; y: number; t: number }
 
-export default function Browse({ filters, filtered, list: initialList, salt: serverSalt, first, genres, canFilterMine }: BrowseProps) {
+export default function Browse({ filters, filtered, list: initialList, salt: serverSalt, first, genres, canFilterMine, nudges = [] }: BrowseProps) {
   const router = useRouter();
   // The "For you" seed. Kept in state (and in a snapshot while a title is open) so coming back never reshuffles the grid.
   const [salt, setSalt] = useState(serverSalt);
@@ -193,6 +195,14 @@ export default function Browse({ filters, filtered, list: initialList, salt: ser
         <div className="chips scroll" role="group" aria-label="List">
           {LISTS.map((l) => <button key={l.k} type="button" className="chip" aria-pressed={list === l.k} onClick={() => chooseList(l.k)}>{type === "tv" && l.tv ? l.tv : type === "all" && l.tv ? `${l.label} / ${l.tv}` : l.label}</button>)}
         </div>
+      )}
+      {!filtered && list === "foryou" && nudges.length > 0 && (
+        <p className="nudge small muted" aria-label="Other directions">
+          Try another angle:{" "}
+          {nudges.map((d) => (
+            <button key={d.label} type="button" className="nudge-b" onClick={() => { const s = toParams({ ...filters, type, from: d.from, to: d.to }).toString(); startRoute(() => router.replace(`/?${s}`, { scroll: false })); }}>{d.label}</button>
+          ))}
+        </p>
       )}
       <div className="bz-bar">
         <div className="seg" role="group" aria-label="Type">

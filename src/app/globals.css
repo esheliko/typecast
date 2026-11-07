@@ -523,3 +523,5 @@ button.aw-chip:hover { filter: brightness(1.08); }
 .upnext-h { display: flex; align-items: center; margin-bottom: 2px; }
 .upnext-k { font: 700 13px/1 var(--display); text-transform: uppercase; letter-spacing: .08em; color: var(--gold-fill); }
 .upnext .chip.sm { margin-left: auto; }
+.nudge { margin: 8px 0 0; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+.nudge-b { background: none; border: 0; padding: 2px 0; color: inherit; font: inherit; text-decoration: underline dotted; text-underline-offset: 3px; cursor: pointer; }
