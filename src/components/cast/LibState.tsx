@@ -130,7 +130,12 @@ export function LibProvider({ initial, children }: { initial: Record<string, Mar
       const other: Priority | null = status === "watchlist" ? (priority ?? prev?.priority ?? "someday") === "must" ? "someday" : "must" : null;
       const action = other ? { label: other === "must" ? "Make must-watch" : "Make some day", run: () => { setToast(null); save(it, "watchlist", { status: "watchlist", priority: priority ?? prev?.priority ?? "someday", rich: false }, other); } } : undefined;
       // Marking Watching also offers Partly watched, for something you have seen some of but will not finish.
-      const toPartial = status === "watching" ? { label: STATUS_LABEL.partial, run: () => { setToast(null); save(it, "partial", { status: "watching", priority: prev?.priority ?? "someday", rich: false }); } } : undefined;
+      // The watching button then shows the partly-watched state, and tapping it again removes the title, like To watch / Must watch.
+      const toPartial = status === "watching" ? { label: STATUS_LABEL.partial, run: () => {
+        const was: Mark = { status: "watching", priority: prev?.priority ?? "someday", rich: false };
+        save(it, "partial", was);
+        show({ msg: `${it.title}: ${STATUS_LABEL.partial}`, action: { label: "Back to watching", run: () => { setToast(null); save(it, "watching", { ...was, status: "partial" }); } } });
+      } } : undefined;
       const id = show({ msg, pending: true, action: action ?? toPartial, undo: canUndo ? () => { setToast(null); save(it, prev?.status ?? null, status ? { status, priority: priority ?? "someday", rich: false } : null, prev?.priority); } : undefined });
       // Having watched one, offer the rest of its franchise: the toast grows a button once we know there is something to mark.
       if (status === "watched" && !quiet) franchise(it).then((groups) => {
