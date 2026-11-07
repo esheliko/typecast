@@ -1,3 +1,4 @@
+import DetailOrder from "@/components/DetailOrder";
 import InstallButton from "@/components/InstallButton";
 import ProfileForm from "@/components/ProfileForm";
 import { signOut } from "@/app/actions";
@@ -12,6 +13,8 @@ export default async function Setup() {
     <div className="page">
       <h2>Where you watch</h2>
       <ProfileForm initial={profile} />
+      <h2>Title details</h2>
+      <DetailOrder initial={profile.details} always />
       <h2>Account</h2>
       <div className="card pad">
         <p className="small muted" style={{ margin: "0 0 12px" }}>Signed in as {data.user?.email}. Your library is stored on the server and follows you across devices.</p>

@@ -8,9 +8,9 @@ import type { MediaType } from "@/lib/types";
  * "Customize" panel for the title page: tick the details you care about and move them up or down.
  * Hidden ones stay listed underneath so they are one tap away. Saves to your profile, so it applies to every title.
  */
-export default function DetailOrder({ initial, type }: { initial: DetailId[]; type: MediaType }) {
+export default function DetailOrder({ initial, type = "movie", always }: { initial: DetailId[]; type?: MediaType; always?: boolean }) {
   const [order, setOrder] = useState<DetailId[]>(initial);
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(!!always);
   const [error, setError] = useState("");
   const [pending, start] = useTransition();
   const hidden = DETAIL_IDS.filter((id) => !order.includes(id));
@@ -25,8 +25,8 @@ export default function DetailOrder({ initial, type }: { initial: DetailId[]; ty
   }
 
   return (
-    <div className="dorder">
-      <button type="button" className="chip sm" aria-expanded={open} onClick={() => setOpen(!open)}>{open ? "Done" : "Customize"}</button>
+    <div className={always ? undefined : "dorder"}>
+      {!always && <button type="button" className="chip sm" aria-expanded={open} onClick={() => setOpen(!open)}>{open ? "Done" : "Customize"}</button>}
       {open && (
         <div className="card pad dorder-panel">
           <p className="muted small" style={{ margin: "0 0 8px" }}>Choose what you want to see about every title, and in what order. Saved to your account.</p>
