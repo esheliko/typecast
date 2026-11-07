@@ -126,17 +126,20 @@ export function LibProvider({ initial, children }: { initial: Record<string, Mar
       const msg = status ? `${it.title}: ${status === "watchlist" && priority === "must" ? PRIORITY_LABEL.must : STATUS_LABEL[status]}` : `Removed ${it.title}`;
       // Undo after removing a title with a rating or note cannot bring those back, so offer it only when it can.
       const canUndo = !(status === null && prev?.rich);
-      // Right after adding to the list, offer the other priority so one button is enough.
-      const other: Priority | null = status === "watchlist" ? (priority ?? prev?.priority ?? "someday") === "must" ? "someday" : "must" : null;
-      const action = other ? { label: other === "must" ? "Make must-watch" : "Make some day", run: () => { setToast(null); save(it, "watchlist", { status: "watchlist", priority: priority ?? prev?.priority ?? "someday", rich: false }, other); } } : undefined;
-      // Marking Watching also offers Partly watched, for something you have seen some of but will not finish.
-      // The watching button then shows the partly-watched state, and tapping it again removes the title, like To watch / Must watch.
-      const toPartial = status === "watching" ? { label: STATUS_LABEL.partial, run: () => {
-        const was: Mark = { status: "watching", priority: prev?.priority ?? "someday", rich: false };
-        save(it, "partial", was);
-        show({ msg: `${it.title}: ${STATUS_LABEL.partial}`, action: { label: "Back to watching", run: () => { setToast(null); save(it, "watching", { ...was, status: "partial" }); } } });
-      } } : undefined;
-      const id = show({ msg, pending: true, action: action ?? toPartial, undo: canUndo ? () => { setToast(null); save(it, prev?.status ?? null, status ? { status, priority: priority ?? "someday", rich: false } : null, prev?.priority); } : undefined });
+      // One orange pill names the change it makes. Using it applies the change and offers the way back, so you can flip back and forth
+      // (To watch <-> Must watch, Watching <-> Partly watched); the button itself removes the mark.
+      const flip = (cur: Mark): { label: string; run: () => void } | undefined => {
+        const next: Mark | null = cur.status === "watchlist" ? { ...cur, priority: cur.priority === "must" ? "someday" : "must" }
+          : cur.status === "watching" ? { ...cur, status: "partial" } : cur.status === "partial" ? { ...cur, status: "watching" } : null;
+        if (!next) return undefined;
+        const label = next.status === "watchlist" ? (next.priority === "must" ? "Make must-watch" : "Make some day") : next.status === "partial" ? "Make partly watched" : "Make watching";
+        return { label, run: () => {
+          save(it, next.status, cur, next.priority);
+          show({ msg: `${it.title}: ${next.status === "watchlist" && next.priority === "must" ? PRIORITY_LABEL.must : STATUS_LABEL[next.status]}`, action: flip(next) });
+        } };
+      };
+      const action = status ? flip({ status, priority: priority ?? prev?.priority ?? "someday", rich: false }) : undefined;
+      const id = show({ msg, pending: true, action, undo: canUndo ? () => { setToast(null); save(it, prev?.status ?? null, status ? { status, priority: priority ?? "someday", rich: false } : null, prev?.priority); } : undefined });
       // Having watched one, offer the rest of its franchise: the toast grows a button once we know there is something to mark.
       if (status === "watched" && !quiet) franchise(it).then((groups) => {
         const left = new Set(groups.flatMap((g) => g.items).filter((i) => !current(i.key)).map((i) => i.key)).size;
