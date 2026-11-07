@@ -473,6 +473,7 @@ button.aw-chip:hover { filter: brightness(1.08); }
 .credit .avatar { width: 32px; height: 32px; font-size: 13px; position: relative; }
 @media (hover: hover) {
   .credit .avatar { transform-origin: left center; }
+  .credit:has(.avatar:hover) { z-index: 30; }
   .credit .avatar:hover { transform: scale(3); z-index: 30; border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.45); filter: none; }
 }
 .crew-card { padding-top: 8px; padding-bottom: 8px; }
