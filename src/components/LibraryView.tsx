@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import LibraryList from "./LibraryList";
+import UpNext from "./UpNext";
 import { STATUS_LABEL, type LibItem, type Status } from "@/lib/types";
 
 const TABS: [Status | "all", string][] = [["all", "All"], ["watching", STATUS_LABEL.watching], ["partial", STATUS_LABEL.partial], ["watchlist", STATUS_LABEL.watchlist], ["watched", STATUS_LABEL.watched]];
@@ -20,6 +21,7 @@ export default function LibraryView({ items, initial, between }: { items: LibIte
   }
   return (
     <>
+      <UpNext items={items} />
       <div className="chips" role="group" aria-label="Filter">
         {TABS.map(([k, label]) => <button key={k} type="button" className="chip" aria-pressed={filter === k} onClick={() => choose(k)}>{label} <span className="mono">{count(k)}</span></button>)}
       </div>

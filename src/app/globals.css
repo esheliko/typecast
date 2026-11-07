@@ -517,3 +517,9 @@ button.aw-chip:hover { filter: brightness(1.08); }
   .cast-main .credit:hover:not(:has(details[open])) .marks { left: 56px; }
   .cast-main .credit .avatar:hover { transform: scale(2.4); }
 }
+
+/* Library: one suggested next watch above the chips */
+.upnext { margin-top: 14px; padding: 10px 12px 6px; border-color: var(--gold-fill); }
+.upnext-h { display: flex; align-items: center; margin-bottom: 2px; }
+.upnext-k { font: 700 13px/1 var(--display); text-transform: uppercase; letter-spacing: .08em; color: var(--gold-fill); }
+.upnext .chip.sm { margin-left: auto; }
