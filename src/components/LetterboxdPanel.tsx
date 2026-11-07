@@ -8,6 +8,7 @@ const BATCH = 25;
 
 /** Two independent, opt-in tools: a one-time import of a Letterboxd export, and a connection that pulls new diary entries. */
 export default function LetterboxdPanel({ link }: { link: LetterboxdLink | null }) {
+  const [open, setOpen] = useState(false);
   const [entries, setEntries] = useState<LbEntry[] | null>(null);
   const [readErr, setReadErr] = useState("");
   const [busy, setBusy] = useState(false);
@@ -55,9 +56,19 @@ export default function LetterboxdPanel({ link }: { link: LetterboxdLink | null 
   function disconnect() { setErr(""); setMsg(""); start(async () => { await disconnectLetterboxd(); }); }
 
   const watched = entries?.filter((e) => e.watched).length ?? 0, listed = entries?.filter((e) => e.watchlist).length ?? 0, rated = entries?.filter((e) => e.rating > 0).length ?? 0;
+  const shown = open || !!link;
   return (
     <>
-      <div className="card pad" aria-busy={busy}>
+      <h2>Services you can add</h2>
+      <div className="card pad" style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <b>Letterboxd</b>
+          <div className="small muted">{link ? `Connected as ${link.user}` : "Optional. Bring over your watched films, or keep new ones in sync."}</div>
+        </div>
+        {!link && <button className="btn sm" type="button" aria-expanded={shown} disabled={busy} onClick={() => setOpen(!open)}>{open ? "Hide" : "Add"}</button>}
+      </div>
+      {shown && <div className="sp" />}
+      {shown && <div className="card pad" aria-busy={busy}>
         <label className="l" htmlFor="lbf">Import your Letterboxd history</label>
         <p className="small muted" style={{ margin: "0 0 10px" }}>One time, and only if you want it. On Letterboxd open Settings, then Data, then Export your data. Choose the .zip you get (or its CSV files) here. Nothing is sent until you press Import.</p>
         <input id="lbf" type="file" accept=".zip,.csv,application/zip,text/csv" multiple disabled={busy} onChange={(e) => pick(e.target.files)} />
@@ -79,9 +90,9 @@ export default function LetterboxdPanel({ link }: { link: LetterboxdLink | null 
           </details>
         )}
         <p className="small muted" style={{ margin: "10px 0 0" }}>Titles you already have are never overwritten: an existing title is only marked watched if it was not, and given a rating only if it had none. Half stars are rounded up to whole stars. Films only; TV is not on Letterboxd.</p>
-      </div>
-      <div className="sp" />
-      <div className="card pad" aria-busy={pending}>
+      </div>}
+      {shown && <div className="sp" />}
+      {shown && <div className="card pad" aria-busy={pending}>
         <label className="l" htmlFor="lbu">Keep in sync</label>
         {link ? (
           <>
@@ -105,7 +116,7 @@ export default function LetterboxdPanel({ link }: { link: LetterboxdLink | null 
         {!link && err && <p className="small err" style={{ margin: "10px 0 0" }}>{err}</p>}
         {link && err && !link.error && <p className="small err" style={{ margin: "10px 0 0" }}>{err}</p>}
         <p className="small muted" style={{ margin: "10px 0 0" }}>Needs a public profile. Only films you log in your Letterboxd diary come through (about the latest 50 are visible to a sync, which is plenty to stay current). Syncing is one way: nothing is written back to Letterboxd. Disconnecting keeps what was imported.</p>
-      </div>
+      </div>}
     </>
   );
 }

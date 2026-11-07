@@ -16,7 +16,6 @@ export default async function Setup() {
       <ProfileForm initial={profile} />
       <h2>Title details</h2>
       <DetailOrder initial={profile.details} always />
-      <h2>Letterboxd (optional)</h2>
       <LetterboxdPanel link={profile.letterboxd} />
       <h2>Account</h2>
       <div className="card pad">
