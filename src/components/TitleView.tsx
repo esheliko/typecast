@@ -8,6 +8,8 @@ import DetailOrder from "@/components/DetailOrder";
 import NoteBox from "@/components/NoteBox";
 import StatusControls from "@/components/StatusControls";
 import RelatedButton from "@/components/cast/RelatedButton";
+import { GlimpseButton } from "@/components/Glimpse";
+import { titleSpec } from "@/lib/glimpse";
 import MarkRow from "@/components/cast/MarkRow";
 import { FromProvider } from "@/components/Modal";
 import { Where } from "@/components/Where";
@@ -50,7 +52,7 @@ async function CastSection({ part, t, lib, first, last }: { part: "cast_main" | 
   const links = new Map<string, string[]>();
   for (const c of people) for (const h of c.hits) links.set(h.key, [...(links.get(h.key) ?? []), c.name]);
   const linked = last ? [...links.entries()].sort((a, b) => b[1].length - a[1].length).slice(0, 8) : [];
-  const list = <ul className="credits">{shown.map((c) => <CreditRow key={c.id} c={c} libKeys={libKeys} />)}</ul>;
+  const list = <ul className="credits">{shown.map((c) => <CreditRow key={c.id} c={c} libKeys={libKeys} title={{ title: t.title, year: t.year, type: t.type }} />)}</ul>;
   return (
     <>
       {shown.length > 0 && (
@@ -129,7 +131,7 @@ export default async function TitleView({ t, origin }: { t: Title; origin?: Item
         {/* eslint-disable-next-line @next/next/no-img-element */}
         {t.poster && <img className="sh-poster" src={img(t.poster, "w185")} alt="" />}
         <div style={{ minWidth: 0 }}>
-          <h1 className="sh-title">{t.title} <RelatedButton it={t} /></h1>
+          <h1 className="sh-title">{t.title} <RelatedButton it={t} /> <GlimpseButton spec={titleSpec(t)} /></h1>
           <div className="sh-meta">{meta}</div>
           {byline && <div className="sh-meta">{bylineLabel(byline, t.type)} {t.crewBy[byline].slice(0, 2).map((p) => p.name).join(", ")}</div>}
           {t.overview && <details className="sh-ov"><summary>{t.overview}</summary><p>{t.overview}</p></details>}

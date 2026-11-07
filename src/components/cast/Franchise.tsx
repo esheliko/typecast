@@ -1,5 +1,7 @@
 "use client";
 import { TitleLink } from "../Modal";
+import { GlimpseButton } from "../Glimpse";
+import { titleSpec } from "@/lib/glimpse";
 import { useEffect, useRef, useState } from "react";
 import { useLib } from "./LibState";
 import QuickMark from "./QuickMark";
@@ -45,6 +47,7 @@ export function FranchiseList({ groups: raw, onNavigate, include }: { groups: Gr
                       </span>
                     </TitleLink>
                     <div className="fr-act">
+                      <GlimpseButton spec={titleSpec(it)} />
                       <QuickMark it={it} variant="inline" quiet />
                     </div>
                   </li>

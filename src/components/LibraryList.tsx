@@ -1,5 +1,7 @@
 "use client";
 import { TitleLink } from "./Modal";
+import { GlimpseButton } from "./Glimpse";
+import { titleSpec } from "@/lib/glimpse";
 import { useState } from "react";
 import { Thumb } from "./ui";
 import QuickMark from "./cast/QuickMark";
@@ -24,7 +26,7 @@ export default function LibraryList({ items }: { items: LibItem[] }) {
                 {l.rating > 0 && <span className="stars" aria-label={`${l.rating} of 5`}>{"★".repeat(l.rating) + "☆".repeat(5 - l.rating)}</span>}
               </span>
               <span className={`pill ${l.status === "watchlist" && l.priority === "must" ? "must" : l.status}`}>{l.status === "watchlist" && l.priority === "must" ? PRIORITY_LABEL.must : STATUS_LABEL[l.status]}</span>
-            </TitleLink><QuickMark it={l} variant="inline" /><RelatedButton it={l} /></li>
+            </TitleLink><QuickMark it={l} variant="inline" /><GlimpseButton spec={titleSpec(l)} /><RelatedButton it={l} /></li>
           ))}
         </ul></div>
       )}

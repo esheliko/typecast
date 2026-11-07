@@ -3,6 +3,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import BackButton from "@/components/BackButton";
 import { TitleRow } from "@/components/ui";
+import { GlimpseButton } from "@/components/Glimpse";
+import { personSpec } from "@/lib/glimpse";
 import { img } from "@/lib/img";
 import { getLibrary } from "@/lib/library";
 import { getPerson, TmdbError } from "@/lib/tmdb";
@@ -35,7 +37,7 @@ export default async function PersonPage({ params }: Props) {
         {/* eslint-disable-next-line @next/next/no-img-element */}
         {p.photo && <img className="sh-poster" src={img(p.photo, "w185")} alt="" />}
         <div style={{ minWidth: 0 }}>
-          <h1 className="sh-title">{p.name}</h1><div className="sh-meta">{p.dept}</div>
+          <h1 className="sh-title">{p.name} <GlimpseButton spec={personSpec(p.name, p.dept)} /></h1><div className="sh-meta">{p.dept}</div>
           <Link className="btn sm gold" href={`/?view=connect&a=${p.id}`} style={{ marginTop: 12 }}>Connect with another person</Link>
         </div>
       </div>

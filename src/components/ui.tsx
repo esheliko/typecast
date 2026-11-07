@@ -1,6 +1,8 @@
 import { TitleLink } from "./Modal";
 import QuickMark from "./cast/QuickMark";
 import RelatedButton from "./cast/RelatedButton";
+import { GlimpseButton } from "./Glimpse";
+import { titleSpec } from "@/lib/glimpse";
 import { img, typeLabel } from "@/lib/img";
 import { STATUS_LABEL, type Item, type LibItem } from "@/lib/types";
 
@@ -30,6 +32,7 @@ export function TitleRow({ it, lib, sub, small }: { it: Item; lib?: LibItem | nu
         <Pill lib={lib} />
       </TitleLink>
       <QuickMark it={it} variant="inline" />
+      <GlimpseButton spec={titleSpec(it)} />
       <RelatedButton it={it} />
     </div>
   );

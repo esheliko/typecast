@@ -3,6 +3,8 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, useTransition } from "react";
 import BrowseFilters from "../BrowseFilters";
 import { TitleLink } from "../Modal";
+import { GlimpseButton } from "../Glimpse";
+import { titleSpec } from "@/lib/glimpse";
 import { useLib } from "./LibState";
 import PassedCell from "./PassedCell";
 import QuickMark from "./QuickMark";
@@ -195,6 +197,7 @@ export function Poster({ it, sub, skippable }: { it: BrowseItem; sub?: string; s
         {skippable && !s && <button type="button" className="pc-x" onClick={() => skip(it)} aria-label={`Not interested in ${it.title}`} title="Not interested">×</button>}
         <QuickMark it={it} />
         <RelatedButton it={it} />
+        <span className="pc-gl"><GlimpseButton spec={titleSpec(it)} /></span>
       </div>
       <TitleLink k={it.key} className="pc-link">
         <span className="pc-t">{it.title}</span>

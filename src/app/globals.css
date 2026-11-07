@@ -407,3 +407,30 @@ label, select, input[type=checkbox], input[type=radio] { cursor: pointer; }
 /* Touch has no hover, so give it a pressed state instead. */
 button:not([disabled]):active, a.row:active, a.tab:active, .person-chip:active, .pc-link:active, summary:active { opacity: .7; }
 .sh-where img, .prov img, .avatar, .thumb, .sh-poster, .pill, .banner, .hero, .empty, .toast { transition: filter .15s, transform .15s, box-shadow .15s, border-color .15s; }
+
+/* Glimpse: eye button beside any title or person, and the image panel it opens */
+.gl-b { flex: none; width: 32px; height: 32px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; color: var(--muted); }
+.gl-b svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.gl-b:hover, .gl-b:focus-visible { color: var(--gold); }
+.gl-wrap { position: fixed; inset: 0; z-index: 90; background: rgb(0 0 0 / .55); display: flex; align-items: flex-end; justify-content: center; animation: modal-fade .15s ease-out; }
+.gl { width: 100%; max-width: 680px; max-height: 88dvh; display: flex; flex-direction: column; background: var(--bg); border-radius: 18px 18px 0 0; box-shadow: 0 -8px 40px rgb(0 0 0 / .35); outline: none; padding-bottom: env(safe-area-inset-bottom, 0px); }
+.gl-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+.gl-h { font: 700 20px/1.15 var(--display); letter-spacing: .03em; text-transform: uppercase; overflow-wrap: anywhere; }
+.gl-tabs { display: flex; gap: 6px; padding: 10px 16px 0; overflow-x: auto; }
+.gl-tabs button { padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); font-size: 14px; white-space: nowrap; }
+.gl-tabs button.on { background: var(--gold-fill); color: var(--on-gold); border-color: transparent; }
+.gl-body { padding: 14px 16px 20px; overflow-y: auto; overscroll-behavior: contain; }
+.gl-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.gl-grid button { display: block; width: 100%; aspect-ratio: 1; padding: 0; border-radius: 8px; overflow: hidden; background: var(--chip); }
+.gl-grid img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.gl-big { margin: 0; }
+.gl-big img { width: 100%; max-height: 56dvh; object-fit: contain; border-radius: 10px; background: var(--chip); display: block; }
+.gl-big figcaption { margin-top: 8px; }
+.linkish { color: var(--gold); text-decoration: underline; padding: 0; }
+@media (min-width: 720px) { .gl-wrap { align-items: center; } .gl { border-radius: 18px; } }
+@media (prefers-reduced-motion: reduce) { .gl-wrap { animation: none; } }
+.credit.has-gl .credit-main { padding-right: 38px; }
+.credit-gl { position: absolute; right: 0; top: 12px; z-index: 1; }
+.pc-gl { position: absolute; bottom: 6px; right: 6px; }
+.pc-gl .gl-b { width: 28px; height: 28px; background: rgb(15 17 22 / .6); color: #fff; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+.fr-act .gl-b { align-self: flex-end; }

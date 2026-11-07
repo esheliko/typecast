@@ -3,6 +3,8 @@ import QuickMark from "./QuickMark";
 import RelatedButton from "./RelatedButton";
 import { TitleLink } from "../Modal";
 import { Thumb } from "../ui";
+import { GlimpseButton } from "../Glimpse";
+import { titleSpec } from "@/lib/glimpse";
 import { typeLabel } from "@/lib/img";
 import type { Item } from "@/lib/types";
 
@@ -18,6 +20,7 @@ export default function MarkRow({ it, sub, small }: { it: Item; sub?: string; sm
         </span>
       </TitleLink>
       <QuickMark it={it} variant="inline" />
+      <GlimpseButton spec={titleSpec(it)} />
       <RelatedButton it={it} />
     </div>
   );
