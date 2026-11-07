@@ -182,6 +182,7 @@ export function Poster({ it, sub, skippable }: { it: BrowseItem; sub?: string; s
           {it.poster ? <img className="pc-img" src={img(it.poster, "w342")} alt="" loading="lazy" /> : <span className="pc-img ph"><span>{it.title}</span></span>}
         </TitleLink>
         {s === "watching" && <span className="pc-flag">Watching</span>}
+        {s === "partial" && <span className="pc-flag partial">Partly watched</span>}
         {skippable && !s && <button type="button" className="pc-x" onClick={() => skip(it)} aria-label={`Not interested in ${it.title}`} title="Not interested">×</button>}
         <QuickMark it={it} />
         <RelatedButton it={it} />
