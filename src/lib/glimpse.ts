@@ -19,3 +19,12 @@ export const castSpec = (name: string, role: string, title?: { title: string; ye
   const kind = title.type === "tv" ? "TV series" : "film";
   return { heading: `${name} as ${char}`, tabs: [{ label: "In the role", q: `${name} as ${char} ${title.title} ${title.year || ""} ${kind}`.replace(/\s+/g, " ").trim() }, ...base.tabs.map((t) => ({ ...t, label: name }))] };
 };
+/** A title in an actor's filmography: their character in that title first, then the title's own scenes and poster. */
+export const creditSpec = (actor: string, role: string | undefined, title: { title: string; year?: string | number; type: string }): GlimpseSpec => {
+  const t = titleSpec(title);
+  const char = (role ?? "").replace(/\(.*?\)/g, "").split("/")[0].trim();
+  if (!char) return { heading: t.heading, tabs: [{ label: actor, q: castSpec(actor, "", title).tabs[0].q + " " + title.title }, ...t.tabs] };
+  const kind = title.type === "tv" ? "TV series" : "film";
+  const q = `${actor} as ${char} ${title.title} ${title.year || ""} ${kind}`.replace(/\s+/g, " ").trim();
+  return { heading: `${actor} as ${char} · ${t.heading}`, tabs: [{ label: char, q }, ...t.tabs] };
+};

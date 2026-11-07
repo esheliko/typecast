@@ -4,12 +4,12 @@ import RelatedButton from "./RelatedButton";
 import { TitleLink } from "../Modal";
 import { Thumb } from "../ui";
 import { GlimpseButton } from "../Glimpse";
-import { titleSpec } from "@/lib/glimpse";
+import { creditSpec, titleSpec } from "@/lib/glimpse";
 import { typeLabel } from "@/lib/img";
 import type { Item } from "@/lib/types";
 
 /** A title in a list: tap the name for its details, or tap Watched / To watch / Must watch right there without leaving the list. */
-export default function MarkRow({ it, sub, small }: { it: Item; sub?: string; small?: boolean }) {
+export default function MarkRow({ it, sub, small, actor }: { it: Item; sub?: string; small?: boolean; actor?: string }) {
   return (
     <div className="row">
       <TitleLink k={it.key} it={it} className="row-link">
@@ -20,7 +20,7 @@ export default function MarkRow({ it, sub, small }: { it: Item; sub?: string; sm
         </span>
       </TitleLink>
       <QuickMark it={it} variant="inline" />
-      <GlimpseButton spec={titleSpec(it)} />
+      <GlimpseButton spec={actor ? creditSpec(actor, sub, it) : titleSpec(it)} label={actor && sub ? `See images of ${it.title}, or ${actor} as ${sub}` : undefined} />
       <RelatedButton it={it} />
     </div>
   );
