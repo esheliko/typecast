@@ -3,6 +3,7 @@ import { BgTracker } from "@/components/Modal";
 import Tabs from "@/components/Tabs";
 import { GlimpseProvider } from "@/components/Glimpse";
 import Recheck from "@/components/Recheck";
+import HeaderHeight from "@/components/HeaderHeight";
 import { LibProvider } from "@/components/cast/LibState";
 import { getLibrary } from "@/lib/library";
 import type { Mark } from "@/lib/types";
@@ -20,6 +21,7 @@ export default async function AppLayout({ children, modal }: { children: React.R
         <div className="logo"><span className="mark" aria-hidden="true" />Typecast</div>
         <Tabs where="top" />
       </div></header>
+      <HeaderHeight />
       <main className="wrap">{children}</main>
       <Tabs where="bottom" />
       {modal}
