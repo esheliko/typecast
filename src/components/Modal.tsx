@@ -85,7 +85,9 @@ export function OpenedFrom({ k, name }: { k: string; name: string }) {
 export function Modal({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const path = usePathname();
-  const sp = useSearchParams().toString();
+  const params = useSearchParams();
+  const sp = params.toString();
+  const from = params.get("from"), fn = params.get("fn");
   const here = path + (sp ? `?${sp}` : "");
   const box = useRef<HTMLDivElement>(null);
   const stack = useRef<string[]>([here]);
@@ -141,7 +143,11 @@ export function Modal({ children }: { children: React.ReactNode }) {
               <button type="button" className="back" onClick={close} aria-label="Close"><span aria-hidden="true">&#215;</span> Close</button>
             </div>
           </div>
-          <div className="sheet-body">{children}</div>
+          <div className="sheet-body">
+            {/* Rendered by the frame from the URL, so it is there from the first paint and the content below never shifts when it loads. */}
+            {from && fn && /^(movie|tv):\d+$/.test(from) && <OpenedFrom k={from} name={fn.slice(0, 200)} />}
+            {children}
+          </div>
         </div>
       </div>
     </InModal.Provider>
