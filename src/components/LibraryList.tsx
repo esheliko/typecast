@@ -2,6 +2,7 @@
 import { TitleLink } from "./Modal";
 import { useState } from "react";
 import { Thumb } from "./ui";
+import QuickMark from "./cast/QuickMark";
 import RelatedButton from "./cast/RelatedButton";
 import { typeLabel } from "@/lib/img";
 import { PRIORITY_LABEL, STATUS_LABEL, type LibItem } from "@/lib/types";
@@ -23,7 +24,7 @@ export default function LibraryList({ items }: { items: LibItem[] }) {
                 {l.rating > 0 && <span className="stars" aria-label={`${l.rating} of 5`}>{"★".repeat(l.rating) + "☆".repeat(5 - l.rating)}</span>}
               </span>
               <span className={`pill ${l.status === "watchlist" && l.priority === "must" ? "must" : l.status}`}>{l.status === "watchlist" && l.priority === "must" ? PRIORITY_LABEL.must : STATUS_LABEL[l.status]}</span>
-            </TitleLink><RelatedButton it={l} /></li>
+            </TitleLink><QuickMark it={l} variant="inline" /><RelatedButton it={l} /></li>
           ))}
         </ul></div>
       )}

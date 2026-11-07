@@ -1,4 +1,6 @@
 import { TitleLink } from "./Modal";
+import QuickMark from "./cast/QuickMark";
+import RelatedButton from "./cast/RelatedButton";
 import { img, typeLabel } from "@/lib/img";
 import { STATUS_LABEL, type Item, type LibItem } from "@/lib/types";
 
@@ -18,13 +20,17 @@ export function Avatar({ photo, name }: { photo: string | null; name: string }) 
 
 export function TitleRow({ it, lib, sub, small }: { it: Item; lib?: LibItem | null; sub?: string; small?: boolean }) {
   return (
-    <TitleLink className="row" k={it.key}>
-      <Thumb path={it.poster} />
-      <span className="row-main">
-        <span className="row-title" style={small ? { fontSize: 17 } : undefined}>{it.title}</span>
-        <span className="row-sub">{it.year} · {typeLabel(it.type)}{sub ? ` · ${sub}` : ""}</span>
-      </span>
-      <Pill lib={lib} />
-    </TitleLink>
+    <div className="row">
+      <TitleLink className="row-link" k={it.key}>
+        <Thumb path={it.poster} />
+        <span className="row-main">
+          <span className="row-title" style={small ? { fontSize: 17 } : undefined}>{it.title}</span>
+          <span className="row-sub">{it.year} · {typeLabel(it.type)}{sub ? ` · ${sub}` : ""}</span>
+        </span>
+        <Pill lib={lib} />
+      </TitleLink>
+      <QuickMark it={it} variant="inline" />
+      <RelatedButton it={it} />
+    </div>
   );
 }

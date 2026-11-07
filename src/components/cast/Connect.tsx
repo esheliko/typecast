@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { Avatar, Thumb } from "../ui";
 import QuickMark from "./QuickMark";
+import RelatedButton from "./RelatedButton";
 import { TitleLink } from "../Modal";
 import { typeLabel } from "@/lib/img";
 import type { Item, PeopleLink, PersonLite, Regular, SearchHit, TitlesLink } from "@/lib/types";
@@ -71,7 +72,7 @@ function PeopleResult({ r }: { r: PeopleLink }) {
                 <span className="row-sub"><b>{r.a.name}</b>{s.roles[0] ? ` as ${s.roles[0]}` : ""} · <b>{r.b.name}</b>{s.roles[1] ? ` as ${s.roles[1]}` : ""}</span>
               </span>
             </TitleLink>
-            <QuickMark it={s} variant="inline" />
+            <QuickMark it={s} variant="inline" /><RelatedButton it={s} />
           </li>
         ))}
       </ul></div>

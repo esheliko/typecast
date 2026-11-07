@@ -7,6 +7,7 @@ import EpisodeCast from "@/components/EpisodeCast";
 import DetailOrder from "@/components/DetailOrder";
 import NoteBox from "@/components/NoteBox";
 import StatusControls from "@/components/StatusControls";
+import RelatedButton from "@/components/cast/RelatedButton";
 import MarkRow from "@/components/cast/MarkRow";
 import { FromProvider } from "@/components/Modal";
 import { Where } from "@/components/Where";
@@ -123,7 +124,7 @@ export default async function TitleView({ t, origin }: { t: Title; origin?: Item
         {/* eslint-disable-next-line @next/next/no-img-element */}
         {t.poster && <img className="sh-poster" src={img(t.poster, "w185")} alt="" />}
         <div style={{ minWidth: 0 }}>
-          <h1 className="sh-title">{t.title}</h1>
+          <h1 className="sh-title">{t.title} <RelatedButton it={t} /></h1>
           <div className="sh-meta">{meta}</div>
           {byline && <div className="sh-meta">{bylineLabel(byline, t.type)} {t.crewBy[byline].slice(0, 2).map((p) => p.name).join(", ")}</div>}
           {t.overview && <details className="sh-ov"><summary>{t.overview}</summary><p>{t.overview}</p></details>}

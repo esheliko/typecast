@@ -1,5 +1,6 @@
 "use client";
 import QuickMark from "./QuickMark";
+import RelatedButton from "./RelatedButton";
 import { TitleLink } from "../Modal";
 import { Thumb } from "../ui";
 import { typeLabel } from "@/lib/img";
@@ -17,6 +18,7 @@ export default function MarkRow({ it, sub, small }: { it: Item; sub?: string; sm
         </span>
       </TitleLink>
       <QuickMark it={it} variant="inline" />
+      <RelatedButton it={it} />
     </div>
   );
 }
