@@ -241,7 +241,7 @@ export function Poster({ it, sub, skippable }: { it: BrowseItem; sub?: string; s
         </TitleLink>
         {s === "watching" && <span className="pc-flag">Watching</span>}
         {s === "partial" && <span className="pc-flag partial">Partly watched</span>}
-        {skippable && !s && <button type="button" className="pc-x" onClick={() => skip(it)} aria-label={`Not interested in ${it.title}`} title="Not interested">×</button>}
+        {skippable && !s && <button type="button" className="pc-x" onClick={() => skip(it)} aria-label={`Not interested in ${it.title}`} title="Not interested"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" /></svg></button>}
         <QuickMark it={it} />
         <RelatedButton it={it} />
       </div>
