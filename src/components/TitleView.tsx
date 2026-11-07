@@ -61,12 +61,17 @@ async function CastSection({ part, t, lib, first, last }: { part: "cast_main" | 
         </>
       )}
       {linked.length > 0 && (
-        <>
-          <h2>Connected to your library</h2>
+        <details className="cw" style={{ marginTop: 18 }}>
+          <summary>Connections to your library<span className="cw-n">{linked.length}</span></summary>
+          <p className="small" style={{ margin: "4px 0 10px" }}>Titles in your library that share cast with {t.title}.</p>
           <div className="card"><ul className="rows">
-            {linked.map(([key, names]) => { const l = lib.find((x) => x.key === key)!; return <li key={key}><MarkRow it={l} sub={names.slice(0, 4).join(", ")} small /></li>; })}
+            {linked.map(([key, names]) => {
+              const l = lib.find((x) => x.key === key)!;
+              const more = names.length > 4 ? ` +${names.length - 4} more` : "";
+              return <li key={key}><MarkRow it={l} sub={`Shared cast: ${names.slice(0, 4).join(", ")}${more}`} small /></li>;
+            })}
           </ul></div>
-        </>
+        </details>
       )}
     </>
   );
