@@ -170,7 +170,7 @@ a.row { text-decoration: none; color: inherit; }
 .grid { list-style: none; margin: 14px 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px 10px; }
 @media (min-width: 560px) { .grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px 14px; } }
 .strip { list-style: none; margin: 0; padding: 0 0 4px; display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: thin; }
-.strip-empty { margin: 0 0 4px; min-height: 178px; display: grid; place-items: center; padding: 12px; text-align: center; color: var(--muted); font-size: 14px; border: 1px dashed var(--chip); border-radius: 10px; }
+.strip-empty { margin: 0 0 4px; padding: 6px 10px; color: var(--muted); font-size: 13px; border: 1px dashed var(--chip); border-radius: 8px; }
 .strip > li { flex: 0 0 92px; scroll-snap-align: start; }
 .strip .qm-b { width: 30px; height: 30px; } .strip .qm-b svg { width: 16px; height: 16px; } .strip .qm.over { right: 4px; bottom: 4px; gap: 4px; }
 .strip .pc-t { font-size: 14px; }
