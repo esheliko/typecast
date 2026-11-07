@@ -44,12 +44,12 @@ export default function CastHome({ view: initialView, browse, connect, watching 
           {/* Both views stay mounted so switching back keeps your place, filters and picks. */}
           <div hidden={view !== "browse"}>
             {!browse.filtered && (
-              <>
-                <h2>Continue watching</h2>
+              <details className="cw">
+                <summary>Continue watching{watching.length > 0 && <span className="cw-n">{watching.length}</span>}</summary>
                 {watching.length > 0
                   ? <ul className="strip">{watching.map((w) => <li key={w.key}><Poster it={w} sub={w.sub} /></li>)}</ul>
                   : <p className="strip-empty">Mark a title as watching and it will show up here.</p>}
-              </>
+              </details>
             )}
             <Browse {...browse} /></div>
           <div hidden={view !== "connect"}>{connectOpened ? <Connect key={aKey} initialMode={connect.mode} initialA={connect.a} /> : null}</div>
