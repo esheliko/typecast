@@ -175,7 +175,7 @@ a.row { text-decoration: none; color: inherit; }
 /* Phones: the header scrolls away and the search box alone sticks to the very top (no header-height maths, no gap to show posters through). */
 @media (max-width: 719px) {
   body:has(.cast-home) .top { position: static; }
-  .cast-home .search { top: 0; padding-top: calc(env(safe-area-inset-top, 0px) + 8px); transform: translateZ(0); }
+  .cast-home .search { top: -1px; padding-top: calc(env(safe-area-inset-top, 0px) + 9px); transform: translateZ(0); box-shadow: 0 -2px 0 var(--bg); }
   .cast-home .search::before { display: none; }
   .grid { isolation: isolate; }
 }
