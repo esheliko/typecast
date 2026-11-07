@@ -12,6 +12,8 @@ interface Ctx {
   markMany: (its: Item[], status: Status) => void;
   /** Open the franchise sheet for a title; says so in a toast instead when it has no related titles. */
   openRelated: (it: Item) => void;
+  /** The franchise groups of a title (fetched once, a few at a time). */
+  groupsOf: (it: Item) => Promise<Group[]>;
   /** Keys marked right now. Browse snapshots this when it opens: it hides those, but not titles marked later in the visit, so the grid does not shift under your thumb. */
   marked: () => Set<string>;
   /** Titles skipped with "Not interested". Saved on this device. */
@@ -45,6 +47,8 @@ export function LibProvider({ initial, children }: { initial: Record<string, Mar
   const [skipped, setSkipped] = useState<ReadonlySet<string>>(new Set());
   const [sheet, setSheet] = useState<Item | null>(null);
   const related = useRef(new Map<string, Promise<Group[]>>());
+  const busy = useRef(0);
+  const queue = useRef<(() => void)[]>([]);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const live = useRef(initial); live.current = initial;
   const overRef = useRef(over); overRef.current = over;
@@ -83,7 +87,10 @@ export function LibProvider({ initial, children }: { initial: Record<string, Mar
   const franchise = useCallback((it: Item) => {
     let p = related.current.get(it.key);
     if (!p) {
-      p = fetch(`/api/franchise?type=${it.type}&id=${it.id}`).then((r) => r.json()).then((j) => (j.groups ?? []) as Group[]).catch(() => [] as Group[]);
+      // At most three lookups at a time, so a long list of seen titles does not flood the server.
+      p = new Promise<void>((go) => { if (busy.current < 3) { busy.current++; go(); } else queue.current.push(go); })
+        .then(() => fetch(`/api/franchise?type=${it.type}&id=${it.id}`)).then((r) => r.json()).then((j) => (j.groups ?? []) as Group[]).catch(() => [] as Group[])
+        .finally(() => { const next = queue.current.shift(); if (next) next(); else busy.current--; });
       related.current.set(it.key, p);
     }
     return p;
@@ -154,7 +161,7 @@ export function LibProvider({ initial, children }: { initial: Record<string, Mar
   }, [show, writeSkipped]);
 
   return (
-    <LibCtx.Provider value={{ get, mark, markMany, openRelated, marked, skipped, skip, defaultPriority }}>
+    <LibCtx.Provider value={{ get, mark, markMany, openRelated, groupsOf: franchise, marked, skipped, skip, defaultPriority }}>
       {children}
       {sheet && <FranchiseSheet it={sheet} load={franchise} onClose={() => setSheet(null)} />}
       <div className="toast-slot" aria-live="polite">

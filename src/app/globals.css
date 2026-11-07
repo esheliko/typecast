@@ -289,12 +289,17 @@ li.row { gap: 10px; }
 .toast-undo.plain { background: transparent; color: inherit; text-decoration: underline; padding-inline: 6px; }
 
 /* Related button on seen titles, and the one-line "Finish" strip on Library */
-.rel-b { flex: none; width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; color: var(--muted); }
+.rel-b { flex: none; min-width: 32px; height: 32px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; gap: 3px; padding: 0 6px; color: var(--muted); }
+.rel-b:disabled { opacity: .35; cursor: default; }
+.rel-b.has { color: var(--gold); }
+.rel-b.ghost { visibility: hidden; }
+.rel-n { font: 600 12px var(--mono); }
 .rel-b svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-.rel-b:hover { background: var(--chip); color: var(--ink); }
-.pc-art .rel-b { position: absolute; top: 6px; left: 6px; width: 28px; height: 28px; background: rgb(15 17 22 / .6); color: #fff; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+.rel-b:not(:disabled):hover { background: var(--chip); color: var(--ink); }
+.pc-art .rel-b { position: absolute; top: 6px; left: 6px; min-width: 28px; height: 28px; padding: 0 5px; background: rgb(15 17 22 / .6); color: #fff; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
 .pc-art .rel-b svg { width: 15px; height: 15px; }
-@media (hover: hover) { .pc-art .rel-b { opacity: 0; } .pc:hover .rel-b, .pc-art .rel-b:focus-visible { opacity: 1; } }
+.pc-art .rel-b.has { color: var(--gold-fill); }
+@media (hover: hover) { .pc-art .rel-b { opacity: 0; } .pc:hover .rel-b:not(:disabled), .pc-art .rel-b:focus-visible { opacity: 1; } }
 .chips.fin { margin-top: 10px; align-items: center; }
 .chips.fin .chip.sm { margin-left: 0; }
 .fin-l { flex: none; font: 600 12px var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
