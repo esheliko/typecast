@@ -1,3 +1,5 @@
+import { Suspense } from "react";
+import { BgTracker } from "@/components/Modal";
 import Tabs from "@/components/Tabs";
 import { LibProvider } from "@/components/cast/LibState";
 import { getLibrary } from "@/lib/library";
@@ -9,6 +11,7 @@ export default async function AppLayout({ children, modal }: { children: React.R
   const marks: Record<string, Mark> = Object.fromEntries(lib.map((l) => [l.key, { status: l.status, priority: l.priority, rich: l.rating > 0 || !!l.note.trim() }]));
   return (
     <LibProvider initial={marks}>
+      <Suspense fallback={null}><BgTracker /></Suspense>
       <header className="top"><div className="top-in">
         <div className="logo"><span className="mark" aria-hidden="true" />Typecast</div>
         <Tabs where="top" />

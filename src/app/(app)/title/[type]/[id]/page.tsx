@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { RestorePopup } from "@/components/Modal";
 import BackButton from "@/components/BackButton";
 import TitleView, { loadTitle, type TitleParams } from "@/components/TitleView";
 
@@ -11,9 +12,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function TitlePage({ params }: Props) {
   const t = await loadTitle(params);
   return (
-    <article className="page">
-      <div className="pagebar"><BackButton /></div>
-      <TitleView t={t} />
-    </article>
+    <RestorePopup>
+      <article className="page">
+        <div className="pagebar"><BackButton /></div>
+        <TitleView t={t} />
+      </article>
+    </RestorePopup>
   );
 }
