@@ -9,7 +9,7 @@ export class TmdbError extends Error {
 }
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-async function tmdb(path: string, params: Record<string, string> = {}, revalidate = 6 * HOUR): Promise<any> {
+export async function tmdb(path: string, params: Record<string, string> = {}, revalidate = 6 * HOUR): Promise<any> {
   const token = process.env.TMDB_TOKEN;
   if (!token) throw new TmdbError(500, "TMDB_TOKEN is not set on the server.");
   const u = new URL(BASE + path);
@@ -60,7 +60,7 @@ export async function browse(list: BrowseList, type: MediaType, page: number): P
     : type === "movie" ? "/movie/now_playing" : "/tv/on_the_air";
   if (list === "soon") Object.assign(params, { include_adult: "false", sort_by: "popularity.desc", [`${date}.gte`]: daysFrom(1), [`${date}.lte`]: daysFrom(180) });
   const d = await tmdb(path, params, HOUR);
-  return { items: (d.results ?? []).map((r: any) => browseItem(type, r)), more: page < Math.min(d.total_pages ?? 1, 30) };
+  return { items: (d.results ?? []).map((r: any) => browseItem(type, r)), more: page < Math.min(d.total_pages ?? 1, 200) };
 }
 
 export async function getTitle(type: MediaType, id: number): Promise<Title> {
@@ -182,7 +182,7 @@ export async function suggest(kind: SuggestKind, q: string): Promise<Suggestion[
 export interface BrowsePage { items: BrowseItem[]; page: number; totalPages: number; notice?: string }
 const PAGE_SIZE = 20;
 const today = () => new Date().toISOString().slice(0, 10);
-const browseItem = (type: MediaType, r: any): BrowseItem => ({ ...item(type, r), rating: Math.round((r.vote_average ?? 0) * 10) / 10 });
+export const browseItem = (type: MediaType, r: any): BrowseItem => ({ ...item(type, r), rating: Math.round((r.vote_average ?? 0) * 10) / 10 });
 
 /**
  * Browse films or series by genre, year, people, studio, theme, rating and where to stream.

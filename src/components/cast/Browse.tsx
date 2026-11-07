@@ -10,6 +10,7 @@ import { href, img } from "@/lib/img";
 import type { BrowseItem, BrowseList, MediaType } from "@/lib/types";
 
 const LISTS: { k: BrowseList; label: string; tv?: string }[] = [
+  { k: "foryou", label: "For you" },
   { k: "trending", label: "Trending" },
   { k: "popular", label: "Popular" },
   { k: "top", label: "Top rated" },
@@ -24,6 +25,8 @@ export interface BrowseProps {
   /** True when any filter beyond Films / Series is set: the grid then shows filtered results instead of a quick list. */
   filtered: boolean;
   list: BrowseList;
+  /** Seeds the "For you" picks, so every page of one visit comes from the same set. */
+  salt: number;
   /** First page from the server: of the filtered results when filtered, otherwise of the quick list. */
   first: Page | null;
   genres: Record<MediaType, Tag[]>;
@@ -39,7 +42,7 @@ function countFilters(q: BrowseQuery) {
  * The browse grid. Quick lists (Trending, Popular…) switch instantly on the client; detailed filters go through the URL
  * and the server. Either way every poster has one-tap Watched / To watch, and the grid keeps loading as you scroll.
  */
-export default function Browse({ filters, filtered, list: initialList, first, genres, canFilterMine }: BrowseProps) {
+export default function Browse({ filters, filtered, list: initialList, salt, first, genres, canFilterMine }: BrowseProps) {
   const router = useRouter();
   const [routing, startRoute] = useTransition();
   const [type, setType] = useState<MediaType>(filters.type);
@@ -65,7 +68,7 @@ export default function Browse({ filters, filtered, list: initialList, first, ge
 
   const url = useCallback((page: number) => filtered
     ? `/api/discover?${toParams(filters)}&page=${page}`
-    : `/api/browse?list=${list}&type=${type}&page=${page}`, [filtered, filters, list, type]);
+    : `/api/browse?list=${list}&type=${type}&page=${page}&salt=${salt}`, [filtered, filters, list, type, salt]);
 
   const load = useCallback(async (page: number) => {
     const mine = ++seq.current; const k = key;
@@ -96,7 +99,7 @@ export default function Browse({ filters, filtered, list: initialList, first, ge
     for (const [k, v] of Object.entries(p)) { if (v) u.searchParams.set(k, v); else u.searchParams.delete(k); }
     window.history.replaceState(window.history.state, "", u);
   }
-  function chooseList(l: BrowseList) { setList(l); setUrl({ list: l === "trending" ? null : l }); }
+  function chooseList(l: BrowseList) { setList(l); setUrl({ list: l }); }
   function chooseType(t: MediaType) {
     if (t === type) return;
     // With filters set the server runs the search again. Genre ids differ between films and series, so they reset.

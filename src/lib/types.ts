@@ -18,7 +18,7 @@ export interface Title extends Item {
   prov: Record<string, ProviderGroup>; collection: number | null; related: Related[];
 }
 export interface Person { id: number; name: string; photo: string | null; dept: string; bio: string; known: Credit[] }
-export type BrowseList = "trending" | "popular" | "top" | "new" | "soon";
+export type BrowseList = "foryou" | "trending" | "popular" | "top" | "new" | "soon";
 export type SearchHit =
   | ({ kind: "title" } & BrowseItem)
   | { kind: "person"; id: number; name: string; photo: string | null; dept: string; knownFor: string[] };
