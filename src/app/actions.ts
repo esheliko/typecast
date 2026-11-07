@@ -2,7 +2,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireUser, supabaseServer } from "@/lib/supabase/server";
-import type { MediaType, Status } from "@/lib/types";
+import type { MediaType, Priority, Status } from "@/lib/types";
 
 const STATUSES = ["watching", "watchlist", "watched"];
 const where = (type: MediaType, id: number) => ({ tmdb_type: type, tmdb_id: id });
@@ -28,6 +28,10 @@ async function patch(type: MediaType, id: number, values: Record<string, unknown
   const { sb, user } = await requireUser();
   const { error } = await sb.from("library_items").update({ ...values, updated_at: new Date().toISOString() }).eq("user_id", user.id).match(where(type, id));
   if (error) throw new Error(error.message);
+}
+export async function setPriority(type: MediaType, id: number, priority: Priority) {
+  if (priority !== "someday" && priority !== "must") throw new Error("Bad priority");
+  await patch(type, id, { priority }); done();
 }
 export async function setRating(type: MediaType, id: number, rating: number) {
   await patch(type, id, { rating: Math.max(0, Math.min(5, Math.round(rating))) }); done();

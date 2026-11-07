@@ -1,5 +1,7 @@
 export type MediaType = "movie" | "tv";
 export type Status = "watching" | "watchlist" | "watched";
+export type Priority = "someday" | "must";
+export const PRIORITY_LABEL: Record<Priority, string> = { someday: "Some day", must: "Must watch" };
 export const STATUS_LABEL: Record<Status, string> = { watching: "Watching", watchlist: "To watch", watched: "Watched" };
 
 export interface Item { key: string; type: MediaType; id: number; title: string; year: string; poster: string | null }
@@ -22,7 +24,7 @@ export type SearchHit =
   | { kind: "person"; id: number; name: string; photo: string | null; dept: string; knownFor: string[] };
 
 export interface LibItem extends Item {
-  status: Status; rating: number; note: string; progress: { s: number; e: number } | null; added: number;
+  status: Status; priority: Priority; rating: number; note: string; progress: { s: number; e: number } | null; added: number;
 }
 export interface Profile { country: string; services: number[]; serviceNames: Record<string, string> }
 

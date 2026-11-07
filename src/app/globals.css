@@ -55,6 +55,7 @@ h2 { font: 600 13px var(--mono); letter-spacing: .12em; text-transform: uppercas
 .pill.watching { background: var(--gold-fill); color: var(--on-gold); }
 .pill.watched { color: var(--good); }
 .pill.watchlist { color: var(--ink); }
+.pill.must { background: var(--gold-fill); color: var(--on-gold); }
 .err { color: var(--bad); }
 .spin { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--line); border-top-color: var(--gold-fill); border-radius: 50%; animation: sp .8s linear infinite; vertical-align: -2px; margin-right: 8px; }
 @keyframes sp { to { transform: rotate(360deg); } }

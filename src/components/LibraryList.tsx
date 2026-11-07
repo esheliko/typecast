@@ -3,7 +3,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { Thumb } from "./ui";
 import { href, typeLabel } from "@/lib/img";
-import { STATUS_LABEL, type LibItem } from "@/lib/types";
+import { PRIORITY_LABEL, STATUS_LABEL, type LibItem } from "@/lib/types";
 
 export default function LibraryList({ items }: { items: LibItem[] }) {
   const [q, setQ] = useState("");
@@ -21,7 +21,7 @@ export default function LibraryList({ items }: { items: LibItem[] }) {
                 <span className="row-sub">{l.year} · {typeLabel(l.type)}{l.progress ? ` · S${l.progress.s} E${l.progress.e}` : ""}</span>
                 {l.rating > 0 && <span className="stars" aria-label={`${l.rating} of 5`}>{"★".repeat(l.rating) + "☆".repeat(5 - l.rating)}</span>}
               </span>
-              <span className={`pill ${l.status}`}>{STATUS_LABEL[l.status]}</span>
+              <span className={`pill ${l.status === "watchlist" && l.priority === "must" ? "must" : l.status}`}>{l.status === "watchlist" && l.priority === "must" ? PRIORITY_LABEL.must : STATUS_LABEL[l.status]}</span>
             </Link></li>
           ))}
         </ul></div>

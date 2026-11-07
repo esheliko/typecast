@@ -12,6 +12,7 @@ src/lib/connect.ts shared titles between two actors (or co-stars linking them), 
 src/components/cast  the Cast tab: browse grid with one-tap Watched / To watch, and Connections
 src/lib/library.ts reads your library and settings from Supabase
 supabase/migrations/0001_init.sql   tables and row-level security
+supabase/migrations/0002_priority.sql   "Some day" / "Must watch" level for To watch titles
 artifact.html      the earlier single-file claude.ai artifact (not part of the site)
 ```
 

@@ -37,7 +37,9 @@ export default async function Library({ searchParams }: { searchParams: Promise<
   const lib = await getLibrary();
   const filter = (["watching", "watchlist", "watched"] as string[]).includes(f ?? "") ? (f as Status) : "all";
   const count = (s: Status | "all") => (s === "all" ? lib.length : lib.filter((l) => l.status === s).length);
-  const shown = filter === "all" ? lib : lib.filter((l) => l.status === filter);
+  const rank = (l: LibItem) => (l.status === "watchlist" && l.priority === "must" ? 0 : 1);
+  const picked = filter === "all" ? lib : lib.filter((l) => l.status === filter);
+  const shown = filter === "watchlist" ? [...picked].sort((a, b) => rank(a) - rank(b)) : picked; // must-watch first (stable sort keeps newest-first)
   const tabs: [Status | "all", string][] = [["all", "All"], ["watching", STATUS_LABEL.watching], ["watchlist", STATUS_LABEL.watchlist], ["watched", STATUS_LABEL.watched]];
   return (
     <div className="page">
