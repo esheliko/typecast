@@ -1,3 +1,4 @@
+import type { BrowseQuery, Tag } from "./browse";
 import type { BrowseItem, BrowseList, CastMember, Credit, Item, MediaType, Person, ProviderGroup, Related, SearchHit, Title } from "./types";
 
 const BASE = process.env.TMDB_BASE_URL ?? "https://api.themoviedb.org/3";
@@ -34,7 +35,7 @@ function item(type: MediaType, r: any): Item {
 function hit(r: any, media?: string): SearchHit | null {
   const m = media ?? r.media_type;
   if (m === "person") return { kind: "person", id: r.id, name: r.name, photo: r.profile_path ?? null, dept: r.known_for_department ?? "", knownFor: (r.known_for ?? []).map((k: any) => k.title ?? k.name).slice(0, 3) };
-  if (m === "movie" || m === "tv") return { kind: "title", ...item(m, r), vote: r.vote_average ?? 0 };
+  if (m === "movie" || m === "tv") return { kind: "title", ...browseItem(m, r) };
   return null;
 }
 
@@ -46,29 +47,20 @@ export async function search(q: string, kind: "all" | "person" | "title" = "all"
   return out.filter((h) => kind === "all" || h.kind === kind).slice(0, kind === "all" ? 16 : 8);
 }
 
-const today = () => new Date().toISOString().slice(0, 10);
 const daysFrom = (n: number) => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10);
 
-/** One page of a browse list. Lists without a genre use TMDB's curated endpoints; with a genre they go through /discover. */
-export async function browse(list: BrowseList, type: MediaType, genre: number | null, page: number): Promise<{ items: BrowseItem[]; more: boolean }> {
+/** One page of a quick list (Trending, Popular…). Detailed filtering goes through discover() below. */
+export async function browse(list: BrowseList, type: MediaType, page: number): Promise<{ items: BrowseItem[]; more: boolean }> {
   const date = type === "movie" ? "primary_release_date" : "first_air_date";
-  let path: string; let params: Record<string, string> = { page: String(page) };
-  const disc = (extra: Record<string, string>) => { path = `/discover/${type}`; params = { ...params, include_adult: "false", ...(genre ? { with_genres: String(genre) } : {}), ...extra }; };
-  path = "";
-  if (list === "soon") disc({ sort_by: "popularity.desc", [`${date}.gte`]: daysFrom(1), [`${date}.lte`]: daysFrom(180) });
-  else if (genre) {
-    if (list === "top") disc({ sort_by: "vote_average.desc", "vote_count.gte": type === "movie" ? "800" : "250" });
-    else if (list === "new") disc({ sort_by: "popularity.desc", [`${date}.gte`]: daysFrom(-75), [`${date}.lte`]: today() });
-    else disc({ sort_by: "popularity.desc" });
-  } else {
-    path = list === "trending" ? `/trending/${type}/week`
-      : list === "popular" ? `/${type}/popular`
-      : list === "top" ? `/${type}/top_rated`
-      : type === "movie" ? "/movie/now_playing" : "/tv/on_the_air";
-  }
+  const params: Record<string, string> = { page: String(page) };
+  const path = list === "soon" ? `/discover/${type}`
+    : list === "trending" ? `/trending/${type}/week`
+    : list === "popular" ? `/${type}/popular`
+    : list === "top" ? `/${type}/top_rated`
+    : type === "movie" ? "/movie/now_playing" : "/tv/on_the_air";
+  if (list === "soon") Object.assign(params, { include_adult: "false", sort_by: "popularity.desc", [`${date}.gte`]: daysFrom(1), [`${date}.lte`]: daysFrom(180) });
   const d = await tmdb(path, params, HOUR);
-  const items = (d.results ?? []).map((r: any): BrowseItem => ({ ...item(type, r), vote: r.vote_average ?? 0 }));
-  return { items, more: page < Math.min(d.total_pages ?? 1, 30) };
+  return { items: (d.results ?? []).map((r: any) => browseItem(type, r)), more: page < Math.min(d.total_pages ?? 1, 30) };
 }
 
 export async function getTitle(type: MediaType, id: number): Promise<Title> {
@@ -150,14 +142,110 @@ export async function getEpisode(tv: number, s: number, e: number) {
 }
 
 export async function getProviders(cc: string) {
-  const [m, t] = await Promise.all([
+  // Regional lists first (accurate order for this country), then TMDB's global list so services
+  // TMDB has not tagged for this region (e.g. Disney+, Israeli services) can still be picked.
+  const [m, t, gm, gt] = await Promise.all([
     tmdb("/watch/providers/movie", { watch_region: cc }, 24 * HOUR),
     tmdb("/watch/providers/tv", { watch_region: cc }, 24 * HOUR),
+    tmdb("/watch/providers/movie", {}, 24 * HOUR).catch(() => ({ results: [] })),
+    tmdb("/watch/providers/tv", {}, 24 * HOUR).catch(() => ({ results: [] })),
   ]);
   const map = new Map<number, { id: number; name: string; pri: number }>();
-  for (const d of [m, t]) for (const p of d.results ?? []) {
+  for (const [d, regional] of [[m, true], [t, true], [gm, false], [gt, false]] as const) for (const p of d.results ?? []) {
+    const pri: number = regional ? p.display_priority : (p.display_priorities?.[cc] ?? 100 + (p.display_priority ?? 0));
     const o = map.get(p.provider_id);
-    if (!o || p.display_priority < o.pri) map.set(p.provider_id, { id: p.provider_id, name: p.provider_name, pri: p.display_priority });
+    if (!o || pri < o.pri) map.set(p.provider_id, { id: p.provider_id, name: p.provider_name, pri });
   }
   return [...map.values()].sort((a, b) => a.pri - b.pri);
+}
+
+/* ---------- Browse ---------- */
+
+export async function genreList(type: MediaType): Promise<Tag[]> {
+  const d = await tmdb(`/genre/${type}/list`, {}, 24 * HOUR);
+  return (d.genres ?? []).map((g: any) => ({ id: g.id, name: g.name }));
+}
+
+export interface Suggestion { id: number; name: string; sub: string }
+export type SuggestKind = "person" | "company" | "keyword";
+
+/** Type-ahead for the actor / studio / theme pickers. */
+export async function suggest(kind: SuggestKind, q: string): Promise<Suggestion[]> {
+  const d = await tmdb(`/search/${kind}`, { query: q, page: "1", include_adult: "false" }, HOUR);
+  return (d.results ?? []).slice(0, 8).map((r: any): Suggestion => {
+    if (kind === "person") return { id: r.id, name: r.name, sub: [r.known_for_department, (r.known_for ?? []).map((k: any) => k.title ?? k.name).slice(0, 2).join(", ")].filter(Boolean).join(" · ") };
+    if (kind === "company") return { id: r.id, name: r.name, sub: r.origin_country ?? "" };
+    return { id: r.id, name: r.name, sub: "" };
+  });
+}
+
+export interface BrowsePage { items: BrowseItem[]; page: number; totalPages: number; notice?: string }
+const PAGE_SIZE = 20;
+const today = () => new Date().toISOString().slice(0, 10);
+const browseItem = (type: MediaType, r: any): BrowseItem => ({ ...item(type, r), rating: Math.round((r.vote_average ?? 0) * 10) / 10 });
+
+/**
+ * Browse films or series by genre, year, people, studio, theme, rating and where to stream.
+ * TMDB's series discovery has no cast filter, so a series search with actors is answered from
+ * the actors' own credits instead; that route can't also filter by studio, theme or service.
+ */
+export async function discover(q: BrowseQuery, page: number, region: string, services: number[]): Promise<BrowsePage> {
+  page = Math.min(Math.max(1, Math.floor(page) || 1), 500);
+  if (q.type === "tv" && q.people.length) return tvByPeople(q, page);
+
+  const movie = q.type === "movie";
+  const date = movie ? "primary_release_date" : "first_air_date";
+  const sortBy = { popular: "popularity.desc", rating: "vote_average.desc", newest: `${date}.desc`, oldest: `${date}.asc` }[q.sort];
+  const p: Record<string, string> = { sort_by: sortBy, page: String(page), include_adult: "false" };
+  if (q.from) p[`${date}.gte`] = `${q.from}-01-01`;
+  if (q.to) p[`${date}.lte`] = `${q.to}-12-31`;
+  if (q.sort === "newest" && !q.to) p[`${date}.lte`] = today();
+  if (q.genres.length) p.with_genres = q.genres.join(",");
+  if (q.people.length) p.with_people = q.people.map((t) => t.id).join(",");
+  if (q.companies.length) p.with_companies = q.companies.map((t) => t.id).join("|");
+  if (q.keywords.length) p.with_keywords = q.keywords.map((t) => t.id).join("|");
+  if (q.minRating) p["vote_average.gte"] = String(q.minRating);
+  if (q.minRating || q.sort === "rating") p["vote_count.gte"] = q.sort === "rating" ? "300" : "100";
+  if (q.mine && services.length) {
+    p.watch_region = region; p.with_watch_providers = services.join("|"); p.with_watch_monetization_types = "flatrate|free|ads";
+  }
+  const d = await tmdb(`/discover/${q.type}`, p, HOUR);
+  return { items: (d.results ?? []).map((r: any) => browseItem(q.type, r)), page, totalPages: Math.min(d.total_pages ?? 1, 500) };
+}
+
+async function tvByPeople(q: BrowseQuery, page: number): Promise<BrowsePage> {
+  const lists = await Promise.all(q.people.map((p) => tmdb(`/person/${p.id}/combined_credits`, {}, 24 * HOUR)));
+  const sets = lists.map((d) => {
+    const m = new Map<number, any>();
+    for (const r of [...(d.cast ?? []), ...(d.crew ?? [])]) {
+      if (r.media_type !== "tv" || m.has(r.id)) continue;
+      if (BAD_ROLE.test(r.character ?? "")) continue;
+      m.set(r.id, r);
+    }
+    return m;
+  });
+  const talk = (r: any) => (r.genre_ids ?? []).some((g: number) => g === 10767 || g === 10763 || g === 10764);
+  const rows = [...sets[0].values()].filter((r) => sets.every((m) => m.has(r.id))).filter((r) => {
+    const y = yr(r.first_air_date);
+    if (q.from && (!y || y < q.from)) return false;
+    if (q.to && (!y || y > q.to)) return false;
+    if (q.genres.length ? !q.genres.every((g) => (r.genre_ids ?? []).includes(g)) : talk(r)) return false;
+    if (q.minRating && (r.vote_average ?? 0) < q.minRating) return false;
+    if (q.sort === "rating" && (r.vote_count ?? 0) < 50) return false;
+    if (q.sort === "newest" && (r.first_air_date ?? "") > today()) return false;
+    return true;
+  });
+  const dt = (r: any) => r.first_air_date || "";
+  rows.sort({
+    popular: (a: any, b: any) => (b.popularity ?? 0) - (a.popularity ?? 0),
+    rating: (a: any, b: any) => (b.vote_average ?? 0) - (a.vote_average ?? 0),
+    newest: (a: any, b: any) => dt(b).localeCompare(dt(a)),
+    oldest: (a: any, b: any) => (dt(a) || "9").localeCompare(dt(b) || "9"),
+  }[q.sort]);
+  const ignored = [q.companies.length && "studio", q.keywords.length && "theme", q.mine && "streaming"].filter(Boolean);
+  return {
+    items: rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE).map((r) => browseItem("tv", r)),
+    page, totalPages: Math.max(1, Math.ceil(rows.length / PAGE_SIZE)),
+    notice: ignored.length ? `Series searches with an actor can't also filter by ${ignored.join(", ")}, so that part is ignored.` : undefined,
+  };
 }

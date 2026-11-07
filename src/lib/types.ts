@@ -3,6 +3,7 @@ export type Status = "watching" | "watchlist" | "watched";
 export const STATUS_LABEL: Record<Status, string> = { watching: "Watching", watchlist: "To watch", watched: "Watched" };
 
 export interface Item { key: string; type: MediaType; id: number; title: string; year: string; poster: string | null }
+export interface BrowseItem extends Item { rating: number }
 export interface Related extends Item { rel: string }
 export interface Credit extends Item { role: string; votes: number }
 export interface CastMember { id: number; name: string; photo: string | null; role: string }
@@ -15,7 +16,6 @@ export interface Title extends Item {
   prov: Record<string, ProviderGroup>; collection: number | null; related: Related[];
 }
 export interface Person { id: number; name: string; photo: string | null; dept: string; bio: string; known: Credit[] }
-export interface BrowseItem extends Item { vote: number }
 export type BrowseList = "trending" | "popular" | "top" | "new" | "soon";
 export type SearchHit =
   | ({ kind: "title" } & BrowseItem)

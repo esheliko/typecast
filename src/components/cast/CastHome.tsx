@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useState } from "react";
 import Search from "../Search";
-import Browse, { Poster, type Query } from "./Browse";
+import Browse, { Poster, type BrowseProps } from "./Browse";
 import Connect, { type Mode } from "./Connect";
 import { LibProvider } from "./LibState";
 import type { BrowseItem, Item, Mark, PersonLite } from "@/lib/types";
@@ -10,14 +10,13 @@ export type View = "browse" | "connect";
 export interface HomeProps {
   marks: Record<string, Mark>;
   view: View;
-  query: Query;
-  first: { items: BrowseItem[]; page: number; more: boolean } | null;
+  browse: BrowseProps;
   connect: { mode: Mode; a: { kind: "person"; p: PersonLite } | { kind: "title"; t: Item } | null };
   /** Titles in progress, with their episode as the subtitle. */
   watching: (BrowseItem & { sub: string })[];
 }
 
-export default function CastHome({ marks, view: initialView, query, first, connect, watching }: HomeProps) {
+export default function CastHome({ marks, view: initialView, browse, connect, watching }: HomeProps) {
   const [view, setView] = useState<View>(initialView);
   const [searching, setSearching] = useState(false);
   const [connectOpened, setConnectOpened] = useState(initialView === "connect");
@@ -42,13 +41,13 @@ export default function CastHome({ marks, view: initialView, query, first, conne
           </div>
           {/* Both views stay mounted so switching back keeps your place, filters and picks. */}
           <div hidden={view !== "browse"}>
-            {watching.length > 0 && (
+            {watching.length > 0 && !browse.filtered && (
               <>
                 <h2>Continue watching</h2>
                 <ul className="strip">{watching.map((w) => <li key={w.key}><Poster it={w} sub={w.sub} /></li>)}</ul>
               </>
             )}
-            <Browse initial={query} first={first} /></div>
+            <Browse {...browse} /></div>
           <div hidden={view !== "connect"}>{connectOpened ? <Connect initialMode={connect.mode} initialA={connect.a} /> : null}</div>
         </div>
       </div>
