@@ -136,10 +136,7 @@ export default async function TitleView({ t, origin }: { t: Title; origin?: Item
           <EpisodeCast tvId={t.id} seasons={t.seasons} initial={mine?.progress ?? { s: t.seasons[0].n, e: 1 }} inLibrary={!!mine} />
         </details>
       )}
-      <details className="sh-ep sh-wh">
-        <summary>Where to watch</summary>
-        <Where t={t} profile={profile} />
-      </details>
+      <Where t={t} profile={profile} />
       <DetailOrder initial={profile.details} type={t.type} />
       <Details t={t} lib={lib} order={profile.details} />
       <Suspense fallback={null}><Franchise t={t} /></Suspense>
