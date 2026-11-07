@@ -10,11 +10,12 @@ import type { Mark } from "@/lib/types";
 
 export default async function AppLayout({ children, modal }: { children: React.ReactNode; modal: React.ReactNode }) {
   const lib = await getLibrary();
+  // GlimpseProvider wraps LibProvider: the franchise sheet (rendered by LibProvider) has glimpse buttons too.
   // One set of marks for every page and for the title popup, so a title marked anywhere is marked everywhere at once.
   const marks: Record<string, Mark> = Object.fromEntries(lib.map((l) => [l.key, { status: l.status, priority: l.priority, rich: l.rating > 0 || !!l.note.trim() }]));
   return (
-    <LibProvider initial={marks}>
-      <GlimpseProvider>
+    <GlimpseProvider>
+      <LibProvider initial={marks}>
       <Suspense fallback={null}><BgTracker /></Suspense>
       <Suspense fallback={null}><Recheck /></Suspense>
       <header className="top"><div className="top-in">
@@ -25,7 +26,7 @@ export default async function AppLayout({ children, modal }: { children: React.R
       <main className="wrap">{children}</main>
       <Tabs where="bottom" />
       {modal}
-      </GlimpseProvider>
-    </LibProvider>
+      </LibProvider>
+    </GlimpseProvider>
   );
 }
