@@ -113,7 +113,9 @@ export function LibProvider({ initial, children }: { initial: Record<string, Mar
       // Right after adding to the list, offer the other priority so one button is enough.
       const other: Priority | null = status === "watchlist" ? (priority ?? prev?.priority ?? "someday") === "must" ? "someday" : "must" : null;
       const action = other ? { label: other === "must" ? "Make must-watch" : "Make some day", run: () => { setToast(null); save(it, "watchlist", { status: "watchlist", priority: priority ?? prev?.priority ?? "someday", rich: false }, other); } } : undefined;
-      const id = show({ msg, action, undo: canUndo ? () => { setToast(null); save(it, prev?.status ?? null, status ? { status, priority: priority ?? "someday", rich: false } : null, prev?.priority); } : undefined });
+      // Marking Watching also offers Partly watched, for something you have seen some of but will not finish.
+      const toPartial = status === "watching" ? { label: STATUS_LABEL.partial, run: () => { setToast(null); save(it, "partial", { status: "watching", priority: prev?.priority ?? "someday", rich: false }); } } : undefined;
+      const id = show({ msg, action: action ?? toPartial, undo: canUndo ? () => { setToast(null); save(it, prev?.status ?? null, status ? { status, priority: priority ?? "someday", rich: false } : null, prev?.priority); } : undefined });
       // Having watched one, offer the rest of its franchise: the toast grows a button once we know there is something to mark.
       if (status === "watched" && !quiet) franchise(it).then((groups) => {
         const left = new Set(groups.flatMap((g) => g.items).filter((i) => !current(i.key)).map((i) => i.key)).size;
