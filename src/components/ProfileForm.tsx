@@ -1,7 +1,8 @@
 "use client";
 import { useEffect, useState, useTransition } from "react";
 import { saveProfile } from "@/app/actions";
-import type { Profile } from "@/lib/types";
+import { PRIORITY_LABEL, type Priority, type Profile } from "@/lib/types";
+import { PRIO_KEY } from "@/components/cast/LibState";
 
 const COUNTRIES: [string, string][] = [["US", "United States"], ["GB", "United Kingdom"], ["CA", "Canada"], ["AU", "Australia"], ["NZ", "New Zealand"], ["IE", "Ireland"], ["DE", "Germany"], ["AT", "Austria"], ["CH", "Switzerland"], ["FR", "France"], ["BE", "Belgium"], ["NL", "Netherlands"], ["LU", "Luxembourg"], ["ES", "Spain"], ["PT", "Portugal"], ["IT", "Italy"], ["SE", "Sweden"], ["NO", "Norway"], ["DK", "Denmark"], ["FI", "Finland"], ["IS", "Iceland"], ["PL", "Poland"], ["CZ", "Czechia"], ["SK", "Slovakia"], ["HU", "Hungary"], ["RO", "Romania"], ["BG", "Bulgaria"], ["GR", "Greece"], ["HR", "Croatia"], ["SI", "Slovenia"], ["RS", "Serbia"], ["UA", "Ukraine"], ["LT", "Lithuania"], ["LV", "Latvia"], ["EE", "Estonia"], ["TR", "Turkey"], ["IL", "Israel"], ["AE", "United Arab Emirates"], ["SA", "Saudi Arabia"], ["EG", "Egypt"], ["ZA", "South Africa"], ["IN", "India"], ["JP", "Japan"], ["KR", "South Korea"], ["SG", "Singapore"], ["HK", "Hong Kong"], ["TW", "Taiwan"], ["TH", "Thailand"], ["PH", "Philippines"], ["ID", "Indonesia"], ["MX", "Mexico"], ["BR", "Brazil"], ["AR", "Argentina"], ["CL", "Chile"], ["CO", "Colombia"]];
 // Always listed (exact name, lowercase) regardless of TMDB display priority, which can bury them in some regions.
@@ -20,6 +21,9 @@ export default function ProfileForm({ initial }: { initial: Profile }) {
   const [q, setQ] = useState("");
   const [custom, setCustom] = useState("");
   const [pending, start] = useTransition();
+  const [prio, setPrio] = useState<Priority>("someday");
+  useEffect(() => { try { if (localStorage.getItem(PRIO_KEY) === "must") setPrio("must"); } catch { /* storage unavailable */ } }, []);
+  function pickPrio(p: Priority) { setPrio(p); try { localStorage.setItem(PRIO_KEY, p); } catch { /* storage unavailable */ } }
 
   useEffect(() => {
     let live = true; setList(null); setError("");
@@ -62,6 +66,12 @@ export default function ProfileForm({ initial }: { initial: Profile }) {
     <div className="card pad" aria-busy={pending}>
       <label className="l" htmlFor="cc">Country</label>
       <select id="cc" value={country} onChange={(e) => pickCountry(e.target.value)}>{COUNTRIES.map(([c, n]) => <option key={c} value={c}>{n}</option>)}</select>
+      <div className="sp" />
+      <span className="l" id="dp">The To watch button on posters adds titles as</span>
+      <div className="chips" role="group" aria-labelledby="dp" style={{ marginBottom: 4 }}>
+        {(Object.keys(PRIORITY_LABEL) as Priority[]).map((p) => <button key={p} className="chip" aria-pressed={prio === p} onClick={() => pickPrio(p)}>{PRIORITY_LABEL[p]}</button>)}
+      </div>
+      <p className="small muted" style={{ margin: "0 0 4px" }}>Saved on this device. After you tap it, a message offers to switch that title to the other one.</p>
       <div className="sp" />
       <label className="l" htmlFor="svq">Your streaming services</label>
       <input id="svq" type="search" placeholder="Filter services" value={q} onChange={(e) => setQ(e.target.value)} style={{ width: "100%", marginBottom: 10 }} />

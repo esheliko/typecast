@@ -15,6 +15,8 @@ interface Ctx {
   /** Titles skipped with "Not interested". Saved on this device. */
   skipped: ReadonlySet<string>;
   skip: (it: Item) => void;
+  /** What the one-tap To watch button adds a title as. Saved on this device. */
+  defaultPriority: Priority;
 }
 const LibCtx = createContext<Ctx | null>(null);
 
@@ -26,6 +28,7 @@ export function useLib() {
 
 const SKIP_KEY = "typecast.skipped";
 const SKIP_MAX = 3000;
+export const PRIO_KEY = "typecast.defaultPriority";
 
 interface Toast { id: number; msg: string; undo?: () => void; err?: boolean; action?: { label: string; run: () => void } }
 
@@ -36,6 +39,7 @@ interface Toast { id: number; msg: string; undo?: () => void; err?: boolean; act
 export function LibProvider({ initial, children }: { initial: Record<string, Mark>; children: React.ReactNode }) {
   const [over, setOver] = useState<Record<string, Mark | null>>({});
   const [toast, setToast] = useState<Toast | null>(null);
+  const [defaultPriority, setDefaultPriority] = useState<Priority>("someday");
   const [skipped, setSkipped] = useState<ReadonlySet<string>>(new Set());
   const [sheet, setSheet] = useState<Item | null>(null);
   const related = useRef(new Map<string, Promise<Group[]>>());
@@ -54,6 +58,7 @@ export function LibProvider({ initial, children }: { initial: Record<string, Mar
   useEffect(() => () => clearTimeout(timer.current), []);
   useEffect(() => {
     try { const raw = JSON.parse(localStorage.getItem(SKIP_KEY) ?? "[]"); if (Array.isArray(raw)) setSkipped(new Set(raw.filter((x) => typeof x === "string"))); } catch { /* storage unavailable */ }
+    try { if (localStorage.getItem(PRIO_KEY) === "must") setDefaultPriority("must"); } catch { /* storage unavailable */ }
   }, []);
 
   const marked = useCallback(() => {
@@ -68,7 +73,7 @@ export function LibProvider({ initial, children }: { initial: Record<string, Mar
     clearTimeout(timer.current);
     const id = Date.now() + Math.random();
     setToast({ ...t, id });
-    timer.current = setTimeout(() => setToast(null), t.undo ? 5000 : 3500);
+    timer.current = setTimeout(() => setToast(null), t.undo || t.action ? 5000 : 3500);
     return id;
   }, []);
 
@@ -103,7 +108,10 @@ export function LibProvider({ initial, children }: { initial: Record<string, Mar
       const msg = status ? `${it.title}: ${status === "watchlist" && priority === "must" ? PRIORITY_LABEL.must : STATUS_LABEL[status]}` : `Removed ${it.title}`;
       // Undo after removing a title with a rating or note cannot bring those back, so offer it only when it can.
       const canUndo = !(status === null && prev?.rich);
-      const id = show({ msg, undo: canUndo ? () => { setToast(null); save(it, prev?.status ?? null, status ? { status, priority: priority ?? "someday", rich: false } : null, prev?.priority); } : undefined });
+      // Right after adding to the list, offer the other priority so one button is enough.
+      const other: Priority | null = status === "watchlist" ? (priority ?? prev?.priority ?? "someday") === "must" ? "someday" : "must" : null;
+      const action = other ? { label: other === "must" ? "Make must-watch" : "Make some day", run: () => { setToast(null); save(it, "watchlist", { status: "watchlist", priority: priority ?? prev?.priority ?? "someday", rich: false }, other); } } : undefined;
+      const id = show({ msg, action, undo: canUndo ? () => { setToast(null); save(it, prev?.status ?? null, status ? { status, priority: priority ?? "someday", rich: false } : null, prev?.priority); } : undefined });
       // Having watched one, offer the rest of its franchise: the toast grows a button once we know there is something to mark.
       if (status === "watched" && !quiet) franchise(it).then((groups) => {
         const left = new Set(groups.flatMap((g) => g.items).filter((i) => !current(i.key)).map((i) => i.key)).size;
@@ -138,7 +146,7 @@ export function LibProvider({ initial, children }: { initial: Record<string, Mar
   }, [show, writeSkipped]);
 
   return (
-    <LibCtx.Provider value={{ get, mark, markMany, marked, skipped, skip }}>
+    <LibCtx.Provider value={{ get, mark, markMany, marked, skipped, skip, defaultPriority }}>
       {children}
       {sheet && <FranchiseSheet it={sheet} load={franchise} onClose={() => setSheet(null)} />}
       <div className="toast-slot" aria-live="polite">

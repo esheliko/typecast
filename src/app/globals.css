@@ -196,13 +196,15 @@ a.row { text-decoration: none; color: inherit; }
 .qm-b:active { transform: scale(.9); }
 .qm-b svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
 .qm-b.watched[aria-pressed="true"] { background: var(--good); color: #fff; }
+.qm-b.watching[aria-pressed="true"] { background: var(--gold-fill); color: var(--on-gold); }
+.qm-b.watching[aria-pressed="true"] svg { fill: currentColor; }
 .qm-b.watchlist[aria-pressed="true"] { background: var(--gold-fill); color: var(--on-gold); }
 .qm-b.watchlist[aria-pressed="true"] svg { fill: currentColor; }
 .qm-b.must[aria-pressed="true"] { background: var(--gold-fill); color: var(--on-gold); }
 .qm-b.must[aria-pressed="true"] svg { fill: currentColor; }
 .qm.inline .qm-b { background: var(--chip); color: var(--ink); backdrop-filter: none; }
 .qm.inline .qm-b.watched[aria-pressed="true"] { background: var(--good); color: #fff; }
-.qm.inline .qm-b.watchlist[aria-pressed="true"], .qm.inline .qm-b.must[aria-pressed="true"] { background: var(--gold-fill); color: var(--on-gold); }
+.qm.inline .qm-b.watching[aria-pressed="true"], .qm.inline .qm-b.watchlist[aria-pressed="true"], .qm.inline .qm-b.must[aria-pressed="true"] { background: var(--gold-fill); color: var(--on-gold); }
 @media (hover: hover) { .qm-b:hover { background: rgb(15 17 22 / .9); } .qm.inline .qm-b:hover { background: var(--line); } }
 
 .person-chip { flex: none; display: flex; align-items: center; gap: 10px; padding: 6px 14px 6px 6px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); text-decoration: none; color: inherit; max-width: 260px; }
