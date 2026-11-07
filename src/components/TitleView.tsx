@@ -16,7 +16,7 @@ import { img, typeLabel } from "@/lib/img";
 import { getLibrary, getProfile } from "@/lib/library";
 import TitleFranchise from "@/components/cast/TitleFranchise";
 import { getFranchise, getTitle, TmdbError } from "@/lib/tmdb";
-import type { LibItem, MediaType, Title } from "@/lib/types";
+import type { Item, LibItem, MediaType, Title } from "@/lib/types";
 
 export type TitleParams = Promise<{ type: string; id: string }>;
 
@@ -91,9 +91,14 @@ async function Franchise({ t }: { t: Title }) {
   return groups.length ? <TitleFranchise groups={groups} titleKey={t.key} /> : null;
 }
 
-async function Related({ t }: { t: Title }) {
+async function Related({ t, origin }: { t: Title; origin?: Item | null }) {
   const have = new Set((await getFranchise(t.type, t.id).catch(() => [])).flatMap((g) => g.items.map((i) => i.key)));
-  const list = t.related.filter((r) => !have.has(r.key));
+  const list: (Item & { rel?: string })[] = t.related.filter((r) => !have.has(r.key));
+  // The title this popup was opened from is listed first, like the rest, unless the franchise list already shows it.
+  if (origin && origin.key !== t.key && !have.has(origin.key)) {
+    const i = list.findIndex((r) => r.key === origin.key);
+    list.unshift(i >= 0 ? list.splice(i, 1)[0] : { ...origin, rel: "Opened from" });
+  }
   if (!list.length) return null;
   return (
     <>
@@ -106,7 +111,7 @@ async function Related({ t }: { t: Title }) {
 }
 
 /** Everything about one title. Shown as the full page, and as the popup over Browse, Library and the rest. */
-export default async function TitleView({ t }: { t: Title }) {
+export default async function TitleView({ t, origin }: { t: Title; origin?: Item | null }) {
   const [lib, profile] = await Promise.all([getLibrary(), getProfile()]);
   const mine = lib.find((l) => l.key === t.key) ?? null;
   const meta = [t.year, typeLabel(t.type), t.runtime ? `${t.runtime} min${t.type === "tv" ? " / ep" : ""}` : "", t.genres.slice(0, 3).join(", ")].filter(Boolean).join(" · ");
@@ -135,7 +140,7 @@ export default async function TitleView({ t }: { t: Title }) {
       <DetailOrder initial={profile.details} type={t.type} />
       <Details t={t} lib={lib} order={profile.details} />
       <Suspense fallback={null}><Franchise t={t} /></Suspense>
-      <Suspense fallback={null}><Related t={t} /></Suspense>
+      <Suspense fallback={null}><Related t={t} origin={origin} /></Suspense>
       <h2>Notes</h2>
       <NoteBox type={t.type} id={t.id} initial={mine?.note ?? ""} enabled={!!mine} />
     </FromProvider>
