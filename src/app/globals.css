@@ -100,13 +100,13 @@ textarea { width: 100%; resize: vertical; min-height: 72px; }
 .sh-title { font: 700 38px/1 var(--display); letter-spacing: .02em; text-transform: uppercase; margin: 0; overflow-wrap: anywhere; text-wrap: balance; }
 .sh-meta { font: 400 13px var(--mono); color: var(--muted); margin: 8px 0 0; }
 .status { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 6px; }
-.banner { padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); }
+.banner { padding: 7px 11px; border-radius: 10px; font-size: 13px; line-height: 1.35; border: 1px solid var(--line); background: var(--surface); }
 .banner.ok { border-color: var(--good); } .banner.no { border-color: var(--bad); }
-.banner b { display: block; font: 600 18px var(--display); text-transform: uppercase; letter-spacing: .05em; }
+.banner b { display: inline; margin-right: 8px; font: 600 14px var(--display); text-transform: uppercase; letter-spacing: .05em; }
 .banner.ok b { color: var(--good); } .banner.no b { color: var(--bad); }
-.prov { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; align-items: center; }
-.prov .g { font: 500 11px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); width: 56px; }
-.prov img { width: 36px; height: 36px; border-radius: 8px; }
+.prov { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; align-items: center; }
+.prov .g { font: 500 11px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); width: 52px; font-size: 10px; }
+.prov img { width: 26px; height: 26px; border-radius: 6px; }
 .hero { padding: 18px 16px; }
 .hero p { margin: 6px 0 12px; }
 .hero .t { font: 700 30px/1.05 var(--display); text-transform: uppercase; letter-spacing: .03em; }

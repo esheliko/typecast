@@ -27,7 +27,7 @@ export function Where({ t, profile }: { t: Title; profile: Profile }) {
             : <span key={x.id} className="pill">{x.name}</span>)}
         </div>
       ) : null)}
-      {p?.link && <p className="small muted" style={{ margin: "12px 0 0" }}>Data from JustWatch. <a href={p.link} target="_blank" rel="noopener noreferrer">See all options</a></p>}
+      {p?.link && <p className="small muted" style={{ margin: "8px 0 0" }}>Data from JustWatch. <a href={p.link} target="_blank" rel="noopener noreferrer">See all options</a></p>}
     </section>
   );
 }
