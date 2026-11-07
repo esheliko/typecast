@@ -170,7 +170,7 @@ details.credit .more { margin-top: 8px; }
 a.row { text-decoration: none; color: inherit; }
 
 /* Browse tab: search, Browse / Connections views, poster grid with one-tap marks. */
-.cast-home .search { position: sticky; top: calc(56px + env(safe-area-inset-top, 0px)); z-index: 15; margin: 0 -4px; padding: 0 4px 8px; background: var(--bg); }
+.cast-home .search { position: sticky; top: calc(44px + env(safe-area-inset-top, 0px)); z-index: 15; margin: -8px -4px 0; padding: 8px 4px 8px; background: var(--bg); }
 .views { display: flex; gap: 22px; margin: 6px 0 2px; border-bottom: 1px solid var(--line); }
 .views button { padding: 10px 0 9px; font: 700 20px/1 var(--display); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); border-bottom: 3px solid transparent; margin-bottom: -1px; }
 .views button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--gold-fill); }
