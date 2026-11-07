@@ -1,4 +1,6 @@
 export type MediaType = "movie" | "tv";
+/** What Browse shows: films, series, or both mixed together (the default). */
+export type BrowseType = MediaType | "all";
 export type Status = "watching" | "watchlist" | "watched";
 export type Priority = "someday" | "must";
 export const PRIORITY_LABEL: Record<Priority, string> = { someday: "Some day", must: "Must watch" };

@@ -7,7 +7,7 @@ import { useLib } from "./LibState";
 import QuickMark from "./QuickMark";
 import { toParams, type BrowseQuery, type Tag } from "@/lib/browse";
 import { href, img } from "@/lib/img";
-import type { BrowseItem, BrowseList, MediaType } from "@/lib/types";
+import type { BrowseItem, BrowseList, BrowseType, MediaType } from "@/lib/types";
 
 const LISTS: { k: BrowseList; label: string; tv?: string }[] = [
   { k: "foryou", label: "For you" },
@@ -45,7 +45,7 @@ function countFilters(q: BrowseQuery) {
 export default function Browse({ filters, filtered, list: initialList, salt, first, genres, canFilterMine }: BrowseProps) {
   const router = useRouter();
   const [routing, startRoute] = useTransition();
-  const [type, setType] = useState<MediaType>(filters.type);
+  const [type, setType] = useState<BrowseType>(filters.type);
   const [list, setList] = useState<BrowseList>(initialList);
   const [hide, setHideState] = useState(true);
   const [panel, setPanel] = useState(filtered);
@@ -100,11 +100,11 @@ export default function Browse({ filters, filtered, list: initialList, salt, fir
     window.history.replaceState(window.history.state, "", u);
   }
   function chooseList(l: BrowseList) { setList(l); setUrl({ list: l }); }
-  function chooseType(t: MediaType) {
+  function chooseType(t: BrowseType) {
     if (t === type) return;
     // With filters set the server runs the search again. Genre ids differ between films and series, so they reset.
     if (filtered) { const s = toParams({ ...filters, type: t, genres: [] }).toString(); startRoute(() => router.replace(s ? `/?${s}` : "/", { scroll: false })); return; }
-    setType(t); setUrl({ type: t === "tv" ? "tv" : null });
+    setType(t); setUrl({ type: t === "all" ? null : t });
   }
 
   const sentinel = useRef<HTMLDivElement>(null);
@@ -131,19 +131,19 @@ export default function Browse({ filters, filtered, list: initialList, salt, fir
     <section aria-label="Browse">
       {!filtered && (
         <div className="chips scroll" role="group" aria-label="List">
-          {LISTS.map((l) => <button key={l.k} type="button" className="chip" aria-pressed={list === l.k} onClick={() => chooseList(l.k)}>{type === "tv" && l.tv ? l.tv : l.label}</button>)}
+          {LISTS.map((l) => <button key={l.k} type="button" className="chip" aria-pressed={list === l.k} onClick={() => chooseList(l.k)}>{type === "tv" && l.tv ? l.tv : type === "all" && l.tv ? `${l.label} / ${l.tv}` : l.label}</button>)}
         </div>
       )}
       <div className="bz-bar">
         <div className="seg" role="group" aria-label="Type">
-          {(["movie", "tv"] as MediaType[]).map((t) => <button key={t} type="button" aria-pressed={type === t} onClick={() => chooseType(t)}>{t === "movie" ? "Films" : "Series"}</button>)}
+          {(["all", "movie", "tv"] as BrowseType[]).map((t) => <button key={t} type="button" aria-pressed={type === t} onClick={() => chooseType(t)}>{t === "all" ? "Both" : t === "movie" ? "Films" : "Series"}</button>)}
         </div>
         <button type="button" className="chip sm filt" aria-expanded={panel} aria-pressed={n > 0} onClick={() => setPanel(!panel)}>
           Filters{n ? ` · ${n}` : ""} <span aria-hidden="true">{panel ? "▴" : "▾"}</span>
         </button>
         <button type="button" className="chip sm" aria-pressed={hide} onClick={() => setHide(!hide)} title="Hide titles you have already marked or skipped">Hide marked{hide && hiddenCount > 0 ? ` · ${hiddenCount}` : ""}</button>
       </div>
-      {panel && <BrowseFilters q={{ ...filters, type }} genres={genres[type]} canFilterMine={canFilterMine} active={filtered} />}
+      {panel && <BrowseFilters q={{ ...filters, type }} genres={type === "all" ? [] : genres[type]} canFilterMine={canFilterMine} active={filtered} />}
       {filtered && <h2>{routing ? <span><span className="spin" />Updating</span> : "Filtered results"}</h2>}
       {data?.notice && <p className="small muted" style={{ margin: "8px 0 0" }}>{data.notice}</p>}
 

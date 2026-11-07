@@ -18,7 +18,7 @@ const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) 
 export default async function Home({ searchParams }: { searchParams: SP }) {
   const sp = await searchParams;
   const filters = parseBrowse(sp);
-  const filtered = isActive({ ...filters, type: "movie" });
+  const filtered = isActive({ ...filters, type: "all" });
   const a = one(sp.a), t = one(sp.t);
 
   const pick = async (): Promise<HomeProps["connect"]> => {

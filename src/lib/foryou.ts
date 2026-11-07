@@ -1,5 +1,6 @@
 import { browse, browseItem, tmdb } from "./tmdb";
-import type { BrowseItem, LibItem, MediaType } from "./types";
+import { interleave } from "./browse";
+import type { BrowseItem, BrowseType, LibItem, MediaType } from "./types";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const PAGE = 20;
@@ -22,7 +23,11 @@ function pickSeeds(lib: LibItem[], type: MediaType, salt: number) {
  * Picks for you: what TMDB recommends for the titles you watched and loved, scored by how many of them agree.
  * Anything already in your library is left out. Once those run out the list continues with popular titles in your favourite genres, so it never ends.
  */
-export async function forYou(type: MediaType, page: number, lib: LibItem[], salt: number): Promise<{ items: BrowseItem[]; more: boolean; notice?: string }> {
+export async function forYou(type: BrowseType, page: number, lib: LibItem[], salt: number): Promise<{ items: BrowseItem[]; more: boolean; notice?: string }> {
+  if (type === "all") {
+    const [m, t] = await Promise.all([forYou("movie", page, lib, salt), forYou("tv", page, lib, salt)]);
+    return { items: interleave(m.items, t.items), more: m.more || t.more, notice: m.notice ?? t.notice };
+  }
   const seeds = pickSeeds(lib, type, salt);
   if (!seeds.length) {
     const r = await browse("popular", type, page);

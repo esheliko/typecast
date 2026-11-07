@@ -35,6 +35,7 @@ export default function BrowseFilters({ q, genres, canFilterMine, active }: { q:
       {pending && <span className="small muted"><span className="spin" />Updating</span>}
       <label className="l" style={{ marginTop: 0 }}>Genre</label>
       <div className="chips" role="group" aria-label="Genre">
+        {q.type === "all" && <span className="small muted">Pick Films or Series to filter by genre.</span>}
         {genres.map((g) => <button key={g.id} type="button" className="chip" aria-pressed={q.genres.includes(g.id)} onClick={() => toggleGenre(g.id)}>{g.name}</button>)}
       </div>
 
@@ -70,7 +71,7 @@ export default function BrowseFilters({ q, genres, canFilterMine, active }: { q:
 
       <div className="chips" style={{ marginTop: 14 }}>
         {canFilterMine && <button type="button" className="chip" aria-pressed={q.mine} onClick={() => go({ mine: !q.mine })}>On my streaming services</button>}
-        {active && <button type="button" className="chip" onClick={() => start(() => router.replace(q.type === "tv" ? "/?type=tv" : "/", { scroll: false }))}>Clear all</button>}
+        {active && <button type="button" className="chip" onClick={() => start(() => router.replace(q.type === "all" ? "/" : `/?type=${q.type}`, { scroll: false }))}>Clear all</button>}
       </div>
     </section>
   );

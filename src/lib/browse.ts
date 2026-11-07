@@ -1,4 +1,4 @@
-import type { MediaType } from "./types";
+import type { BrowseType } from "./types";
 
 /** Pure helpers shared by the server (parsing, TMDB calls) and the browser (filter UI). */
 
@@ -13,7 +13,7 @@ export const SORTS: { value: Sort; label: string }[] = [
 export const RATINGS = [0, 6, 7, 8] as const;
 
 export interface BrowseQuery {
-  type: MediaType;
+  type: BrowseType;
   genres: number[];
   from: string; // 4-digit year or ""
   to: string;
@@ -58,7 +58,7 @@ export function parseBrowse(p: Params): BrowseQuery {
   let from = year(one(p, "from")), to = year(one(p, "to"));
   if (from && to && from > to) [from, to] = [to, from];
   return {
-    type: one(p, "type") === "tv" ? "tv" : "movie",
+    type: one(p, "type") === "tv" ? "tv" : one(p, "type") === "movie" ? "movie" : "all",
     genres: [...new Set(all(p, "genre").map(Number).filter((n) => Number.isInteger(n) && n > 0))].slice(0, 6),
     from, to,
     people: tags(p, "person"), companies: tags(p, "company"), keywords: tags(p, "keyword"),
@@ -71,7 +71,7 @@ export function parseBrowse(p: Params): BrowseQuery {
 /** Only non-default values, so an untouched page has an empty query string. */
 export function toParams(q: BrowseQuery): URLSearchParams {
   const u = new URLSearchParams();
-  if (q.type === "tv") u.set("type", "tv");
+  if (q.type !== "all") u.set("type", q.type);
   q.genres.forEach((g) => u.append("genre", String(g)));
   if (q.from) u.set("from", q.from);
   if (q.to) u.set("to", q.to);
@@ -86,3 +86,10 @@ export function toParams(q: BrowseQuery): URLSearchParams {
 
 /** True once the user has chosen anything: then we show results instead of the trending shelf. */
 export const isActive = (q: BrowseQuery) => toParams(q).size > 0;
+
+/** Alternate items from two lists (films, series) so a mixed page shows both kinds, dropping repeats. */
+export function interleave<T extends { key: string }>(a: T[], b: T[]): T[] {
+  const out: T[] = [], seen = new Set<string>();
+  for (let i = 0; i < Math.max(a.length, b.length); i++) for (const x of [a[i], b[i]]) if (x && !seen.has(x.key)) { seen.add(x.key); out.push(x); }
+  return out;
+}

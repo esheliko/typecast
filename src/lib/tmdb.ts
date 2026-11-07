@@ -1,5 +1,5 @@
-import type { BrowseQuery, Tag } from "./browse";
-import type { BrowseItem, BrowseList, CastMember, Credit, Item, MediaType, Person, ProviderGroup, Related, SearchHit, Title } from "./types";
+import { interleave, type BrowseQuery, type Tag } from "./browse";
+import type { BrowseItem, BrowseList, BrowseType, CastMember, Credit, Item, MediaType, Person, ProviderGroup, Related, SearchHit, Title } from "./types";
 
 const BASE = process.env.TMDB_BASE_URL ?? "https://api.themoviedb.org/3";
 const HOUR = 3600;
@@ -50,7 +50,11 @@ export async function search(q: string, kind: "all" | "person" | "title" = "all"
 const daysFrom = (n: number) => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10);
 
 /** One page of a quick list (Trending, Popular…). Detailed filtering goes through discover() below. */
-export async function browse(list: BrowseList, type: MediaType, page: number): Promise<{ items: BrowseItem[]; more: boolean }> {
+export async function browse(list: BrowseList, type: BrowseType, page: number): Promise<{ items: BrowseItem[]; more: boolean }> {
+  if (type === "all") {
+    const [m, t] = await Promise.all([browse(list, "movie", page), browse(list, "tv", page)]);
+    return { items: interleave(m.items, t.items), more: m.more || t.more };
+  }
   const date = type === "movie" ? "primary_release_date" : "first_air_date";
   const params: Record<string, string> = { page: String(page) };
   const path = list === "soon" ? `/discover/${type}`
@@ -191,9 +195,16 @@ export const browseItem = (type: MediaType, r: any): BrowseItem => ({ ...item(ty
  */
 export async function discover(q: BrowseQuery, page: number, region: string, services: number[]): Promise<BrowsePage> {
   page = Math.min(Math.max(1, Math.floor(page) || 1), 500);
+  if (q.type === "all") {
+    // Genre ids differ between films and series, so a mixed search ignores them.
+    const both = { ...q, genres: [] };
+    const [m, t] = await Promise.all([discover({ ...both, type: "movie" }, page, region, services), discover({ ...both, type: "tv" }, page, region, services)]);
+    return { items: interleave(m.items, t.items), page, totalPages: Math.max(m.totalPages, t.totalPages), notice: m.notice ?? t.notice };
+  }
   if (q.type === "tv" && q.people.length) return tvByPeople(q, page);
 
-  const movie = q.type === "movie";
+  const type: MediaType = q.type;
+  const movie = type === "movie";
   const date = movie ? "primary_release_date" : "first_air_date";
   const sortBy = { popular: "popularity.desc", rating: "vote_average.desc", newest: `${date}.desc`, oldest: `${date}.asc` }[q.sort];
   const p: Record<string, string> = { sort_by: sortBy, page: String(page), include_adult: "false" };
@@ -209,8 +220,8 @@ export async function discover(q: BrowseQuery, page: number, region: string, ser
   if (q.mine && services.length) {
     p.watch_region = region; p.with_watch_providers = services.join("|"); p.with_watch_monetization_types = "flatrate|free|ads";
   }
-  const d = await tmdb(`/discover/${q.type}`, p, HOUR);
-  return { items: (d.results ?? []).map((r: any) => browseItem(q.type, r)), page, totalPages: Math.min(d.total_pages ?? 1, 500) };
+  const d = await tmdb(`/discover/${type}`, p, HOUR);
+  return { items: (d.results ?? []).map((r: any) => browseItem(type, r)), page, totalPages: Math.min(d.total_pages ?? 1, 500) };
 }
 
 async function tvByPeople(q: BrowseQuery, page: number): Promise<BrowsePage> {
