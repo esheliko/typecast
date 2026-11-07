@@ -1,3 +1,4 @@
+import { AwardChip } from "@/components/AwardChip";
 import { awardName, getAwards, hasAwards, type AwardEntry, type AwardGroup, type Awards } from "@/lib/awards";
 import type { Title } from "@/lib/types";
 
@@ -12,17 +13,19 @@ function Trophy() {
 }
 
 /** The few chips worth showing at a glance. Oscars lead; series fall back to Emmys; anything else is one "other wins" count. */
-function chips(a: Awards): { text: string; win: boolean; tip: string }[] {
-  const out: { text: string; win: boolean; tip: string }[] = [];
+type Chip = { text: string; win: boolean; tip: string; groups: string[] };
+function chips(a: Awards): Chip[] {
+  const out: Chip[] = [];
   const lead = a.oscars.won + a.oscars.nominated > 0 ? { n: a.oscars, name: "Oscar", fam: "Academy Award" }
     : a.emmys.won + a.emmys.nominated > 0 ? { n: a.emmys, name: "Emmy", fam: "Primetime Emmy Award" } : null;
   if (lead) {
     const { n, name } = lead;
-    if (n.won) out.push({ text: plural(n.won, name), win: true, tip: `Won ${plural(n.won, name)}${n.nominated ? `, plus ${plural(n.nominated, "more nomination")}` : ""}` });
-    if (n.nominated) out.push({ text: n.won ? `+${n.nominated} nominated` : plural(n.nominated, `${name} nomination`), win: false, tip: plural(n.nominated, `${name} nomination`) });
+    if (n.won) out.push({ text: plural(n.won, name), win: true, tip: `Won ${plural(n.won, name)}${n.nominated ? `, plus ${plural(n.nominated, "more nomination")}` : ""}`, groups: [lead.fam] });
+    if (n.nominated) out.push({ text: n.won ? `+${n.nominated} nominated` : plural(n.nominated, `${name} nomination`), win: false, tip: plural(n.nominated, `${name} nomination`), groups: [lead.fam] });
   }
-  const other = a.groups.filter((g) => g.name !== lead?.fam).reduce((s, g) => s + g.won.length, 0);
-  if (other) out.push({ text: plural(other, "other win"), win: false, tip: "Wins at other award bodies, listed under Awards below" });
+  const others = a.groups.filter((g) => g.name !== lead?.fam && g.won.length);
+  const other = others.reduce((s, g) => s + g.won.length, 0);
+  if (other) out.push({ text: plural(other, "other win"), win: false, tip: "Wins at other award bodies", groups: others.map((g) => g.name) });
   return out;
 }
 
@@ -34,7 +37,7 @@ export async function AwardChips({ t }: { t: Title }) {
   if (!list.length) return null;
   return (
     <div className="aw-chips" aria-label="Awards">
-      {list.map((c) => <span key={c.text} className={`aw-chip${c.win ? " win" : ""}`} title={c.tip}>{c.win && <Trophy />}{c.text}</span>)}
+      {list.map((c) => <AwardChip key={c.text} groups={c.groups} win={c.win} tip={c.tip}>{c.win && <Trophy />}{c.text}</AwardChip>)}
     </div>
   );
 }
@@ -56,7 +59,7 @@ function Entries({ list, won }: { list: AwardEntry[]; won: boolean }) {
 
 function Group({ g, open }: { g: AwardGroup; open: boolean }) {
   return (
-    <details className="cw aw-g" open={open}>
+    <details className="cw aw-g" open={open} data-aw={g.name}>
       <summary>{awardName(g.name)}<span className="cw-n">{g.won.length ? `${g.won.length} won` : `${g.nominated.length} nominated`}</span></summary>
       <Entries list={g.won} won />
       <Entries list={g.nominated} won={false} />
@@ -64,17 +67,17 @@ function Group({ g, open }: { g: AwardGroup; open: boolean }) {
   );
 }
 
-/** The full list, grouped by award body. Oscars (or the biggest body) open, the rest folded away. */
+/** The full list, grouped by award body. Only the Oscars start open; everything else is folded away. */
 export async function AwardsSection({ t }: { t: Title }) {
   const a = await getAwards(t.imdbId);
   if (!hasAwards(a)) return null;
   return (
-    <>
+    <div data-aw-section>
       <h2>Awards</h2>
       <div className="card pad">
-        {a.groups.map((g, i) => <Group key={g.name} g={g} open={i === 0} />)}
+        {a.groups.map((g) => <Group key={g.name} g={g} open={g.name === "Academy Award"} />)}
         <p className="muted small" style={{ margin: "10px 0 0" }}>From Wikidata, so older or smaller awards may be missing.</p>
       </div>
-    </>
+    </div>
   );
 }

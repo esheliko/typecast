@@ -461,3 +461,6 @@ button:not([disabled]):active, a.row:active, a.tab:active, .person-chip:active, 
 .aw-list li.win .aw-k { color: var(--gold); }
 .aw-c { min-width: 0; overflow-wrap: anywhere; }
 .aw-y { margin-left: auto; flex: none; font: 400 12px var(--mono); color: var(--muted); }
+button.aw-chip { border: 0; cursor: pointer; }
+button.aw-chip:hover { filter: brightness(1.08); }
+[data-aw-section] { scroll-margin-top: 8px; }
