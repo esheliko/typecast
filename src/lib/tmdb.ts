@@ -105,14 +105,19 @@ export async function getEpisode(tv: number, s: number, e: number) {
 }
 
 export async function getProviders(cc: string) {
-  const [m, t] = await Promise.all([
+  // Regional lists first (accurate order for this country), then TMDB's global list so services
+  // TMDB has not tagged for this region (e.g. Disney+, Israeli services) can still be picked.
+  const [m, t, gm, gt] = await Promise.all([
     tmdb("/watch/providers/movie", { watch_region: cc }, 24 * HOUR),
     tmdb("/watch/providers/tv", { watch_region: cc }, 24 * HOUR),
+    tmdb("/watch/providers/movie", {}, 24 * HOUR).catch(() => ({ results: [] })),
+    tmdb("/watch/providers/tv", {}, 24 * HOUR).catch(() => ({ results: [] })),
   ]);
   const map = new Map<number, { id: number; name: string; pri: number }>();
-  for (const d of [m, t]) for (const p of d.results ?? []) {
+  for (const [d, regional] of [[m, true], [t, true], [gm, false], [gt, false]] as const) for (const p of d.results ?? []) {
+    const pri: number = regional ? p.display_priority : (p.display_priorities?.[cc] ?? 100 + (p.display_priority ?? 0));
     const o = map.get(p.provider_id);
-    if (!o || p.display_priority < o.pri) map.set(p.provider_id, { id: p.provider_id, name: p.provider_name, pri: p.display_priority });
+    if (!o || pri < o.pri) map.set(p.provider_id, { id: p.provider_id, name: p.provider_name, pri });
   }
   return [...map.values()].sort((a, b) => a.pri - b.pri);
 }

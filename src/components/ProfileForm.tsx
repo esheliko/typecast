@@ -34,7 +34,7 @@ export default function ProfileForm({ initial }: { initial: Profile }) {
   }
 
   const term = q.trim().toLowerCase();
-  const show = (list ?? []).filter((p) => (term ? p.name.toLowerCase().includes(term) : services.includes(p.id) || p.pri < 25 || PINNED.has(p.name.toLowerCase()))).slice(0, 60);
+  const show = (list ?? []).filter((p) => (term ? p.name.toLowerCase().includes(term) : services.includes(p.id) || p.pri < 25 || PINNED.has(p.name.toLowerCase()))).slice(0, 80);
   return (
     <div className="card pad" aria-busy={pending}>
       <label className="l" htmlFor="cc">Country</label>
