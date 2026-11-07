@@ -24,6 +24,7 @@ Next.js 15 (App Router) + Supabase (email/password auth, RLS) + TMDB. See README
 - `src/middleware.ts` gates every route except `/login` and `/offline`; API routes return 401 JSON when signed out.
 - `public/sw.js` caches only static assets and TMDB images; pages are always network-first. Bump the cache names when changing caching rules.
 - Schema changes go in a new numbered file under `supabase/migrations/` (keep them re-runnable).
+- Titles open as a popup over the current page: `src/app/(app)/@modal/(.)title/…` intercepts soft navigation to `/title/…` (hard loads still get the full page). Link to titles with `TitleLink` (`components/Modal.tsx`), never a bare `Link`. The marks (`LibProvider`) live in `(app)/layout.tsx` so the popup, Browse and Library share them.
 - `artifact.html` is the legacy single-file prototype, not part of the site.
 
 ## Known gaps

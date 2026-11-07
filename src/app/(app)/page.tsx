@@ -4,7 +4,7 @@ import { isActive, parseBrowse } from "@/lib/browse";
 import { getLibrary, getProfile } from "@/lib/library";
 import { forYou } from "@/lib/foryou";
 import { browse, discover, genreList, getPerson, getTitle } from "@/lib/tmdb";
-import type { BrowseList, Mark } from "@/lib/types";
+import type { BrowseList } from "@/lib/types";
 
 const LISTS: BrowseList[] = ["foryou", "trending", "popular", "top", "new", "soon"];
 type SP = Promise<Record<string, string | string[] | undefined>>;
@@ -42,14 +42,13 @@ export default async function Home({ searchParams }: { searchParams: SP }) {
     : (list === "foryou" ? forYou(filters.type, 1, lib, salt) : browse(list, filters.type, 1)).then((r) => ({ ...r, page: 1 }))
   ).catch(() => null);
 
-  const marks: Record<string, Mark> = Object.fromEntries(lib.map((l) => [l.key, { status: l.status, priority: l.priority, rich: l.rating > 0 || !!l.note.trim() }]));
   const watching = lib.filter((l) => l.status === "watching").map((l) => ({
     key: l.key, type: l.type, id: l.id, title: l.title, year: l.year, poster: l.poster, rating: 0,
     sub: l.progress ? `S${l.progress.s} E${l.progress.e}` : l.year,
   }));
   const view = one(sp.view) === "connect" || connect.a ? "connect" : "browse";
   return (
-    <CastHome marks={marks} view={view} connect={connect} watching={watching}
+    <CastHome view={view} connect={connect} watching={watching}
       browse={{ filters, filtered, list, salt, first, genres: { movie: gm, tv: gt }, canFilterMine: profile.services.length > 0 }} />
   );
 }

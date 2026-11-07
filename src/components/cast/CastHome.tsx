@@ -1,14 +1,12 @@
 "use client";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Search from "../Search";
 import Browse, { Poster, type BrowseProps } from "./Browse";
 import Connect, { type Mode } from "./Connect";
-import { LibProvider } from "./LibState";
-import type { BrowseItem, Item, Mark, PersonLite } from "@/lib/types";
+import type { BrowseItem, Item, PersonLite } from "@/lib/types";
 
 export type View = "browse" | "connect";
 export interface HomeProps {
-  marks: Record<string, Mark>;
   view: View;
   browse: BrowseProps;
   connect: { mode: Mode; a: { kind: "person"; p: PersonLite } | { kind: "title"; t: Item } | null };
@@ -16,11 +14,15 @@ export interface HomeProps {
   watching: (BrowseItem & { sub: string })[];
 }
 
-export default function CastHome({ marks, view: initialView, browse, connect, watching }: HomeProps) {
+export default function CastHome({ view: initialView, browse, connect, watching }: HomeProps) {
   const [view, setView] = useState<View>(initialView);
   const [searching, setSearching] = useState(false);
   const [connectOpened, setConnectOpened] = useState(initialView === "connect");
   const onActive = useCallback((on: boolean) => setSearching(on), []);
+
+  // The title popup can link back here (Compare this cast…) while this page stays mounted, so follow new links in.
+  const aKey = connect.a ? (connect.a.kind === "person" ? `p${connect.a.p.id}` : connect.a.t.key) : "";
+  useEffect(() => { if (initialView === "connect") { setView("connect"); setConnectOpened(true); } }, [initialView, aKey]);
 
   function go(v: View) {
     setView(v);
@@ -31,7 +33,7 @@ export default function CastHome({ marks, view: initialView, browse, connect, wa
   }
 
   return (
-    <LibProvider initial={marks}>
+    <>
       <div className="page cast-home">
         <Search onActive={onActive} />
         <div hidden={searching}>
@@ -48,9 +50,9 @@ export default function CastHome({ marks, view: initialView, browse, connect, wa
               </>
             )}
             <Browse {...browse} /></div>
-          <div hidden={view !== "connect"}>{connectOpened ? <Connect initialMode={connect.mode} initialA={connect.a} /> : null}</div>
+          <div hidden={view !== "connect"}>{connectOpened ? <Connect key={aKey} initialMode={connect.mode} initialA={connect.a} /> : null}</div>
         </div>
       </div>
-    </LibProvider>
+    </>
   );
 }

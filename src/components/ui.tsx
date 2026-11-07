@@ -1,5 +1,5 @@
-import Link from "next/link";
-import { img, typeLabel, href } from "@/lib/img";
+import { TitleLink } from "./Modal";
+import { img, typeLabel } from "@/lib/img";
 import { STATUS_LABEL, type Item, type LibItem } from "@/lib/types";
 
 export function Pill({ lib }: { lib?: LibItem | null }) {
@@ -18,13 +18,13 @@ export function Avatar({ photo, name }: { photo: string | null; name: string }) 
 
 export function TitleRow({ it, lib, sub, small }: { it: Item; lib?: LibItem | null; sub?: string; small?: boolean }) {
   return (
-    <Link className="row" href={href(it.key)}>
+    <TitleLink className="row" k={it.key}>
       <Thumb path={it.poster} />
       <span className="row-main">
         <span className="row-title" style={small ? { fontSize: 17 } : undefined}>{it.title}</span>
         <span className="row-sub">{it.year} · {typeLabel(it.type)}{sub ? ` · ${sub}` : ""}</span>
       </span>
       <Pill lib={lib} />
-    </Link>
+    </TitleLink>
   );
 }

@@ -6,8 +6,8 @@ import { PRIORITY_LABEL, STATUS_LABEL, type Item, type Mark, type Priority, type
 interface Ctx {
   get: (key: string) => Mark | undefined;
   mark: (it: Item, status: Status | null, priority?: Priority) => void;
-  /** Keys marked when the page loaded. Browse hides these, but not titles marked in this visit, so the grid does not shift under your thumb. */
-  seen: ReadonlySet<string>;
+  /** Keys marked right now. Browse snapshots this when it opens: it hides those, but not titles marked later in the visit, so the grid does not shift under your thumb. */
+  marked: () => Set<string>;
   /** Titles skipped with "Not interested". Saved on this device. */
   skipped: ReadonlySet<string>;
   skip: (it: Item) => void;
@@ -32,7 +32,6 @@ interface Toast { id: number; msg: string; undo?: () => void; err?: boolean }
 export function LibProvider({ initial, children }: { initial: Record<string, Mark>; children: React.ReactNode }) {
   const [over, setOver] = useState<Record<string, Mark | null>>({});
   const [toast, setToast] = useState<Toast | null>(null);
-  const [seen] = useState<ReadonlySet<string>>(() => new Set(Object.keys(initial)));
   const [skipped, setSkipped] = useState<ReadonlySet<string>>(new Set());
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const live = useRef(initial); live.current = initial;
@@ -49,6 +48,12 @@ export function LibProvider({ initial, children }: { initial: Record<string, Mar
   useEffect(() => () => clearTimeout(timer.current), []);
   useEffect(() => {
     try { const raw = JSON.parse(localStorage.getItem(SKIP_KEY) ?? "[]"); if (Array.isArray(raw)) setSkipped(new Set(raw.filter((x) => typeof x === "string"))); } catch { /* storage unavailable */ }
+  }, []);
+
+  const marked = useCallback(() => {
+    const keys = new Set(Object.keys(live.current));
+    for (const [k, v] of Object.entries(overRef.current)) { if (v) keys.add(k); else keys.delete(k); }
+    return keys;
   }, []);
 
   const get = useCallback((key: string) => (key in over ? over[key] ?? undefined : initial[key]), [over, initial]);
@@ -93,7 +98,7 @@ export function LibProvider({ initial, children }: { initial: Record<string, Mar
   }, [show, writeSkipped]);
 
   return (
-    <LibCtx.Provider value={{ get, mark, seen, skipped, skip }}>
+    <LibCtx.Provider value={{ get, mark, marked, skipped, skip }}>
       {children}
       <div className="toast-slot" aria-live="polite">
         {toast && (

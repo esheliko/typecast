@@ -3,7 +3,8 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { Avatar, Thumb } from "../ui";
 import QuickMark from "./QuickMark";
-import { href, typeLabel } from "@/lib/img";
+import { TitleLink } from "../Modal";
+import { typeLabel } from "@/lib/img";
 import type { Item, PeopleLink, PersonLite, Regular, SearchHit, TitlesLink } from "@/lib/types";
 
 export type Mode = "people" | "titles";
@@ -63,13 +64,13 @@ function PeopleResult({ r }: { r: PeopleLink }) {
       <div className="card"><ul className="rows">
         {r.shared.map((s) => (
           <li key={s.key} className="row">
-            <Link href={href(s.key)} className="row-link"><Thumb path={s.poster} />
+            <TitleLink k={s.key} className="row-link"><Thumb path={s.poster} />
               <span className="row-main">
                 <span className="row-title" style={{ fontSize: 17 }}>{s.title}</span>
                 <span className="row-sub">{s.year} · {typeLabel(s.type)}</span>
                 <span className="row-sub"><b>{r.a.name}</b>{s.roles[0] ? ` as ${s.roles[0]}` : ""} · <b>{r.b.name}</b>{s.roles[1] ? ` as ${s.roles[1]}` : ""}</span>
               </span>
-            </Link>
+            </TitleLink>
             <QuickMark it={s} variant="inline" />
           </li>
         ))}
@@ -87,8 +88,8 @@ function PeopleResult({ r }: { r: PeopleLink }) {
               <li key={x.person.id} className="bridge">
                 <Link href={`/person/${x.person.id}`} className="bridge-who"><Avatar photo={x.person.photo} name={x.person.name} /><span className="row-title" style={{ fontSize: 17 }}>{x.person.name}</span></Link>
                 <div className="bridge-via">
-                  <Link href={href(x.viaA.key)}>with {r.a.name} in <b>{x.viaA.title}</b>{x.viaA.year ? ` (${x.viaA.year})` : ""}</Link>
-                  <Link href={href(x.viaB.key)}>with {r.b.name} in <b>{x.viaB.title}</b>{x.viaB.year ? ` (${x.viaB.year})` : ""}</Link>
+                  <TitleLink k={x.viaA.key}>with {r.a.name} in <b>{x.viaA.title}</b>{x.viaA.year ? ` (${x.viaA.year})` : ""}</TitleLink>
+                  <TitleLink k={x.viaB.key}>with {r.b.name} in <b>{x.viaB.title}</b>{x.viaB.year ? ` (${x.viaB.year})` : ""}</TitleLink>
                 </div>
               </li>
             ))}

@@ -1,12 +1,12 @@
 "use client";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import BrowseFilters from "../BrowseFilters";
+import { TitleLink } from "../Modal";
 import { useLib } from "./LibState";
 import QuickMark from "./QuickMark";
 import { toParams, type BrowseQuery, type Tag } from "@/lib/browse";
-import { href, img } from "@/lib/img";
+import { img } from "@/lib/img";
 import type { BrowseItem, BrowseList, BrowseType, MediaType } from "@/lib/types";
 
 const LISTS: { k: BrowseList; label: string; tv?: string }[] = [
@@ -55,7 +55,8 @@ export default function Browse({ filters, filtered, list: initialList, salt, fir
   const [state, setState] = useState<"idle" | "loading" | "error">("idle");
   const [error, setError] = useState("");
   const seq = useRef(0);
-  const { seen, skipped } = useLib();
+  const { marked, skipped } = useLib();
+  const [seen] = useState(() => marked());
   // Marked and skipped titles are hidden unless you turn that off; the choice is remembered on this device.
   useEffect(() => { try { if (localStorage.getItem("typecast.hide") === "0") setHideState(false); } catch { /* storage unavailable */ } }, []);
   const setHide = (v: boolean) => { setHideState(v); autoRuns.current = 0; try { localStorage.setItem("typecast.hide", v ? "1" : "0"); } catch { /* storage unavailable */ } };
@@ -165,18 +166,18 @@ export function Poster({ it, sub, skippable }: { it: BrowseItem; sub?: string; s
   return (
     <div className={`pc${s ? ` is-${s}` : ""}`}>
       <div className="pc-art">
-        <Link href={href(it.key)} tabIndex={-1} aria-hidden="true">
+        <TitleLink k={it.key} tabIndex={-1} aria-hidden="true">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           {it.poster ? <img className="pc-img" src={img(it.poster, "w342")} alt="" loading="lazy" /> : <span className="pc-img ph"><span>{it.title}</span></span>}
-        </Link>
+        </TitleLink>
         {s === "watching" && <span className="pc-flag">Watching</span>}
         {skippable && !s && <button type="button" className="pc-x" onClick={() => skip(it)} aria-label={`Not interested in ${it.title}`} title="Not interested">×</button>}
         <QuickMark it={it} />
       </div>
-      <Link href={href(it.key)} className="pc-link">
+      <TitleLink k={it.key} className="pc-link">
         <span className="pc-t">{it.title}</span>
         <span className="pc-s">{sub ?? [it.year || "TBA", it.rating ? `★ ${it.rating.toFixed(1)}` : ""].filter(Boolean).join(" · ")}</span>
-      </Link>
+      </TitleLink>
     </div>
   );
 }

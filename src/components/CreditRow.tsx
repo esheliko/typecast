@@ -1,10 +1,10 @@
 import Link from "next/link";
-import { href, typeLabel } from "@/lib/img";
-import { Avatar, Thumb } from "./ui";
+import MarkRow from "./cast/MarkRow";
+import { Avatar } from "./ui";
 import type { CastMember, EnrichedMember } from "@/lib/types";
 
 /** One cast line. Tap to open their best-known credits (a native <details>, so it needs no JavaScript). */
-export function CreditRow({ c, libKeys }: { c: EnrichedMember; libKeys: Record<string, string> }) {
+export function CreditRow({ c }: { c: EnrichedMember; libKeys?: Record<string, string> }) {
   return (
     <li className="credit" data-q={`${c.name} ${c.role}`.toLowerCase()}>
       <details>
@@ -14,16 +14,7 @@ export function CreditRow({ c, libKeys }: { c: EnrichedMember; libKeys: Record<s
         </summary>
         <div className="more">
           {c.top.length === 0 && <span className="muted small">No other credits found.</span>}
-          {c.top.map((k) => (
-            <Link key={k.key} className="row" href={href(k.key)}>
-              <Thumb path={k.poster} w={92} />
-              <span className="row-main">
-                <span className="row-title" style={{ fontSize: 16 }}>{k.title}</span>
-                <span className="row-sub">{k.year} · {typeLabel(k.type)}{k.role ? ` · ${k.role}` : ""}</span>
-              </span>
-              {libKeys[k.key] && <span className={`pill ${libKeys[k.key]}`}>{libKeys[k.key] === "watchlist" ? "To watch" : libKeys[k.key]}</span>}
-            </Link>
-          ))}
+          {c.top.map((k) => <MarkRow key={k.key} it={k} sub={k.role} small />)}
           <Link className="btn sm" href={`/person/${c.id}`} style={{ marginTop: 8 }}>Full profile</Link>
         </div>
       </details>
