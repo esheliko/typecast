@@ -47,8 +47,13 @@ function countFilters(q: BrowseQuery) {
  * The browse grid. Quick lists (Trending, Popular…) switch instantly on the client; detailed filters go through the URL
  * and the server. Either way every poster has one-tap Watched / To watch, and the grid keeps loading as you scroll.
  */
-export default function Browse({ filters, filtered, list: initialList, salt, first, genres, canFilterMine }: BrowseProps) {
+const SNAP = "tc:browse";
+interface Snap { url: string; salt: number; list: BrowseList; type: BrowseType; pages: Record<string, Page>; y: number; t: number }
+
+export default function Browse({ filters, filtered, list: initialList, salt: serverSalt, first, genres, canFilterMine }: BrowseProps) {
   const router = useRouter();
+  // The "For you" seed. Kept in state (and in a snapshot while a title is open) so coming back never reshuffles the grid.
+  const [salt, setSalt] = useState(serverSalt);
   const [routing, startRoute] = useTransition();
   const [type, setType] = useState<BrowseType>(filters.type);
   const [list, setList] = useState<BrowseList>(initialList);
@@ -66,13 +71,42 @@ export default function Browse({ filters, filtered, list: initialList, salt, fir
   // Snapshotted once, so what you scroll past now only takes effect on your next visit and the grid never shifts under you.
   // The dice are seeded once per mount, not from the `salt` prop: every mark refreshes the page on the server, which hands
   // down a new salt, and re-rolling then would make passed-over titles pop out of the grid under your thumb.
-  const [fadeSeed] = useState(salt);
+  const [fadeSeed, setFadeSeed] = useState(serverSalt);
   const [passed, setPassed] = useState<Passed>(() => new Map());
   useLayoutEffect(() => { setPassed(loadPassed()); }, []);
   // Marked and skipped titles are hidden unless you turn that off; the choice is remembered on this device.
   useEffect(() => { try { if (localStorage.getItem("typecast.hide") === "0") setHideState(false); } catch { /* storage unavailable */ } }, []);
   const setHide = (v: boolean) => { setHideState(v); autoRuns.current = 0; try { localStorage.setItem("typecast.hide", v ? "1" : "0"); } catch { /* storage unavailable */ } };
   const autoRuns = useRef(0);
+
+  // Opening a title (popup, or the full page if the popup is bypassed) can rebuild this page on the way back. Snapshot the
+  // seed, loaded pages and scroll when a title is tapped, and put them back on the next mount for the same URL.
+  const live = useRef({ salt, list, type, pages: {} as Record<string, Page> });
+  live.current = { salt, list, type, pages };
+  useEffect(() => {
+    const onClick = (e: MouseEvent) => {
+      if (!(e.target as Element | null)?.closest?.('a[href^="/title/"]')) return;
+      const c = live.current;
+      const snap: Snap = { url: location.pathname + location.search, salt: c.salt, list: c.list, type: c.type, pages: c.pages, y: window.scrollY, t: Date.now() };
+      try { sessionStorage.setItem(SNAP, JSON.stringify(snap)); } catch { /* storage unavailable or full */ }
+    };
+    document.addEventListener("click", onClick, true);
+    return () => document.removeEventListener("click", onClick, true);
+  }, []);
+  useLayoutEffect(() => {
+    let snap: Snap | null = null;
+    try { const raw = sessionStorage.getItem(SNAP); if (raw) { snap = JSON.parse(raw); sessionStorage.removeItem(SNAP); } } catch { /* ignore */ }
+    if (!snap || snap.url !== location.pathname + location.search || Date.now() - snap.t > 30 * 60_000) return;
+    const s = snap;
+    setSalt(s.salt); setFadeSeed(s.salt); setList(s.list); setType(s.type); setPages((p) => ({ ...p, ...s.pages }));
+    const t0 = Date.now();
+    const step = () => {
+      const room = document.documentElement.scrollHeight - window.innerHeight;
+      if (room >= s.y || Date.now() - t0 > 2000) { window.scrollTo({ top: Math.min(s.y, Math.max(room, 0)), behavior: "instant" as ScrollBehavior }); return; }
+      requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }, []);
 
   // Filter changes arrive as new server props: adopt the server's first page and type.
   useEffect(() => { if (first) setPages((p) => (p[key] ? p : { ...p, [key]: first })); }, [key, first]);

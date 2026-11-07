@@ -15,7 +15,7 @@ export function FromProvider({ k, name, children }: { k: string; name: string; c
 /**
  * A link to a title page. Titles open as a popup over whatever page you are on (see app/(app)/@modal), so it never scrolls
  * the page behind. Inside the popup each title is a new history entry, so the popup's Back / Forward buttons walk through them
- * and Close returns to the page you came from. Hovering or touching a link warms the cache so the popup opens instantly.
+ * and Close returns to the page you came from. Prefetching is off on purpose: a prefetched entry can be reused without the "opened from this page" context, and the click then opens the full page instead of the popup.
  */
 /** What the popup can show before its details arrive: the title and poster of the thing you just tapped. */
 type Peek = { title: string; year?: string | number; poster?: string | null; src?: string };
@@ -23,12 +23,10 @@ const peeked = new Map<string, Peek>();
 
 export function TitleLink({ k, it, onClick, ...rest }: { k: string; it?: Peek } & Omit<ComponentProps<typeof Link>, "href" | "replace" | "scroll" | "prefetch">) {
   const from = useContext(FromTitle);
-  const [warm, setWarm] = useState(false);
   const url = from && from.key !== k ? `${href(k)}?${new URLSearchParams({ from: from.key, fn: from.name })}` : href(k);
-  const heat = () => setWarm(true);
   // Reuse the poster image already on screen (an exact cache hit) so the popup has art the moment it opens.
   const remember = (el: HTMLElement) => { if (it) peeked.set(k, { title: it.title, year: it.year, poster: it.poster, src: el.querySelector("img")?.currentSrc || undefined }); };
-  return <Link href={url} scroll={false} prefetch={warm ? true : null} onMouseEnter={heat} onFocus={heat} onTouchStart={heat}
+  return <Link href={url} scroll={false} prefetch={false}
     onClick={(e) => { remember(e.currentTarget); onClick?.(e); }} {...rest} />;
 }
 
