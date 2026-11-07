@@ -30,10 +30,12 @@ create index if not exists library_items_user_status on public.library_items (us
 alter table public.profiles enable row level security;
 alter table public.library_items enable row level security;
 
+drop policy if exists "own profile" on public.profiles;
 create policy "own profile" on public.profiles
   for all to authenticated
   using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
+drop policy if exists "own library" on public.library_items;
 create policy "own library" on public.library_items
   for all to authenticated
   using (auth.uid() = user_id) with check (auth.uid() = user_id);
