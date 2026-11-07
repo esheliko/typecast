@@ -32,7 +32,8 @@ export default function BrowseResults({ initial, page, totalPages, query, lib, n
       <div className="grid" aria-live="polite">
         {items.map((t) => (
           <Link key={t.key} className="tile" href={href(t.key)}>
-            {t.poster ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={img(t.poster, "w342")} alt="" loading="lazy" /> : <div className="ph" />}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            {t.poster ? <img src={img(t.poster, "w342")} alt="" loading="lazy" /> : <div className="ph" />}
             <span className="row-title">{t.title}</span>
             <span className="row-sub mono">{t.year || "TBA"} · {typeLabel(t.type)}{t.rating ? ` · ★ ${t.rating}` : ""}</span>
             {lib[t.key] && <span className={`pill ${lib[t.key]}`} style={{ alignSelf: "flex-start", marginTop: 4 }}>{STATUS_LABEL[lib[t.key]]}</span>}
