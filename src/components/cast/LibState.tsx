@@ -3,7 +3,15 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 import { setStatus } from "@/app/actions";
 import { PRIORITY_LABEL, STATUS_LABEL, type Item, type Mark, type Priority, type Status } from "@/lib/types";
 
-interface Ctx { get: (key: string) => Mark | undefined; mark: (it: Item, status: Status | null, priority?: Priority) => void }
+interface Ctx {
+  get: (key: string) => Mark | undefined;
+  mark: (it: Item, status: Status | null, priority?: Priority) => void;
+  /** Keys marked when the page loaded. Browse hides these, but not titles marked in this visit, so the grid does not shift under your thumb. */
+  seen: ReadonlySet<string>;
+  /** Titles skipped with "Not interested". Saved on this device. */
+  skipped: ReadonlySet<string>;
+  skip: (it: Item) => void;
+}
 const LibCtx = createContext<Ctx | null>(null);
 
 export function useLib() {
@@ -11,6 +19,9 @@ export function useLib() {
   if (!c) throw new Error("useLib outside LibProvider");
   return c;
 }
+
+const SKIP_KEY = "typecast.skipped";
+const SKIP_MAX = 3000;
 
 interface Toast { id: number; msg: string; undo?: () => void; err?: boolean }
 
@@ -21,9 +32,12 @@ interface Toast { id: number; msg: string; undo?: () => void; err?: boolean }
 export function LibProvider({ initial, children }: { initial: Record<string, Mark>; children: React.ReactNode }) {
   const [over, setOver] = useState<Record<string, Mark | null>>({});
   const [toast, setToast] = useState<Toast | null>(null);
+  const [seen] = useState<ReadonlySet<string>>(() => new Set(Object.keys(initial)));
+  const [skipped, setSkipped] = useState<ReadonlySet<string>>(new Set());
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const live = useRef(initial); live.current = initial;
   const overRef = useRef(over); overRef.current = over;
+  const skippedRef = useRef(skipped); skippedRef.current = skipped;
 
   useEffect(() => {
     setOver((o) => {
@@ -33,6 +47,9 @@ export function LibProvider({ initial, children }: { initial: Record<string, Mar
     });
   }, [initial]);
   useEffect(() => () => clearTimeout(timer.current), []);
+  useEffect(() => {
+    try { const raw = JSON.parse(localStorage.getItem(SKIP_KEY) ?? "[]"); if (Array.isArray(raw)) setSkipped(new Set(raw.filter((x) => typeof x === "string"))); } catch { /* storage unavailable */ }
+  }, []);
 
   const get = useCallback((key: string) => (key in over ? over[key] ?? undefined : initial[key]), [over, initial]);
 
@@ -66,8 +83,17 @@ export function LibProvider({ initial, children }: { initial: Record<string, Mar
     });
   }, [save, show]);
 
+  const writeSkipped = useCallback((next: Set<string>) => {
+    setSkipped(next);
+    try { localStorage.setItem(SKIP_KEY, JSON.stringify([...next].slice(-SKIP_MAX))); } catch { /* storage unavailable */ }
+  }, []);
+  const skip = useCallback((it: Item) => {
+    const next = new Set(skippedRef.current); next.add(it.key); skippedRef.current = next; writeSkipped(next);
+    show({ msg: `Hidden: ${it.title}`, undo: () => { setToast(null); const u = new Set(skippedRef.current); u.delete(it.key); skippedRef.current = u; writeSkipped(u); } });
+  }, [show, writeSkipped]);
+
   return (
-    <LibCtx.Provider value={{ get, mark }}>
+    <LibCtx.Provider value={{ get, mark, seen, skipped, skip }}>
       {children}
       <div className="toast-slot" aria-live="polite">
         {toast && (

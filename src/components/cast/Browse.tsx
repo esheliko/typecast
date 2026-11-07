@@ -44,7 +44,7 @@ export default function Browse({ filters, filtered, list: initialList, first, ge
   const [routing, startRoute] = useTransition();
   const [type, setType] = useState<MediaType>(filters.type);
   const [list, setList] = useState<BrowseList>(initialList);
-  const [hide, setHide] = useState(false);
+  const [hide, setHideState] = useState(true);
   const [panel, setPanel] = useState(filtered);
   const key = filtered ? `f:${toParams(filters)}` : `l:${type}/${list}`;
 
@@ -52,7 +52,11 @@ export default function Browse({ filters, filtered, list: initialList, first, ge
   const [state, setState] = useState<"idle" | "loading" | "error">("idle");
   const [error, setError] = useState("");
   const seq = useRef(0);
-  const { get } = useLib();
+  const { seen, skipped } = useLib();
+  // Marked and skipped titles are hidden unless you turn that off; the choice is remembered on this device.
+  useEffect(() => { try { if (localStorage.getItem("typecast.hide") === "0") setHideState(false); } catch { /* storage unavailable */ } }, []);
+  const setHide = (v: boolean) => { setHideState(v); autoRuns.current = 0; try { localStorage.setItem("typecast.hide", v ? "1" : "0"); } catch { /* storage unavailable */ } };
+  const autoRuns = useRef(0);
 
   // Filter changes arrive as new server props: adopt the server's first page and type.
   useEffect(() => { if (first) setPages((p) => (p[key] ? p : { ...p, [key]: first })); }, [key, first]);
@@ -108,8 +112,16 @@ export default function Browse({ filters, filtered, list: initialList, first, ge
     io.observe(el); return () => io.disconnect();
   }, [more]);
 
-  const shown = (data?.items ?? []).filter((i) => !hide || !get(i.key));
+  const shown = (data?.items ?? []).filter((i) => !hide || !(seen.has(i.key) || skipped.has(i.key)));
   const hiddenCount = (data?.items.length ?? 0) - shown.length;
+
+  // Hidden titles leave gaps, so keep fetching until the screen is full (a few pages at most, then the scroll takes over).
+  useEffect(() => { autoRuns.current = 0; }, [key]);
+  useEffect(() => {
+    const el = sentinel.current;
+    if (!el || !el.offsetParent || !data?.more || state !== "idle" || autoRuns.current >= 8) return;
+    if (el.getBoundingClientRect().top < window.innerHeight + 600) { autoRuns.current++; load(data.page + 1); }
+  }, [data, state, shown.length, load]);
   const n = countFilters(filters);
 
   return (
@@ -126,15 +138,15 @@ export default function Browse({ filters, filtered, list: initialList, first, ge
         <button type="button" className="chip sm filt" aria-expanded={panel} aria-pressed={n > 0} onClick={() => setPanel(!panel)}>
           Filters{n ? ` · ${n}` : ""} <span aria-hidden="true">{panel ? "▴" : "▾"}</span>
         </button>
-        <button type="button" className="chip sm" aria-pressed={hide} onClick={() => setHide(!hide)} title="Hide titles you have already marked">Hide marked</button>
+        <button type="button" className="chip sm" aria-pressed={hide} onClick={() => setHide(!hide)} title="Hide titles you have already marked or skipped">Hide marked{hide && hiddenCount > 0 ? ` · ${hiddenCount}` : ""}</button>
       </div>
       {panel && <BrowseFilters q={{ ...filters, type }} genres={genres[type]} canFilterMine={canFilterMine} active={filtered} />}
       {filtered && <h2>{routing ? <span><span className="spin" />Updating</span> : "Filtered results"}</h2>}
       {data?.notice && <p className="small muted" style={{ margin: "8px 0 0" }}>{data.notice}</p>}
 
-      {shown.length > 0 && <ul className="grid">{shown.map((it) => <li key={it.key}><Poster it={it} /></li>)}</ul>}
+      {shown.length > 0 && <ul className="grid">{shown.map((it) => <li key={it.key}><Poster it={it} skippable /></li>)}</ul>}
       {state === "idle" && data && shown.length === 0 && (
-        <p className="muted" style={{ marginTop: 20 }}>{hiddenCount ? `You have marked all ${hiddenCount} titles loaded so far.` : filtered ? "Nothing matches those filters. Try removing one." : "Nothing in this list."}</p>
+        <p className="muted" style={{ marginTop: 20 }}>{hiddenCount ? `You have already marked or skipped all ${hiddenCount} titles loaded so far.` : filtered ? "Nothing matches those filters. Try removing one." : "Nothing in this list."}</p>
       )}
       {state === "loading" && (data ? <p className="muted center"><span className="spin" />Loading more</p> : <ul className="grid">{Array.from({ length: 12 }, (_, i) => <li key={i}><div className="pc"><div className="pc-img sk" /></div></li>)}</ul>)}
       {state === "error" && <p className="err" style={{ marginTop: 16 }}>{error} <button className="btn sm" onClick={() => load(data ? data.page + 1 : 1)}>Try again</button></p>}
@@ -144,8 +156,9 @@ export default function Browse({ filters, filtered, list: initialList, first, ge
   );
 }
 
-export function Poster({ it, sub }: { it: BrowseItem; sub?: string }) {
-  const s = useLib().get(it.key)?.status;
+export function Poster({ it, sub, skippable }: { it: BrowseItem; sub?: string; skippable?: boolean }) {
+  const { get, skip } = useLib();
+  const s = get(it.key)?.status;
   return (
     <div className={`pc${s ? ` is-${s}` : ""}`}>
       <div className="pc-art">
@@ -154,6 +167,7 @@ export function Poster({ it, sub }: { it: BrowseItem; sub?: string }) {
           {it.poster ? <img className="pc-img" src={img(it.poster, "w342")} alt="" loading="lazy" /> : <span className="pc-img ph"><span>{it.title}</span></span>}
         </Link>
         {s === "watching" && <span className="pc-flag">Watching</span>}
+        {skippable && !s && <button type="button" className="pc-x" onClick={() => skip(it)} aria-label={`Not interested in ${it.title}`} title="Not interested">×</button>}
         <QuickMark it={it} />
       </div>
       <Link href={href(it.key)} className="pc-link">
