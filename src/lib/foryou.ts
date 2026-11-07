@@ -12,7 +12,7 @@ function rng(seed: number) { let a = seed >>> 0 || 1; return () => { a = (a * 16
 /** The titles that say most about taste: loved or must-watch first, then anything watched. Low-rated ones are left out. */
 function pickSeeds(lib: LibItem[], type: MediaType, salt: number) {
   const weighted = lib.filter((l) => l.type === type).map((l) => {
-    const w = l.status === "watched" || l.status === "watching" ? (l.rating >= 4 ? 3 : l.rating > 0 && l.rating <= 2 ? 0 : 1.5) : l.priority === "must" ? 2.5 : 0;
+    const w = l.status === "watched" || l.status === "watching" || l.status === "partial" ? (l.rating >= 4 ? 3 : l.rating > 0 && l.rating <= 2 ? 0 : 1.5) : l.priority === "must" ? 2.5 : 0;
     return { l, w };
   }).filter((x) => x.w > 0).sort((a, b) => b.w - a.w || b.l.added - a.l.added).slice(0, 30);
   const r = rng(salt);

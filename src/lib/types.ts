@@ -1,10 +1,10 @@
 export type MediaType = "movie" | "tv";
 /** What Browse shows: films, series, or both mixed together (the default). */
 export type BrowseType = MediaType | "all";
-export type Status = "watching" | "watchlist" | "watched";
+export type Status = "watching" | "partial" | "watchlist" | "watched";
 export type Priority = "someday" | "must";
 export const PRIORITY_LABEL: Record<Priority, string> = { someday: "Some day", must: "Must watch" };
-export const STATUS_LABEL: Record<Status, string> = { watching: "Watching", watchlist: "To watch", watched: "Watched" };
+export const STATUS_LABEL: Record<Status, string> = { watching: "Watching", partial: "Partly watched", watchlist: "To watch", watched: "Watched" };
 
 export interface Item { key: string; type: MediaType; id: number; title: string; year: string; poster: string | null }
 export interface BrowseItem extends Item { rating: number }

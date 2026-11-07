@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { requireUser, supabaseServer } from "@/lib/supabase/server";
 import type { MediaType, Priority, Status } from "@/lib/types";
 
-const STATUSES = ["watching", "watchlist", "watched"];
+const STATUSES = ["watching", "partial", "watchlist", "watched"];
 const where = (type: MediaType, id: number) => ({ tmdb_type: type, tmdb_id: id });
 const done = () => revalidatePath("/", "layout");
 

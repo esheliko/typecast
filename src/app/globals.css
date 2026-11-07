@@ -54,6 +54,7 @@ h2 { font: 600 13px var(--mono); letter-spacing: .12em; text-transform: uppercas
 .pill { display: inline-block; padding: 1px 9px; border-radius: 999px; background: var(--chip); font: 500 11px/1.7 var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
 .pill.watching { background: var(--gold-fill); color: var(--on-gold); }
 .pill.watched { color: var(--good); }
+.pill.partial { color: var(--ink); }
 .pill.watchlist { color: var(--ink); }
 .pill.must { background: var(--gold-fill); color: var(--on-gold); }
 .err { color: var(--bad); }

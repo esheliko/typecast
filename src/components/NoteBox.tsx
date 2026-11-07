@@ -16,7 +16,7 @@ export default function NoteBox({ type, id, initial, enabled }: { type: MediaTyp
   return (
     <div>
       <textarea id="note" aria-label="Notes" disabled={!enabled} value={text} onChange={(e) => change(e.target.value)} placeholder="Your thoughts, who recommended it, where you stopped" />
-      <p className="small muted" style={{ margin: "4px 0 0" }}>{enabled ? (saved ? "Saved" : "Saving…") : "Mark this title Watching, To watch or Watched to keep notes."}</p>
+      <p className="small muted" style={{ margin: "4px 0 0" }}>{enabled ? (saved ? "Saved" : "Saving…") : "Mark this title Watching, Partly watched, To watch or Watched to keep notes."}</p>
     </div>
   );
 }
