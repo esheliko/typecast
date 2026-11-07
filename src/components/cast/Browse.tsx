@@ -1,13 +1,15 @@
 "use client";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, useTransition } from "react";
 import BrowseFilters from "../BrowseFilters";
 import { TitleLink } from "../Modal";
 import { useLib } from "./LibState";
+import PassedCell from "./PassedCell";
 import QuickMark from "./QuickMark";
 import RelatedButton from "./RelatedButton";
 import { toParams, type BrowseQuery, type Tag } from "@/lib/browse";
 import { img } from "@/lib/img";
+import { faded, loadPassed, type Passed } from "@/lib/passed";
 import type { BrowseItem, BrowseList, BrowseType, MediaType } from "@/lib/types";
 
 const LISTS: { k: BrowseList; label: string; tv?: string }[] = [
@@ -58,6 +60,10 @@ export default function Browse({ filters, filtered, list: initialList, salt, fir
   const seq = useRef(0);
   const { marked, skipped } = useLib();
   const [seen] = useState(() => marked());
+  // Titles you looked at on earlier visits and scrolled past without a mark are shown less and less often.
+  // Snapshotted once, so what you scroll past now only takes effect on your next visit and the grid never shifts under you.
+  const [passed, setPassed] = useState<Passed>(() => new Map());
+  useLayoutEffect(() => { setPassed(loadPassed()); }, []);
   // Marked and skipped titles are hidden unless you turn that off; the choice is remembered on this device.
   useEffect(() => { try { if (localStorage.getItem("typecast.hide") === "0") setHideState(false); } catch { /* storage unavailable */ } }, []);
   const setHide = (v: boolean) => { setHideState(v); autoRuns.current = 0; try { localStorage.setItem("typecast.hide", v ? "1" : "0"); } catch { /* storage unavailable */ } };
@@ -117,7 +123,7 @@ export default function Browse({ filters, filtered, list: initialList, salt, fir
     io.observe(el); return () => io.disconnect();
   }, [more]);
 
-  const shown = (data?.items ?? []).filter((i) => !hide || !(seen.has(i.key) || skipped.has(i.key)));
+  const shown = (data?.items ?? []).filter((i) => !hide || !(seen.has(i.key) || skipped.has(i.key) || faded(passed, i.key, salt)));
   const hiddenCount = (data?.items.length ?? 0) - shown.length;
 
   // Hidden titles leave gaps, so keep fetching until the screen is full (a few pages at most, then the scroll takes over).
@@ -143,15 +149,15 @@ export default function Browse({ filters, filtered, list: initialList, salt, fir
         <button type="button" className="chip sm filt" aria-expanded={panel} aria-pressed={n > 0} onClick={() => setPanel(!panel)}>
           Filters{n ? ` · ${n}` : ""} <span aria-hidden="true">{panel ? "▴" : "▾"}</span>
         </button>
-        <button type="button" className="chip sm" aria-pressed={hide} onClick={() => setHide(!hide)} title="Hide titles you have already marked or skipped">Hide marked{hide && hiddenCount > 0 ? ` · ${hiddenCount}` : ""}</button>
+        <button type="button" className="chip sm" aria-pressed={hide} onClick={() => setHide(!hide)} title="Hide titles you have already marked or skipped, and make ones you keep scrolling past turn up less often">Hide marked{hide && hiddenCount > 0 ? ` · ${hiddenCount}` : ""}</button>
       </div>
       {panel && <BrowseFilters q={{ ...filters, type }} genres={type === "all" ? [] : genres[type]} canFilterMine={canFilterMine} active={filtered} />}
       {filtered && <h2>{routing ? <span><span className="spin" />Updating</span> : "Filtered results"}</h2>}
       {data?.notice && <p className="small muted" style={{ margin: "8px 0 0" }}>{data.notice}</p>}
 
-      {shown.length > 0 && <ul className="grid">{shown.map((it) => <li key={it.key}><Poster it={it} skippable /></li>)}</ul>}
+      {shown.length > 0 && <ul className="grid">{shown.map((it) => <PassedCell key={it.key} k={it.key} track={hide}><Poster it={it} skippable /></PassedCell>)}</ul>}
       {state === "idle" && data && shown.length === 0 && (
-        <p className="muted" style={{ marginTop: 20 }}>{hiddenCount ? `You have already marked or skipped all ${hiddenCount} titles loaded so far.` : filtered ? "Nothing matches those filters. Try removing one." : "Nothing in this list."}</p>
+        <p className="muted" style={{ marginTop: 20 }}>{hiddenCount ? `You have already marked, skipped or passed over all ${hiddenCount} titles loaded so far.` : filtered ? "Nothing matches those filters. Try removing one." : "Nothing in this list."}</p>
       )}
       {state === "loading" && (data ? <p className="muted center"><span className="spin" />Loading more</p> : <ul className="grid">{Array.from({ length: 12 }, (_, i) => <li key={i}><div className="pc"><div className="pc-img sk" /></div></li>)}</ul>)}
       {state === "error" && <p className="err" style={{ marginTop: 16 }}>{error} <button className="btn sm" onClick={() => load(data ? data.page + 1 : 1)}>Try again</button></p>}
