@@ -180,7 +180,12 @@ a.row { text-decoration: none; color: inherit; }
   .grid { isolation: isolate; }
 }
 @media (max-width: 559px) {
-  .grid .qm-b { width: 30px; height: 30px; } .grid .qm-b svg { width: 16px; height: 16px; } .grid .qm.over { right: 4px; bottom: 4px; gap: 4px; }
+  .grid .qm-b { width: 28px; height: 28px; } .grid .qm-b svg { width: 15px; height: 15px; } .grid .qm.over { right: 4px; bottom: 4px; gap: 3px; }
+  body { overflow-x: clip; }
+}
+@media (max-width: 380px) {
+  .grid .qm-b { width: 26px; height: 26px; } .grid .qm-b svg { width: 14px; height: 14px; } .grid .qm.over { right: 3px; bottom: 3px; gap: 2px; }
+  .bz-bar .chip.sm { margin-left: 0; }
 }
 .views { display: flex; gap: 22px; margin: 6px 0 2px; border-bottom: 1px solid var(--line); }
 .views button { padding: 10px 0 9px; font: 700 20px/1 var(--display); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); border-bottom: 3px solid transparent; margin-bottom: -1px; }
@@ -189,7 +194,7 @@ a.row { text-decoration: none; color: inherit; }
 .seg button { padding: 6px 14px; border-radius: 999px; font-weight: 600; font-size: 14px; color: var(--muted); }
 .seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgb(0 0 0 / .12); }
 .seg.wide { display: flex; margin-top: 16px; } .seg.wide button { flex: 1; text-align: center; }
-.bz-bar { display: flex; align-items: center; gap: 8px; margin: 10px 0 0; }
+.bz-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 10px 0 0; }
 .bz-bar select { min-width: 0; flex: 0 1 auto; padding: 6px 8px; font-size: 14px; border-radius: 999px; }
 .bz-bar .seg button { padding: 5px 12px; }
 .chip.sm { flex: none; margin-left: auto; padding: 6px 12px; font-size: 13px; white-space: nowrap; }
