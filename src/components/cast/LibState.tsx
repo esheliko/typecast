@@ -34,7 +34,7 @@ const SKIP_KEY = "typecast.skipped";
 const SKIP_MAX = 3000;
 export const PRIO_KEY = "typecast.defaultPriority";
 
-interface Toast { id: number; msg: string; undo?: () => void; err?: boolean; action?: { label: string; run: () => void } }
+interface Toast { id: number; msg: string; undo?: () => void; err?: boolean; pending?: boolean; action?: { label: string; run: () => void } }
 
 /**
  * Holds the user's marks for the cast tab. Marks change instantly on screen, are saved in the background,
@@ -49,6 +49,9 @@ export function LibProvider({ initial, children }: { initial: Record<string, Mar
   const related = useRef(new Map<string, Promise<Group[]>>());
   const busy = useRef(0);
   const queue = useRef<(() => void)[]>([]);
+  /** Saves per title run one after another, so quick changes reach the server in the order they were made. */
+  const saveQueue = useRef(new Map<string, Promise<boolean>>());
+  const version = useRef(new Map<string, number>());
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const live = useRef(initial); live.current = initial;
   const overRef = useRef(over); overRef.current = over;
@@ -98,13 +101,19 @@ export function LibProvider({ initial, children }: { initial: Record<string, Mar
   const current = useCallback((k: string) => (k in overRef.current ? overRef.current[k] : live.current[k]) ?? null, []);
 
   const save = useCallback(async (it: Item, status: Status | null, prev: Mark | null, priority?: Priority) => {
-    setOver((o) => ({ ...o, [it.key]: status ? { status, priority: priority ?? prev?.priority ?? "someday", rich: prev?.rich ?? false } : null }));
-    try { await setStatus({ type: it.type, id: it.id, title: it.title, year: it.year, poster: it.poster }, status, priority); return true; }
-    catch {
-      setOver((o) => ({ ...o, [it.key]: prev }));
-      show({ msg: `Could not save ${it.title}. Check your connection.`, err: true });
-      return false;
-    }
+    const k = it.key, v = (version.current.get(k) ?? 0) + 1;
+    version.current.set(k, v);
+    setOver((o) => ({ ...o, [k]: status ? { status, priority: priority ?? prev?.priority ?? "someday", rich: prev?.rich ?? false } : null }));
+    const run = (saveQueue.current.get(k) ?? Promise.resolve(true)).then(async () => {
+      try { await setStatus({ type: it.type, id: it.id, title: it.title, year: it.year, poster: it.poster }, status, priority); return true; }
+      catch {
+        // A newer change to this title has already replaced what this one showed, so only the latest one rolls back.
+        if (version.current.get(k) === v) { setOver((o) => ({ ...o, [k]: prev })); show({ msg: `Could not save ${it.title}. Check your connection.`, err: true }); }
+        return false;
+      }
+    });
+    saveQueue.current.set(k, run);
+    return run;
   }, [show]);
 
   const mark = useCallback((it: Item, status: Status | null, priority?: Priority, quiet?: boolean) => {
@@ -112,8 +121,8 @@ export function LibProvider({ initial, children }: { initial: Record<string, Mar
     const prev = (k in overRef.current ? overRef.current[k] : live.current[k]) ?? null;
     if ((prev?.status ?? null) === status && (priority === undefined || prev?.priority === priority)) return;
     if (status === null && prev?.rich && !window.confirm(`Remove ${it.title}? Your rating and notes for it will be deleted.`)) return;
-    save(it, status, prev, priority).then((ok) => {
-      if (!ok) return;
+    const saved = save(it, status, prev, priority);
+    {
       const msg = status ? `${it.title}: ${status === "watchlist" && priority === "must" ? PRIORITY_LABEL.must : STATUS_LABEL[status]}` : `Removed ${it.title}`;
       // Undo after removing a title with a rating or note cannot bring those back, so offer it only when it can.
       const canUndo = !(status === null && prev?.rich);
@@ -122,7 +131,7 @@ export function LibProvider({ initial, children }: { initial: Record<string, Mar
       const action = other ? { label: other === "must" ? "Make must-watch" : "Make some day", run: () => { setToast(null); save(it, "watchlist", { status: "watchlist", priority: priority ?? prev?.priority ?? "someday", rich: false }, other); } } : undefined;
       // Marking Watching also offers Partly watched, for something you have seen some of but will not finish.
       const toPartial = status === "watching" ? { label: STATUS_LABEL.partial, run: () => { setToast(null); save(it, "partial", { status: "watching", priority: prev?.priority ?? "someday", rich: false }); } } : undefined;
-      const id = show({ msg, action: action ?? toPartial, undo: canUndo ? () => { setToast(null); save(it, prev?.status ?? null, status ? { status, priority: priority ?? "someday", rich: false } : null, prev?.priority); } : undefined });
+      const id = show({ msg, pending: true, action: action ?? toPartial, undo: canUndo ? () => { setToast(null); save(it, prev?.status ?? null, status ? { status, priority: priority ?? "someday", rich: false } : null, prev?.priority); } : undefined });
       // Having watched one, offer the rest of its franchise: the toast grows a button once we know there is something to mark.
       if (status === "watched" && !quiet) franchise(it).then((groups) => {
         const left = new Set(groups.flatMap((g) => g.items).filter((i) => !current(i.key)).map((i) => i.key)).size;
@@ -130,7 +139,9 @@ export function LibProvider({ initial, children }: { initial: Record<string, Mar
         clearTimeout(timer.current); timer.current = setTimeout(() => setToast(null), 8000);
         setToast((t) => (t && t.id === id ? { ...t, action: { label: `Mark related · ${left}`, run: () => { setToast(null); setSheet(it); } } } : t));
       });
-    });
+      // The message is already up and its buttons work; this only clears the spinner. A failure shows its own error message instead.
+      saved.then((ok) => { if (ok) setToast((t) => (t && t.id === id ? { ...t, pending: false } : t)); });
+    }
   }, [save, show, franchise, current]);
 
   const openRelated = useCallback((it: Item) => {
@@ -167,7 +178,7 @@ export function LibProvider({ initial, children }: { initial: Record<string, Mar
       <div className="toast-slot" aria-live="polite">
         {toast && (
           <div key={toast.id} className={`toast${toast.err ? " bad" : ""}`} role="status">
-            <span>{toast.msg}</span>
+            <span>{toast.pending && <span className="spin" aria-hidden="true" />}{toast.msg}</span>
             {toast.undo && <button className="toast-undo plain" onClick={toast.undo}>Undo</button>}
             {toast.action && <button className="toast-undo" onClick={toast.action.run}>{toast.action.label}</button>}
           </div>
