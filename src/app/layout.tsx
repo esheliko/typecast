@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import SwRegister from "@/components/SwRegister";
+import UpdateWatcher from "@/components/UpdateWatcher";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -26,6 +27,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         {children}
         <SwRegister />
+        <UpdateWatcher />
       </body>
     </html>
   );
