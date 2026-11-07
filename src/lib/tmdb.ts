@@ -306,7 +306,7 @@ export const getSimilar = cache(async (type: MediaType, id: number): Promise<Fra
 
 const BAD_ROLE = /\b(self|himself|herself|themselves|archive footage|uncredited)\b/i;
 async function personRaw(id: number) {
-  const d = await tmdb(`/person/${id}`, { append_to_response: "combined_credits" }, 24 * HOUR);
+  const d = await tmdb(`/person/${id}`, { append_to_response: "combined_credits,external_ids" }, 24 * HOUR);
   const cc = d.combined_credits ?? {};
   const seen = new Set<string>(); const known: Credit[] = [];
   const add = (r: any, role: string) => {
@@ -332,7 +332,7 @@ async function personRaw(id: number) {
 
 export async function getPerson(id: number): Promise<Person> {
   const { d, known } = await personRaw(id);
-  return { id: d.id, name: d.name, photo: d.profile_path ?? null, dept: d.known_for_department ?? "", bio: (d.biography ?? "").slice(0, 360), known: known.slice(0, 60) };
+  return { id: d.id, name: d.name, photo: d.profile_path ?? null, dept: d.known_for_department ?? "", bio: (d.biography ?? "").slice(0, 360), known: known.slice(0, 60), imdbId: d.external_ids?.imdb_id || d.imdb_id || null };
 }
 
 /** Every acting (or directing) credit for a person, most-voted first. Same request as getPerson, so it shares its cache. */

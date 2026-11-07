@@ -161,6 +161,7 @@ export default async function TitleView({ t, origin }: { t: Title; origin?: Item
           <h1 className="sh-title">{t.title} <RelatedButton it={t} /> <GlimpseButton spec={titleSpec(t)} /></h1>
           <div className="sh-meta">{meta}</div>
           <Suspense fallback={null}><AwardChips t={t} /></Suspense>
+          {t.imdbId && <a className="btn sm" href={`https://www.imdb.com/title/${t.imdbId}/`} target="_blank" rel="noopener noreferrer" style={{ marginTop: 8 }}>Open on IMDb ↗</a>}
           {byline && <div className="sh-meta">{bylineLabel(byline, t.type)} {t.crewBy[byline].slice(0, 2).map((p) => p.name).join(", ")}</div>}
           {t.overview && <details className="sh-ov"><summary>{t.overview}</summary><p>{t.overview}</p></details>}
         </div>

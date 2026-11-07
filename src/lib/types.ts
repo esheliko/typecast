@@ -21,7 +21,7 @@ export interface Title extends Item {
   crew: string[]; crewBy: CrewBy; seasons: { n: number; eps: number }[]; people: CastMember[];
   prov: Record<string, ProviderGroup>; collection: number | null; related: Related[]; imdbId: string | null;
 }
-export interface Person { id: number; name: string; photo: string | null; dept: string; bio: string; known: Credit[] }
+export interface Person { id: number; name: string; photo: string | null; dept: string; bio: string; known: Credit[]; imdbId: string | null }
 export type BrowseList = "foryou" | "trending" | "popular" | "top" | "new" | "soon";
 export type SearchHit =
   | ({ kind: "title" } & BrowseItem)
