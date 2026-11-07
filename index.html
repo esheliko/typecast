@@ -1,78 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Typecast</title>
-<meta name="claude:viewport-fit-sides" content="cover">
-<meta name="theme-color" content="#0f1116">
+<meta name="description" content="Find out where you know actors from, track what you watch, and see where to stream it.">
+<meta name="theme-color" content="#eef0f4" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0f1116" media="(prefers-color-scheme: dark)">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Typecast">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600&display=swap">
 <style>
-/* Layout: one narrow column like a call sheet; bottom tabs on phones, top tabs on wide screens; titles open in a sheet. */
+/* Layout: one narrow column like a call sheet; bottom tabs on phones, top tabs on wide screens; titles and people open in a sheet. */
 :root {
-  --bg: #eef0f4;
-  --surface: #ffffff;
-  --ink: #14161c;
-  --muted: #5d6472;
-  --line: #d9dce4;
-  --chip: #e3e6ed;
-  --gold: #8f5f00;
-  --gold-fill: #f0b429;
-  --on-gold: #1a1305;
-  --good: #1b7448;
-  --bad: #b4372f;
+  --bg: #eef0f4; --surface: #ffffff; --ink: #14161c; --muted: #5d6472; --line: #d9dce4; --chip: #e3e6ed;
+  --gold: #8f5f00; --gold-fill: #f0b429; --on-gold: #1a1305; --good: #1b7448; --bad: #b4372f;
   --display: 'Barlow Condensed', 'Arial Narrow', Impact, sans-serif;
   --body: 'Instrument Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --mono: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+  color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #0f1116; --surface: #181b23; --ink: #eceef3; --muted: #98a0b0; --line: #2a2f3b; --chip: #232734;
-    --gold: #f2bd45; --gold-fill: #f2bd45; --on-gold: #1a1305; --good: #5cc98f; --bad: #f0877d;
-    color-scheme: dark;
+    --gold: #f2bd45; --gold-fill: #f2bd45; --on-gold: #1a1305; --good: #5cc98f; --bad: #f0877d; color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
   --bg: #0f1116; --surface: #181b23; --ink: #eceef3; --muted: #98a0b0; --line: #2a2f3b; --chip: #232734;
-  --gold: #f2bd45; --gold-fill: #f2bd45; --on-gold: #1a1305; --good: #5cc98f; --bad: #f0877d;
-  color-scheme: dark;
+  --gold: #f2bd45; --gold-fill: #f2bd45; --on-gold: #1a1305; --good: #5cc98f; --bad: #f0877d; color-scheme: dark;
 }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
-body { background: var(--bg); color: var(--ink); font: 15px/1.5 var(--body); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 0 96px; min-height: 100vh; }
-body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 30; background: var(--bg); }
+html { background: var(--bg); }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 var(--body); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-bottom: 96px; min-height: 100vh; -webkit-text-size-adjust: 100%; }
 button, input, select, textarea { font: inherit; color: inherit; }
 button { cursor: pointer; background: none; border: 0; padding: 0; text-align: left; }
 :focus-visible { outline: 2px solid var(--gold-fill); outline-offset: 2px; border-radius: 4px; }
 a { color: var(--gold); }
 a.tab, a.btn { text-decoration: none; color: inherit; }
 a.btn.gold { color: var(--on-gold); }
-.tab[aria-current="page"] { color: var(--on-gold) !important; }
+img { max-width: 100%; }
 .wrap { max-width: 720px; margin: 0 auto; }
 
-/* header */
-.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: var(--bg); margin: 0 calc(-1 * max(16px, env(safe-area-inset-left, 0px))); padding: 14px max(16px, env(safe-area-inset-right, 0px)) 10px max(16px, env(safe-area-inset-left, 0px)); }
+.top { position: sticky; top: 0; z-index: 20; background: var(--bg); margin: 0 calc(-1 * max(16px, env(safe-area-inset-left, 0px))); padding: calc(14px + env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) 10px max(16px, env(safe-area-inset-left, 0px)); }
 .top-in { max-width: 720px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .logo { display: flex; align-items: center; gap: 10px; font: 700 26px/1 var(--display); letter-spacing: .14em; text-transform: uppercase; }
 .mark { width: 22px; height: 22px; border-radius: 5px; background: repeating-linear-gradient(-45deg, var(--gold-fill) 0 6px, var(--ink) 6px 12px); }
 .tabs-top { display: none; gap: 4px; }
 .tab { display: flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 999px; color: var(--muted); font: 600 15px var(--body); }
 .tab svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-.tab[aria-current="page"] { color: var(--on-gold); background: var(--gold-fill); }
+.tab[aria-current="page"] { color: var(--on-gold) !important; background: var(--gold-fill); }
 .tabs-bottom { position: fixed; left: 0; right: 0; bottom: 0; z-index: 25; display: flex; justify-content: space-around; background: var(--surface); border-top: 1px solid var(--line); padding: 6px max(8px, env(safe-area-inset-right, 0px)) calc(6px + env(safe-area-inset-bottom, 0px)) max(8px, env(safe-area-inset-left, 0px)); }
 .tabs-bottom .tab { flex-direction: column; gap: 2px; font-size: 12px; padding: 6px 18px; border-radius: 12px; }
-@media (min-width: 720px) {
-  .tabs-top { display: flex; }
-  .tabs-bottom { display: none; }
-  body { padding-block: 0 48px; }
-}
+@media (min-width: 720px) { .tabs-top { display: flex; } .tabs-bottom { display: none; } body { padding-bottom: 48px; } }
 
-/* shared bits */
 h2 { font: 600 13px var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin: 28px 0 10px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; }
 .pad { padding: 14px 16px; }
-.muted { color: var(--muted); }
-.small { font-size: 13px; }
-.mono { font-family: var(--mono); }
+.muted { color: var(--muted); } .small { font-size: 13px; } .mono { font-family: var(--mono); }
 .btn { display: inline-flex; align-items: center; gap: 8px; padding: 9px 16px; border-radius: 999px; background: var(--chip); font-weight: 600; font-size: 14px; }
 .btn.gold { background: var(--gold-fill); color: var(--on-gold); }
 .btn.sm { padding: 5px 12px; font-size: 13px; }
@@ -86,72 +79,73 @@ h2 { font: 600 13px var(--mono); letter-spacing: .12em; text-transform: uppercas
 @keyframes sp { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .spin { animation-duration: 3s; } }
 
-/* search */
-.search { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
-.seg { display: inline-flex; background: var(--chip); border-radius: 999px; padding: 3px; align-self: flex-start; }
-.seg button { padding: 6px 16px; border-radius: 999px; font: 600 14px var(--body); color: var(--muted); }
-.seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgb(0 0 0 / .15); }
+.search { margin-top: 8px; }
 .field { display: flex; gap: 8px; }
-.field input[type=search], .field input[type=text] { flex: 1; min-width: 0; padding: 13px 16px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); font-size: 16px; }
 input, select, textarea { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; font-size: 16px; max-width: 100%; }
+.field input { flex: 1; min-width: 0; padding: 13px 16px; border-radius: 12px; }
 textarea { width: 100%; resize: vertical; min-height: 72px; }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .chip { padding: 6px 14px; border-radius: 999px; background: var(--chip); font-size: 14px; font-weight: 500; }
 .chip[aria-pressed="true"] { background: var(--gold-fill); color: var(--on-gold); }
 
-/* lists */
 .rows { list-style: none; margin: 0; padding: 0; }
-.row { display: flex; align-items: center; gap: 12px; width: 100%; padding: 13px 16px; border-top: 1px solid var(--line); }
+.row { display: flex; align-items: center; gap: 12px; width: 100%; padding: 11px 16px; border-top: 1px solid var(--line); }
 .rows > li:first-child .row { border-top: 0; }
 .row-main { flex: 1; min-width: 0; }
 .row-title { font: 600 20px/1.15 var(--display); letter-spacing: .02em; text-transform: uppercase; overflow-wrap: anywhere; }
-.row-sub { color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
+.row-sub { color: var(--muted); font-size: 13px; overflow-wrap: anywhere; display: block; }
+.thumb { width: 44px; height: 64px; border-radius: 6px; background: var(--chip); object-fit: cover; flex: none; }
+.avatar { width: 44px; height: 44px; border-radius: 50%; background: var(--chip); object-fit: cover; flex: none; display: grid; place-items: center; font: 600 16px var(--display); color: var(--muted); }
 .strip { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 6px; scroll-snap-type: x proximity; }
-.tile { flex: 0 0 170px; scroll-snap-align: start; padding: 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; display: flex; flex-direction: column; gap: 6px; min-height: 104px; justify-content: space-between; }
+.tile { flex: 0 0 132px; scroll-snap-align: start; display: flex; flex-direction: column; gap: 6px; }
+.tile img, .tile .ph { width: 132px; height: 190px; border-radius: 10px; object-fit: cover; background: var(--chip); }
+.tile .row-title { font-size: 17px; }
 .stars { letter-spacing: 2px; color: var(--gold); font-size: 14px; }
 
-/* credits */
 .credits { list-style: none; margin: 0; padding: 0; }
 .credit { padding: 10px 0; border-top: 1px solid var(--line); }
 .credits > .credit:first-child { border-top: 0; }
-.credit-main { display: flex; align-items: baseline; gap: 8px; width: 100%; }
+.credit-main { display: flex; align-items: center; gap: 12px; width: 100%; }
+.credit-line { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 8px; }
 .credit .nm { font: 600 19px/1.2 var(--display); letter-spacing: .04em; text-transform: uppercase; }
 .credit .dots { flex: 1; min-width: 12px; border-bottom: 2px dotted var(--line); transform: translateY(-4px); }
 .credit .role { color: var(--muted); font-size: 14px; text-align: right; max-width: 45%; overflow-wrap: anywhere; }
+.marks { padding-left: 56px; }
 .seen { margin-top: 3px; font-size: 13px; color: var(--gold); font-weight: 600; }
 .also { margin-top: 1px; font-size: 13px; color: var(--muted); }
 .more { margin: 8px 0 2px; padding: 8px 12px; background: var(--bg); border-radius: 10px; }
-.more .row { padding: 8px 0; border-top: 1px solid var(--line); }
-.more > :first-child .row { border-top: 0; }
+.more .row { padding: 8px 0; }
 
-/* sheet */
 .sheet { position: fixed; inset: 0; z-index: 40; display: flex; align-items: flex-end; justify-content: center; }
 .scrim { position: absolute; inset: 0; background: rgb(8 9 12 / .6); }
 .panel { position: relative; width: 100%; max-width: 680px; max-height: 94%; overflow-y: auto; background: var(--bg); border-radius: 20px 20px 0 0; padding: 8px max(16px, env(safe-area-inset-right, 0px)) calc(28px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); overscroll-behavior: contain; }
 @media (min-width: 720px) { .sheet { align-items: center; } .panel { border-radius: 20px; max-height: 88%; } }
-.panel-bar { position: sticky; top: 0; display: flex; justify-content: flex-end; background: var(--bg); padding: 6px 0; z-index: 2; }
+.panel-bar { position: sticky; top: 0; display: flex; justify-content: space-between; background: var(--bg); padding: 6px 0; z-index: 2; }
 .x { width: 36px; height: 36px; border-radius: 50%; background: var(--chip); font-size: 22px; line-height: 1; text-align: center; }
-.sh-title { font: 700 40px/1 var(--display); letter-spacing: .02em; text-transform: uppercase; margin: 0; overflow-wrap: anywhere; text-wrap: balance; }
-.sh-meta { font: 400 13px var(--mono); color: var(--muted); margin: 8px 0 10px; }
+.sh-top { display: flex; gap: 14px; align-items: flex-start; }
+.sh-poster { width: 96px; border-radius: 10px; flex: none; background: var(--chip); }
+.sh-title { font: 700 38px/1 var(--display); letter-spacing: .02em; text-transform: uppercase; margin: 0; overflow-wrap: anywhere; text-wrap: balance; }
+.sh-meta { font: 400 13px var(--mono); color: var(--muted); margin: 8px 0 0; }
 .status { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 6px; }
-.status .chip { display: inline-flex; align-items: center; }
 .banner { padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); }
-.banner.ok { border-color: var(--good); }
-.banner.no { border-color: var(--bad); }
+.banner.ok { border-color: var(--good); } .banner.no { border-color: var(--bad); }
 .banner b { display: block; font: 600 18px var(--display); text-transform: uppercase; letter-spacing: .05em; }
-.banner.ok b { color: var(--good); }
-.banner.no b { color: var(--bad); }
-.offers { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.banner.ok b { color: var(--good); } .banner.no b { color: var(--bad); }
+.prov { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; align-items: center; }
+.prov .g { font: 500 11px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); width: 56px; }
+.prov img { width: 36px; height: 36px; border-radius: 8px; }
 .toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(90px + env(safe-area-inset-bottom, 0px)); z-index: 60; background: var(--ink); color: var(--bg); padding: 10px 18px; border-radius: 999px; font-size: 14px; max-width: 90%; }
 .hero { padding: 18px 16px; }
 .hero p { margin: 6px 0 12px; }
 .hero .t { font: 700 30px/1.05 var(--display); text-transform: uppercase; letter-spacing: .03em; }
-.kv { display: grid; grid-template-columns: 1fr; gap: 6px; }
 label.l { display: block; font: 500 12px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0 0 4px; }
-select { max-width: 100%; }
-.sp { height: 8px; }
+.sp { height: 12px; }
+.inline { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.inline input[type=number] { width: 72px; }
+.foot { margin: 36px 0 0; font-size: 12px; color: var(--muted); }
 </style>
-
+</head>
+<body>
 <header class="top"><div class="top-in">
   <div class="logo"><span class="mark" aria-hidden="true"></span>Typecast</div>
   <nav class="tabs-top" id="tabs-top" aria-label="Sections"></nav>
@@ -161,8 +155,8 @@ select { max-width: 100%; }
 
 <div class="sheet" id="sheet" hidden>
   <div class="scrim" data-act="close"></div>
-  <section class="panel" role="dialog" aria-modal="true" aria-label="Title details">
-    <div class="panel-bar"><button class="x" data-act="close" aria-label="Close">&times;</button></div>
+  <section class="panel" role="dialog" aria-modal="true" aria-label="Details">
+    <div class="panel-bar"><button class="x" data-act="back" id="back" aria-label="Back" hidden>&#8249;</button><span></span><button class="x" data-act="close" aria-label="Close">&times;</button></div>
     <div id="sh-body"></div>
   </section>
 </div>
@@ -171,174 +165,167 @@ select { max-width: 100%; }
 <script>
 (function () {
 'use strict';
-var K = 'typecast.v1';
-var COUNTRIES = [['US','United States'],['GB','United Kingdom'],['CA','Canada'],['AU','Australia'],['NZ','New Zealand'],['IE','Ireland'],['DE','Germany'],['AT','Austria'],['CH','Switzerland'],['FR','France'],['BE','Belgium'],['NL','Netherlands'],['LU','Luxembourg'],['ES','Spain'],['PT','Portugal'],['IT','Italy'],['SE','Sweden'],['NO','Norway'],['DK','Denmark'],['FI','Finland'],['IS','Iceland'],['PL','Poland'],['CZ','Czechia'],['SK','Slovakia'],['HU','Hungary'],['RO','Romania'],['BG','Bulgaria'],['GR','Greece'],['HR','Croatia'],['SI','Slovenia'],['RS','Serbia'],['UA','Ukraine'],['LT','Lithuania'],['LV','Latvia'],['EE','Estonia'],['TR','Turkey'],['IL','Israel'],['AE','United Arab Emirates'],['SA','Saudi Arabia'],['EG','Egypt'],['ZA','South Africa'],['IN','India'],['JP','Japan'],['KR','South Korea'],['SG','Singapore'],['HK','Hong Kong'],['TW','Taiwan'],['TH','Thailand'],['PH','Philippines'],['ID','Indonesia'],['MX','Mexico'],['BR','Brazil'],['AR','Argentina'],['CL','Chile'],['CO','Colombia']];
-var SERVICES = ['Netflix','Prime Video','Disney+','Max','Apple TV+','Hulu','Paramount+','Peacock','Crunchyroll','MUBI','Criterion Channel','Sky','WOW','Canal+','BBC iPlayer','ARD Mediathek','ZDF','Joyn','RTL+','YouTube'];
-var STATUS = { watching: 'Watching', watchlist: 'To watch', watched: 'Watched' };
 
-/* ---------- helpers ---------- */
+/* ================= basics ================= */
+var K = 'typecast.v2';
+var LANG = navigator.language || 'en-US';
+var IMG = 'https://image.tmdb.org/t/p/';
+var COUNTRIES = 'US GB CA AU NZ IE DE AT CH FR BE NL LU ES PT IT SE NO DK FI IS PL CZ SK HU RO BG GR HR SI RS UA LT LV EE TR IL AE SA EG ZA IN JP KR SG HK TW TH PH ID MX BR AR CL CO'.split(' ');
+var STATUS = { watching: 'Watching', watchlist: 'To watch', watched: 'Watched' };
 function $(s, r) { return (r || document).querySelector(s); }
 function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
-function norm(s) { return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, ' ').trim(); }
-function tid(t, y, ty) { return norm(t).replace(/ /g, '-') + '-' + (y || '0') + '-' + (ty === 'tv' ? 'tv' : 'm'); }
+function img(p, size) { return p ? IMG + size + p : ''; }
 function typeLabel(t) { return t === 'tv' ? 'Series' : 'Film'; }
-function cname(cc) { for (var i = 0; i < COUNTRIES.length; i++) if (COUNTRIES[i][0] === cc) return COUNTRIES[i][1]; return cc; }
-function guessCountry() {
-  try { var m = (navigator.language || '').split('-')[1]; if (m && cname(m.toUpperCase()) !== m.toUpperCase()) return m.toUpperCase(); } catch (e) {}
-  return 'US';
-}
-function fresh() { return { v: 1, updatedAt: 0, country: guessCountry(), services: [], lib: {}, titles: {}, people: {} }; }
-function migrate(r) { var f = fresh(); for (var k in f) if (r[k] === undefined) r[k] = f[k]; return r; }
-function toast(msg) { var t = $('#toast'); t.textContent = msg; t.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(function () { t.hidden = true; }, 2600); }
 function stars(n) { n = n || 0; return '★'.repeat(n) + '☆'.repeat(5 - n); }
+function cname(cc) { try { return new Intl.DisplayNames([LANG], { type: 'region' }).of(cc) || cc; } catch (e) { return cc; } }
+function guessCountry() { try { var m = LANG.split('-')[1]; if (m && COUNTRIES.indexOf(m.toUpperCase()) >= 0) return m.toUpperCase(); } catch (e) {} return 'US'; }
+function toast(msg) { var t = $('#toast'); t.textContent = msg; t.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(function () { t.hidden = true; }, 2600); }
+function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
 
-/* ---------- state + storage ---------- */
-var state;
-try { state = migrate(JSON.parse(localStorage.getItem(K))); } catch (e) { state = fresh(); }
-if (!state || typeof state !== 'object') state = fresh();
-function persistLocal() { try { localStorage.setItem(K, JSON.stringify(state)); } catch (e) {} }
-var ref = null, cloud = 'off', pushT;
-function save() { state.updatedAt = Date.now(); persistLocal(); push(); }
-function push() {
-  if (!ref) return;
-  clearTimeout(pushT);
-  pushT = setTimeout(function () {
-    ref.set({ json: JSON.stringify(state), updatedAt: state.updatedAt }).then(function () { cloud = 'on'; }, function () { cloud = 'err'; syncNote(); });
-  }, 1500);
-}
-function adopt(d) {
-  try {
-    var r = JSON.parse(d.json);
-    if (r && r.updatedAt > state.updatedAt) { state = migrate(r); persistLocal(); renderAll(); }
-  } catch (e) {}
+/* ================= state ================= */
+function fresh() { return { v: 2, token: '', country: guessCountry(), services: [], svcNames: {}, lib: {} }; }
+var state = (function () { try { var s = JSON.parse(localStorage.getItem(K)); if (s && s.v === 2) return Object.assign(fresh(), s); } catch (e) {} return fresh(); })();
+function save() { try { localStorage.setItem(K, JSON.stringify(state)); } catch (e) { toast('Could not save. Storage may be full or blocked.'); } }
+
+/* ================= cache (IndexedDB) ================= */
+var idb = (function () {
+  var p;
+  function open() {
+    return p || (p = new Promise(function (res, rej) {
+      var r = indexedDB.open('typecast', 1);
+      r.onupgradeneeded = function () { r.result.createObjectStore('c'); };
+      r.onsuccess = function () { res(r.result); }; r.onerror = function () { rej(r.error); };
+    }));
+  }
+  return {
+    get: function (k) { return open().then(function (db) { return new Promise(function (res) { var q = db.transaction('c').objectStore('c').get(k); q.onsuccess = function () { res(q.result); }; q.onerror = function () { res(undefined); }; }); }).catch(function () { return undefined; }); },
+    set: function (k, v) { return open().then(function (db) { db.transaction('c', 'readwrite').objectStore('c').put(v, k); }).catch(function () {}); }
+  };
+})();
+function cached(key, ttl, fn) {
+  key = LANG + '|' + key;
+  return idb.get(key).then(function (h) {
+    if (h && Date.now() - h.at < ttl) return h.v;
+    return fn().then(function (v) { idb.set(key, { at: Date.now(), v: v }); return v; }, function (e) { if (h) return h.v; throw e; });
+  });
 }
 
-/* ---------- capabilities ---------- */
-var sample = null, db = null, userCap = null, downloads = null;
-function useCap(n) { try { return window.claude && window.claude.use ? window.claude.use(n).catch(function () { return null; }) : Promise.resolve(null); } catch (e) { return Promise.resolve(null); } }
-Promise.all([useCap('sample'), useCap('db'), useCap('user'), useCap('downloads')]).then(function (r) {
-  sample = r[0]; db = r[1]; userCap = r[2]; downloads = r[3];
-  if (ui.tab === 'setup') renderSetup();
-  initCloud();
-});
-function initCloud() {
-  if (!db || !userCap) { syncNote(); return; }
-  userCap.id().then(function (id) {
-    if (!id) { syncNote(); return; }
-    ref = db.collection('data/users/' + id).doc('typecast');
-    return ref.get().then(function (s) {
-      if (s.exists) adopt(s.data()); else if (state.updatedAt) push();
-      cloud = 'on'; syncNote();
-      ref.onSnapshot(function (sn) { if (sn.exists) adopt(sn.data()); }, function () {});
+/* ================= TMDB ================= */
+function ApiError(code, msg) { this.code = code; this.message = msg; }
+function tmdb(path, params) {
+  if (!state.token) return Promise.reject(new ApiError('token', 'Add your TMDB token in Setup to get started.'));
+  var u = new URL('https://api.themoviedb.org/3' + path);
+  u.searchParams.set('language', LANG);
+  for (var k in (params || {})) u.searchParams.set(k, params[k]);
+  var headers = { accept: 'application/json' };
+  if (state.token.indexOf('.') > 0) headers.Authorization = 'Bearer ' + state.token; else u.searchParams.set('api_key', state.token);
+  return fetch(u.toString(), { headers: headers }).then(function (r) {
+    if (r.status === 401) throw new ApiError('token', 'TMDB rejected your token. Check it in Setup.');
+    if (r.status === 404) throw new ApiError('404', 'Not found on TMDB.');
+    if (r.status === 429) throw new ApiError('rate', 'TMDB is busy. Try again in a moment.');
+    if (!r.ok) throw new ApiError('http', 'TMDB returned an error (' + r.status + ').');
+    return r.json();
+  }, function () { throw new ApiError('net', 'Cannot reach TMDB. Check your connection.'); });
+}
+function yr(d) { return (d || '').slice(0, 4); }
+function item(type, r) { return { key: type + ':' + r.id, type: type, id: r.id, title: r.title || r.name || '', year: yr(r.release_date || r.first_air_date), poster: r.poster_path || null }; }
+
+function search(q) {
+  return cached('s|' + q.toLowerCase(), 3600e3, function () {
+    return tmdb('/search/multi', { query: q, include_adult: 'false' }).then(function (d) {
+      return (d.results || []).filter(function (r) { return r.media_type === 'movie' || r.media_type === 'tv' || r.media_type === 'person'; }).slice(0, 14).map(function (r) {
+        if (r.media_type === 'person') return { kind: 'person', id: r.id, name: r.name, photo: r.profile_path, dept: r.known_for_department, kf: (r.known_for || []).map(function (k) { return k.title || k.name; }).slice(0, 3) };
+        var o = item(r.media_type, r); o.kind = 'title'; o.overview = r.overview; return o;
+      });
     });
-  }).catch(function () { cloud = 'off'; syncNote(); });
+  });
 }
-function syncNote() {
-  var el = $('#sync'); if (!el) return;
-  el.textContent = ref && cloud !== 'err' ? 'Synced to your Claude account, so your list follows you across devices.' : cloud === 'err' ? 'Sync failed. Your list is still saved on this device.' : 'Saved on this device only. Open Typecast from claude.ai while signed in to sync across devices.';
+function trending() {
+  return cached('trend', 3600e3, function () {
+    return tmdb('/trending/all/week').then(function (d) { return (d.results || []).filter(function (r) { return r.media_type === 'movie' || r.media_type === 'tv'; }).slice(0, 12).map(function (r) { return item(r.media_type, r); }); });
+  });
 }
-
-/* ---------- asking Claude ---------- */
-var JSONONLY = 'Reply with one JSON object only. No prose and no code fences. Never reveal plot twists or spoilers.';
-function ask(prompt) {
-  if (!sample) return Promise.reject({ code: 'unavailable' });
-  return sample.json(JSONONLY + '\n' + prompt, { modelTier: 'default' });
-}
-function errMsg(e) {
-  if (e && e.code === 'unavailable') return 'Lookups run through Claude. Open Typecast from claude.ai to use them.';
-  if (e && e.code === 'not_granted') return 'Typecast needs your permission to ask Claude. Allow it and try again.';
-  if (e && e.code === 'rate_limited') return 'Too many lookups in a row. Wait a moment and try again.';
-  return 'That lookup did not work. Try again.';
-}
-function qSearch(q) {
-  return ask('The user wants to find a film or TV show matching "' + q + '". Return {"matches":[{"title":string,"year":number (first release year),"type":"movie" or "tv","blurb":"max 12 words, no spoilers"}]} with up to 4 real productions, most likely first.');
-}
-function qPerson(name, exclude) {
-  return ask('Person: "' + name + '" (an actor, or a director if they are not primarily an actor). Return {"name":canonical full name,"known":[{"title":string,"year":number,"type":"movie" or "tv","role":character name or "Director"}]} with up to 10 of their most widely recognised film and TV credits, most recognisable first.' + (exclude ? ' Leave out "' + exclude + '".' : ''));
-}
-function qDetails(t) {
-  return ask('Production: "' + t.title + '"' + (t.year ? ' (' + t.year + ')' : '') + ', ' + (t.type === 'tv' ? 'a TV series' : 'a film') + '. Return {"overview":"1-2 spoiler-free sentences","meta":"short line such as \'2h 10m · Drama, Thriller\' or \'3 seasons · Crime\'","cast":[{"name":string,"role":character name,"top":[{"title":string,"year":number}]}],"related":[{"title":string,"year":number,"type":"movie" or "tv","relation":"short, e.g. Sequel, Prequel, Remake, Same universe, Same director, Similar"}]}. cast: up to 14 main and notable supporting actors in billing order; top = their 3 most widely recognised OTHER credits, excluding this production. related: up to 6. If you do not recognise the production return {"error":"unknown"}.');
-}
-function qLinks(t, libTitles) {
-  return ask('Cast of "' + t.title + '" (' + (t.year || '') + '): ' + JSON.stringify(t.cast.map(function (c) { return c.name; })) + '. The user has these titles in their library: ' + JSON.stringify(libTitles) + '. For each cast member, list which of the library titles they appeared in (use the library title strings exactly; only appearances you are confident about). Return {"links":[{"name":string,"in":[string]}]} and leave out cast members with no matches.');
-}
-function qWho(t, ep, desc, castNames) {
-  return ask('The user is watching "' + t.title + '"' + (t.year ? ' (' + t.year + ')' : '') + (ep ? ', ' + ep : '') + ' and asks who this is: "' + desc + '". Known cast: ' + JSON.stringify(castNames) + '. Return {"name":actor or null if unsure,"role":character,"confidence":"high" or "medium" or "low","knownFrom":[{"title":string,"year":number}] (up to 5 other well-known credits),"note":"one short spoiler-free sentence"}.');
-}
-function qAvail(t, cc, services) {
-  return ask('Where can "' + t.title + '"' + (t.year ? ' (' + t.year + ')' : '') + ' (' + (t.type === 'tv' ? 'TV series' : 'film') + ') be watched legally in ' + cname(cc) + ' (' + cc + ')? The user subscribes to: ' + JSON.stringify(services) + '. Return {"offers":[{"service":"usual brand name","kind":"stream" or "free" or "rent" or "buy"}],"confidence":"high" or "medium" or "low","note":"max 20 words, mention if the title is new or the info may be dated"}. Only list services you believe carry it in that country.');
-}
-
-/* ---------- library lookups ---------- */
-function libIndex() {
-  var m = {};
-  for (var id in state.lib) { var t = state.titles[id]; if (t) m[norm(t.title)] = id; }
-  return m;
-}
-function statusOfTitle(title, idx) { var id = (idx || libIndex())[norm(title)]; return id ? state.lib[id].status : null; }
-function seenIn(name, excludeId) {
-  var n = norm(name), out = [], idx = libIndex(), seen = {};
-  function add(title) { var k = norm(title); if (idx[k] && idx[k] !== excludeId && !seen[k]) { seen[k] = 1; out.push(state.titles[idx[k]].title); } }
-  for (var id in state.lib) {
-    if (id === excludeId) continue;
-    var t = state.titles[id];
-    if (t && t.cast) t.cast.forEach(function (c) { if (norm(c.name) === n) add(t.title); });
-  }
-  var cur = state.titles[excludeId];
-  if (cur) {
-    if (cur.links) for (var k in cur.links) if (norm(k) === n) cur.links[k].forEach(add);
-    (cur.cast || []).forEach(function (c) { if (norm(c.name) === n) (c.top || []).forEach(function (x) { add(x.title); }); });
-  }
-  var p = state.people[n];
-  if (p) p.known.forEach(function (x) { add(x.title); });
-  return out;
-}
-function sharedCast(id) {
-  var t = state.titles[id], res = [];
-  if (!t || !t.cast) return res;
-  var mine = {}; t.cast.forEach(function (c) { mine[norm(c.name)] = c.name; });
-  for (var o in state.lib) {
-    if (o === id) continue;
-    var ot = state.titles[o]; if (!ot || !ot.cast) continue;
-    var names = ot.cast.filter(function (c) { return mine[norm(c.name)]; }).map(function (c) { return c.name; });
-    if (names.length) res.push({ id: o, title: ot.title, year: ot.year, names: names });
-  }
-  return res.sort(function (a, b) { return b.names.length - a.names.length; }).slice(0, 8);
-}
-function suggestions() {
-  var idx = libIndex(), map = {};
-  for (var id in state.lib) {
-    var t = state.titles[id]; if (!t || !t.related) continue;
-    t.related.forEach(function (r) {
-      var k = norm(r.title); if (!k || idx[k]) return;
-      var e = map[k] || (map[k] = { title: r.title, year: r.year, type: r.type, from: [], rel: r.relation });
-      if (e.from.indexOf(t.title) < 0) e.from.push(t.title);
+function getTitle(type, id) {
+  return cached('t|' + type + '|' + id, 6 * 3600e3, function () {
+    var ap = (type === 'tv' ? 'aggregate_credits' : 'credits') + ',watch/providers,recommendations';
+    return tmdb('/' + type + '/' + id, { append_to_response: ap }).then(function (d) {
+      var cast = (type === 'tv' ? (d.aggregate_credits || {}).cast : (d.credits || {}).cast) || [];
+      var pr = (d['watch/providers'] || {}).results || {}, prov = {};
+      Object.keys(pr).forEach(function (cc) {
+        var o = pr[cc]; prov[cc] = { link: o.link };
+        ['flatrate', 'free', 'ads', 'rent', 'buy'].forEach(function (g) { if (o[g]) prov[cc][g] = o[g].map(function (p) { return { id: p.provider_id, name: p.provider_name, logo: p.logo_path }; }); });
+      });
+      var t = item(type, d);
+      t.overview = d.overview; t.tagline = d.tagline; t.genres = (d.genres || []).map(function (g) { return g.name; });
+      t.runtime = type === 'movie' ? d.runtime : (d.episode_run_time || [])[0];
+      t.status = d.status;
+      t.crew = type === 'tv' ? (d.created_by || []).map(function (p) { return p.name; }) : ((d.credits || {}).crew || []).filter(function (c) { return c.job === 'Director'; }).map(function (c) { return c.name; });
+      t.seasons = type === 'tv' ? (d.seasons || []).filter(function (s) { return s.season_number > 0; }).map(function (s) { return { n: s.season_number, eps: s.episode_count }; }) : [];
+      t.people = cast.slice(0, 24).map(function (c) { return { id: c.id, name: c.name, photo: c.profile_path, role: type === 'tv' ? ((c.roles || [])[0] || {}).character || '' : c.character || '' }; });
+      t.prov = prov;
+      t.collection = d.belongs_to_collection ? d.belongs_to_collection.id : null;
+      t.related = ((d.recommendations || {}).results || []).slice(0, 8).map(function (r) { var o = item(type, r); o.rel = 'Recommended'; return o; });
+      return t;
     });
-  }
-  return Object.keys(map).map(function (k) { return map[k]; }).sort(function (a, b) { return b.from.length - a.from.length; }).slice(0, 8);
+  });
 }
-function ensureTitle(m) {
-  var id = tid(m.title, m.year, m.type);
-  if (!state.titles[id]) state.titles[id] = { id: id, title: m.title, year: m.year, type: m.type === 'tv' ? 'tv' : 'movie' };
-  return id;
+function getCollection(id) {
+  return cached('c|' + id, 7 * 864e5, function () {
+    return tmdb('/collection/' + id).then(function (d) {
+      return (d.parts || []).sort(function (a, b) { return (a.release_date || '9').localeCompare(b.release_date || '9'); }).map(function (r) { var o = item('movie', r); o.rel = 'Same collection'; return o; });
+    });
+  });
 }
-function setStatus(id, s) {
-  if (!s) delete state.lib[id];
-  else { var cur = state.lib[id] || { added: Date.now(), rating: 0, note: '' }; cur.status = s; state.lib[id] = cur; }
-  save();
+var BAD_ROLE = /\b(self|himself|herself|themselves|archive footage|uncredited)\b/i;
+function getPerson(id) {
+  return cached('p|' + id, 7 * 864e5, function () {
+    return tmdb('/person/' + id, { append_to_response: 'combined_credits' }).then(function (d) {
+      var cc = d.combined_credits || {}, seen = {}, known = [];
+      function add(r, role) {
+        if (r.media_type !== 'movie' && r.media_type !== 'tv') return;
+        var o = item(r.media_type, r); if (seen[o.key]) return; seen[o.key] = 1;
+        o.role = role; o.votes = r.vote_count || 0; known.push(o);
+      }
+      (cc.cast || []).forEach(function (r) {
+        if (BAD_ROLE.test(r.character || '')) return;
+        if ((r.genre_ids || []).some(function (g) { return g === 10767 || g === 10763 || g === 10764; })) return;
+        add(r, r.character || '');
+      });
+      if (d.known_for_department === 'Directing') (cc.crew || []).filter(function (r) { return r.job === 'Director'; }).forEach(function (r) { add(r, 'Director'); });
+      known.sort(function (a, b) { return b.votes - a.votes; });
+      return { id: d.id, name: d.name, photo: d.profile_path, dept: d.known_for_department, bio: (d.biography || '').slice(0, 360), known: known.slice(0, 60) };
+    });
+  });
 }
+function getEpisode(tv, s, e) {
+  return cached('e|' + tv + '|' + s + '|' + e, 7 * 864e5, function () {
+    return tmdb('/tv/' + tv + '/season/' + s + '/episode/' + e, { append_to_response: 'credits' }).then(function (d) {
+      var c = d.credits || {};
+      function map(a) { return (a || []).map(function (p) { return { id: p.id, name: p.name, photo: p.profile_path, role: p.character || '' }; }); }
+      return { name: d.name, overview: d.overview, cast: map(c.cast).slice(0, 12), guests: map(c.guest_stars).slice(0, 20) };
+    });
+  });
+}
+function getProviders(cc) {
+  return cached('pv|' + cc, 7 * 864e5, function () {
+    return Promise.all([tmdb('/watch/providers/movie', { watch_region: cc }), tmdb('/watch/providers/tv', { watch_region: cc })]).then(function (r) {
+      var m = {};
+      r.forEach(function (d) { (d.results || []).forEach(function (p) { var o = m[p.provider_id]; if (!o || p.display_priority < o.pri) m[p.provider_id] = { id: p.provider_id, name: p.provider_name, pri: p.display_priority }; }); });
+      return Object.keys(m).map(function (k) { return m[k]; }).sort(function (a, b) { return a.pri - b.pri; });
+    });
+  });
+}
+function errMsg(e) { return e && e.message ? e.message : 'Something went wrong. Try again.'; }
 
-/* ---------- ui state + routing ---------- */
-var ui = { tab: 'cast', mode: 'title', q: '', res: null, filter: 'all', lq: '', sheet: null, openActor: null, busy: {} };
+/* ================= routing ================= */
+var ui = { tab: 'cast', q: '', res: null, filter: 'all', lq: '', stack: [], cur: null, rs: 0, svq: '', people: {}, openDrawer: null };
 var TABS = [
   ['cast', 'Cast', '<circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>'],
   ['library', 'Library', '<rect x="4" y="4" width="16" height="16" rx="2.5"/><path d="M4 9h16M9 4v16"/>'],
   ['setup', 'Setup', '<circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/>']
 ];
 function renderTabs() {
-  var h = TABS.map(function (t) {
-    return '<a class="tab" href="#' + t[0] + '" ' + (ui.tab === t[0] ? 'aria-current="page"' : '') + '><svg viewBox="0 0 24 24" aria-hidden="true">' + t[2] + '</svg>' + t[1] + '</a>';
-  }).join('');
+  var h = TABS.map(function (t) { return '<a class="tab" href="#' + t[0] + '" ' + (ui.tab === t[0] ? 'aria-current="page"' : '') + '><svg viewBox="0 0 24 24" aria-hidden="true">' + t[2] + '</svg>' + t[1] + '</a>'; }).join('');
   $('#tabs-top').innerHTML = h; $('#tabs-bottom').innerHTML = h;
 }
 function route() {
@@ -348,326 +335,322 @@ function route() {
 }
 window.addEventListener('hashchange', route);
 function renderView() { if (ui.tab === 'cast') renderCast(); else if (ui.tab === 'library') renderLibrary(); else renderSetup(); }
-function renderAll() { renderView(); if (ui.sheet) { sheetHead(); sheetCast(); sheetWhere(); sheetRel(); sheetConn(); } }
 
-/* ---------- Cast tab ---------- */
+/* ================= Cast tab ================= */
 function renderCast() {
-  var watching = Object.keys(state.lib).filter(function (id) { return state.lib[id].status === 'watching'; });
-  var h = '<form class="search" id="sform" autocomplete="off">' +
-    '<div class="seg" role="group" aria-label="Search for"><button type="button" data-act="mode" data-v="title" aria-pressed="' + (ui.mode === 'title') + '">Title</button><button type="button" data-act="mode" data-v="actor" aria-pressed="' + (ui.mode === 'actor') + '">Actor</button></div>' +
-    '<div class="field"><input type="search" id="q" aria-label="Search" placeholder="' + (ui.mode === 'title' ? 'A film or series you are watching' : 'Who is that actor?') + '" value="' + esc(ui.q) + '" enterkeyhint="search"><button class="btn gold" type="submit">Find</button></div></form>' +
-    '<div id="res"></div>';
+  var watching = Object.keys(state.lib).map(function (k) { return state.lib[k]; }).filter(function (l) { return l.status === 'watching'; });
+  var h = '<form class="search" id="sform" autocomplete="off" role="search"><div class="field"><input type="search" id="q" aria-label="Search films, series and people" placeholder="Search a film, series or actor" value="' + esc(ui.q) + '" enterkeyhint="search"><button class="btn gold" type="submit">Find</button></div></form><div id="res"></div>';
   if (watching.length) {
-    h += '<h2>Watching now</h2><div class="strip">' + watching.map(function (id) {
-      var t = state.titles[id];
-      return '<button class="tile" data-act="open-id" data-id="' + esc(id) + '"><span class="row-title">' + esc(t.title) + '</span><span class="row-sub mono">' + esc(t.year || '') + ' · ' + typeLabel(t.type) + (t.cast ? ' · ' + t.cast.length + ' cast' : '') + '</span></button>';
+    h += '<h2>Watching now</h2><div class="strip">' + watching.map(function (l) {
+      return '<button class="tile" data-act="open-title" data-key="' + esc(l.key) + '">' + (l.poster ? '<img src="' + img(l.poster, 'w342') + '" alt="" loading="lazy">' : '<div class="ph"></div>') + '<span class="row-title">' + esc(l.title) + '</span><span class="row-sub mono">' + (l.progress ? 'S' + l.progress.s + ' E' + l.progress.e : esc(l.year)) + '</span></button>';
     }).join('') + '</div>';
   }
+  h += '<div id="trend"></div>';
   $('#view').innerHTML = h;
   renderRes();
+  if (!ui.res && state.token) loadTrending();
 }
+function loadTrending() {
+  trending().then(function (list) {
+    var el = $('#trend'); if (!el || ui.res) return;
+    el.innerHTML = '<h2>Trending this week</h2><div class="strip">' + list.map(function (t) {
+      return '<button class="tile" data-act="open-title" data-key="' + esc(t.key) + '">' + (t.poster ? '<img src="' + img(t.poster, 'w342') + '" alt="" loading="lazy">' : '<div class="ph"></div>') + '<span class="row-title">' + esc(t.title) + '</span><span class="row-sub mono">' + esc(t.year) + ' · ' + typeLabel(t.type) + '</span></button>';
+    }).join('') + '</div>';
+  }, function () {});
+}
+function pill(key) { var l = state.lib[key]; return l ? '<span class="pill ' + l.status + '">' + STATUS[l.status] + '</span>' : ''; }
 function renderRes() {
   var el = $('#res'); if (!el) return;
   var r = ui.res;
-  if (!r) {
-    var empty = !Object.keys(state.lib).length;
-    el.innerHTML = '<div class="card hero" style="margin-top:18px"><div class="t">Who is that?</div><p class="muted">Search what you are watching to get the cast, and where you know each actor from, with your own library marked. Add titles to your lists as you go and the links get better.</p><div class="chips">' +
-      ['Severance|title', 'Heat|title', 'Tilda Swinton|actor', 'The Bear|title'].map(function (s) { var p = s.split('|'); return '<button class="chip" data-act="try" data-mode="' + p[1] + '" data-q="' + esc(p[0]) + '">' + esc(p[0]) + '</button>'; }).join('') + '</div>' +
-      (empty ? '' : '') + '</div>';
+  if (!state.token) {
+    el.innerHTML = '<div class="card hero" style="margin-top:18px"><div class="t">Connect to TMDB</div><p class="muted">Typecast gets its cast lists, filmographies and streaming data from The Movie Database. It is free. Create an account, request an API key, then paste the read access token in Setup.</p><div class="chips"><a class="btn gold" href="#setup">Open Setup</a><a class="btn" href="https://www.themoviedb.org/settings/api" target="_blank" rel="noopener">Get a token</a></div></div>';
     return;
   }
-  if (r.loading) { el.innerHTML = '<p class="muted" style="margin-top:20px"><span class="spin"></span>Looking up "' + esc(r.q) + '"</p>'; return; }
+  if (!r) { el.innerHTML = ''; return; }
+  if (r.loading) { el.innerHTML = '<p class="muted" style="margin-top:20px"><span class="spin"></span>Searching</p>'; return; }
   if (r.error) { el.innerHTML = '<p class="err" style="margin-top:20px">' + esc(r.error) + '</p>'; return; }
-  if (r.kind === 'title') {
-    var ms = r.data.matches || [];
-    if (!ms.length) { el.innerHTML = '<p class="muted" style="margin-top:20px">Nothing found for "' + esc(r.q) + '". Check the spelling or add the year.</p>'; return; }
-    var idx = libIndex();
-    el.innerHTML = '<h2>Matches</h2><div class="card"><ul class="rows">' + ms.map(function (m, i) {
-      var st = statusOfTitle(m.title, idx);
-      return '<li><button class="row" data-act="open-match" data-i="' + i + '"><span class="row-main"><span class="row-title">' + esc(m.title) + '</span><span class="row-sub">' + esc(m.year) + ' · ' + typeLabel(m.type) + ' · ' + esc(m.blurb) + '</span></span>' + (st ? '<span class="pill ' + st + '">' + STATUS[st] + '</span>' : '') + '</button></li>';
-    }).join('') + '</ul></div>';
-  } else {
-    var d = r.data, known = d.known || [], idx2 = libIndex();
-    known = known.slice().sort(function (a, b) { return (statusOfTitle(b.title, idx2) ? 1 : 0) - (statusOfTitle(a.title, idx2) ? 1 : 0); });
-    var hits = known.filter(function (k) { return statusOfTitle(k.title, idx2); }).length;
-    el.innerHTML = '<h2>' + esc(d.name || r.q) + '</h2>' + (hits ? '<p class="seen" style="margin:0 0 8px">You know them from ' + hits + ' title' + (hits > 1 ? 's' : '') + ' in your library.</p>' : '') +
-      '<div class="card"><ul class="rows">' + known.map(function (k, i) {
-        var st = statusOfTitle(k.title, idx2);
-        return '<li><button class="row" data-act="open-known" data-i="' + i + '"><span class="row-main"><span class="row-title">' + esc(k.title) + '</span><span class="row-sub">' + esc(k.year) + ' · ' + typeLabel(k.type) + (k.role ? ' · ' + esc(k.role) : '') + '</span></span>' + (st ? '<span class="pill ' + st + '">' + STATUS[st] + '</span>' : '') + '</button></li>';
-      }).join('') + '</ul></div>';
-    r.sorted = known;
-  }
+  if (!r.list.length) { el.innerHTML = '<p class="muted" style="margin-top:20px">Nothing found for "' + esc(r.q) + '".</p>'; return; }
+  el.innerHTML = '<h2>Results</h2><div class="card"><ul class="rows">' + r.list.map(function (x) {
+    if (x.kind === 'person') return '<li><button class="row" data-act="open-person" data-id="' + x.id + '">' + (x.photo ? '<img class="avatar" src="' + img(x.photo, 'w185') + '" alt="" loading="lazy">' : '<span class="avatar">' + esc(x.name.charAt(0)) + '</span>') + '<span class="row-main"><span class="row-title">' + esc(x.name) + '</span><span class="row-sub">' + esc(x.dept || 'Person') + (x.kf.length ? ' · ' + esc(x.kf.join(', ')) : '') + '</span></span></button></li>';
+    return '<li><button class="row" data-act="open-title" data-key="' + esc(x.key) + '">' + (x.poster ? '<img class="thumb" src="' + img(x.poster, 'w92') + '" alt="" loading="lazy">' : '<span class="thumb"></span>') + '<span class="row-main"><span class="row-title">' + esc(x.title) + '</span><span class="row-sub">' + esc(x.year) + ' · ' + typeLabel(x.type) + '</span></span>' + pill(x.key) + '</button></li>';
+  }).join('') + '</ul></div>';
 }
 function doSearch() {
-  var q = ui.q.trim(); if (!q) return;
-  var mode = ui.mode, token = {};
-  ui.res = { loading: true, q: q, token: token }; renderRes();
-  var p = mode === 'title' ? qSearch(q) : qPerson(q);
-  p.then(function (d) {
-    if (!ui.res || ui.res.token !== token) return;
-    if (mode === 'actor' && d && d.name) { var k = norm(d.name); state.people[k] = { name: d.name, known: d.known || [], at: Date.now() }; save(); }
-    ui.res = { kind: mode, q: q, data: d || {} }; renderRes();
-  }, function (e) { if (ui.res && ui.res.token === token) { ui.res = { error: errMsg(e) }; renderRes(); } });
+  var q = ui.q.trim(); if (!q) { ui.res = null; renderRes(); loadTrending(); return; }
+  var tok = {}; ui.res = { loading: true, q: q, tok: tok }; $('#trend') && ($('#trend').innerHTML = ''); renderRes();
+  search(q).then(function (list) { if (ui.res && ui.res.tok === tok) { ui.res = { q: q, list: list }; renderRes(); } },
+    function (e) { if (ui.res && ui.res.tok === tok) { ui.res = { error: errMsg(e) }; renderRes(); } });
 }
+var searchT;
 
-/* ---------- Library tab ---------- */
+/* ================= Library tab ================= */
 function renderLibrary() {
-  var ids = Object.keys(state.lib), counts = { all: ids.length, watching: 0, watchlist: 0, watched: 0 };
-  ids.forEach(function (id) { counts[state.lib[id].status]++; });
-  var lq = norm(ui.lq);
-  var list = ids.filter(function (id) {
-    var l = state.lib[id], t = state.titles[id];
-    return (ui.filter === 'all' || l.status === ui.filter) && (!lq || norm(t.title).indexOf(lq) >= 0);
-  }).sort(function (a, b) { return state.lib[b].added - state.lib[a].added; });
+  var all = Object.keys(state.lib).map(function (k) { return state.lib[k]; });
+  var counts = { all: all.length, watching: 0, watchlist: 0, watched: 0 };
+  all.forEach(function (l) { counts[l.status]++; });
+  var lq = ui.lq.trim().toLowerCase();
+  var list = all.filter(function (l) { return (ui.filter === 'all' || l.status === ui.filter) && (!lq || l.title.toLowerCase().indexOf(lq) >= 0); }).sort(function (a, b) { return b.added - a.added; });
   var h = '<div class="chips" style="margin-top:8px" role="group" aria-label="Filter">' + [['all', 'All'], ['watching', 'Watching'], ['watchlist', 'To watch'], ['watched', 'Watched']].map(function (f) {
     return '<button class="chip" data-act="filter" data-v="' + f[0] + '" aria-pressed="' + (ui.filter === f[0]) + '">' + f[1] + ' <span class="mono">' + counts[f[0]] + '</span></button>';
   }).join('') + '</div>';
-  if (ids.length > 5) h += '<div class="field" style="margin-top:12px"><input type="search" id="lq" aria-label="Filter library" placeholder="Filter your library" value="' + esc(ui.lq) + '"></div>';
-  if (!ids.length) {
-    h += '<div class="card hero" style="margin-top:18px"><div class="t">Nothing here yet</div><p class="muted">Find a title on the Cast tab and mark it Watching, To watch or Watched. Everything you add shows up here, with suggestions built from how your titles relate.</p><a class="btn gold" href="#cast">Find a title</a></div>';
-  } else if (!list.length) {
-    h += '<p class="muted" style="margin-top:20px">Nothing matches this filter.</p>';
-  } else {
-    h += '<div class="card" style="margin-top:14px"><ul class="rows">' + list.map(function (id) {
-      var t = state.titles[id], l = state.lib[id], sc = sharedCast(id).length;
-      return '<li><button class="row" data-act="open-id" data-id="' + esc(id) + '"><span class="row-main"><span class="row-title">' + esc(t.title) + '</span><span class="row-sub">' + esc(t.year || '') + ' · ' + typeLabel(t.type) + (sc ? ' · linked to ' + sc + ' of yours' : '') + '</span>' + (l.rating ? '<span class="stars" aria-label="' + l.rating + ' of 5">' + stars(l.rating) + '</span>' : '') + '</span><span class="pill ' + l.status + '">' + STATUS[l.status] + '</span></button></li>';
-    }).join('') + '</ul></div>';
-  }
-  var sg = suggestions();
-  if (sg.length) {
-    h += '<h2>Suggested from your library</h2><div class="card"><ul class="rows">' + sg.map(function (s, i) {
-      return '<li><div class="row"><button class="row-main" data-act="open-sug" data-i="' + i + '"><span class="row-title">' + esc(s.title) + '</span><span class="row-sub">' + esc(s.year) + ' · ' + esc(s.rel || 'Related') + ' · ' + esc(s.from.slice(0, 2).join(', ')) + '</span></button><button class="btn sm" data-act="sug-add" data-i="' + i + '">+ To watch</button></div></li>';
-    }).join('') + '</ul></div>';
-    ui.sug = sg;
-  }
+  if (all.length > 5) h += '<div class="field" style="margin-top:12px"><input type="search" id="lq" aria-label="Filter library" placeholder="Filter your library" value="' + esc(ui.lq) + '"></div>';
+  if (!all.length) h += '<div class="card hero" style="margin-top:18px"><div class="t">Nothing here yet</div><p class="muted">Find a title on the Cast tab and mark it Watching, To watch or Watched. Suggestions and connections between your titles appear here as your library grows.</p><a class="btn gold" href="#cast">Find a title</a></div>';
+  else if (!list.length) h += '<p class="muted" style="margin-top:20px">Nothing matches this filter.</p>';
+  else h += '<div class="card" style="margin-top:14px"><ul class="rows">' + list.map(function (l) {
+    return '<li><button class="row" data-act="open-title" data-key="' + esc(l.key) + '">' + (l.poster ? '<img class="thumb" src="' + img(l.poster, 'w92') + '" alt="" loading="lazy">' : '<span class="thumb"></span>') + '<span class="row-main"><span class="row-title">' + esc(l.title) + '</span><span class="row-sub">' + esc(l.year) + ' · ' + typeLabel(l.type) + (l.progress ? ' · S' + l.progress.s + ' E' + l.progress.e : '') + '</span>' + (l.rating ? '<span class="stars" aria-label="' + l.rating + ' of 5">' + stars(l.rating) + '</span>' : '') + '</span><span class="pill ' + l.status + '">' + STATUS[l.status] + '</span></button></li>';
+  }).join('') + '</ul></div>';
+  h += '<div id="sugg"></div>';
   $('#view').innerHTML = h;
+  if (all.length) loadSuggestions();
+}
+function loadSuggestions() {
+  var keys = Object.keys(state.lib), map = {};
+  Promise.all(keys.map(function (k) { var p = k.split(':'); return idb.get(LANG + '|t|' + p[0] + '|' + p[1]); })).then(function (rows) {
+    rows.forEach(function (h, i) {
+      if (!h || !h.v) return; var t = h.v;
+      t.related.forEach(function (r) {
+        if (state.lib[r.key]) return;
+        var e = map[r.key] || (map[r.key] = { r: r, from: [] });
+        if (e.from.indexOf(t.title) < 0) e.from.push(t.title);
+      });
+    });
+    var sg = Object.keys(map).map(function (k) { return map[k]; }).sort(function (a, b) { return b.from.length - a.from.length; }).slice(0, 8);
+    var el = $('#sugg'); if (!el || !sg.length) return;
+    el.innerHTML = '<h2>Suggested from your library</h2><div class="card"><ul class="rows">' + sg.map(function (s) {
+      return '<li><div class="row"><button class="row-main" data-act="open-title" data-key="' + esc(s.r.key) + '" style="display:flex;gap:12px;align-items:center">' + (s.r.poster ? '<img class="thumb" src="' + img(s.r.poster, 'w92') + '" alt="" loading="lazy">' : '<span class="thumb"></span>') + '<span><span class="row-title">' + esc(s.r.title) + '</span><span class="row-sub">' + esc(s.r.year) + ' · Because of ' + esc(s.from.slice(0, 2).join(', ')) + '</span></span></button><button class="btn sm" data-act="sug-add" data-key="' + esc(s.r.key) + '">+ To watch</button></div></li>';
+    }).join('') + '</ul></div>';
+    ui.sug = map;
+  });
 }
 
-/* ---------- Setup tab ---------- */
+/* ================= Setup tab ================= */
+var installEvt = null;
+window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); installEvt = e; if (ui.tab === 'setup') renderSetup(); });
 function renderSetup() {
-  var custom = state.services.filter(function (s) { return SERVICES.indexOf(s) < 0; });
-  var all = SERVICES.concat(custom);
-  var h = '<h2>Where you watch</h2><div class="card pad"><label class="l" for="cc">Country</label><select id="cc">' +
-    COUNTRIES.map(function (c) { return '<option value="' + c[0] + '"' + (c[0] === state.country ? ' selected' : '') + '>' + esc(c[1]) + '</option>'; }).join('') + '</select>' +
-    '<div class="sp"></div><div class="sp"></div><label class="l">Your streaming services</label><div class="chips">' +
-    all.map(function (s) { return '<button class="chip" data-act="svc" data-v="' + esc(s) + '" aria-pressed="' + (state.services.indexOf(s) >= 0) + '">' + esc(s) + '</button>'; }).join('') + '</div>' +
-    '<form class="field" id="svcform" style="margin-top:12px"><input type="text" id="svcnew" aria-label="Add another service" placeholder="Add another service"><button class="btn" type="submit">Add</button></form></div>' +
-    '<h2>Your data</h2><div class="card pad"><p class="small muted" id="sync" style="margin:0 0 12px"></p><div class="chips"><button class="btn" data-act="export">Export backup</button><label class="btn" for="imp" style="cursor:pointer">Import backup</label><input type="file" id="imp" accept=".json,application/json" hidden></div></div>' +
-    '<h2>How lookups work</h2><div class="card pad small muted">Cast, related titles and availability come from Claude, not a live database. Older titles are reliable. New releases and streaming catalogues change often, so treat availability as a strong hint and use the JustWatch link on each title to confirm. Claude is told to avoid spoilers.' + (sample ? '' : '<br><br><span class="err">Lookups are not available in this view.</span>') + '</div>' +
-    '<h2>Install</h2><div class="card pad small muted">On iPhone, open this page in Safari, tap Share, then Add to Home Screen. On Android, open it in Chrome and choose Install app or Add to Home screen.</div>';
-  $('#view').innerHTML = h; syncNote();
+  var h = '<h2>TMDB connection</h2><div class="card pad"><form id="tokform"><label class="l" for="tok">Read access token (or v3 API key)</label><div class="field"><input type="password" id="tok" autocomplete="off" placeholder="Paste your token" value="' + esc(state.token) + '"><button class="btn gold" type="submit">Save</button></div></form><p class="small muted" style="margin:10px 0 0">Stored only in this browser. Get one free at <a href="https://www.themoviedb.org/settings/api" target="_blank" rel="noopener">themoviedb.org/settings/api</a>.</p></div>' +
+    '<h2>Where you watch</h2><div class="card pad"><label class="l" for="cc">Country</label><select id="cc">' + COUNTRIES.map(function (c) { return '<option value="' + c + '"' + (c === state.country ? ' selected' : '') + '>' + esc(cname(c)) + '</option>'; }).join('') + '</select><div class="sp"></div><label class="l" for="svq">Your streaming services</label><input type="search" id="svq" placeholder="Filter services" value="' + esc(ui.svq) + '" style="width:100%;margin-bottom:10px"><div class="chips" id="svc"></div></div>' +
+    '<h2>Your data</h2><div class="card pad"><p class="small muted" style="margin:0 0 12px">Your library lives in this browser. Export a backup to move it to another device.</p><div class="chips"><button class="btn" data-act="export">Export backup</button><label class="btn" for="imp" style="cursor:pointer">Import backup</label><input type="file" id="imp" accept=".json,application/json" hidden></div></div>' +
+    '<h2>Install</h2><div class="card pad small muted">' + (installEvt ? '<button class="btn gold" data-act="install">Install Typecast</button>' : 'On iPhone, open this page in Safari, tap Share, then Add to Home Screen. On Android, use Chrome menu, then Install app. On desktop Chrome or Edge, use the install icon in the address bar.') + '</div>' +
+    '<p class="foot">This product uses the TMDB API but is not endorsed or certified by TMDB. Streaming availability data is provided by JustWatch.</p>';
+  $('#view').innerHTML = h; renderSvc();
+}
+function renderSvc() {
+  var el = $('#svc'); if (!el) return;
+  if (!state.token) { el.innerHTML = '<span class="small muted">Add your TMDB token first.</span>'; return; }
+  el.innerHTML = '<span class="small muted"><span class="spin"></span>Loading services</span>';
+  var cc = state.country;
+  getProviders(cc).then(function (list) {
+    if (state.country !== cc || !$('#svc')) return;
+    var q = ui.svq.trim().toLowerCase();
+    var sel = state.services.map(String);
+    var show = list.filter(function (p) { return q ? p.name.toLowerCase().indexOf(q) >= 0 : (sel.indexOf(String(p.id)) >= 0 || p.pri < 25); }).slice(0, 60);
+    $('#svc').innerHTML = show.length ? show.map(function (p) { return '<button class="chip" data-act="svc" data-id="' + p.id + '" data-name="' + esc(p.name) + '" aria-pressed="' + (sel.indexOf(String(p.id)) >= 0) + '">' + esc(p.name) + '</button>'; }).join('') : '<span class="small muted">No services match.</span>';
+  }, function (e) { var s = $('#svc'); if (s) s.innerHTML = '<span class="err small">' + esc(errMsg(e)) + '</span>'; });
 }
 
-/* ---------- Detail sheet ---------- */
-function openSheet(id) {
-  ui.sheet = id; ui.openActor = null;
-  $('#sheet').hidden = false; document.body.style.overflow = 'hidden';
-  $('#sh-body').innerHTML = '<div id="sh-head"></div><div id="sh-cast"></div><div id="sh-who"></div><div id="sh-where"></div><div id="sh-conn"></div><div id="sh-rel"></div><div id="sh-notes"></div>';
-  sheetHead(); sheetWho(); sheetWhere(); sheetNotes(); sheetCast(); sheetRel(); sheetConn();
-  var t = state.titles[id];
-  if (!t.cast && !ui.busy[id]) loadDetails(id);
+/* ================= Sheet ================= */
+function open(entry) { ui.stack.push(entry); showSheet(); }
+function showSheet() {
+  var top = ui.stack[ui.stack.length - 1];
+  $('#sheet').hidden = !top; document.body.style.overflow = top ? 'hidden' : '';
+  $('#back').hidden = ui.stack.length < 2;
+  if (!top) return;
+  var tok = ++ui.rs; ui.openDrawer = null;
+  $('#sh-body').innerHTML = '<p class="muted"><span class="spin"></span>Loading</p>';
   $('.panel').scrollTop = 0;
+  var p = top.kind === 'title' ? getTitle(top.type, top.id).then(function (t) { if (tok !== ui.rs) return; ui.cur = t; drawTitle(t, tok); }) : getPerson(top.id).then(function (pp) { if (tok !== ui.rs) return; ui.people[pp.id] = pp; drawPerson(pp); });
+  p.catch(function (e) { if (tok === ui.rs) $('#sh-body').innerHTML = '<p class="err">' + esc(errMsg(e)) + '</p><button class="btn" data-act="retry">Try again</button>'; });
 }
-function closeSheet() {
-  $('#sheet').hidden = true; document.body.style.overflow = ''; ui.sheet = null;
-  if (ui.tab === 'library') renderLibrary(); else if (ui.tab === 'cast') renderCast();
-}
-function openMeta(m) { openSheet(ensureTitle(m)); }
-function sheetHead() {
-  var id = ui.sheet; if (!id) return;
-  var t = state.titles[id], l = state.lib[id];
-  $('#sh-head').innerHTML = '<h1 class="sh-title" id="sh-title">' + esc(t.title) + '</h1><div class="sh-meta">' + esc(t.year || '') + ' · ' + typeLabel(t.type) + (t.meta ? ' · ' + esc(t.meta) : '') + '</div>' +
-    (t.overview ? '<p style="margin:0">' + esc(t.overview) + '</p>' : '') +
+function closeSheet() { ui.stack = []; ui.rs++; showSheet(); if (ui.tab === 'library') renderLibrary(); else if (ui.tab === 'cast') renderCast(); }
+function pk(key) { var p = key.split(':'); return { kind: 'title', type: p[0], id: +p[1], key: key }; }
+
+function headHtml(t) {
+  var l = state.lib[t.key];
+  var meta = [t.year, typeLabel(t.type), t.runtime ? t.runtime + (t.type === 'tv' ? ' min / ep' : ' min') : '', t.genres.slice(0, 3).join(', ')].filter(Boolean).join(' · ');
+  return '<div class="sh-top">' + (t.poster ? '<img class="sh-poster" src="' + img(t.poster, 'w342') + '" alt="">' : '') + '<div style="min-width:0"><h1 class="sh-title">' + esc(t.title) + '</h1><div class="sh-meta">' + esc(meta) + '</div>' + (t.crew.length ? '<div class="sh-meta">' + (t.type === 'tv' ? 'Created by ' : 'Directed by ') + esc(t.crew.slice(0, 2).join(', ')) + '</div>' : '') + '</div></div>' +
+    (t.overview ? '<p style="margin:14px 0 0">' + esc(t.overview) + '</p>' : '') +
     '<div class="status" role="group" aria-label="Status">' + Object.keys(STATUS).map(function (s) { return '<button class="chip" data-act="status" data-v="' + s + '" aria-pressed="' + (!!l && l.status === s) + '">' + STATUS[s] + '</button>'; }).join('') + (l ? '<button class="chip" data-act="status" data-v="" style="color:var(--bad)">Remove</button>' : '') + '</div>' +
-    (l ? '<div class="stars" role="group" aria-label="Your rating" style="font-size:24px">' + [1, 2, 3, 4, 5].map(function (n) { return '<button data-act="rate" data-v="' + n + '" aria-label="' + n + ' star' + (n > 1 ? 's' : '') + '" style="color:var(--gold)">' + (n <= l.rating ? '★' : '☆') + '</button>'; }).join('') + '</div>' : '');
+    (l ? '<div class="stars" role="group" aria-label="Your rating" style="font-size:24px">' + [1, 2, 3, 4, 5].map(function (n) { return '<button data-act="rate" data-v="' + n + '" aria-label="' + n + ' stars" style="color:var(--gold)">' + (n <= l.rating ? '★' : '☆') + '</button>'; }).join('') + '</div>' : '');
 }
-function sheetCast() {
-  var id = ui.sheet; if (!id) return;
-  var t = state.titles[id], el = $('#sh-cast'); if (!el) return;
-  var h = '<h2>Cast ' + (t.cast && Object.keys(state.lib).length > 1 ? '<button class="btn sm" data-act="relink"' + (ui.busy['l' + id] ? ' disabled' : '') + '>' + (ui.busy['l' + id] ? 'Matching…' : 'Match to my library') + '</button>' : '') + '</h2>';
-  if (ui.busy[id]) h += '<p class="muted"><span class="spin"></span>Loading cast</p>';
-  else if (t.failed) h += '<p class="err">' + esc(t.failed) + '</p><button class="btn" data-act="reload">Try again</button>';
-  else if (t.cast) {
-    h += '<div class="card pad"><ul class="credits">' + t.cast.map(function (c, i) {
-      var seen = seenIn(c.name, id);
-      var seenSet = {}; seen.forEach(function (s) { seenSet[norm(s)] = 1; });
-      var also = (c.top || []).filter(function (x) { return !seenSet[norm(x.title)]; }).map(function (x) { return x.title; });
-      return '<li class="credit"><button class="credit-main" data-act="actor" data-i="' + i + '" aria-expanded="' + (ui.openActor === i) + '"><span class="nm">' + esc(c.name) + '</span><span class="dots"></span><span class="role">' + esc(c.role) + '</span></button>' +
-        (seen.length ? '<div class="seen">You know them from: ' + esc(seen.slice(0, 4).join(', ')) + '</div>' : '') +
-        (also.length ? '<div class="also">Also in: ' + esc(also.slice(0, 3).join(', ')) + '</div>' : '') +
-        '<div id="am-' + i + '"></div></li>';
+function whereHtml(t) {
+  var cc = state.country, p = t.prov[cc], h = '<h2>Where to watch <span class="mono" style="text-transform:none;letter-spacing:0">' + esc(cname(cc)) + '</span></h2>';
+  var mine = state.services.map(String);
+  var stream = ((p && p.flatrate) || []).concat((p && p.free) || [], (p && p.ads) || []);
+  var hit = stream.filter(function (x) { return mine.indexOf(String(x.id)) >= 0; });
+  if (hit.length) h += '<div class="banner ok"><b>On your services</b>' + esc(hit.map(function (x) { return x.name; }).filter(function (v, i, a) { return a.indexOf(v) === i; }).join(', ')) + '</div>';
+  else if (stream.length) h += '<div class="banner no"><b>Not on your services</b>' + (mine.length ? 'Available on other services, or rent and buy below.' : 'Pick your services in Setup to see a match.') + '</div>';
+  else if (p && (p.rent || p.buy)) h += '<div class="banner no"><b>Rent or buy only</b>It is not on a subscription service in ' + esc(cname(cc)) + '.</div>';
+  else h += '<div class="banner no"><b>Not available</b>No listing for ' + esc(cname(cc)) + '. You will need another way to watch.</div>';
+  if (p) {
+    [['flatrate', 'Stream'], ['free', 'Free'], ['ads', 'With ads'], ['rent', 'Rent'], ['buy', 'Buy']].forEach(function (g) {
+      if (p[g[0]] && p[g[0]].length) h += '<div class="prov"><span class="g">' + g[1] + '</span>' + p[g[0]].map(function (x) { return x.logo ? '<img src="' + img(x.logo, 'w92') + '" alt="' + esc(x.name) + '" title="' + esc(x.name) + '" loading="lazy">' : '<span class="pill">' + esc(x.name) + '</span>'; }).join('') + '</div>';
+    });
+    if (p.link) h += '<p class="small muted" style="margin:12px 0 0">Data from JustWatch. <a href="' + esc(p.link) + '" target="_blank" rel="noopener">See all options</a></p>';
+  }
+  return h;
+}
+function creditRow(g, c) {
+  return '<li class="credit" data-q="' + esc((c.name + ' ' + c.role).toLowerCase()) + '"><button class="credit-main" data-act="actor" data-g="' + g + '" data-id="' + c.id + '" aria-expanded="false">' +
+    (c.photo ? '<img class="avatar" src="' + img(c.photo, 'w185') + '" alt="" loading="lazy">' : '<span class="avatar">' + esc(c.name.charAt(0)) + '</span>') +
+    '<span class="credit-line"><span class="nm">' + esc(c.name) + '</span><span class="dots"></span><span class="role">' + esc(c.role) + '</span></span></button><div class="marks" id="mk-' + g + '-' + c.id + '"></div><div id="dr-' + g + '-' + c.id + '"></div></li>';
+}
+function drawTitle(t, tok) {
+  var h = '<div id="sh-head">' + headHtml(t) + '</div><div id="sh-where">' + whereHtml(t) + '</div>';
+  if (t.type === 'tv' && t.seasons.length) {
+    var l = state.lib[t.key], pr = (l && l.progress) || { s: t.seasons[0].n, e: 1 };
+    h += '<h2>Episode cast</h2><form class="card pad" id="epform"><div class="inline"><label class="l" for="ep-s" style="margin:0">Season</label><select id="ep-s">' + t.seasons.map(function (s) { return '<option value="' + s.n + '"' + (s.n === pr.s ? ' selected' : '') + '>' + s.n + '</option>'; }).join('') + '</select><label class="l" for="ep-e" style="margin:0">Episode</label><input type="number" id="ep-e" min="1" value="' + pr.e + '" inputmode="numeric"><button class="btn gold" type="submit">Show cast</button></div><div id="ep-res" style="margin-top:12px"></div></form>';
+  }
+  h += '<h2>Cast</h2><div class="card pad"><input type="search" id="cfilter" placeholder="Find an actor or character" style="width:100%;margin-bottom:6px"><ul class="credits" id="cl-cast">' + t.people.map(function (c) { return creditRow('cast', c); }).join('') + '</ul></div>' +
+    '<div id="sh-conn"></div><div id="sh-rel"></div><h2>Notes</h2><div id="sh-notes"></div>';
+  $('#sh-body').innerHTML = h; notesHtml(t);
+  relHtml(t);
+  if (t.collection) getCollection(t.collection).then(function (parts) {
+    if (tok !== ui.rs) return;
+    var have = {}; t.related.forEach(function (r) { have[r.key] = 1; });
+    var extra = parts.filter(function (p) { return p.key !== t.key && !have[p.key]; });
+    ui._rel = extra.concat(t.related); relHtml(t, ui._rel);
+  }, function () {});
+  enrich('cast', t.people, t.key, tok, true);
+}
+function notesHtml(t) {
+  var l = state.lib[t.key];
+  $('#sh-notes').innerHTML = '<textarea id="note" aria-label="Notes" placeholder="Your thoughts, who recommended it, where you stopped"' + (l ? '' : ' disabled') + '>' + esc(l ? l.note : '') + '</textarea>' + (l ? '' : '<p class="small muted" style="margin:4px 0 0">Mark this title Watching, To watch or Watched to keep notes.</p>');
+}
+function relHtml(t, list) {
+  var el = $('#sh-rel'); if (!el) return; list = list || t.related;
+  if (!list.length) { el.innerHTML = ''; return; }
+  el.innerHTML = '<h2>Related</h2><div class="card"><ul class="rows">' + list.map(function (r) {
+    return '<li><button class="row" data-act="open-title" data-key="' + esc(r.key) + '">' + (r.poster ? '<img class="thumb" src="' + img(r.poster, 'w92') + '" alt="" loading="lazy">' : '<span class="thumb"></span>') + '<span class="row-main"><span class="row-title" style="font-size:17px">' + esc(r.title) + '</span><span class="row-sub">' + esc(r.year) + ' · ' + esc(r.rel) + '</span></span>' + pill(r.key) + '</button></li>';
+  }).join('') + '</ul></div>';
+}
+function marksHtml(p, curKey) {
+  var hits = p.known.filter(function (k) { return state.lib[k.key] && k.key !== curKey; });
+  var also = p.known.filter(function (k) { return !state.lib[k.key] && k.key !== curKey; }).slice(0, 3);
+  return (hits.length ? '<div class="seen">You know them from: ' + esc(hits.slice(0, 4).map(function (k) { return k.title + (k.year ? ' (' + k.year + ')' : ''); }).join(', ')) + '</div>' : '') +
+    (also.length ? '<div class="also">Also in: ' + esc(also.map(function (k) { return k.title; }).join(', ')) + '</div>' : '');
+}
+function enrich(g, people, curKey, tok, conn) {
+  var queue = people.slice(0, 20), links = {}, done = 0;
+  function next() {
+    var c = queue.shift(); if (!c) return Promise.resolve();
+    return getPerson(c.id).then(function (p) {
+      ui.people[p.id] = p;
+      if (tok !== ui.rs) return;
+      var el = $('#mk-' + g + '-' + c.id); if (el) el.innerHTML = marksHtml(p, curKey);
+      p.known.forEach(function (k) { if (state.lib[k.key] && k.key !== curKey) (links[k.key] = links[k.key] || []).push(p.name); });
+    }, function () {}).then(next);
+  }
+  var workers = []; for (var i = 0; i < 5; i++) workers.push(next());
+  Promise.all(workers).then(function () {
+    if (!conn || tok !== ui.rs) return;
+    var el = $('#sh-conn'); var keys = Object.keys(links).sort(function (a, b) { return links[b].length - links[a].length; }).slice(0, 8);
+    if (!el || !keys.length) return;
+    el.innerHTML = '<h2>Connected to your library</h2><div class="card"><ul class="rows">' + keys.map(function (k) {
+      var l = state.lib[k];
+      return '<li><button class="row" data-act="open-title" data-key="' + esc(k) + '">' + (l.poster ? '<img class="thumb" src="' + img(l.poster, 'w92') + '" alt="" loading="lazy">' : '<span class="thumb"></span>') + '<span class="row-main"><span class="row-title" style="font-size:17px">' + esc(l.title) + '</span><span class="row-sub">' + esc(links[k].slice(0, 4).join(', ')) + '</span></span>' + pill(k) + '</button></li>';
+    }).join('') + '</ul></div>';
+  });
+}
+function drawerHtml(p) {
+  var hits = p.known.filter(function (k) { return state.lib[k.key]; }), rest = p.known.filter(function (k) { return !state.lib[k.key]; });
+  var list = hits.concat(rest).slice(0, 10);
+  return '<div class="more">' + list.map(function (k) {
+    return '<button class="row" data-act="open-title" data-key="' + esc(k.key) + '">' + (k.poster ? '<img class="thumb" style="width:34px;height:50px" src="' + img(k.poster, 'w92') + '" alt="" loading="lazy">' : '<span class="thumb" style="width:34px;height:50px"></span>') + '<span class="row-main"><span class="row-title" style="font-size:16px">' + esc(k.title) + '</span><span class="row-sub">' + esc(k.year) + ' · ' + typeLabel(k.type) + (k.role ? ' · ' + esc(k.role) : '') + '</span></span>' + pill(k.key) + '</button>';
+  }).join('') + '<button class="btn sm" data-act="open-person" data-id="' + p.id + '" style="margin-top:8px">Full profile</button></div>';
+}
+function drawPerson(p) {
+  var hits = p.known.filter(function (k) { return state.lib[k.key]; });
+  function rows(list) {
+    return '<div class="card"><ul class="rows">' + list.map(function (k) {
+      return '<li><button class="row" data-act="open-title" data-key="' + esc(k.key) + '">' + (k.poster ? '<img class="thumb" src="' + img(k.poster, 'w92') + '" alt="" loading="lazy">' : '<span class="thumb"></span>') + '<span class="row-main"><span class="row-title" style="font-size:17px">' + esc(k.title) + '</span><span class="row-sub">' + esc(k.year) + ' · ' + typeLabel(k.type) + (k.role ? ' · ' + esc(k.role) : '') + '</span></span>' + pill(k.key) + '</button></li>';
     }).join('') + '</ul></div>';
   }
-  el.innerHTML = h;
-  if (ui.openActor != null) renderActorMore(ui.openActor);
-}
-function renderActorMore(i) {
-  var id = ui.sheet, t = state.titles[id], c = t && t.cast && t.cast[i], el = $('#am-' + i);
-  if (!c || !el) return;
-  var p = state.people[norm(c.name)];
-  if (!p) { el.innerHTML = '<div class="more muted"><span class="spin"></span>Loading credits</div>'; return; }
-  var idx = libIndex();
-  var known = p.known.filter(function (k) { return norm(k.title) !== norm(t.title); }).slice().sort(function (a, b) { return (statusOfTitle(b.title, idx) ? 1 : 0) - (statusOfTitle(a.title, idx) ? 1 : 0); });
-  el.innerHTML = '<div class="more">' + (p.err ? '<span class="err">' + esc(p.err) + '</span>' : known.map(function (k, j) {
-    var st = statusOfTitle(k.title, idx);
-    return '<div><button class="row" data-act="open-pk" data-p="' + i + '" data-j="' + j + '"><span class="row-main"><span class="row-title" style="font-size:17px">' + esc(k.title) + '</span><span class="row-sub">' + esc(k.year) + ' · ' + typeLabel(k.type) + (k.role ? ' · ' + esc(k.role) : '') + '</span></span>' + (st ? '<span class="pill ' + st + '">' + STATUS[st] + '</span>' : '') + '</button></div>';
-  }).join('')) + '</div>';
-  p._view = known;
-}
-function loadDetails(id) {
-  var t = state.titles[id]; ui.busy[id] = true; t.failed = null; if (ui.sheet === id) sheetCast();
-  qDetails(t).then(function (d) {
-    ui.busy[id] = false;
-    if (!d || d.error || !d.cast) { t.failed = 'Could not find details for this title. Check it is a real film or series.'; }
-    else {
-      t.overview = d.overview; t.meta = d.meta; t.cast = (d.cast || []).slice(0, 16); t.related = d.related || []; t.links = {}; t.fetched = Date.now();
-      save();
-      if (Object.keys(state.lib).filter(function (k) { return k !== id; }).length) relink(id, true);
-    }
-    if (ui.sheet === id) { sheetHead(); sheetCast(); sheetRel(); sheetConn(); }
-  }, function (e) { ui.busy[id] = false; t.failed = errMsg(e); if (ui.sheet === id) sheetCast(); });
-}
-function relink(id, quiet) {
-  var t = state.titles[id]; if (!t || !t.cast) return;
-  var titles = [];
-  for (var k in state.lib) if (k !== id && state.titles[k]) titles.push(state.titles[k].title);
-  if (!titles.length) { if (!quiet) toast('Add a few titles to your library first.'); return; }
-  ui.busy['l' + id] = true; if (ui.sheet === id) sheetCast();
-  qLinks(t, titles.slice(0, 100)).then(function (d) {
-    ui.busy['l' + id] = false; t.links = {};
-    ((d && d.links) || []).forEach(function (x) { if (x.name && x.in && x.in.length) t.links[x.name] = x.in; });
-    save(); if (ui.sheet === id) sheetCast();
-  }, function (e) { ui.busy['l' + id] = false; if (ui.sheet === id) sheetCast(); if (!quiet) toast(errMsg(e)); });
-}
-function sheetWho() {
-  $('#sh-who').innerHTML = '<h2>Who is that?</h2><form class="card pad" id="whoform" autocomplete="off"><label class="l" for="who-d">Describe the character</label><input type="text" id="who-d" style="width:100%" placeholder="e.g. the older detective with the limp"><div class="sp"></div><label class="l" for="who-e">Episode (optional)</label><input type="text" id="who-e" placeholder="S2 E4" style="width:100%"><div class="sp"></div><button class="btn gold" type="submit">Identify</button><div id="who-r" style="margin-top:12px"></div></form>';
-}
-function sheetWhere() {
-  var id = ui.sheet; if (!id) return;
-  var t = state.titles[id], a = t.avail, el = $('#sh-where'); if (!el) return;
-  var cc = state.country;
-  var jw = 'https://www.justwatch.com/' + cc.toLowerCase() + '/search?q=' + encodeURIComponent(t.title);
-  var h = '<h2>Where to watch <span class="mono" style="text-transform:none;letter-spacing:0">' + esc(cname(cc)) + '</span></h2>';
-  if (ui.busy['a' + id]) h += '<p class="muted"><span class="spin"></span>Checking ' + esc(cname(cc)) + '</p>';
-  else if (a && a.cc === cc) {
-    var mine = state.services, offers = a.offers || [];
-    var hit = offers.filter(function (o) { return (o.kind === 'stream' || o.kind === 'free') && mine.some(function (s) { return norm(o.service).indexOf(norm(s)) >= 0 || norm(s).indexOf(norm(o.service)) >= 0; }); });
-    var other = offers.filter(function (o) { return hit.indexOf(o) < 0; });
-    if (hit.length) h += '<div class="banner ok"><b>On your services</b>' + hit.map(function (o) { return esc(o.service); }).filter(function (v, i, arr) { return arr.indexOf(v) === i; }).join(', ') + '</div>';
-    else if (offers.length) h += '<div class="banner no"><b>Not on your services</b>' + (mine.length ? 'You can still rent, buy or add a service.' : 'Pick your services in Setup to see a match.') + '</div>';
-    else h += '<div class="banner no"><b>No listing found</b>Try rent or buy, a library, or another source.</div>';
-    if (other.length) h += '<div class="offers">' + other.map(function (o) { return '<span class="pill">' + esc(o.service) + ' · ' + esc(o.kind) + '</span>'; }).join('') + '</div>';
-    h += '<p class="small muted" style="margin:10px 0 0">' + esc(a.note || '') + ' Confidence: ' + esc(a.confidence || 'unknown') + '. Checked ' + new Date(a.at).toLocaleDateString() + '.</p>';
-    h += '<div class="chips" style="margin-top:10px"><button class="btn sm" data-act="avail">Check again</button><a class="btn sm" href="' + jw + '" target="_blank" rel="noopener">Confirm on JustWatch</a></div>';
-  } else {
-    h += '<button class="btn gold" data-act="avail">Check availability</button> <a class="btn" href="' + jw + '" target="_blank" rel="noopener">JustWatch</a>';
-    if (!state.services.length) h += '<p class="small muted" style="margin:10px 0 0">Add your streaming services in Setup so Typecast can tell you if you already have access.</p>';
-  }
-  el.innerHTML = h;
-}
-function checkAvail() {
-  var id = ui.sheet, t = state.titles[id]; ui.busy['a' + id] = true; sheetWhere();
-  qAvail(t, state.country, state.services).then(function (d) {
-    ui.busy['a' + id] = false;
-    t.avail = { cc: state.country, at: Date.now(), offers: (d && d.offers) || [], confidence: d && d.confidence, note: d && d.note };
-    save(); if (ui.sheet === id) sheetWhere();
-  }, function (e) { ui.busy['a' + id] = false; if (ui.sheet === id) sheetWhere(); toast(errMsg(e)); });
-}
-function sheetConn() {
-  var id = ui.sheet; if (!id) return;
-  var s = sharedCast(id), el = $('#sh-conn'); if (!el) return;
-  if (!s.length) { el.innerHTML = ''; return; }
-  el.innerHTML = '<h2>Shares cast with your library</h2><div class="card"><ul class="rows">' + s.map(function (x) {
-    return '<li><button class="row" data-act="open-id" data-id="' + esc(x.id) + '"><span class="row-main"><span class="row-title" style="font-size:17px">' + esc(x.title) + '</span><span class="row-sub">' + esc(x.names.slice(0, 4).join(', ')) + '</span></span><span class="pill ' + state.lib[x.id].status + '">' + STATUS[state.lib[x.id].status] + '</span></button></li>';
-  }).join('') + '</ul></div>';
-}
-function sheetRel() {
-  var id = ui.sheet; if (!id) return;
-  var t = state.titles[id], el = $('#sh-rel'); if (!el) return;
-  if (!t.related || !t.related.length) { el.innerHTML = ''; return; }
-  var idx = libIndex();
-  el.innerHTML = '<h2>Related</h2><div class="card"><ul class="rows">' + t.related.map(function (r, i) {
-    var st = statusOfTitle(r.title, idx);
-    return '<li><button class="row" data-act="open-rel" data-i="' + i + '"><span class="row-main"><span class="row-title" style="font-size:17px">' + esc(r.title) + '</span><span class="row-sub">' + esc(r.year) + ' · ' + esc(r.relation || 'Related') + '</span></span>' + (st ? '<span class="pill ' + st + '">' + STATUS[st] + '</span>' : '') + '</button></li>';
-  }).join('') + '</ul></div>';
-}
-function sheetNotes() {
-  var id = ui.sheet, l = state.lib[id], el = $('#sh-notes'); if (!el) return;
-  el.innerHTML = '<h2>Notes</h2><textarea id="note" aria-label="Notes" placeholder="Your thoughts, who recommended it, where you stopped">' + esc(l ? l.note : '') + '</textarea><p class="small muted" id="note-hint" style="margin:4px 0 0">' + (l ? '' : 'Mark this title Watching, To watch or Watched to keep notes.') + '</p>';
+  $('#sh-body').innerHTML = '<div class="sh-top">' + (p.photo ? '<img class="sh-poster" src="' + img(p.photo, 'w185') + '" alt="">' : '') + '<div style="min-width:0"><h1 class="sh-title">' + esc(p.name) + '</h1><div class="sh-meta">' + esc(p.dept || '') + '</div></div></div>' + (p.bio ? '<p class="small muted" style="margin:14px 0 0">' + esc(p.bio) + (p.bio.length >= 360 ? '…' : '') + '</p>' : '') +
+    (hits.length ? '<h2>In your library</h2>' + rows(hits) : '') + '<h2>Known for</h2>' + rows(p.known.filter(function (k) { return !state.lib[k.key]; }).slice(0, 30));
 }
 
-/* ---------- events ---------- */
+/* ================= library actions ================= */
+function setStatus(t, s) {
+  if (!s) delete state.lib[t.key];
+  else { var cur = state.lib[t.key] || { key: t.key, type: t.type, id: t.id, title: t.title, year: t.year, poster: t.poster, added: Date.now(), rating: 0, note: '' }; cur.status = s; state.lib[t.key] = cur; }
+  save();
+}
+
+/* ================= events ================= */
 document.addEventListener('click', function (ev) {
   var b = ev.target.closest('[data-act]'); if (!b) return;
-  var a = b.dataset.act, id = ui.sheet;
+  var a = b.dataset.act, t = ui.cur;
   if (a === 'close') closeSheet();
-  else if (a === 'mode') { ui.mode = b.dataset.v; ui.res = null; renderCast(); }
-  else if (a === 'try') { ui.mode = b.dataset.mode; ui.q = b.dataset.q; renderCast(); doSearch(); }
-  else if (a === 'open-match') openMeta(ui.res.data.matches[+b.dataset.i]);
-  else if (a === 'open-known') openMeta(ui.res.sorted[+b.dataset.i]);
-  else if (a === 'open-id') openSheet(b.dataset.id);
-  else if (a === 'open-sug') openMeta(ui.sug[+b.dataset.i]);
-  else if (a === 'sug-add') { var s = ui.sug[+b.dataset.i], nid = ensureTitle(s); setStatus(nid, 'watchlist'); toast('Added to To watch'); renderLibrary(); }
+  else if (a === 'back') { ui.stack.pop(); showSheet(); }
+  else if (a === 'retry') showSheet();
+  else if (a === 'open-title') open(pk(b.dataset.key));
+  else if (a === 'open-person') open({ kind: 'person', id: +b.dataset.id });
   else if (a === 'filter') { ui.filter = b.dataset.v; renderLibrary(); }
-  else if (a === 'status') { setStatus(id, b.dataset.v); sheetHead(); sheetNotes(); sheetCast(); sheetConn(); if (b.dataset.v) toast('Saved to ' + STATUS[b.dataset.v]); }
-  else if (a === 'rate') { var l = state.lib[id]; l.rating = l.rating === +b.dataset.v ? 0 : +b.dataset.v; save(); sheetHead(); }
-  else if (a === 'reload') loadDetails(id);
-  else if (a === 'relink') relink(id, false);
-  else if (a === 'avail') checkAvail();
-  else if (a === 'open-rel') openMeta(state.titles[id].related[+b.dataset.i]);
-  else if (a === 'open-pk') openMeta(state.people[norm(state.titles[id].cast[+b.dataset.p].name)]._view[+b.dataset.j]);
+  else if (a === 'sug-add') { var s = ui.sug[b.dataset.key].r; setStatus({ key: s.key, type: s.type, id: s.id, title: s.title, year: s.year, poster: s.poster }, 'watchlist'); toast('Added to To watch'); renderLibrary(); }
+  else if (a === 'status') { setStatus(t, b.dataset.v); $('#sh-head').innerHTML = headHtml(t); notesHtml(t); if (b.dataset.v) toast('Saved to ' + STATUS[b.dataset.v]); }
+  else if (a === 'rate') { var l = state.lib[t.key], v = +b.dataset.v; l.rating = l.rating === v ? 0 : v; save(); $('#sh-head').innerHTML = headHtml(t); }
   else if (a === 'actor') {
-    var i = +b.dataset.i, c = state.titles[id].cast[i], key = norm(c.name);
-    if (ui.openActor === i) { ui.openActor = null; sheetCast(); return; }
-    ui.openActor = i; sheetCast();
-    if (!state.people[key]) {
-      qPerson(c.name, state.titles[id].title).then(function (d) {
-        state.people[key] = { name: c.name, known: (d && d.known) || [], at: Date.now() }; save();
-        if (ui.sheet === id) { sheetCast(); }
-      }, function (e) { state.people[key] = { name: c.name, known: [], err: errMsg(e) }; delete state.people[key]; if (ui.openActor === i) { var el = $('#am-' + i); if (el) el.innerHTML = '<div class="more err">' + esc(errMsg(e)) + '</div>'; } });
-    }
+    var g = b.dataset.g, id = b.dataset.id, dr = $('#dr-' + g + '-' + id), key = g + '-' + id;
+    if (dr.innerHTML) { dr.innerHTML = ''; b.setAttribute('aria-expanded', 'false'); return; }
+    b.setAttribute('aria-expanded', 'true');
+    if (ui.people[id]) dr.innerHTML = drawerHtml(ui.people[id]);
+    else { dr.innerHTML = '<div class="more muted"><span class="spin"></span>Loading credits</div>'; getPerson(+id).then(function (p) { ui.people[id] = p; if (dr.innerHTML) dr.innerHTML = drawerHtml(p); }, function (e) { dr.innerHTML = '<div class="more err">' + esc(errMsg(e)) + '</div>'; }); }
   }
-  else if (a === 'svc') { var v = b.dataset.v, k = state.services.indexOf(v); if (k >= 0) state.services.splice(k, 1); else state.services.push(v); save(); renderSetup(); }
+  else if (a === 'svc') {
+    var sid = b.dataset.id, i = state.services.map(String).indexOf(sid);
+    if (i >= 0) state.services.splice(i, 1); else { state.services.push(+sid); state.svcNames[sid] = b.dataset.name; }
+    save(); b.setAttribute('aria-pressed', i < 0);
+  }
   else if (a === 'export') {
-    if (!downloads) { toast('Saving files is not available in this view.'); return; }
-    downloads.save({ filename: 'typecast-backup.json', data: JSON.stringify(state, null, 2) }).then(function () { toast('Backup saved'); }, function () {});
+    var url = URL.createObjectURL(new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' }));
+    var d = document.createElement('a'); d.href = url; d.download = 'typecast-backup.json'; document.body.appendChild(d); d.click(); d.remove(); setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
   }
+  else if (a === 'install' && installEvt) { installEvt.prompt(); installEvt = null; }
 });
 document.addEventListener('submit', function (ev) {
   var f = ev.target; ev.preventDefault();
-  if (f.id === 'sform') { ui.q = $('#q').value; doSearch(); }
-  else if (f.id === 'svcform') { var v = $('#svcnew').value.trim(); if (v && state.services.indexOf(v) < 0) { state.services.push(v); save(); } renderSetup(); }
-  else if (f.id === 'whoform') {
-    var d = $('#who-d').value.trim(); if (!d) return;
-    var id = ui.sheet, t = state.titles[id], out = $('#who-r');
-    out.innerHTML = '<span class="muted"><span class="spin"></span>Thinking</span>';
-    qWho(t, $('#who-e').value.trim(), d, (t.cast || []).map(function (c) { return c.name; })).then(function (r) {
-      if (!r || !r.name) { out.innerHTML = '<span class="muted">Not sure who that is. Try describing them differently.</span>'; return; }
-      var idx = libIndex();
-      out.innerHTML = '<div class="row-title">' + esc(r.name) + '</div><div class="row-sub">as ' + esc(r.role || 'this character') + ' · ' + esc(r.confidence || '') + ' confidence</div>' + (r.knownFrom && r.knownFrom.length ? '<div class="seen">Known from: ' + r.knownFrom.map(function (k) { var st = statusOfTitle(k.title, idx); return esc(k.title) + (st ? ' (' + STATUS[st].toLowerCase() + ')' : ''); }).join(', ') + '</div>' : '') + (r.note ? '<div class="small muted">' + esc(r.note) + '</div>' : '');
-    }, function (e) { out.innerHTML = '<span class="err">' + esc(errMsg(e)) + '</span>'; });
+  if (f.id === 'sform') { ui.q = $('#q').value; clearTimeout(searchT); doSearch(); }
+  else if (f.id === 'tokform') {
+    state.token = $('#tok').value.trim(); save();
+    if (!state.token) { toast('Token removed'); renderSvc(); return; }
+    tmdb('/configuration').then(function () { toast('Connected to TMDB'); renderSvc(); }, function (e) { toast(errMsg(e)); });
+  }
+  else if (f.id === 'epform') {
+    var s = +$('#ep-s').value, e = +$('#ep-e').value, out = $('#ep-res'), t = ui.cur, tok = ui.rs;
+    if (!e || e < 1) return;
+    out.innerHTML = '<span class="muted"><span class="spin"></span>Loading</span>';
+    var l = state.lib[t.key]; if (l) { l.progress = { s: s, e: e }; save(); }
+    getEpisode(t.id, s, e).then(function (ep) {
+      if (tok !== ui.rs) return;
+      var all = ep.guests.concat(ep.cast.filter(function (c) { return !ep.guests.some(function (g) { return g.id === c.id; }); }));
+      out.innerHTML = '<div class="row-title" style="font-size:18px">' + esc(ep.name || '') + '</div>' + (l ? '<div class="small muted">Progress saved: S' + s + ' E' + e + '</div>' : '') +
+        (ep.guests.length ? '<div class="mono small muted" style="margin:10px 0 0">GUEST STARS</div>' : '') + '<ul class="credits" id="cl-ep">' + all.map(function (c) { return creditRow('ep', c); }).join('') + '</ul>' + (all.length ? '' : '<p class="muted small">No cast listed for this episode.</p>');
+      enrich('ep', all, t.key, tok, false);
+    }, function (er) { out.innerHTML = '<span class="err">' + esc(er.code === '404' ? 'That episode is not on TMDB.' : errMsg(er)) + '</span>'; });
   }
 });
 document.addEventListener('input', function (ev) {
   var t = ev.target;
-  if (t.id === 'q') ui.q = t.value;
+  if (t.id === 'q') { ui.q = t.value; clearTimeout(searchT); if (t.value.trim().length > 1) searchT = setTimeout(doSearch, 450); }
   else if (t.id === 'lq') { ui.lq = t.value; var pos = t.selectionStart; renderLibrary(); var n = $('#lq'); if (n) { n.focus(); n.setSelectionRange(pos, pos); } }
-  else if (t.id === 'note') { var l = state.lib[ui.sheet]; if (l) { l.note = t.value; clearTimeout(input.t); input.t = setTimeout(save, 600); } }
+  else if (t.id === 'svq') { ui.svq = t.value; renderSvc(); }
+  else if (t.id === 'note') { var l = state.lib[ui.cur.key]; if (l) { l.note = t.value; clearTimeout(save.t); save.t = setTimeout(save, 500); } }
+  else if (t.id === 'cfilter') { var q = t.value.trim().toLowerCase(); document.querySelectorAll('#cl-cast .credit').forEach(function (li) { li.hidden = q && li.dataset.q.indexOf(q) < 0; }); }
 });
-function input() {}
 document.addEventListener('change', function (ev) {
   var t = ev.target;
-  if (t.id === 'cc') { state.country = t.value; save(); toast('Country set to ' + cname(t.value)); }
+  if (t.id === 'cc') { state.country = t.value; save(); renderSvc(); }
   else if (t.id === 'imp' && t.files[0]) {
     var fr = new FileReader();
-    fr.onload = function () {
-      try { var r = migrate(JSON.parse(fr.result)); if (!r.lib || !r.titles) throw 0; state = r; save(); renderSetup(); toast('Backup imported'); } catch (e) { toast('That file is not a Typecast backup.'); }
-    };
+    fr.onload = function () { try { var r = JSON.parse(fr.result); if (!r || r.v !== 2 || !r.lib) throw 0; var tok = state.token; state = Object.assign(fresh(), r); if (!state.token) state.token = tok; save(); renderSetup(); toast('Backup imported'); } catch (e) { toast('That file is not a Typecast backup.'); } };
     fr.readAsText(t.files[0]);
   }
 });
-document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape' && ui.sheet) closeSheet(); });
+document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape' && ui.stack.length) closeSheet(); });
 
+if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) navigator.serviceWorker.register('sw.js').catch(function () {});
 route();
 })();
 </script>
+</body>
+</html>
