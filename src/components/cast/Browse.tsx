@@ -62,6 +62,9 @@ export default function Browse({ filters, filtered, list: initialList, salt, fir
   const [seen] = useState(() => marked());
   // Titles you looked at on earlier visits and scrolled past without a mark are shown less and less often.
   // Snapshotted once, so what you scroll past now only takes effect on your next visit and the grid never shifts under you.
+  // The dice are seeded once per mount, not from the `salt` prop: every mark refreshes the page on the server, which hands
+  // down a new salt, and re-rolling then would make passed-over titles pop out of the grid under your thumb.
+  const [fadeSeed] = useState(salt);
   const [passed, setPassed] = useState<Passed>(() => new Map());
   useLayoutEffect(() => { setPassed(loadPassed()); }, []);
   // Marked and skipped titles are hidden unless you turn that off; the choice is remembered on this device.
@@ -123,7 +126,7 @@ export default function Browse({ filters, filtered, list: initialList, salt, fir
     io.observe(el); return () => io.disconnect();
   }, [more]);
 
-  const shown = (data?.items ?? []).filter((i) => !hide || !(seen.has(i.key) || skipped.has(i.key) || faded(passed, i.key, salt)));
+  const shown = (data?.items ?? []).filter((i) => !hide || !(seen.has(i.key) || skipped.has(i.key) || faded(passed, i.key, fadeSeed)));
   const hiddenCount = (data?.items.length ?? 0) - shown.length;
 
   // Hidden titles leave gaps, so keep fetching until the screen is full (a few pages at most, then the scroll takes over).
