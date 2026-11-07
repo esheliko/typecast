@@ -41,7 +41,7 @@ export function Modal({ children }: { children: React.ReactNode }) {
     box.current?.focus({ preventScroll: true });
     return () => { if (was && document.contains(was)) was.focus({ preventScroll: true }); };
   }, []);
-  useEffect(() => { box.current?.scrollTo({ top: 0 }); }, [path]);
+  useEffect(() => { box.current?.querySelector(".sheet")?.scrollTo({ top: 0 }); }, [path]);
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
       const el = box.current; if (!el) return;
@@ -66,7 +66,7 @@ export function Modal({ children }: { children: React.ReactNode }) {
             {/* A plain link on purpose: it loads the full page instead of opening another popup. */}
             <a className="small" href={path}>Open full page</a>
           </div>
-          {children}
+          <div className="sheet-body">{children}</div>
         </div>
       </div>
     </InModal.Provider>
