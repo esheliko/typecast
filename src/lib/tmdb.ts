@@ -134,6 +134,12 @@ export async function getTitle(type: MediaType, id: number): Promise<Title> {
   };
 }
 
+/** Air date (YYYY-MM-DD) of the newest episode that has already aired, or null. Cached 6 hours. */
+export async function getLastAired(id: number): Promise<string | null> {
+  const d = await tmdb(`/tv/${id}`, {}, 6 * HOUR);
+  return d.last_episode_to_air?.air_date || null;
+}
+
 /** Cast and sorted crew for one title, without the rest of the page's data (cached a day). Used by the browse glance. */
 export async function getTitleCredits(type: MediaType, id: number): Promise<{ cast: CastMember[]; crewBy: CrewBy }> {
   const key = type === "tv" ? "aggregate_credits" : "credits";

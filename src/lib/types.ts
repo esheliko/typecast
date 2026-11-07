@@ -28,7 +28,7 @@ export type SearchHit =
   | { kind: "person"; id: number; name: string; photo: string | null; dept: string; knownFor: string[] };
 
 export interface LibItem extends Item {
-  status: Status; priority: Priority; rating: number; note: string; progress: { s: number; e: number } | null; added: number;
+  status: Status; priority: Priority; rating: number; note: string; progress: { s: number; e: number } | null; added: number; watchedAt: number | null;
 }
 /** `details` is the user's chosen order of title-page sections; an id that is absent is hidden. */
 export interface Profile { country: string; services: number[]; serviceNames: Record<string, string>; details: DetailId[] }

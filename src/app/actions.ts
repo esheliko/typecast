@@ -18,7 +18,7 @@ export async function setStatus(item: { type: MediaType; id: number; title: stri
     if (!STATUSES.includes(status)) throw new Error("Bad status");
     if (priority !== undefined && priority !== "someday" && priority !== "must") throw new Error("Bad priority");
     const { error } = await sb.from("library_items").upsert(
-      { user_id: user.id, ...where(item.type, item.id), title: item.title, year: item.year, poster_path: item.poster, status, ...(priority ? { priority } : {}), updated_at: new Date().toISOString() },
+      { user_id: user.id, ...where(item.type, item.id), title: item.title, year: item.year, poster_path: item.poster, status, ...(priority ? { priority } : {}), ...(status === "watched" ? { watched_at: new Date().toISOString(), checked_at: null } : {}), updated_at: new Date().toISOString() },
       { onConflict: "user_id,tmdb_type,tmdb_id" },
     );
     if (error) throw new Error(error.message);
@@ -37,7 +37,7 @@ export async function setStatusMany(items: Row[], status: Status) {
   const { sb, user } = await requireUser();
   const now = new Date().toISOString();
   const { error } = await sb.from("library_items").upsert(
-    rows.map((r) => ({ user_id: user.id, ...where(r.type, r.id), title: r.title, year: r.year, poster_path: r.poster, status, updated_at: now })),
+    rows.map((r) => ({ user_id: user.id, ...where(r.type, r.id), title: r.title, year: r.year, poster_path: r.poster, status, ...(status === "watched" ? { watched_at: now } : {}), updated_at: now })),
     { onConflict: "user_id,tmdb_type,tmdb_id" },
   );
   if (error) throw new Error(error.message);
