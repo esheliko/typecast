@@ -50,6 +50,13 @@ async function findMovie(name: string, year: number | null): Promise<any | null>
   return b.find((r) => exact(r) && Math.abs(yearOf(r) - year) <= 1) ?? null;
 }
 
+/** TV fallback for free-text lists, which can hold series too. Exact title only unless a year narrows it. */
+async function findTv(name: string, year: number | null): Promise<any | null> {
+  const res = ((await tmdb("/search/tv", { query: name, include_adult: "false", ...(year ? { first_air_date_year: String(year) } : {}) }, DAY_MS)).results ?? []) as any[];
+  const want = norm(name);
+  return res.find((r) => norm(r.name ?? "") === want || norm(r.original_name ?? "") === want) ?? (year ? res[0] ?? null : null);
+}
+
 const fields = (d: any) => ({ title: (d.title ?? d.name ?? "") as string, year: ((d.release_date ?? d.first_air_date ?? "") as string).slice(0, 4), poster: (d.poster_path ?? null) as string | null });
 
 /** Match export entries to TMDB. `unmatched` lists names that could not be found. */
@@ -58,9 +65,10 @@ export async function resolveEntries(entries: LbEntry[]): Promise<{ rows: Resolv
   await Promise.all(entries.map(async (e) => {
     const label = e.year ? `${e.name} (${e.year})` : e.name;
     try {
-      const hit = await findMovie(e.name, e.year);
+      let hit = await findMovie(e.name, e.year), type: MediaType = "movie";
+      if (!hit && e.tv) { hit = await findTv(e.name, e.year); type = "tv"; }
       if (!hit) { unmatched.push(label); return; }
-      rows.push({ type: "movie", id: hit.id, ...fields(hit), watched: e.watched, rating: e.rating, date: e.date });
+      rows.push({ type, id: hit.id, ...fields(hit), watched: e.watched, rating: e.rating, date: e.date });
     } catch { unmatched.push(label); }
   }));
   return { rows, unmatched };

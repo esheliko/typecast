@@ -1,7 +1,8 @@
 "use client";
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { connectLetterboxd, disconnectLetterboxd, importLetterboxd, syncLetterboxdNow } from "@/app/actions";
-import { buildEntries, readZip, type LbEntry } from "@/lib/letterboxd-parse";
+import { readZip } from "@/lib/letterboxd-parse";
+import { parseAny, type Plain } from "@/lib/list-parse";
 import type { LetterboxdLink } from "@/lib/types";
 
 const BATCH = 25;
@@ -9,7 +10,15 @@ const BATCH = 25;
 /** Two independent, opt-in tools: a one-time import of a Letterboxd export, and a connection that pulls new diary entries. */
 export default function LetterboxdPanel({ link }: { link: LetterboxdLink | null }) {
   const [open, setOpen] = useState(false);
-  const [entries, setEntries] = useState<LbEntry[] | null>(null);
+  const [raw, setRaw] = useState<{ name: string; text: string }[] | null>(null);
+  const [pasted, setPasted] = useState("");
+  const [plain, setPlain] = useState<Plain>("watched");
+  const [fileKey, setFileKey] = useState(0);
+  const [picked, setPicked] = useState(false);
+  const sources = useMemo(() => [...(raw ?? []), ...(pasted.trim() ? [{ name: "pasted.txt", text: pasted }] : [])], [raw, pasted]);
+  const parsed = useMemo(() => (sources.length ? parseAny(sources, plain) : []), [sources, plain]);
+  const [started, setStarted] = useState<typeof parsed | null>(null);
+  const entries = started ?? (parsed.length ? parsed : null);
   const [readErr, setReadErr] = useState("");
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(0);
@@ -22,7 +31,7 @@ export default function LetterboxdPanel({ link }: { link: LetterboxdLink | null 
   const [pending, start] = useTransition();
 
   async function pick(files: FileList | null) {
-    setEntries(null); setTally(null); setReadErr(""); setImportErr("");
+    setRaw(null); setTally(null); setReadErr(""); setImportErr(""); setPicked(false);
     if (!files?.length) return;
     try {
       const texts: { name: string; text: string }[] = [];
@@ -30,15 +39,13 @@ export default function LetterboxdPanel({ link }: { link: LetterboxdLink | null 
         if (f.name.toLowerCase().endsWith(".zip")) texts.push(...(await readZip(await f.arrayBuffer())));
         else texts.push({ name: f.name, text: await f.text() });
       }
-      const all = buildEntries(texts);
-      if (!all.length) setReadErr("No films found. Choose the .zip you downloaded from Letterboxd (Settings, Data, Export your data), or its watched.csv, ratings.csv, diary.csv and watchlist.csv.");
-      else setEntries(all);
+      setRaw(texts); setPicked(true);
     } catch (e) { setReadErr((e as Error).message || "Could not read that file."); }
   }
 
   async function run() {
     if (!entries) return;
-    setBusy(true); setDone(0); setImportErr(""); setTally(null);
+    setBusy(true); setDone(0); setImportErr(""); setTally(null); setStarted(entries);
     const sum = { added: 0, updated: 0, unmatched: [] as string[] };
     try {
       for (let i = 0; i < entries.length; i += BATCH) {
@@ -46,9 +53,9 @@ export default function LetterboxdPanel({ link }: { link: LetterboxdLink | null 
         sum.added += r.added; sum.updated += r.updated; sum.unmatched.push(...r.unmatched);
         setDone(Math.min(entries.length, i + BATCH)); setTally({ ...sum });
       }
-      setEntries(null);
+      setRaw(null); setPasted(""); setFileKey((k) => k + 1); setPicked(false);
     } catch { setImportErr("The import stopped part way. Choose the file again to resume: films already imported are skipped."); }
-    setBusy(false);
+    setStarted(null); setBusy(false);
   }
 
   function connect() { setErr(""); setMsg(""); start(async () => { const r = await connectLetterboxd(name); if (r.ok) { setMsg(`Connected. ${r.added} added, ${r.updated} updated.`); setName(""); } else setErr(r.error); }); }
@@ -59,23 +66,22 @@ export default function LetterboxdPanel({ link }: { link: LetterboxdLink | null 
   const shown = open || !!link;
   return (
     <>
-      <h2>Services you can add</h2>
-      <div className="card pad" style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <b>Letterboxd</b>
-          <div className="small muted">{link ? `Connected as ${link.user}` : "Optional. Bring over your watched films, or keep new ones in sync."}</div>
-        </div>
-        {!link && <button className="btn sm" type="button" aria-expanded={shown} disabled={busy} onClick={() => setOpen(!open)}>{open ? "Hide" : "Add"}</button>}
-      </div>
-      {shown && <div className="sp" />}
-      {shown && <div className="card pad" aria-busy={busy}>
-        <label className="l" htmlFor="lbf">Import your Letterboxd history</label>
-        <p className="small muted" style={{ margin: "0 0 10px" }}>One time, and only if you want it. On Letterboxd open Settings, then Data, then Export your data. Choose the .zip you get (or its CSV files) here. Nothing is sent until you press Import.</p>
-        <input id="lbf" type="file" accept=".zip,.csv,application/zip,text/csv" multiple disabled={busy} onChange={(e) => pick(e.target.files)} />
+      <h2>Import watch history</h2>
+      <div className="card pad" aria-busy={busy}>
+        <label className="l" htmlFor="lbf">Import a list or a Letterboxd export</label>
+        <p className="small muted" style={{ margin: "0 0 10px" }}>Choose a file or paste text, then press Import. Works with a Letterboxd .zip or CSV, a plain list with a title per line, or a checklist from your notes app (Apple Notes, Google Keep, Samsung Notes): <b>[x]</b> or a ticked box is watched, <b>[ ]</b> or an empty box is to watch. Add a year like (2019) to be exact, and a rating like 4/5 or ★★★★ if you have one. Series work too. Nothing is sent until you press Import.</p>
+        <input id="lbf" key={fileKey} type="file" accept=".zip,.csv,.txt,.md,.text,application/zip,text/csv,text/plain" multiple disabled={busy} onChange={(e) => pick(e.target.files)} />
+        <textarea aria-label="Or paste your list here" placeholder={"Or paste your list here, one title per line:\n[x] Inception (2010)\n[ ] Dune Part Two\nSeverance"} rows={5} disabled={busy} value={pasted} onChange={(e) => { setPasted(e.target.value); setTally(null); setImportErr(""); }} style={{ width: "100%", marginTop: 10 }} />
+        <label className="small muted" htmlFor="plain" style={{ display: "block", margin: "10px 0 0" }}>Lines with no checkbox are </label>
+        <select id="plain" value={plain} disabled={busy} onChange={(e) => setPlain(e.target.value as Plain)} style={{ marginTop: 4 }}>
+          <option value="watched">already watched</option>
+          <option value="watchlist">to watch</option>
+        </select>
         {readErr && <p className="small err" style={{ margin: "10px 0 0" }}>{readErr}</p>}
+        {!entries && picked && !readErr && !busy && <p className="small err" style={{ margin: "10px 0 0" }}>Nothing found in that file. Use a Letterboxd .zip or CSV, or a text list with one title per line.</p>}
         {entries && !busy && (
           <>
-            <p className="small" style={{ margin: "10px 0" }}>Found {watched} watched ({rated} rated) and {listed} on your watchlist.</p>
+            <p className="small" style={{ margin: "10px 0" }}>Found {watched} watched ({rated} rated) and {listed} to watch.</p>
             <button className="btn gold" type="button" onClick={run}>Import</button>
           </>
         )}
@@ -89,8 +95,17 @@ export default function LetterboxdPanel({ link }: { link: LetterboxdLink | null 
             <ul className="small muted" style={{ margin: "6px 0 0", paddingLeft: 18 }}>{tally.unmatched.map((u) => <li key={u}>{u}</li>)}</ul>
           </details>
         )}
-        <p className="small muted" style={{ margin: "10px 0 0" }}>Titles you already have are never overwritten: an existing title is only marked watched if it was not, and given a rating only if it had none. Half stars are rounded up to whole stars. Films only; TV is not on Letterboxd.</p>
-      </div>}
+        <p className="small muted" style={{ margin: "10px 0 0" }}>Titles you already have are never overwritten: an existing title is only marked watched if it was not, and given a rating only if it had none. Half stars are rounded up to whole stars. For Letterboxd, open Settings, then Data, then Export your data.</p>
+      </div>
+      <div className="sp" />
+      <h2>Services you can add</h2>
+      <div className="card pad" style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <b>Letterboxd</b>
+          <div className="small muted">{link ? `Connected as ${link.user}` : "Optional. Keep new films in sync from your diary."}</div>
+        </div>
+        {!link && <button className="btn sm" type="button" aria-expanded={shown} disabled={busy} onClick={() => setOpen(!open)}>{open ? "Hide" : "Add"}</button>}
+      </div>
       {shown && <div className="sp" />}
       {shown && <div className="card pad" aria-busy={pending}>
         <label className="l" htmlFor="lbu">Keep in sync</label>
