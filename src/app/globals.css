@@ -380,3 +380,29 @@ li.row { gap: 10px; }
 }
 input, select, textarea { transition: border-color .15s, box-shadow .15s; }
 @media (prefers-reduced-motion: reduce) { * { transition-duration: .01ms !important; } }
+
+/* Catch-all hover/press feedback so no clickable element is left dead. */
+button, summary, label, select, a, input[type=checkbox], input[type=radio] { transition: background-color .15s, color .15s, border-color .15s, box-shadow .15s, transform .12s, opacity .15s, filter .15s; }
+label, select, input[type=checkbox], input[type=radio] { cursor: pointer; }
+@media (hover: hover) {
+  button:not([disabled]):hover, summary:hover, [role=button]:not([aria-disabled=true]):hover { filter: brightness(1.12); }
+  :root[data-theme="light"] button:not([disabled]):hover { filter: brightness(.94); }
+  @media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) button:not([disabled]):hover { filter: brightness(.94); } }
+  button[aria-label$="stars"]:hover, button[aria-label$="star"]:hover { transform: scale(1.25); filter: none; }
+  label:hover { color: var(--gold); }
+  label.l:hover { color: var(--muted); }
+  .dorder-list label:hover, .suggest button:hover { color: var(--ink); }
+  input[type=checkbox]:hover, input[type=radio]:hover { box-shadow: 0 0 0 3px color-mix(in srgb, var(--gold-fill) 35%, transparent); }
+  select:hover { background-color: var(--chip); }
+  .logo:hover { color: var(--gold); text-decoration: none; }
+  img.thumb:hover, .sh-poster:hover, .avatar:hover { filter: brightness(1.08); }
+  .sh-where img:hover, .prov img:hover { transform: scale(1.12); }
+  .pill:hover { filter: brightness(1.1); }
+  .banner:hover { box-shadow: 0 2px 10px rgb(0 0 0 / .1); }
+  .hero:hover, .empty:hover { border-color: var(--gold-fill); }
+  .toast:hover { box-shadow: 0 10px 28px rgb(0 0 0 / .35); }
+  .modal .sheet-bar:hover { border-bottom-color: var(--gold-fill); }
+}
+/* Touch has no hover, so give it a pressed state instead. */
+button:not([disabled]):active, a.row:active, a.tab:active, .person-chip:active, .pc-link:active, summary:active { opacity: .7; }
+.sh-where img, .prov img, .avatar, .thumb, .sh-poster, .pill, .banner, .hero, .empty, .toast { transition: filter .15s, transform .15s, box-shadow .15s, border-color .15s; }
