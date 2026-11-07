@@ -6,7 +6,7 @@ import { useEffect } from "react";
 // mid-interaction (or when the tab is in the background), and puts the scroll position back afterwards.
 
 const BUILD = process.env.NEXT_PUBLIC_BUILD_ID;
-const POLL_MS = 60_000; // how often to ask which deployment is live (also on focus / tab shown / back online)
+const POLL_MS = 10_000; // how often to ask which deployment is live (also on focus / tab shown / back online)
 const IDLE_MS = 10_000; // how long you must have been still before a visible page is swapped
 const SCROLL_KEY = "tc:scroll"; // scroll position carried across the reload
 const DONE_KEY = "tc:updated-to"; // last build we reloaded for, so a mismatch can never cause a reload loop
