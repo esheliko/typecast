@@ -1,5 +1,6 @@
 import { cache } from "react";
 import { supabaseServer } from "./supabase/server";
+import { normalizeDetails } from "./details";
 import type { LibItem, Profile } from "./types";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -23,5 +24,5 @@ export const getProfile = cache(async (): Promise<Profile> => {
   const sb = await supabaseServer();
   const { data } = await sb.from("profiles").select("*");
   const r: any = data?.[0];
-  return { country: r?.country ?? "US", services: r?.services ?? [], serviceNames: r?.service_names ?? {} };
+  return { country: r?.country ?? "US", services: r?.services ?? [], serviceNames: r?.service_names ?? {}, details: normalizeDetails(r?.detail_order) };
 });

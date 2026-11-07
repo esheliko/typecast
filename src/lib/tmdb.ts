@@ -1,4 +1,5 @@
 import { interleave, type BrowseQuery, type Tag } from "./browse";
+import { shapeCrew, type CrewBy } from "./details";
 import type { BrowseItem, BrowseList, BrowseType, CastMember, Credit, Item, MediaType, Person, ProviderGroup, Related, SearchHit, Title } from "./types";
 
 const BASE = process.env.TMDB_BASE_URL ?? "https://api.themoviedb.org/3";
@@ -83,15 +84,27 @@ export async function getTitle(type: MediaType, id: number): Promise<Title> {
     id: c.id, name: c.name, photo: c.profile_path ?? null,
     role: type === "tv" ? c.roles?.[0]?.character ?? "" : c.character ?? "",
   }));
+  const crewBy = shapeCrew(type, (type === "tv" ? d.aggregate_credits?.crew : d.credits?.crew) ?? [], d.created_by ?? []);
   return {
     ...item(type, d),
     overview: d.overview ?? "", tagline: d.tagline ?? "", genres: (d.genres ?? []).map((g: any) => g.name),
     runtime: (type === "movie" ? d.runtime : d.episode_run_time?.[0]) ?? null, status: d.status ?? "",
-    crew: type === "tv" ? (d.created_by ?? []).map((p: any) => p.name) : (d.credits?.crew ?? []).filter((c: any) => c.job === "Director").map((c: any) => c.name),
+    crew: crewBy.director.map((p) => p.name), crewBy,
     seasons: type === "tv" ? (d.seasons ?? []).filter((s: any) => s.season_number > 0).map((s: any) => ({ n: s.season_number, eps: s.episode_count })) : [],
     people, prov, collection: d.belongs_to_collection?.id ?? null,
     related: (d.recommendations?.results ?? []).slice(0, 8).map((r: any): Related => ({ ...item(type, r), rel: "Recommended" })),
   };
+}
+
+/** Cast and sorted crew for one title, without the rest of the page's data (cached a day). Used by the browse glance. */
+export async function getTitleCredits(type: MediaType, id: number): Promise<{ cast: CastMember[]; crewBy: CrewBy }> {
+  const key = type === "tv" ? "aggregate_credits" : "credits";
+  const d = await tmdb(`/${type}/${id}`, { append_to_response: key }, 24 * HOUR);
+  const c = d[key] ?? {};
+  const cast: CastMember[] = (c.cast ?? []).slice(0, 24).map((p: any) => ({
+    id: p.id, name: p.name, photo: p.profile_path ?? null, role: type === "tv" ? p.roles?.[0]?.character ?? "" : p.character ?? "",
+  }));
+  return { cast, crewBy: shapeCrew(type, c.crew ?? [], d.created_by ?? []) };
 }
 
 export async function getCollection(id: number): Promise<Related[]> {
@@ -114,7 +127,13 @@ async function personRaw(id: number) {
     if ((r.genre_ids ?? []).some((g: number) => g === 10767 || g === 10763 || g === 10764)) continue;
     add(r, r.character ?? "");
   }
-  if (d.known_for_department === "Directing") for (const r of cc.crew ?? []) if (r.job === "Director") add(r, "Director");
+  const dept: string = d.known_for_department ?? "";
+  if (dept === "Directing") {
+    for (const r of cc.crew ?? []) if (r.job === "Director") add(r, "Director");
+  } else if (dept && dept !== "Acting") {
+    // Composers, cinematographers, writers…: list their own department's work so their page isn't empty.
+    for (const r of cc.crew ?? []) if (r.department === dept) add(r, r.job ?? "");
+  }
   known.sort((a, b) => b.votes - a.votes);
   return { d, known };
 }

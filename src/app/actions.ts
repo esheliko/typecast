@@ -2,6 +2,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireUser, supabaseServer } from "@/lib/supabase/server";
+import { normalizeDetails, type DetailId } from "@/lib/details";
 import type { MediaType, Priority, Status } from "@/lib/types";
 
 const STATUSES = ["watching", "partial", "watchlist", "watched"];
@@ -48,6 +49,17 @@ export async function saveProfile(p: { country: string; services: number[]; serv
   const { sb, user } = await requireUser();
   const { error } = await sb.from("profiles").upsert(
     { user_id: user.id, country: p.country, services: p.services, service_names: p.serviceNames, updated_at: new Date().toISOString() },
+    { onConflict: "user_id" },
+  );
+  if (error) throw new Error(error.message);
+  done();
+}
+
+/** Save which title-page sections to show and in what order. Only touches detail_order, so it never overwrites country or services. */
+export async function saveDetails(order: DetailId[]) {
+  const { sb, user } = await requireUser();
+  const { error } = await sb.from("profiles").upsert(
+    { user_id: user.id, detail_order: normalizeDetails(order), updated_at: new Date().toISOString() },
     { onConflict: "user_id" },
   );
   if (error) throw new Error(error.message);

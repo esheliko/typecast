@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { href, typeLabel } from "@/lib/img";
 import { Avatar, Thumb } from "./ui";
-import type { EnrichedMember } from "@/lib/types";
+import type { CastMember, EnrichedMember } from "@/lib/types";
 
 /** One cast line. Tap to open their best-known credits (a native <details>, so it needs no JavaScript). */
 export function CreditRow({ c, libKeys }: { c: EnrichedMember; libKeys: Record<string, string> }) {
@@ -31,6 +31,18 @@ export function CreditRow({ c, libKeys }: { c: EnrichedMember; libKeys: Record<s
         {c.hits.length > 0 && <div className="seen">You know them from: {c.hits.slice(0, 4).map((h) => (h.year ? `${h.title} (${h.year})` : h.title)).join(", ")}</div>}
         {c.also.length > 0 && <div className="also">Also in: {c.also.join(", ")}</div>}
       </div>
+    </li>
+  );
+}
+
+/** One crew line (composer, cinematographer…): a link to their page with the job on the right. */
+export function CrewRow({ c }: { c: CastMember }) {
+  return (
+    <li className="credit">
+      <Link className="credit-main" href={`/person/${c.id}`}>
+        <Avatar photo={c.photo} name={c.name} />
+        <span className="credit-line"><span className="nm">{c.name}</span><span className="dots" /><span className="role">{c.role}</span></span>
+      </Link>
     </li>
   );
 }

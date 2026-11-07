@@ -1,3 +1,5 @@
+import type { CrewBy, DetailId } from "./details";
+
 export type MediaType = "movie" | "tv";
 /** What Browse shows: films, series, or both mixed together (the default). */
 export type BrowseType = MediaType | "all";
@@ -16,7 +18,7 @@ export interface ProviderGroup { link?: string; flatrate?: Provider[]; free?: Pr
 
 export interface Title extends Item {
   overview: string; tagline: string; genres: string[]; runtime: number | null; status: string;
-  crew: string[]; seasons: { n: number; eps: number }[]; people: CastMember[];
+  crew: string[]; crewBy: CrewBy; seasons: { n: number; eps: number }[]; people: CastMember[];
   prov: Record<string, ProviderGroup>; collection: number | null; related: Related[];
 }
 export interface Person { id: number; name: string; photo: string | null; dept: string; bio: string; known: Credit[] }
@@ -28,7 +30,8 @@ export type SearchHit =
 export interface LibItem extends Item {
   status: Status; priority: Priority; rating: number; note: string; progress: { s: number; e: number } | null; added: number;
 }
-export interface Profile { country: string; services: number[]; serviceNames: Record<string, string> }
+/** `details` is the user's chosen order of title-page sections; an id that is absent is hidden. */
+export interface Profile { country: string; services: number[]; serviceNames: Record<string, string>; details: DetailId[] }
 
 export interface EnrichedMember extends CastMember {
   hits: { key: string; title: string; year: string }[];

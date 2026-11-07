@@ -13,6 +13,7 @@ src/components/cast  the Cast tab: browse grid with one-tap Watched / To watch, 
 src/lib/library.ts reads your library and settings from Supabase
 supabase/migrations/0001_init.sql   tables and row-level security
 supabase/migrations/0002_priority.sql   "Some day" / "Must watch" level for To watch titles
+supabase/migrations/0004_detail_order.sql   your chosen order of title-page details (director, composer, cast…)
 artifact.html      the earlier single-file claude.ai artifact (not part of the site)
 ```
 
