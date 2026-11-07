@@ -63,7 +63,7 @@ export function GlimpseProvider({ children }: { children: React.ReactNode }) {
             <div className="gl-body">
               {(!cur || cur.state === "loading") && <p className="muted"><span className="spin" />Finding images</p>}
               {cur?.state === "error" && <p className="err">{cur.msg}</p>}
-              {cur?.state === "ok" && !cur.configured && <p className="small muted">Inline images need a Google search key (GOOGLE_CSE_KEY and GOOGLE_CSE_CX). Until then, open the results in Google Images.</p>}
+              {cur?.state === "ok" && !cur.configured && <p className="small muted">Inline images need an image-search key (SERPER_API_KEY). Until then, open the results in Google Images.</p>}
               {cur?.state === "ok" && cur.configured && cur.images.length === 0 && <p className="muted">No images found.</p>}
               {big && (
                 <figure className="gl-big">
