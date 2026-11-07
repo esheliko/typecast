@@ -162,6 +162,15 @@ export interface FranchiseGroup { label: string; items: Item[] }
 const UNIVERSE_KW = /universe|franchise|cinematic|saga|\bmcu\b|dceu|verse$/i;
 const niceName = (s: string) => s.replace(/\s*\(.*?\)\s*/g, " ").trim().replace(/\b[a-z]/g, (c) => c.toUpperCase());
 
+const ROMAN = "ii|iii|iv|v|vi|vii|viii|ix|x";
+const plain = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/&/g, " and ").replace(/[^a-z0-9]+/g, " ").trim().replace(/^(the|a|an) /, "");
+/** "Sausage Party: Foodtopia" -> "sausage party", "Toy Story 4" -> "toy story". Empty when too generic to match on. */
+export function franchiseBase(title: string): string {
+  const head = title.split(/\s*[:\u2013\u2014]\s*|\s+-\s+/)[0];
+  const base = plain(head).replace(new RegExp(`\\s+(part\\s+)?(\\d{1,2}|${ROMAN})$`), "").trim();
+  return base.length >= 8 || base.split(" ").length >= 2 ? base : "";
+}
+
 /**
  * Titles that go with this one: the rest of its collection (Iron Man 2, 3), and everything under a shared
  * "universe" theme (the whole Marvel Cinematic Universe). Unreleased titles are left out, nothing can be watched yet.
@@ -184,6 +193,22 @@ export async function getFranchise(type: MediaType, id: number): Promise<Franchi
       const items = keep(c.parts ?? [], "movie");
       if (items.length) out.push({ label: c.name || d.belongs_to_collection.name || "Same collection", items });
     } catch { /* collection is optional */ }
+  }
+  // Sequels and spin-offs TMDB never linked (a film and its later series): other titles that start with this one's name.
+  const base = franchiseBase(d.title ?? d.name ?? "");
+  if (base) {
+    try {
+      const sets = await Promise.all((["movie", "tv"] as const).map((t) =>
+        tmdb(`/search/${t}`, { query: base, include_adult: "false" }, 24 * HOUR).then((r) => (r.results ?? []).map((x: any) => ({ x, t }))).catch(() => [])));
+      const items: Item[] = [];
+      for (const { x, t } of sets.flat()) {
+        const n = plain(x.title ?? x.name ?? "");
+        if ((n === base || n.startsWith(base + " ")) && (x.vote_count ?? 0) >= 10) items.push(...keep([x], t));
+      }
+      items.sort((a, b) => a.year.localeCompare(b.year));
+      const head = (d.title ?? d.name ?? base).split(/\s*[:\u2013\u2014]\s*/)[0];
+      if (items.length) out.push({ label: `More "${head}"`, items: items.slice(0, 20) });
+    } catch { /* name matching is optional */ }
   }
   const kws: any[] = (type === "movie" ? d.keywords?.keywords : d.keywords?.results) ?? [];
   const kw = kws.find((k) => UNIVERSE_KW.test(k.name));
