@@ -1,4 +1,4 @@
-import { AwardChip } from "@/components/AwardChip";
+import { AwardPills, type Pill } from "@/components/AwardPills";
 import { awardName, getAwards, hasAwards, type AwardEntry, type AwardGroup, type Awards } from "@/lib/awards";
 import type { Title } from "@/lib/types";
 
@@ -12,34 +12,28 @@ function Trophy() {
   );
 }
 
-/** The few chips worth showing at a glance. Oscars lead; series fall back to Emmys; anything else is one "other wins" count. */
-type Chip = { text: string; win: boolean; tip: string; groups: string[] };
-function chips(a: Awards): Chip[] {
-  const out: Chip[] = [];
+function pills(a: Awards): Pill[] {
+  const out: Pill[] = [];
   const lead = a.oscars.won + a.oscars.nominated > 0 ? { n: a.oscars, name: "Oscar", fam: "Academy Award" }
     : a.emmys.won + a.emmys.nominated > 0 ? { n: a.emmys, name: "Emmy", fam: "Primetime Emmy Award" } : null;
-  if (lead) {
+  const g = lead && a.groups.find((x) => x.name === lead.fam);
+  if (lead && g) {
     const { n, name } = lead;
-    if (n.won) out.push({ text: plural(n.won, name), win: true, tip: `Won ${plural(n.won, name)}${n.nominated ? `, plus ${plural(n.nominated, "more nomination")}` : ""}`, groups: [lead.fam] });
-    if (n.nominated) out.push({ text: n.won ? `+${n.nominated} nominated` : plural(n.nominated, `${name} nomination`), win: false, tip: plural(n.nominated, `${name} nomination`), groups: [lead.fam] });
+    if (n.won) out.push({ text: plural(n.won, name), win: true, sections: [{ name: awardName(g.name), entries: g.won, won: true }] });
+    if (n.nominated) out.push({ text: n.won ? `+${n.nominated} nominated` : plural(n.nominated, `${name} nomination`), win: false, sections: [{ name: `${awardName(g.name)}, nominated`, entries: g.nominated, won: false }] });
   }
-  const others = a.groups.filter((g) => g.name !== lead?.fam && g.won.length);
-  const other = others.reduce((s, g) => s + g.won.length, 0);
-  if (other) out.push({ text: plural(other, "other win"), win: false, tip: "Wins at other award bodies", groups: others.map((g) => g.name) });
+  const others = a.groups.filter((x) => x.name !== lead?.fam && x.won.length);
+  const other = others.reduce((s, x) => s + x.won.length, 0);
+  if (other) out.push({ text: plural(other, "other win"), win: false, sections: others.map((x) => ({ name: awardName(x.name), entries: x.won, won: true })) });
   return out;
 }
 
-/** Compact one-line summary for the title header. Renders nothing when there is nothing to say. */
+/** Compact one-line summary for the title header; each pill opens a popover with what it counts. Renders nothing when there is nothing to say. */
 export async function AwardChips({ t }: { t: Title }) {
   const a = await getAwards(t.imdbId);
   if (!hasAwards(a)) return null;
-  const list = chips(a);
-  if (!list.length) return null;
-  return (
-    <div className="aw-chips" aria-label="Awards">
-      {list.map((c) => <AwardChip key={c.text} groups={c.groups} win={c.win} tip={c.tip}>{c.win && <Trophy />}{c.text}</AwardChip>)}
-    </div>
-  );
+  const list = pills(a);
+  return list.length ? <AwardPills pills={list} icon={<Trophy />} /> : null;
 }
 
 function Entries({ list, won }: { list: AwardEntry[]; won: boolean }) {
@@ -67,15 +61,47 @@ function Group({ g, open }: { g: AwardGroup; open: boolean }) {
   );
 }
 
-/** The full list, grouped by award body. Only the Oscars start open; everything else is folded away. */
+const FEATURED = ["Academy Award", "Primetime Emmy Award"];
+const SHOWN = 4;
+
+/** The headline body (Oscars, else Emmys): its wins in plain view (first few), everything else about it behind one "more" fold. */
+function Featured({ g }: { g: AwardGroup }) {
+  const wins = g.won.slice(0, SHOWN), restWon = g.won.slice(SHOWN);
+  const hidden = restWon.length + g.nominated.length;
+  const parts = [restWon.length ? plural(restWon.length, "more win") : "", g.nominated.length ? plural(g.nominated.length, "nomination") : ""].filter(Boolean).join(" · ");
+  return (
+    <div className="aw-feat" data-aw={g.name}>
+      <div className="aw-fh">{awardName(g.name)}<span className="cw-n">{g.won.length ? `${g.won.length} won` : `${g.nominated.length} nominated`}</span></div>
+      <Entries list={wins} won />
+      {hidden > 0 && (
+        <details className="aw-more">
+          <summary>{parts}</summary>
+          <Entries list={restWon} won />
+          <Entries list={g.nominated} won={false} />
+        </details>
+      )}
+    </div>
+  );
+}
+
+/** The full list. Only the headline body's wins show by default; every other award body sits in one folded "Other awards". */
 export async function AwardsSection({ t }: { t: Title }) {
   const a = await getAwards(t.imdbId);
   if (!hasAwards(a)) return null;
+  const feat = a.groups.find((g) => g.name === FEATURED[0]) ?? a.groups.find((g) => g.name === FEATURED[1]);
+  const rest = a.groups.filter((g) => g !== feat);
+  const wins = rest.reduce((n, g) => n + g.won.length, 0);
   return (
     <div data-aw-section>
       <h2>Awards</h2>
       <div className="card pad">
-        {a.groups.map((g) => <Group key={g.name} g={g} open={g.name === "Academy Award"} />)}
+        {feat && <Featured g={feat} />}
+        {rest.length > 0 && (
+          <details className="cw aw-other">
+            <summary>{feat ? "Other awards" : "Awards"}<span className="cw-n">{wins ? `${wins} won` : `${rest.reduce((n, g) => n + g.nominated.length, 0)} nominated`}</span></summary>
+            {rest.map((g) => <Group key={g.name} g={g} open={false} />)}
+          </details>
+        )}
         <p className="muted small" style={{ margin: "10px 0 0" }}>From Wikidata, so older or smaller awards may be missing.</p>
       </div>
     </div>
