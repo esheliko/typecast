@@ -35,13 +35,13 @@ export function FranchiseList({ groups: raw, onNavigate, include }: { groups: Gr
             </div>
             <ul className="rows card">
               {g.items.map((it) => (
-                  <li key={it.key} className={`fr-row${get(it.key)?.status === "watched" ? " done" : ""}`}>
+                  <li key={it.key} className={`fr-row${get(it.key)?.status === "watched" ? " done" : ""}${it.key === include?.key ? " origin" : ""}`}>
                     <TitleLink className="fr-main" k={it.key} onClick={onNavigate}>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       {it.poster ? <img className="thumb" src={img(it.poster, "w92")} alt="" loading="lazy" /> : <span className="thumb" />}
                       <span className="row-main">
                         <span className="row-title" style={{ fontSize: 17 }}>{it.title}</span>
-                        <span className="row-sub">{it.year} · {typeLabel(it.type)}</span>
+                        <span className="row-sub">{it.year} · {typeLabel(it.type)}{it.key === include?.key ? " · you marked this" : ""}</span>
                       </span>
                     </TitleLink>
                     <div className="fr-act">
