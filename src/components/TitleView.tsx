@@ -152,6 +152,8 @@ export default async function TitleView({ t, origin }: { t: Title; origin?: Item
   const meta = [t.year, typeLabel(t.type), t.runtime ? `${t.runtime} min${t.type === "tv" ? " / ep" : ""}` : "", t.genres.slice(0, 3).join(", ")].filter(Boolean).join(" · ");
   // The header credit is whichever crew detail the user ranked highest (Director by default, Composer if they put it first).
   const byline = profile.details.find((id): id is CrewId => isCrewId(id) && t.crewBy[id].length > 0 && id !== "crew_rest");
+  // Music is always worth a line, even when the Composer detail isn't switched on in Setup.
+  const music = byline !== "composer" ? t.crewBy.composer.slice(0, 2).map((p) => p.name).join(", ") : "";
   return (
     <FromProvider k={t.key} name={t.title}>
       <div className="sh-top sh-compact" style={{ marginTop: 10 }}>
@@ -163,6 +165,7 @@ export default async function TitleView({ t, origin }: { t: Title; origin?: Item
           <Suspense fallback={null}><AwardChips t={t} /></Suspense>
           {t.imdbId && <a className="btn sm" href={`https://www.imdb.com/title/${t.imdbId}/`} target="_blank" rel="noopener noreferrer" style={{ marginTop: 8 }}>Open on IMDb ↗</a>}
           {byline && <div className="sh-meta">{bylineLabel(byline, t.type)} {t.crewBy[byline].slice(0, 2).map((p) => p.name).join(", ")}</div>}
+          {music && <div className="sh-meta">{bylineLabel("composer", t.type)} {music}</div>}
           {t.overview && <details className="sh-ov"><summary>{t.overview}</summary><p>{t.overview}</p></details>}
         </div>
       </div>
