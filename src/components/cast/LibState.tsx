@@ -1,11 +1,15 @@
 "use client";
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
-import { setStatus } from "@/app/actions";
+import { setStatus, setStatusMany, undoStatusMany } from "@/app/actions";
+import { FranchiseSheet, type Group } from "./Franchise";
 import { PRIORITY_LABEL, STATUS_LABEL, type Item, type Mark, type Priority, type Status } from "@/lib/types";
 
 interface Ctx {
   get: (key: string) => Mark | undefined;
-  mark: (it: Item, status: Status | null, priority?: Priority) => void;
+  /** `quiet` turns off the "related titles" suggestion that follows a Watched mark. */
+  mark: (it: Item, status: Status | null, priority?: Priority, quiet?: boolean) => void;
+  /** Mark several unmarked titles at once, with one Undo. */
+  markMany: (its: Item[], status: Status) => void;
   /** Keys marked right now. Browse snapshots this when it opens: it hides those, but not titles marked later in the visit, so the grid does not shift under your thumb. */
   marked: () => Set<string>;
   /** Titles skipped with "Not interested". Saved on this device. */
@@ -23,7 +27,7 @@ export function useLib() {
 const SKIP_KEY = "typecast.skipped";
 const SKIP_MAX = 3000;
 
-interface Toast { id: number; msg: string; undo?: () => void; err?: boolean }
+interface Toast { id: number; msg: string; undo?: () => void; err?: boolean; action?: { label: string; run: () => void } }
 
 /**
  * Holds the user's marks for the cast tab. Marks change instantly on screen, are saved in the background,
@@ -33,6 +37,8 @@ export function LibProvider({ initial, children }: { initial: Record<string, Mar
   const [over, setOver] = useState<Record<string, Mark | null>>({});
   const [toast, setToast] = useState<Toast | null>(null);
   const [skipped, setSkipped] = useState<ReadonlySet<string>>(new Set());
+  const [sheet, setSheet] = useState<Item | null>(null);
+  const related = useRef(new Map<string, Promise<Group[]>>());
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const live = useRef(initial); live.current = initial;
   const overRef = useRef(over); overRef.current = over;
@@ -60,9 +66,22 @@ export function LibProvider({ initial, children }: { initial: Record<string, Mar
 
   const show = useCallback((t: Omit<Toast, "id">) => {
     clearTimeout(timer.current);
-    setToast({ ...t, id: Date.now() });
+    const id = Date.now() + Math.random();
+    setToast({ ...t, id });
     timer.current = setTimeout(() => setToast(null), t.undo ? 5000 : 3500);
+    return id;
   }, []);
+
+  /** The groups of titles that belong with `it`, fetched once per title. */
+  const franchise = useCallback((it: Item) => {
+    let p = related.current.get(it.key);
+    if (!p) {
+      p = fetch(`/api/franchise?type=${it.type}&id=${it.id}`).then((r) => r.json()).then((j) => (j.groups ?? []) as Group[]).catch(() => [] as Group[]);
+      related.current.set(it.key, p);
+    }
+    return p;
+  }, []);
+  const current = useCallback((k: string) => (k in overRef.current ? overRef.current[k] : live.current[k]) ?? null, []);
 
   const save = useCallback(async (it: Item, status: Status | null, prev: Mark | null, priority?: Priority) => {
     setOver((o) => ({ ...o, [it.key]: status ? { status, priority: priority ?? prev?.priority ?? "someday", rich: prev?.rich ?? false } : null }));
@@ -74,7 +93,7 @@ export function LibProvider({ initial, children }: { initial: Record<string, Mar
     }
   }, [show]);
 
-  const mark = useCallback((it: Item, status: Status | null, priority?: Priority) => {
+  const mark = useCallback((it: Item, status: Status | null, priority?: Priority, quiet?: boolean) => {
     const k = it.key;
     const prev = (k in overRef.current ? overRef.current[k] : live.current[k]) ?? null;
     if ((prev?.status ?? null) === status && (priority === undefined || prev?.priority === priority)) return;
@@ -84,9 +103,30 @@ export function LibProvider({ initial, children }: { initial: Record<string, Mar
       const msg = status ? `${it.title}: ${status === "watchlist" && priority === "must" ? PRIORITY_LABEL.must : STATUS_LABEL[status]}` : `Removed ${it.title}`;
       // Undo after removing a title with a rating or note cannot bring those back, so offer it only when it can.
       const canUndo = !(status === null && prev?.rich);
-      show({ msg, undo: canUndo ? () => { setToast(null); save(it, prev?.status ?? null, status ? { status, priority: priority ?? "someday", rich: false } : null, prev?.priority); } : undefined });
+      const id = show({ msg, undo: canUndo ? () => { setToast(null); save(it, prev?.status ?? null, status ? { status, priority: priority ?? "someday", rich: false } : null, prev?.priority); } : undefined });
+      // Having watched one, offer the rest of its franchise: the toast grows a button once we know there is something to mark.
+      if (status === "watched" && !quiet) franchise(it).then((groups) => {
+        const left = new Set(groups.flatMap((g) => g.items).filter((i) => !current(i.key)).map((i) => i.key)).size;
+        if (!left) return;
+        clearTimeout(timer.current); timer.current = setTimeout(() => setToast(null), 8000);
+        setToast((t) => (t && t.id === id ? { ...t, action: { label: `Mark related · ${left}`, run: () => { setToast(null); setSheet(it); } } } : t));
+      });
     });
-  }, [save, show]);
+  }, [save, show, franchise, current]);
+
+  const markMany = useCallback((its: Item[], status: Status) => {
+    const todo = its.filter((i) => !current(i.key));
+    if (!todo.length) return;
+    const row = (i: Item) => ({ type: i.type, id: i.id, title: i.title, year: i.year, poster: i.poster });
+    const put = (list: Item[], m: Mark | null) => setOver((o) => ({ ...o, ...Object.fromEntries(list.map((i) => [i.key, m])) }));
+    put(todo, { status, priority: "someday", rich: false });
+    setStatusMany(todo.map(row), status).then(() => {
+      show({
+        msg: `${todo.length} ${todo.length === 1 ? "title" : "titles"}: ${STATUS_LABEL[status]}`,
+        undo: () => { setToast(null); put(todo, null); undoStatusMany(todo.map(row), status).catch(() => { put(todo, { status, priority: "someday", rich: false }); show({ msg: "Could not undo. Check your connection.", err: true }); }); },
+      });
+    }).catch(() => { put(todo, null); show({ msg: "Could not save those titles. Check your connection.", err: true }); });
+  }, [current, show]);
 
   const writeSkipped = useCallback((next: Set<string>) => {
     setSkipped(next);
@@ -98,13 +138,15 @@ export function LibProvider({ initial, children }: { initial: Record<string, Mar
   }, [show, writeSkipped]);
 
   return (
-    <LibCtx.Provider value={{ get, mark, marked, skipped, skip }}>
+    <LibCtx.Provider value={{ get, mark, markMany, marked, skipped, skip }}>
       {children}
+      {sheet && <FranchiseSheet it={sheet} load={franchise} onClose={() => setSheet(null)} />}
       <div className="toast-slot" aria-live="polite">
         {toast && (
           <div key={toast.id} className={`toast${toast.err ? " bad" : ""}`} role="status">
             <span>{toast.msg}</span>
-            {toast.undo && <button className="toast-undo" onClick={toast.undo}>Undo</button>}
+            {toast.undo && <button className="toast-undo plain" onClick={toast.undo}>Undo</button>}
+            {toast.action && <button className="toast-undo" onClick={toast.action.run}>{toast.action.label}</button>}
           </div>
         )}
       </div>

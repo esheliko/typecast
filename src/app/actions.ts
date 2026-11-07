@@ -26,6 +26,36 @@ export async function setStatus(item: { type: MediaType; id: number; title: stri
   done();
 }
 
+type Row = { type: MediaType; id: number; title: string; year: string; poster: string | null };
+const byType = (rows: Row[], t: MediaType) => rows.filter((r) => r.type === t).map((r) => r.id);
+
+/** Mark many titles at once (the rest of a franchise). Meant for titles the user has not marked yet. */
+export async function setStatusMany(items: Row[], status: Status) {
+  if (!STATUSES.includes(status)) throw new Error("Bad status");
+  const rows = items.slice(0, 100);
+  if (!rows.length) return;
+  const { sb, user } = await requireUser();
+  const now = new Date().toISOString();
+  const { error } = await sb.from("library_items").upsert(
+    rows.map((r) => ({ user_id: user.id, ...where(r.type, r.id), title: r.title, year: r.year, poster_path: r.poster, status, updated_at: now })),
+    { onConflict: "user_id,tmdb_type,tmdb_id" },
+  );
+  if (error) throw new Error(error.message);
+  done();
+}
+
+/** Undo for setStatusMany: removes only rows still holding that status with no rating, so nothing the user added since is lost. */
+export async function undoStatusMany(items: Row[], status: Status) {
+  const { sb, user } = await requireUser();
+  for (const t of ["movie", "tv"] as MediaType[]) {
+    const ids = byType(items.slice(0, 100), t);
+    if (!ids.length) continue;
+    const { error } = await sb.from("library_items").delete().eq("user_id", user.id).eq("tmdb_type", t).in("tmdb_id", ids).eq("status", status).eq("rating", 0);
+    if (error) throw new Error(error.message);
+  }
+  done();
+}
+
 async function patch(type: MediaType, id: number, values: Record<string, unknown>) {
   const { sb, user } = await requireUser();
   const { error } = await sb.from("library_items").update({ ...values, updated_at: new Date().toISOString() }).eq("user_id", user.id).match(where(type, id));

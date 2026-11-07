@@ -7,14 +7,14 @@ const STAR = <path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.9L12 16.9 6.8 19.7l1-5.9
 const SAVE = <path d="M7 4h10a1 1 0 0 1 1 1v15l-6-4-6 4V5a1 1 0 0 1 1-1z" />;
 
 /** One-tap toggles: Watched, To watch (some day) and Must watch. Tapping a lit Watched or To watch removes the title; tapping a lit Must watch drops it back to some day. */
-export default function QuickMark({ it, variant = "over" }: { it: Item; variant?: "over" | "inline" }) {
+export default function QuickMark({ it, variant = "over", quiet }: { it: Item; variant?: "over" | "inline"; quiet?: boolean }) {
   const { get, mark } = useLib();
   const m = get(it.key);
   const s = m?.status;
   const must = s === "watchlist" && m?.priority === "must";
   return (
     <div className={`qm ${variant}`} role="group" aria-label={`Mark ${it.title}`}>
-      <button type="button" className="qm-b watched" aria-pressed={s === "watched"} onClick={() => mark(it, s === "watched" ? null : "watched")}
+      <button type="button" className="qm-b watched" aria-pressed={s === "watched"} onClick={() => mark(it, s === "watched" ? null : "watched", undefined, quiet)}
         aria-label={s === "watched" ? "Watched. Tap to remove" : "Mark watched"} title="Watched">
         <svg viewBox="0 0 24 24" aria-hidden="true">{CHECK}</svg>
       </button>

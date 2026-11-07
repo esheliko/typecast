@@ -259,3 +259,23 @@ li.row { gap: 10px; }
 @media (min-width: 720px) { .modal { padding: 40px 0; } .sheet { min-height: 0; margin-bottom: 0; border-radius: 18px; } .sheet-bar { border-radius: 18px 18px 0 0; } }
 @keyframes modal-fade { from { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .modal, .sheet { animation: none; } }
+
+/* Franchise checklist: mark the rest of a collection or universe from one list */
+.fr { margin-top: 10px; }
+.fr section + section { margin-top: 18px; }
+.fr-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.fr-head h3 { margin: 0; font: 600 20px/1.1 var(--display); letter-spacing: .04em; text-transform: uppercase; flex: 1 1 100%; }
+.fr-head .btn { margin-left: auto; }
+.fr-row { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-top: 1px solid var(--line); }
+.rows > .fr-row:first-child { border-top: 0; }
+.fr-row.done .thumb { opacity: .5; }
+.fr-main { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; text-decoration: none; color: inherit; }
+.fr-act { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex: none; }
+.fr-upto { font-size: 12px; color: var(--gold); font-weight: 600; text-align: right; max-width: 150px; line-height: 1.2; padding: 2px 0; }
+.fr-toggle { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; }
+.fr-sum { display: flex; flex-direction: column; min-width: 0; }
+.fsheet-wrap { position: fixed; inset: 0; z-index: 70; background: rgb(0 0 0 / .5); display: flex; align-items: flex-end; justify-content: center; }
+.fsheet { background: var(--bg); width: 100%; max-width: 640px; max-height: 85vh; overflow-y: auto; border-radius: 18px 18px 0 0; padding: 16px 16px calc(24px + env(safe-area-inset-bottom, 0px)); animation: up .2s ease-out; }
+.fsheet-top { position: sticky; top: -16px; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: -16px -16px 0; padding: 14px 16px; background: var(--bg); border-bottom: 1px solid var(--line); }
+@media (min-width: 720px) { .fsheet-wrap { align-items: center; } .fsheet { border-radius: 18px; } }
+.toast-undo.plain { background: transparent; color: inherit; text-decoration: underline; padding-inline: 6px; }

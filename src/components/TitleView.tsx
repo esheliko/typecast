@@ -13,7 +13,8 @@ import { bylineLabel, DETAIL_LABEL, detailLabel, isCrewId, MAIN_CAST, type CrewI
 import { enrich } from "@/lib/enrich";
 import { img, typeLabel } from "@/lib/img";
 import { getLibrary, getProfile } from "@/lib/library";
-import { getCollection, getTitle, TmdbError } from "@/lib/tmdb";
+import TitleFranchise from "@/components/cast/TitleFranchise";
+import { getFranchise, getTitle, TmdbError } from "@/lib/tmdb";
 import type { LibItem, MediaType, Title } from "@/lib/types";
 
 export type TitleParams = Promise<{ type: string; id: string }>;
@@ -83,15 +84,15 @@ function Details({ t, lib, order }: { t: Title; lib: LibItem[]; order: DetailId[
   );
 }
 
+/** The rest of the collection / universe with one-tap marks. Opens by itself once this title is marked as seen. */
+async function Franchise({ t }: { t: Title }) {
+  const groups = await getFranchise(t.type, t.id).catch(() => []);
+  return groups.length ? <TitleFranchise groups={groups} titleKey={t.key} /> : null;
+}
+
 async function Related({ t }: { t: Title }) {
-  let list = t.related;
-  if (t.collection) {
-    try {
-      const parts = (await getCollection(t.collection)).filter((p) => p.key !== t.key);
-      const have = new Set(parts.map((p) => p.key));
-      list = [...parts, ...t.related.filter((r) => !have.has(r.key))];
-    } catch { /* keep recommendations only */ }
-  }
+  const have = new Set((await getFranchise(t.type, t.id).catch(() => [])).flatMap((g) => g.items.map((i) => i.key)));
+  const list = t.related.filter((r) => !have.has(r.key));
   if (!list.length) return null;
   return (
     <>
@@ -132,6 +133,7 @@ export default async function TitleView({ t }: { t: Title }) {
       )}
       <DetailOrder initial={profile.details} type={t.type} />
       <Details t={t} lib={lib} order={profile.details} />
+      <Suspense fallback={null}><Franchise t={t} /></Suspense>
       <Suspense fallback={null}><Related t={t} /></Suspense>
       <h2>Notes</h2>
       <NoteBox type={t.type} id={t.id} initial={mine?.note ?? ""} enabled={!!mine} />
