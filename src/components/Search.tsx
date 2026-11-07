@@ -72,7 +72,7 @@ export default function Search({ onActive }: { onActive: (on: boolean) => void }
           {titles.length > 0 && (
             <>
               <h2>Films and series</h2>
-              <ul className="grid">{titles.map((h) => h.kind === "title" && <li key={h.key}><Poster it={h} sub={String(h.year || "—")} /></li>)}</ul>
+              <ul className="grid">{titles.map((h) => h.kind === "title" && <li key={h.key}><Poster it={h} /></li>)}</ul>
             </>
           )}
         </div>
