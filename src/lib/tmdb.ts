@@ -268,6 +268,42 @@ export const getFranchise = cache(async (type: MediaType, id: number): Promise<F
   return out;
 });
 
+/**
+ * Fallback for titles with no collection or universe: loosely related titles, found by similar names (first words of the title),
+ * TMDB's own recommendations and "similar" lists, and shared keywords. Unreleased titles are left out.
+ */
+export const getSimilar = cache(async (type: MediaType, id: number): Promise<FranchiseGroup[]> => {
+  const d = await tmdb(`/${type}/${id}`, { append_to_response: "keywords,recommendations,similar" }, 24 * HOUR);
+  const title: string = d.title ?? d.name ?? "";
+  const have = new Set<string>([`${type}:${id}`]);
+  const when = (r: any): string => r.release_date || r.first_air_date || "";
+  const keep = (rows: any[], t: MediaType) => rows
+    .filter((r) => r.poster_path && when(r) && when(r) <= today())
+    .map((r) => item(t, r)).filter((i) => !have.has(i.key) && have.add(i.key));
+  const out: FranchiseGroup[] = [];
+  // Similar names: the title before any subtitle, then its first two words.
+  const head = title.split(/\s*[:\u2013\u2014-]\s*/)[0].trim();
+  const words = plain(head).split(" ").filter(Boolean);
+  const queries = [...new Set([head, words.slice(0, 2).join(" ")].filter((q) => q.length >= 3))];
+  const named = await Promise.all(queries.flatMap((q) => (["movie", "tv"] as const).map((t) =>
+    tmdb(`/search/${t}`, { query: q, include_adult: "false" }, 24 * HOUR).then((r) => (r.results ?? []).slice(0, 10).map((x: any) => ({ x, t }))).catch(() => [])))).catch(() => []);
+  const nm: Item[] = [];
+  for (const { x, t } of named.flat() as { x: any; t: MediaType }[]) nm.push(...keep([x], t));
+  if (nm.length) out.push({ label: "Similar names", items: nm.slice(0, 16) });
+  const rec = keep(d.recommendations?.results ?? [], type);
+  if (rec.length) out.push({ label: "Recommended", items: rec.slice(0, 20) });
+  const sim = keep(d.similar?.results ?? [], type);
+  if (sim.length) out.push({ label: "Similar titles", items: sim.slice(0, 20) });
+  const kws: any[] = (type === "movie" ? d.keywords?.keywords : d.keywords?.results) ?? [];
+  if (kws.length) {
+    const date = type === "movie" ? "primary_release_date" : "first_air_date";
+    const r = await tmdb(`/discover/${type}`, { with_keywords: kws.slice(0, 3).map((k) => k.id).join("|"), sort_by: "popularity.desc", include_adult: "false", "vote_count.gte": "100", [`${date}.lte`]: today() }, 24 * HOUR).catch(() => ({ results: [] }));
+    const kw = keep(r.results ?? [], type);
+    if (kw.length) out.push({ label: "Shared themes", items: kw.slice(0, 20) });
+  }
+  return out;
+});
+
 const BAD_ROLE = /\b(self|himself|herself|themselves|archive footage|uncredited)\b/i;
 async function personRaw(id: number) {
   const d = await tmdb(`/person/${id}`, { append_to_response: "combined_credits" }, 24 * HOUR);

@@ -61,10 +61,19 @@ export function FranchiseList({ groups: raw, onNavigate, include }: { groups: Gr
 }
 
 /** Bottom sheet opened from the "Mark related" button on the toast after marking something Watched. */
-export function FranchiseSheet({ it, load, onClose }: { it: Item; load: (it: Item) => Promise<Group[]>; onClose: () => void }) {
+export function FranchiseSheet({ it, load, loadSimilar, onClose }: { it: Item; load: (it: Item) => Promise<Group[]>; loadSimilar?: (it: Item) => Promise<Group[]>; onClose: () => void }) {
   const [groups, setGroups] = useState<Group[] | null>(null);
   const close = useRef<HTMLButtonElement>(null);
-  useEffect(() => { let on = true; load(it).then((g) => on && setGroups(g)); return () => { on = false; }; }, [it, load]);
+  const [loose, setLoose] = useState(false);
+  useEffect(() => {
+    let on = true;
+    load(it).then(async (g) => {
+      if (g.length || !loadSimilar) return on && setGroups(g);
+      const s = await loadSimilar(it);
+      if (on) { setLoose(s.length > 0); setGroups(s); }
+    });
+    return () => { on = false; };
+  }, [it, load, loadSimilar]);
   useEffect(() => {
     close.current?.focus();
     const key = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
@@ -77,13 +86,13 @@ export function FranchiseSheet({ it, load, onClose }: { it: Item; load: (it: Ite
       <div className="fsheet" role="dialog" aria-modal="true" aria-label={`Related to ${it.title}`} onClick={(e) => e.stopPropagation()}>
         <div className="fsheet-top">
           <div style={{ minWidth: 0 }}>
-            <div className="small muted">You marked {it.title}. Which of these have you seen?</div>
+            <div className="small muted">{loose ? `No franchise found for ${it.title}. Here are titles with similar names or themes.` : `You marked ${it.title}. Which of these have you seen?`}</div>
           </div>
           <button ref={close} type="button" className="btn sm gold" onClick={onClose}>Done</button>
         </div>
         {!groups ? <p className="muted"><span className="spin" />Finding related titles</p>
           : groups.length === 0 ? <p className="muted">Nothing related found.</p>
-          : <FranchiseList groups={groups} include={it} onNavigate={onClose} />}
+          : <FranchiseList groups={groups} include={loose ? undefined : it} onNavigate={onClose} />}
       </div>
     </div>
   );

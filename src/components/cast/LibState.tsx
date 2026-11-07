@@ -152,9 +152,12 @@ export function LibProvider({ initial, children }: { initial: Record<string, Mar
     }
   }, [save, show, franchise, current]);
 
+  const similar = useCallback((it: Item) =>
+    fetch(`/api/franchise?type=${it.type}&id=${it.id}&similar=1`).then((r) => r.json()).then((j) => (j.groups ?? []) as Group[]).catch(() => [] as Group[]), []);
+
   const openRelated = useCallback((it: Item) => {
-    franchise(it).then((g) => { if (g.length) setSheet(it); else show({ msg: `No related titles found for ${it.title}` }); });
-  }, [franchise, show]);
+    setSheet(it); // always open the popup; the sheet falls back to loosely similar titles when there is no franchise
+  }, []);
 
   const markMany = useCallback((its: Item[], status: Status) => {
     const todo = its.filter((i) => !current(i.key));
@@ -182,7 +185,7 @@ export function LibProvider({ initial, children }: { initial: Record<string, Mar
   return (
     <LibCtx.Provider value={{ get, mark, markMany, openRelated, groupsOf: franchise, marked, skipped, skip, defaultPriority }}>
       {children}
-      {sheet && <FranchiseSheet it={sheet} load={franchise} onClose={() => setSheet(null)} />}
+      {sheet && <FranchiseSheet it={sheet} load={franchise} loadSimilar={similar} onClose={() => setSheet(null)} />}
       <div className="toast-slot" aria-live="polite">
         {toast && (
           <div key={toast.id} className={`toast${toast.err ? " bad" : ""}`} role="status">
