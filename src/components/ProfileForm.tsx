@@ -4,6 +4,8 @@ import { saveProfile } from "@/app/actions";
 import type { Profile } from "@/lib/types";
 
 const COUNTRIES: [string, string][] = [["US", "United States"], ["GB", "United Kingdom"], ["CA", "Canada"], ["AU", "Australia"], ["NZ", "New Zealand"], ["IE", "Ireland"], ["DE", "Germany"], ["AT", "Austria"], ["CH", "Switzerland"], ["FR", "France"], ["BE", "Belgium"], ["NL", "Netherlands"], ["LU", "Luxembourg"], ["ES", "Spain"], ["PT", "Portugal"], ["IT", "Italy"], ["SE", "Sweden"], ["NO", "Norway"], ["DK", "Denmark"], ["FI", "Finland"], ["IS", "Iceland"], ["PL", "Poland"], ["CZ", "Czechia"], ["SK", "Slovakia"], ["HU", "Hungary"], ["RO", "Romania"], ["BG", "Bulgaria"], ["GR", "Greece"], ["HR", "Croatia"], ["SI", "Slovenia"], ["RS", "Serbia"], ["UA", "Ukraine"], ["LT", "Lithuania"], ["LV", "Latvia"], ["EE", "Estonia"], ["TR", "Turkey"], ["IL", "Israel"], ["AE", "United Arab Emirates"], ["SA", "Saudi Arabia"], ["EG", "Egypt"], ["ZA", "South Africa"], ["IN", "India"], ["JP", "Japan"], ["KR", "South Korea"], ["SG", "Singapore"], ["HK", "Hong Kong"], ["TW", "Taiwan"], ["TH", "Thailand"], ["PH", "Philippines"], ["ID", "Indonesia"], ["MX", "Mexico"], ["BR", "Brazil"], ["AR", "Argentina"], ["CL", "Chile"], ["CO", "Colombia"]];
+// Always listed (exact name, lowercase) regardless of TMDB display priority, which can bury them in some regions.
+const PINNED = new Set(["disney plus", "disney+", "hotstar", "yes", "yes tv", "hot", "hot vod", "hot tv", "cellcom tv", "partner tv", "sting tv", "sting tv amazon channel", "keshet 12", "mako", "reshet 13", "kan 11", "kan", "next tv", "bezeq", "oh", "walla"]);
 interface Svc { id: number; name: string; pri: number }
 
 export default function ProfileForm({ initial }: { initial: Profile }) {
@@ -32,7 +34,7 @@ export default function ProfileForm({ initial }: { initial: Profile }) {
   }
 
   const term = q.trim().toLowerCase();
-  const show = (list ?? []).filter((p) => (term ? p.name.toLowerCase().includes(term) : services.includes(p.id) || p.pri < 25)).slice(0, 60);
+  const show = (list ?? []).filter((p) => (term ? p.name.toLowerCase().includes(term) : services.includes(p.id) || p.pri < 25 || PINNED.has(p.name.toLowerCase()))).slice(0, 60);
   return (
     <div className="card pad" aria-busy={pending}>
       <label className="l" htmlFor="cc">Country</label>

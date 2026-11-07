@@ -7,8 +7,7 @@ import { supabaseServer } from "@/lib/supabase/server";
 export const metadata = { title: "Setup" };
 
 export default async function Setup() {
-  const [profile, sb] = [await getProfile(), await supabaseServer()];
-  const { data } = await sb.auth.getUser();
+  const [profile, { data }] = await Promise.all([getProfile(), supabaseServer().then((sb) => sb.auth.getUser())]);
   return (
     <div className="page">
       <h2>Where you watch</h2>
