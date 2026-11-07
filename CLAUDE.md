@@ -3,7 +3,7 @@
 Next.js 15 (App Router) + Supabase (email/password auth, RLS) + TMDB. See README.md for setup.
 
 ## Commands
-- `npm run dev` / `npm run build` / `npm run typecheck`
+- `npm run dev` / `npm run build` / `npm run typecheck` / `npm run lint`
 - Build needs `TMDB_TOKEN`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` (dummy values are fine for a compile check).
 
 ## Conventions
@@ -15,5 +15,8 @@ Next.js 15 (App Router) + Supabase (email/password auth, RLS) + TMDB. See README
 - `artifact.html` is the legacy single-file prototype, not part of the site.
 
 ## Known gaps
-- No tests or ESLint config yet.
+- No automated tests yet.
 - `npm audit` flags PostCSS bundled inside Next 15; the fix requires Next 16.
+
+## Workflow
+Changes are pushed directly to `main` (no PRs) and deployed from there. Run `npm run lint`, `npm run typecheck` and `npm run build` first.
