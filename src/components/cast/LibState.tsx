@@ -10,6 +10,8 @@ interface Ctx {
   mark: (it: Item, status: Status | null, priority?: Priority, quiet?: boolean) => void;
   /** Mark several unmarked titles at once, with one Undo. */
   markMany: (its: Item[], status: Status) => void;
+  /** Open the franchise sheet for a title; says so in a toast instead when it has no related titles. */
+  openRelated: (it: Item) => void;
   /** Keys marked right now. Browse snapshots this when it opens: it hides those, but not titles marked later in the visit, so the grid does not shift under your thumb. */
   marked: () => Set<string>;
   /** Titles skipped with "Not interested". Saved on this device. */
@@ -122,6 +124,10 @@ export function LibProvider({ initial, children }: { initial: Record<string, Mar
     });
   }, [save, show, franchise, current]);
 
+  const openRelated = useCallback((it: Item) => {
+    franchise(it).then((g) => { if (g.length) setSheet(it); else show({ msg: `No related titles found for ${it.title}` }); });
+  }, [franchise, show]);
+
   const markMany = useCallback((its: Item[], status: Status) => {
     const todo = its.filter((i) => !current(i.key));
     if (!todo.length) return;
@@ -146,7 +152,7 @@ export function LibProvider({ initial, children }: { initial: Record<string, Mar
   }, [show, writeSkipped]);
 
   return (
-    <LibCtx.Provider value={{ get, mark, markMany, marked, skipped, skip, defaultPriority }}>
+    <LibCtx.Provider value={{ get, mark, markMany, openRelated, marked, skipped, skip, defaultPriority }}>
       {children}
       {sheet && <FranchiseSheet it={sheet} load={franchise} onClose={() => setSheet(null)} />}
       <div className="toast-slot" aria-live="polite">

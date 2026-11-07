@@ -287,3 +287,14 @@ li.row { gap: 10px; }
 .fsheet-top { position: sticky; top: -16px; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: -16px -16px 0; padding: 14px 16px; background: var(--bg); border-bottom: 1px solid var(--line); }
 @media (min-width: 720px) { .fsheet-wrap { align-items: center; } .fsheet { border-radius: 18px; } }
 .toast-undo.plain { background: transparent; color: inherit; text-decoration: underline; padding-inline: 6px; }
+
+/* Related button on seen titles, and the one-line "Finish" strip on Library */
+.rel-b { flex: none; width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; color: var(--muted); }
+.rel-b svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.rel-b:hover { background: var(--chip); color: var(--ink); }
+.pc-art .rel-b { position: absolute; top: 6px; left: 6px; width: 28px; height: 28px; background: rgb(15 17 22 / .6); color: #fff; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+.pc-art .rel-b svg { width: 15px; height: 15px; }
+@media (hover: hover) { .pc-art .rel-b { opacity: 0; } .pc:hover .rel-b, .pc-art .rel-b:focus-visible { opacity: 1; } }
+.chips.fin { margin-top: 10px; align-items: center; }
+.chips.fin .chip.sm { margin-left: 0; }
+.fin-l { flex: none; font: 600 12px var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }

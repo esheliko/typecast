@@ -3,7 +3,8 @@ import { Suspense } from "react";
 import LibraryList from "@/components/LibraryList";
 import { TitleRow } from "@/components/ui";
 import { getLibrary } from "@/lib/library";
-import { getTitle } from "@/lib/tmdb";
+import FinishSets, { type SetHint } from "@/components/cast/FinishSets";
+import { getFranchise, getTitle } from "@/lib/tmdb";
 import { STATUS_LABEL, type LibItem, type Related, type Status } from "@/lib/types";
 
 export const metadata = { title: "Library" };
@@ -32,6 +33,21 @@ async function Suggestions({ lib }: { lib: LibItem[] }) {
   );
 }
 
+/** Franchises with some titles marked and some not, found from the last few things you watched. */
+async function Unfinished({ lib }: { lib: LibItem[] }) {
+  const seeds = lib.filter((l) => l.status === "watched" || l.status === "partial").slice(0, 8);
+  const found = await Promise.all(seeds.map((s) => getFranchise(s.type, s.id).then((g) => ({ s, g })).catch(() => null)));
+  const have = new Set(lib.map((l) => l.key));
+  const hints = new Map<string, SetHint>();
+  for (const f of found) for (const g of f?.g ?? []) {
+    const keys = g.items.map((i) => i.key).filter((k) => !have.has(k));
+    if (!f || !keys.length || hints.has(g.label)) continue;
+    hints.set(g.label, { seed: { key: f.s.key, type: f.s.type, id: f.s.id, title: f.s.title, year: f.s.year, poster: f.s.poster }, label: g.label, keys });
+  }
+  const list = [...hints.values()].sort((a, b) => b.keys.length - a.keys.length).slice(0, 4);
+  return list.length ? <FinishSets hints={list} /> : null;
+}
+
 export default async function Library({ searchParams }: { searchParams: Promise<{ f?: string }> }) {
   const { f } = await searchParams;
   const lib = await getLibrary();
@@ -46,6 +62,7 @@ export default async function Library({ searchParams }: { searchParams: Promise<
       <div className="chips" role="group" aria-label="Filter">
         {tabs.map(([k, label]) => <Link key={k} className="chip" href={k === "all" ? "/library" : `/library?f=${k}`} aria-pressed={filter === k}>{label} <span className="mono">{count(k)}</span></Link>)}
       </div>
+      {lib.length > 0 && <Suspense fallback={null}><Unfinished lib={lib} /></Suspense>}
       {lib.length === 0 ? (
         <div className="card hero" style={{ marginTop: 18 }}>
           <div className="t">Nothing here yet</div>

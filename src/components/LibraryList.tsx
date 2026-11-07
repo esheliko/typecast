@@ -2,6 +2,7 @@
 import { TitleLink } from "./Modal";
 import { useState } from "react";
 import { Thumb } from "./ui";
+import RelatedButton from "./cast/RelatedButton";
 import { typeLabel } from "@/lib/img";
 import { PRIORITY_LABEL, STATUS_LABEL, type LibItem } from "@/lib/types";
 
@@ -14,7 +15,7 @@ export default function LibraryList({ items }: { items: LibItem[] }) {
       {list.length === 0 ? <p className="muted" style={{ marginTop: 20 }}>Nothing matches.</p> : (
         <div className="card" style={{ marginTop: 14 }}><ul className="rows">
           {list.map((l) => (
-            <li key={l.key}><TitleLink className="row" k={l.key}>
+            <li key={l.key} className="row"><TitleLink className="row-link" k={l.key}>
               <Thumb path={l.poster} />
               <span className="row-main">
                 <span className="row-title">{l.title}</span>
@@ -22,7 +23,7 @@ export default function LibraryList({ items }: { items: LibItem[] }) {
                 {l.rating > 0 && <span className="stars" aria-label={`${l.rating} of 5`}>{"★".repeat(l.rating) + "☆".repeat(5 - l.rating)}</span>}
               </span>
               <span className={`pill ${l.status === "watchlist" && l.priority === "must" ? "must" : l.status}`}>{l.status === "watchlist" && l.priority === "must" ? PRIORITY_LABEL.must : STATUS_LABEL[l.status]}</span>
-            </TitleLink></li>
+            </TitleLink><RelatedButton it={l} /></li>
           ))}
         </ul></div>
       )}

@@ -5,6 +5,7 @@ import BrowseFilters from "../BrowseFilters";
 import { TitleLink } from "../Modal";
 import { useLib } from "./LibState";
 import QuickMark from "./QuickMark";
+import RelatedButton from "./RelatedButton";
 import { toParams, type BrowseQuery, type Tag } from "@/lib/browse";
 import { img } from "@/lib/img";
 import type { BrowseItem, BrowseList, BrowseType, MediaType } from "@/lib/types";
@@ -173,6 +174,7 @@ export function Poster({ it, sub, skippable }: { it: BrowseItem; sub?: string; s
         {s === "watching" && <span className="pc-flag">Watching</span>}
         {skippable && !s && <button type="button" className="pc-x" onClick={() => skip(it)} aria-label={`Not interested in ${it.title}`} title="Not interested">×</button>}
         <QuickMark it={it} />
+        <RelatedButton it={it} />
       </div>
       <TitleLink k={it.key} className="pc-link">
         <span className="pc-t">{it.title}</span>
