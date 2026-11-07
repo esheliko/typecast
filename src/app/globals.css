@@ -324,6 +324,8 @@ li.row { gap: 10px; }
 .rel-b.ghost { visibility: hidden; }
 .rel-n { font: 600 12px var(--mono); }
 .rel-b svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.row .rel-b, .row .gl-b { box-sizing: border-box; }
+.row .rel-b { width: 52px; min-width: 52px; justify-content: flex-start; padding: 0 8px; }
 .rel-b:hover { background: var(--chip); color: var(--ink); }
 .pc-art .rel-b { position: absolute; top: 6px; right: 6px; min-width: 28px; height: 28px; padding: 0 5px; background: rgb(15 17 22 / .6); color: #fff; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
 .pc-art .rel-b svg { width: 15px; height: 15px; }
@@ -436,3 +438,7 @@ button:not([disabled]):active, a.row:active, a.tab:active, .person-chip:active, 
 .pc-gl .gl-b { width: 28px; height: 28px; }
 .pc:has(.pc-gl) .pc-link { padding-right: 26px; }
 .fr-act .gl-b { align-self: flex-end; }
+.pill-slot { flex: none; width: 128px; display: flex; justify-content: center; }
+.pill-flip { display: inline-flex; align-items: center; gap: 4px; border: 0; cursor: pointer; }
+.pill-flip svg { width: 11px; height: 11px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+@media (max-width: 560px) { .pill-slot { width: 112px; } .pill-flip svg { display: none; } }
