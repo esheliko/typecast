@@ -98,6 +98,7 @@ export default function Browse({ filters, filtered, list: initialList, salt: ser
     try { const raw = sessionStorage.getItem(SNAP); if (raw) { snap = JSON.parse(raw); sessionStorage.removeItem(SNAP); } } catch { /* ignore */ }
     if (!snap || snap.url !== location.pathname + location.search || Date.now() - snap.t > 30 * 60_000) return;
     const s = snap;
+    restored.current = true;
     setSalt(s.salt); setFadeSeed(s.salt); setList(s.list); setType(s.type); setPages((p) => ({ ...p, ...s.pages }));
     const t0 = Date.now();
     const step = () => {
@@ -107,6 +108,18 @@ export default function Browse({ filters, filtered, list: initialList, salt: ser
     };
     requestAnimationFrame(step);
   }, []);
+
+  // Whenever the grid's content changes (list, type, filters, search or "For you" seed), start again from the top.
+  // A snapshot restore is not a content change: it brings its own scroll position back.
+  const restored = useRef(false);
+  const view = `${key}|${salt}`;
+  const lastView = useRef(view);
+  useEffect(() => {
+    if (lastView.current === view) return;
+    lastView.current = view;
+    if (restored.current) { restored.current = false; return; }
+    window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
+  }, [view]);
 
   // Filter changes arrive as new server props: adopt the server's first page and type.
   useEffect(() => { if (first) setPages((p) => (p[key] ? p : { ...p, [key]: first })); }, [key, first]);
