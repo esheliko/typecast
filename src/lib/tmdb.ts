@@ -108,7 +108,7 @@ export async function browse(list: BrowseList, type: BrowseType, page: number): 
 }
 
 export async function getTitle(type: MediaType, id: number): Promise<Title> {
-  const append = `${type === "tv" ? "aggregate_credits" : "credits"},watch/providers,recommendations`;
+  const append = `${type === "tv" ? "aggregate_credits" : "credits"},watch/providers,recommendations,external_ids`;
   const d = await tmdb(`/${type}/${id}`, { append_to_response: append });
   const cast: any[] = (type === "tv" ? d.aggregate_credits?.cast : d.credits?.cast) ?? [];
   const prov: Record<string, ProviderGroup> = {};
@@ -130,6 +130,7 @@ export async function getTitle(type: MediaType, id: number): Promise<Title> {
     runtime: (type === "movie" ? d.runtime : d.episode_run_time?.[0]) ?? null, status: d.status ?? "",
     crew: crewBy.director.map((p) => p.name), crewBy,
     seasons: type === "tv" ? (d.seasons ?? []).filter((s: any) => s.season_number > 0).map((s: any) => ({ n: s.season_number, eps: s.episode_count })) : [],
+    imdbId: d.external_ids?.imdb_id || d.imdb_id || null,
     people, prov, collection: d.belongs_to_collection?.id ?? null,
     related: (d.recommendations?.results ?? []).slice(0, 8).map((r: any): Related => ({ ...item(type, r), rel: "Recommended" })),
   };

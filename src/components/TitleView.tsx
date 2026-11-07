@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { cache, Suspense } from "react";
 import { notFound } from "next/navigation";
+import { AwardChips, AwardsSection } from "@/components/Awards";
 import CastFilter from "@/components/CastFilter";
 import { CreditRow, CrewRow } from "@/components/CreditRow";
 import EpisodeCast from "@/components/EpisodeCast";
@@ -142,6 +143,7 @@ export default async function TitleView({ t, origin }: { t: Title; origin?: Item
         <div style={{ minWidth: 0 }}>
           <h1 className="sh-title">{t.title} <RelatedButton it={t} /> <GlimpseButton spec={titleSpec(t)} /></h1>
           <div className="sh-meta">{meta}</div>
+          <Suspense fallback={null}><AwardChips t={t} /></Suspense>
           {byline && <div className="sh-meta">{bylineLabel(byline, t.type)} {t.crewBy[byline].slice(0, 2).map((p) => p.name).join(", ")}</div>}
           {t.overview && <details className="sh-ov"><summary>{t.overview}</summary><p>{t.overview}</p></details>}
         </div>
@@ -156,6 +158,7 @@ export default async function TitleView({ t, origin }: { t: Title; origin?: Item
       <Where t={t} profile={profile} />
       <DetailOrder initial={profile.details} type={t.type} />
       <Details t={t} lib={lib} order={profile.details} />
+      <Suspense fallback={null}><AwardsSection t={t} /></Suspense>
       <Suspense fallback={null}><Franchise t={t} /></Suspense>
       <Suspense fallback={null}><Related t={t} origin={origin} /></Suspense>
       <h2>Notes</h2>

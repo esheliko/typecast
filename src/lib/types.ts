@@ -19,7 +19,7 @@ export interface ProviderGroup { link?: string; flatrate?: Provider[]; free?: Pr
 export interface Title extends Item {
   overview: string; tagline: string; genres: string[]; runtime: number | null; status: string;
   crew: string[]; crewBy: CrewBy; seasons: { n: number; eps: number }[]; people: CastMember[];
-  prov: Record<string, ProviderGroup>; collection: number | null; related: Related[];
+  prov: Record<string, ProviderGroup>; collection: number | null; related: Related[]; imdbId: string | null;
 }
 export interface Person { id: number; name: string; photo: string | null; dept: string; bio: string; known: Credit[] }
 export type BrowseList = "foryou" | "trending" | "popular" | "top" | "new" | "soon";
