@@ -109,16 +109,12 @@ textarea { width: 100%; resize: vertical; min-height: 72px; }
 .sh-compact .sh-poster { width: 84px; }
 .sh-compact .sh-title { font-size: 26px; }
 .sh-compact .sh-meta { margin-top: 4px; font-size: 12px; }
-.sh-tag { font-size: 13px; font-style: italic; color: var(--muted); margin-top: 4px; }
-.sh-ov { margin: 10px 0 0; font-size: 14px; line-height: 1.4; }
-.sh-ov summary { cursor: pointer; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; list-style: none; }
+.sh-wh h2 { display: none; }
+.sh-ov { margin: 8px 0 0; font-size: 14px; line-height: 1.4; }
+.sh-ov summary { cursor: pointer; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; list-style: none; }
 .sh-ov summary::-webkit-details-marker { display: none; }
 .sh-ov[open] summary { display: none; }
 .sh-ov p { margin: 0; }
-.sh-where { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 10px; font-size: 12px; }
-.sh-where b { font: 600 13px var(--display); text-transform: uppercase; letter-spacing: .05em; margin-right: 2px; }
-.sh-where.ok b { color: var(--good); } .sh-where.no b { color: var(--bad); }
-.sh-where img { width: 24px; height: 24px; border-radius: 6px; }
 .sh-ep { margin-top: 10px; }
 .sh-ep > summary { cursor: pointer; font: 600 14px var(--display); text-transform: uppercase; letter-spacing: .05em; padding: 6px 0; }
 .sh-compact ~ .status { margin: 10px 0 4px; gap: 6px; }

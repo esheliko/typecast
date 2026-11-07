@@ -3,7 +3,7 @@ import type { Profile, Provider, Title } from "@/lib/types";
 
 const GROUPS = [["flatrate", "Stream"], ["free", "Free"], ["ads", "With ads"], ["rent", "Rent"], ["buy", "Buy"]] as const;
 
-export function Where({ t, profile, compact }: { t: Title; profile: Profile; compact?: boolean }) {
+export function Where({ t, profile }: { t: Title; profile: Profile }) {
   const cc = profile.country;
   const p = t.prov[cc];
   let country = cc;
@@ -11,20 +11,6 @@ export function Where({ t, profile, compact }: { t: Title; profile: Profile; com
   const mine = new Set(profile.services);
   const stream: Provider[] = [...(p?.flatrate ?? []), ...(p?.free ?? []), ...(p?.ads ?? [])];
   const hit = [...new Set(stream.filter((x) => mine.has(x.id)).map((x) => x.name))];
-  if (compact) {
-    const logos = stream.filter((x, i) => stream.findIndex((y) => y.id === x.id) === i).slice(0, 8);
-    const label = hit.length ? "On your services" : stream.length ? "Other services" : p && (p.rent || p.buy) ? "Rent or buy only" : "Not available";
-    return (
-      <div className={`sh-where ${hit.length ? "ok" : "no"}`}>
-        <b>{label}</b>
-        {logos.map((x) => x.logo
-          // eslint-disable-next-line @next/next/no-img-element
-          ? <img key={x.id} src={img(x.logo, "w92")} alt={x.name} title={x.name} />
-          : <span key={x.id} className="pill">{x.name}</span>)}
-        <span className="mono muted">{country}</span>
-      </div>
-    );
-  }
   return (
     <section>
       <h2>Where to watch <span className="mono" style={{ textTransform: "none", letterSpacing: 0 }}>{country}</span></h2>

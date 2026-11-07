@@ -117,8 +117,6 @@ export default async function TitleView({ t, origin }: { t: Title; origin?: Item
   const meta = [t.year, typeLabel(t.type), t.runtime ? `${t.runtime} min${t.type === "tv" ? " / ep" : ""}` : "", t.genres.slice(0, 3).join(", ")].filter(Boolean).join(" · ");
   // The header credit is whichever crew detail the user ranked highest (Director by default, Composer if they put it first).
   const byline = profile.details.find((id): id is CrewId => isCrewId(id) && t.crewBy[id].length > 0 && id !== "crew_rest");
-  const facts = [t.status && t.status !== "Released" ? t.status : "", t.type === "tv" && t.seasons.length ? `${t.seasons.length} season${t.seasons.length > 1 ? "s" : ""}` : ""].filter(Boolean).join(" · ");
-  const topCast = t.people.slice(0, 5).map((p) => p.name).join(", ");
   return (
     <FromProvider k={t.key} name={t.title}>
       <div className="sh-top sh-compact" style={{ marginTop: 10 }}>
@@ -126,14 +124,11 @@ export default async function TitleView({ t, origin }: { t: Title; origin?: Item
         {t.poster && <img className="sh-poster" src={img(t.poster, "w185")} alt="" />}
         <div style={{ minWidth: 0 }}>
           <h1 className="sh-title">{t.title}</h1>
-          <div className="sh-meta">{meta}{facts && ` · ${facts}`}</div>
-          {t.tagline && <div className="sh-tag">“{t.tagline}”</div>}
+          <div className="sh-meta">{meta}</div>
           {byline && <div className="sh-meta">{bylineLabel(byline, t.type)} {t.crewBy[byline].slice(0, 2).map((p) => p.name).join(", ")}</div>}
-          {topCast && <div className="sh-meta">With {topCast}</div>}
+          {t.overview && <details className="sh-ov"><summary>{t.overview}</summary><p>{t.overview}</p></details>}
         </div>
       </div>
-      {t.overview && <details className="sh-ov"><summary>{t.overview}</summary><p>{t.overview}</p></details>}
-      <Where t={t} profile={profile} compact />
       <StatusControls item={t} lib={mine} />
       {t.type === "tv" && t.seasons.length > 0 && (
         <details className="sh-ep">
@@ -141,7 +136,10 @@ export default async function TitleView({ t, origin }: { t: Title; origin?: Item
           <EpisodeCast tvId={t.id} seasons={t.seasons} initial={mine?.progress ?? { s: t.seasons[0].n, e: 1 }} inLibrary={!!mine} />
         </details>
       )}
-      <Where t={t} profile={profile} />
+      <details className="sh-ep sh-wh">
+        <summary>Where to watch</summary>
+        <Where t={t} profile={profile} />
+      </details>
       <DetailOrder initial={profile.details} type={t.type} />
       <Details t={t} lib={lib} order={profile.details} />
       <Suspense fallback={null}><Franchise t={t} /></Suspense>
