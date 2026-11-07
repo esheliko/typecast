@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { Avatar } from "./ui";
 import { Poster } from "./cast/Browse";
+import { useLib } from "./cast/LibState";
 import type { SearchHit } from "@/lib/types";
 
 /** Search box for the cast tab. While it has a query, its results take the place of the page below it. */
@@ -13,6 +14,7 @@ export default function Search({ onActive }: { onActive: (on: boolean) => void }
   const [error, setError] = useState("");
   const input = useRef<HTMLInputElement>(null);
   const term = q.trim();
+  const { get } = useLib();
 
   useEffect(() => { onActive(term.length >= 2); }, [term, onActive]);
   useEffect(() => {
@@ -37,7 +39,10 @@ export default function Search({ onActive }: { onActive: (on: boolean) => void }
   }, []);
 
   const people = hits?.filter((h) => h.kind === "person") ?? [];
-  const titles = hits?.filter((h) => h.kind === "title") ?? [];
+  // Titles you have rated or noted come first, then other marked ones, then the rest (each group keeps TMDB's order).
+  const rank = (k: string) => { const m = get(k); return m ? (m.rich ? 2 : 1) : 0; };
+  const titles = (hits?.filter((h) => h.kind === "title") ?? []).map((h, i) => ({ h, i, r: h.kind === "title" ? rank(h.key) : 0 }))
+    .sort((a, b) => b.r - a.r || a.i - b.i).map((x) => x.h);
   return (
     <>
       <form className="search" role="search" onSubmit={(e) => { e.preventDefault(); input.current?.blur(); }}>
