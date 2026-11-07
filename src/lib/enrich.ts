@@ -1,9 +1,10 @@
 import { getPerson } from "./tmdb";
 import type { CastMember, EnrichedMember, LibItem } from "./types";
 
-/** For each cast member, work out which titles in the user's library they were in. Exact match by TMDB id. */
+/** For each cast member, work out which titles the user has watched (not just listed to watch) they were in. Exact match by TMDB id. */
 export async function enrich(people: CastMember[], library: LibItem[], curKey: string): Promise<EnrichedMember[]> {
-  const inLib = new Set(library.map((l) => l.key));
+  // "You know them from" means seen it: a title only on the watchlist is not one they know yet.
+  const inLib = new Set(library.filter((l) => l.status !== "watchlist").map((l) => l.key));
   const queue = people.slice(0, 20);
   const out = new Map<number, EnrichedMember>();
   async function worker() {
