@@ -5,7 +5,8 @@ import type { Group } from "./Franchise";
 import type { Item } from "@/lib/types";
 
 /**
- * Opens the rest of a title's collection or universe, with the number still unmarked beside the icon.
+ * Opens the rest of a title's collection or universe, with the number of related titles (other than itself,
+ * regardless of any marks) beside the icon; the button is highlighted while some are still unmarked.
  * Available on every title, seen or not. Looks up the franchise once the button scrolls into view;
  * stays tappable (dimmed) when nothing is left to mark. Hidden while the lookup is still running.
  */
@@ -21,12 +22,14 @@ export default function RelatedButton({ it }: { it: Item }) {
   }, [near]);
   useEffect(() => { if (!near) return; let on = true; groupsOf(it).then((g) => on && setGroups(g)); return () => { on = false; }; }, [near, it, groupsOf]);
   if (!groups) return <span ref={box} className="rel-b ghost" aria-hidden="true" />;
-  const left = new Set(groups.flatMap((g) => g.items).filter((i) => !get(i.key)).map((i) => i.key)).size;
-  const label = left ? `${left} related ${left === 1 ? "title" : "titles"} to mark for ${it.title}` : `Related titles for ${it.title}`;
+  // Every distinct related title other than this one, whatever its (or this title's) mark.
+  const total = new Set(groups.flatMap((g) => g.items).map((i) => i.key).filter((k) => k !== it.key)).size;
+  const left = new Set(groups.flatMap((g) => g.items).filter((i) => i.key !== it.key && !get(i.key)).map((i) => i.key)).size;
+  const label = total ? `${total} related ${total === 1 ? "title" : "titles"} for ${it.title}${left ? `, ${left} not yet marked` : ""}` : `Related titles for ${it.title}`;
   return (
     <button type="button" className={`rel-b${left ? " has" : ""}`} onClick={() => openRelated(it)} aria-label={label} title={label}>
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="12" r="2.2" /><circle cx="18" cy="6" r="2.2" /><circle cx="18" cy="18" r="2.2" /><path d="M8 11l8-4M8 13l8 4" /></svg>
-      {left > 0 && <span className="rel-n">{left > 99 ? "99+" : left}</span>}
+      {total > 0 && <span className="rel-n">{total > 99 ? "99+" : total}</span>}
     </button>
   );
 }
