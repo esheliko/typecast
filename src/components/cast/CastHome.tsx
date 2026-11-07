@@ -37,7 +37,7 @@ export default function CastHome({ view: initialView, browse, connect, watching 
       <div className="page cast-home">
         <Search onActive={onActive} />
         <div hidden={searching}>
-          <div className="views" role="tablist" aria-label="Cast tab">
+          <div className="views" role="tablist" aria-label="Browse tab">
             <button role="tab" type="button" aria-selected={view === "browse"} onClick={() => go("browse")}>Browse</button>
             <button role="tab" type="button" aria-selected={view === "connect"} onClick={() => go("connect")}>Connections</button>
           </div>

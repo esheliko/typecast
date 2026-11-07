@@ -66,7 +66,7 @@ export default async function Library({ searchParams }: { searchParams: Promise<
       {lib.length === 0 ? (
         <div className="card hero" style={{ marginTop: 18 }}>
           <div className="t">Nothing here yet</div>
-          <p className="muted">Find a title on the Cast tab and mark it Watching, To watch or Watched. Suggestions and connections between your titles appear here as your library grows.</p>
+          <p className="muted">Find a title on the Browse tab and mark it Watching, To watch or Watched. Suggestions and connections between your titles appear here as your library grows.</p>
           <Link className="btn gold" href="/">Find a title</Link>
         </div>
       ) : <LibraryList items={shown} />}

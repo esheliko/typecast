@@ -11,7 +11,7 @@ type SP = Promise<Record<string, string | string[] | undefined>>;
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? "";
 
 /**
- * The cast tab. Browse quick lists or detailed filters with one-tap Watched / To watch on every poster,
+ * The Browse tab. Browse quick lists or detailed filters with one-tap Watched / To watch on every poster,
  * and Connections between actors and titles.
  * Links in: /?view=connect&a=<person id> starts a connection from that actor, &t=<movie:id> from that title.
  */

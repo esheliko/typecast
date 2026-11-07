@@ -39,7 +39,7 @@ export interface EnrichedMember extends CastMember {
   top: Credit[];
 }
 
-/** How the cast tab sees a library entry: enough to draw a mark and to warn before deleting a rating or note. */
+/** How the Browse tab sees a library entry: enough to draw a mark and to warn before deleting a rating or note. */
 export interface Mark { status: Status; priority: Priority; rich: boolean }
 
 export interface PersonLite { id: number; name: string; photo: string | null }
