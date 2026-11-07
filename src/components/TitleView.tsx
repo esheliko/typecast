@@ -69,7 +69,7 @@ function CastBlock({ part, t, lib, people, first, last, pending }: CastProps & {
         <>
           <h2>{DETAIL_LABEL[part]}</h2>
           {first && <p className="small" style={{ margin: "-4px 0 10px" }}><Link href={`/?view=connect&t=${t.key}`}>Compare this cast with another title</Link></p>}
-          <div className="card pad">{shown.length > MAIN_CAST ? <CastFilter>{list}</CastFilter> : list}</div>
+          <div className={`card pad${part === "cast_main" ? " cast-main" : ""}`}>{shown.length > MAIN_CAST ? <CastFilter>{list}</CastFilter> : list}</div>
         </>
       )}
       {pending && last && shown.length > 0 && <p className="muted small" style={{ marginTop: 14 }}><span className="spin" />Finding where you know them from</p>}

@@ -487,3 +487,16 @@ button.aw-chip:hover { filter: brightness(1.08); }
 .aw-more .aw-list { padding-left: 0; }
 .aw-other { margin-top: 6px; border-top: 1px solid var(--line); padding-top: 6px; }
 .aw-feat + .aw-other { margin-top: 8px; }
+
+/* Main cast keeps the roomier original sizing. */
+.cast-main .credit { padding: 10px 0; }
+.cast-main .credit-main { gap: 12px; }
+.cast-main .credit .nm { font-size: 19px; }
+.cast-main .credit .role { font-size: 14px; }
+.cast-main .credit .avatar { width: 44px; height: 44px; font-size: 16px; }
+.cast-main .marks { padding-left: 56px; }
+.cast-main .credit-gl { top: 12px; }
+@media (hover: hover) {
+  .cast-main .credit:hover:not(:has(details[open])) .marks { left: 56px; }
+  .cast-main .credit .avatar:hover { transform: scale(2.4); }
+}
