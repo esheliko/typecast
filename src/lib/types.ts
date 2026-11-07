@@ -31,7 +31,9 @@ export interface LibItem extends Item {
   status: Status; priority: Priority; rating: number; note: string; progress: { s: number; e: number } | null; added: number; watchedAt: number | null;
 }
 /** `details` is the user's chosen order of title-page sections; an id that is absent is hidden. */
-export interface Profile { country: string; services: number[]; serviceNames: Record<string, string>; details: DetailId[] }
+export interface Profile { country: string; services: number[]; serviceNames: Record<string, string>; details: DetailId[]; letterboxd: LetterboxdLink | null }
+/** The optional Letterboxd link: who, when it last checked (ms), and the last problem if any. */
+export interface LetterboxdLink { user: string; syncedAt: number | null; error: string | null }
 
 export interface EnrichedMember extends CastMember {
   hits: { key: string; title: string; year: string }[];

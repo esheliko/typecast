@@ -1,5 +1,6 @@
 import DetailOrder from "@/components/DetailOrder";
 import InstallButton from "@/components/InstallButton";
+import LetterboxdPanel from "@/components/LetterboxdPanel";
 import ProfileForm from "@/components/ProfileForm";
 import { signOut } from "@/app/actions";
 import { getProfile } from "@/lib/library";
@@ -15,6 +16,8 @@ export default async function Setup() {
       <ProfileForm initial={profile} />
       <h2>Title details</h2>
       <DetailOrder initial={profile.details} always />
+      <h2>Letterboxd (optional)</h2>
+      <LetterboxdPanel link={profile.letterboxd} />
       <h2>Account</h2>
       <div className="card pad">
         <p className="small muted" style={{ margin: "0 0 12px" }}>Signed in as {data?.claims?.email as string | undefined}. Your library is stored on the server and follows you across devices.</p>

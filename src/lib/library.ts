@@ -2,6 +2,7 @@ import { cache } from "react";
 import { supabaseServer } from "./supabase/server";
 import { normalizeDetails } from "./details";
 import { getLastAired } from "./tmdb";
+import { syncLetterboxd } from "./letterboxd";
 import type { LibItem, Profile } from "./types";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -39,7 +40,14 @@ export const getLibrary = cache(async (): Promise<LibItem[]> => {
  */
 export async function recheckEpisodes(): Promise<boolean> {
   const sb = await supabaseServer();
-  return (await returnNewEpisodes(sb, await getLibraryRaw())).size > 0;
+  const { data } = await sb.auth.getClaims();
+  const uid = data?.claims?.sub;
+  // The Letterboxd check is opt-in: it returns at once unless a username is saved, and runs at most every six hours.
+  const [moved, lb] = await Promise.all([
+    returnNewEpisodes(sb, await getLibraryRaw()),
+    uid ? syncLetterboxd(sb, uid).catch(() => null) : null,
+  ]);
+  return moved.size > 0 || (lb?.added ?? 0) + (lb?.updated ?? 0) > 0;
 }
 
 const RECHECK_MS = 12 * 3600 * 1000;
@@ -65,5 +73,6 @@ export const getProfile = cache(async (): Promise<Profile> => {
   const sb = await supabaseServer();
   const { data } = await sb.from("profiles").select("*");
   const r: any = data?.[0];
-  return { country: r?.country ?? "US", services: r?.services ?? [], serviceNames: r?.service_names ?? {}, details: normalizeDetails(r?.detail_order) };
+  return { country: r?.country ?? "US", services: r?.services ?? [], serviceNames: r?.service_names ?? {}, details: normalizeDetails(r?.detail_order),
+    letterboxd: r?.letterboxd_user ? { user: r.letterboxd_user, syncedAt: r.letterboxd_synced_at ? Date.parse(r.letterboxd_synced_at) : null, error: r.letterboxd_error ?? null } : null };
 });
