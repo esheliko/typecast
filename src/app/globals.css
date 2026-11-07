@@ -183,7 +183,7 @@ a.row { text-decoration: none; color: inherit; }
 .pc-t { margin-top: 7px; font: 600 16px/1.1 var(--display); letter-spacing: .02em; text-transform: uppercase; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .pc-s { font: 400 12px var(--mono); color: var(--muted); margin-top: 2px; }
 .pc-flag { position: absolute; top: 6px; left: 6px; padding: 1px 7px; border-radius: 999px; background: var(--gold-fill); color: var(--on-gold); font: 600 10px/1.7 var(--mono); letter-spacing: .06em; text-transform: uppercase; }
-.pc-kind { position: absolute; left: 6px; bottom: 6px; padding: 1px 7px; border-radius: 999px; background: rgb(15 17 22 / .72); color: #fff; font: 600 10px/1.7 var(--mono); letter-spacing: .06em; text-transform: uppercase; pointer-events: none; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+.kind-i { width: 12px; height: 12px; margin-right: 5px; vertical-align: -1px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .pc-x { position: absolute; top: 6px; right: 6px; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: rgb(15 17 22 / .6); color: #fff; font: 400 20px/1 var(--mono); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); opacity: .85; }
 .pc-x:active { transform: scale(.9); }
 @media (hover: hover) { .pc-x { opacity: 0; } .pc:hover .pc-x, .pc-x:focus-visible { opacity: 1; } }

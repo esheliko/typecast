@@ -161,6 +161,16 @@ export default function Browse({ filters, filtered, list: initialList, salt, fir
   );
 }
 
+function KindIcon({ type }: { type: string }) {
+  const tv = type === "tv", label = tv ? "Series" : "Film";
+  return (
+    <svg className="kind-i" viewBox="0 0 24 24" role="img" aria-label={label}>
+      <title>{label}</title>
+      {tv ? <><rect x="3" y="7" width="18" height="13" rx="2" /><path d="m8 2 4 5 4-5" /></> : <><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M7 4v16M17 4v16M3 9h4M3 15h4M17 9h4M17 15h4" /></>}
+    </svg>
+  );
+}
+
 export function Poster({ it, sub, skippable }: { it: BrowseItem; sub?: string; skippable?: boolean }) {
   const { get, skip } = useLib();
   const s = get(it.key)?.status;
@@ -173,13 +183,12 @@ export function Poster({ it, sub, skippable }: { it: BrowseItem; sub?: string; s
         </TitleLink>
         {s === "watching" && <span className="pc-flag">Watching</span>}
         {skippable && !s && <button type="button" className="pc-x" onClick={() => skip(it)} aria-label={`Not interested in ${it.title}`} title="Not interested">×</button>}
-        <span className="pc-kind">{it.type === "tv" ? "Series" : "Film"}</span>
         <QuickMark it={it} />
         <RelatedButton it={it} />
       </div>
       <TitleLink k={it.key} className="pc-link">
         <span className="pc-t">{it.title}</span>
-        <span className="pc-s">{sub ?? [it.year || "TBA", it.rating ? `★ ${it.rating.toFixed(1)}` : ""].filter(Boolean).join(" · ")}</span>
+        <span className="pc-s"><KindIcon type={it.type} />{sub ?? [it.year || "TBA", it.rating ? `★ ${it.rating.toFixed(1)}` : ""].filter(Boolean).join(" · ")}</span>
       </TitleLink>
     </div>
   );
