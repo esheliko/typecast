@@ -8,6 +8,7 @@ import DetailOrder from "@/components/DetailOrder";
 import NoteBox from "@/components/NoteBox";
 import StatusControls from "@/components/StatusControls";
 import MarkRow from "@/components/cast/MarkRow";
+import { FromProvider } from "@/components/Modal";
 import { Where } from "@/components/Where";
 import { bylineLabel, DETAIL_LABEL, detailLabel, isCrewId, MAIN_CAST, type CrewId, type DetailId } from "@/lib/details";
 import { enrich } from "@/lib/enrich";
@@ -112,7 +113,7 @@ export default async function TitleView({ t }: { t: Title }) {
   // The header credit is whichever crew detail the user ranked highest (Director by default, Composer if they put it first).
   const byline = profile.details.find((id): id is CrewId => isCrewId(id) && t.crewBy[id].length > 0 && id !== "crew_rest");
   return (
-    <>
+    <FromProvider k={t.key} name={t.title}>
       <div className="sh-top" style={{ marginTop: 14 }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         {t.poster && <img className="sh-poster" src={img(t.poster, "w342")} alt="" />}
@@ -137,6 +138,6 @@ export default async function TitleView({ t }: { t: Title }) {
       <Suspense fallback={null}><Related t={t} /></Suspense>
       <h2>Notes</h2>
       <NoteBox type={t.type} id={t.id} initial={mine?.note ?? ""} enabled={!!mine} />
-    </>
+    </FromProvider>
   );
 }

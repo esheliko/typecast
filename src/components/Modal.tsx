@@ -5,6 +5,11 @@ import { createContext, useCallback, useContext, useEffect, useRef, type Compone
 import { href } from "@/lib/img";
 
 const InModal = createContext(false);
+/** The title whose page this link sits on; passed along so the next popup can say where it was opened from. */
+const FromTitle = createContext<{ key: string; name: string } | null>(null);
+export function FromProvider({ k, name, children }: { k: string; name: string; children: React.ReactNode }) {
+  return <FromTitle.Provider value={{ key: k, name }}>{children}</FromTitle.Provider>;
+}
 
 /**
  * A link to a title page. Titles open as a popup over whatever page you are on (see app/(app)/@modal), so it never scrolls
@@ -12,10 +17,17 @@ const InModal = createContext(false);
  */
 export function TitleLink({ k, ...rest }: { k: string } & Omit<ComponentProps<typeof Link>, "href" | "replace" | "scroll">) {
   const inModal = useContext(InModal);
-  return <Link href={href(k)} replace={inModal} scroll={false} {...rest} />;
+  const from = useContext(FromTitle);
+  const url = from && from.key !== k ? `${href(k)}?${new URLSearchParams({ from: from.key, fn: from.name })}` : href(k);
+  return <Link href={url} replace={inModal} scroll={false} {...rest} />;
 }
 
 const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),textarea:not([disabled]),select:not([disabled]),summary,[tabindex]:not([tabindex="-1"])';
+
+/** "Opened from X" line at the top of a popup; X goes back to that title. */
+export function OpenedFrom({ k, name }: { k: string; name: string }) {
+  return <p className="small" style={{ margin: "6px 0 0" }}>Opened from <TitleLink k={k}><b>{name}</b></TitleLink></p>;
+}
 
 /** The popup frame for title details. Close (button, Esc, tap outside, or the browser Back button) returns to the page underneath, untouched. */
 export function Modal({ children }: { children: React.ReactNode }) {
