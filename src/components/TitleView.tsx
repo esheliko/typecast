@@ -19,7 +19,7 @@ import { img, typeLabel } from "@/lib/img";
 import { getLibrary, getProfile } from "@/lib/library";
 import TitleFranchise from "@/components/cast/TitleFranchise";
 import { getFranchise, getTitle, TmdbError } from "@/lib/tmdb";
-import type { Item, LibItem, MediaType, Title } from "@/lib/types";
+import type { EnrichedMember, Item, LibItem, MediaType, Title } from "@/lib/types";
 
 export type TitleParams = Promise<{ type: string; id: string }>;
 
@@ -44,15 +44,16 @@ function CrewSection({ id, t }: { id: CrewId; t: Title }) {
   );
 }
 
-/** The main-cast or rest-of-cast block. `first` adds the compare link, `last` adds the library connections. */
-async function CastSection({ part, t, lib, first, last }: { part: "cast_main" | "cast_rest"; t: Title; lib: LibItem[]; first: boolean; last: boolean }) {
-  const people = await castOf(t, lib);
+type CastProps = { part: "cast_main" | "cast_rest"; t: Title; lib: LibItem[]; first: boolean; last: boolean };
+
+/** The main-cast or rest-of-cast block. `first` adds the compare link, `last` adds the library connections. While `pending`, the people are shown without their extras. */
+function CastBlock({ part, t, lib, people, first, last, pending }: CastProps & { people: EnrichedMember[]; pending?: boolean }) {
   const shown = part === "cast_main" ? people.slice(0, MAIN_CAST) : people.slice(MAIN_CAST);
   const libKeys = Object.fromEntries(lib.map((l) => [l.key, l.status]));
   const links = new Map<string, string[]>();
   for (const c of people) for (const h of c.hits) links.set(h.key, [...(links.get(h.key) ?? []), c.name]);
   const linked = last ? [...links.entries()].sort((a, b) => b[1].length - a[1].length).slice(0, 8) : [];
-  const list = <ul className="credits">{shown.map((c) => <CreditRow key={c.id} c={c} libKeys={libKeys} title={{ title: t.title, year: t.year, type: t.type }} />)}</ul>;
+  const list = <ul className="credits">{shown.map((c) => <CreditRow key={c.id} c={c} libKeys={libKeys} pending={pending} title={{ title: t.title, year: t.year, type: t.type }} />)}</ul>;
   return (
     <>
       {shown.length > 0 && (
@@ -62,6 +63,7 @@ async function CastSection({ part, t, lib, first, last }: { part: "cast_main" | 
           <div className="card pad">{shown.length > MAIN_CAST ? <CastFilter>{list}</CastFilter> : list}</div>
         </>
       )}
+      {pending && last && shown.length > 0 && <p className="muted small" style={{ marginTop: 14 }}><span className="spin" />Finding where you know them from</p>}
       {linked.length > 0 && (
         <details className="cw" style={{ marginTop: 18 }}>
           <summary>Connections to your library<span className="cw-n">{linked.length}</span></summary>
@@ -79,13 +81,20 @@ async function CastSection({ part, t, lib, first, last }: { part: "cast_main" | 
   );
 }
 
+/** The same block once everyone's other credits are in. */
+async function CastSection(props: CastProps) {
+  return <CastBlock {...props} people={await castOf(props.t, props.lib)} />;
+}
+
 /** Every section the user chose, in the order they chose. Crew is already in hand; cast streams in behind its own spinner. */
 function Details({ t, lib, order }: { t: Title; lib: LibItem[]; order: DetailId[] }) {
   const casts = order.filter((i) => i === "cast_main" || i === "cast_rest");
   return (
     <>
       {order.map((id) => id === "cast_main" || id === "cast_rest" ? (
-        <Suspense key={id} fallback={<><h2>{DETAIL_LABEL[id]}</h2><p className="muted"><span className="spin" />Finding where you know them from</p></>}>
+        // The cast is already known from the title itself, so show it right away; "you know them from" fills in behind it.
+        <Suspense key={id} fallback={<CastBlock part={id} t={t} lib={lib} first={id === casts[0]} last={id === casts[casts.length - 1]} pending
+          people={t.people.map((c) => ({ ...c, hits: [], also: [], top: [] }))} />}>
           <CastSection part={id} t={t} lib={lib} first={id === casts[0]} last={id === casts[casts.length - 1]} />
         </Suspense>
       ) : <CrewSection key={id} id={id} t={t} />)}

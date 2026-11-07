@@ -8,7 +8,7 @@ import { supabaseServer } from "@/lib/supabase/server";
 export const metadata = { title: "Setup" };
 
 export default async function Setup() {
-  const [profile, { data }] = await Promise.all([getProfile(), supabaseServer().then((sb) => sb.auth.getUser())]);
+  const [profile, { data }] = await Promise.all([getProfile(), supabaseServer().then((sb) => sb.auth.getClaims())]);
   return (
     <div className="page">
       <h2>Where you watch</h2>
@@ -17,7 +17,7 @@ export default async function Setup() {
       <DetailOrder initial={profile.details} always />
       <h2>Account</h2>
       <div className="card pad">
-        <p className="small muted" style={{ margin: "0 0 12px" }}>Signed in as {data.user?.email}. Your library is stored on the server and follows you across devices.</p>
+        <p className="small muted" style={{ margin: "0 0 12px" }}>Signed in as {data?.claims?.email as string | undefined}. Your library is stored on the server and follows you across devices.</p>
         <div className="chips">
           <a className="btn" href="/api/export" download>Export backup</a>
           <form action={signOut}><button className="btn" type="submit">Sign out</button></form>

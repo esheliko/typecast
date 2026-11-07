@@ -12,7 +12,7 @@ import type { Item } from "@/lib/types";
 export default function MarkRow({ it, sub, small }: { it: Item; sub?: string; small?: boolean }) {
   return (
     <div className="row">
-      <TitleLink k={it.key} className="row-link">
+      <TitleLink k={it.key} it={it} className="row-link">
         <Thumb path={it.poster} />
         <span className="row-main">
           <span className="row-title" style={small ? { fontSize: 17 } : undefined}>{it.title}</span>

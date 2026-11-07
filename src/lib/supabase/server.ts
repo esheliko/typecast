@@ -19,7 +19,8 @@ export async function supabaseServer() {
 
 export async function requireUser() {
   const sb = await supabaseServer();
-  const { data } = await sb.auth.getUser();
-  if (!data.user) throw new Error("Not signed in");
-  return { sb, user: data.user };
+  // Verified locally from the signed token: no extra round trip before every write. RLS is still the backstop.
+  const { data } = await sb.auth.getClaims();
+  if (!data?.claims?.sub) throw new Error("Not signed in");
+  return { sb, user: { id: data.claims.sub, email: data.claims.email as string | undefined } };
 }

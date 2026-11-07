@@ -6,7 +6,8 @@ import { castSpec, personSpec } from "@/lib/glimpse";
 import type { CastMember, EnrichedMember } from "@/lib/types";
 
 /** One cast line. Tap to open their best-known credits (a native <details>, so it needs no JavaScript). */
-export function CreditRow({ c, title }: { c: EnrichedMember; libKeys?: Record<string, string>; title?: { title: string; year?: string | number; type: string } }) {
+/** `pending` means their other credits are still being looked up, so an empty list is not the final answer. */
+export function CreditRow({ c, title, pending }: { c: EnrichedMember; libKeys?: Record<string, string>; title?: { title: string; year?: string | number; type: string }; pending?: boolean }) {
   return (
     <li className="credit has-gl" data-q={`${c.name} ${c.role}`.toLowerCase()}>
       <span className="credit-gl"><GlimpseButton spec={castSpec(c.name, c.role, title)} label={title && c.role ? `See ${c.name} as ${c.role}` : `See images of ${c.name}`} /></span>
@@ -16,7 +17,7 @@ export function CreditRow({ c, title }: { c: EnrichedMember; libKeys?: Record<st
           <span className="credit-line"><span className="nm">{c.name}</span><span className="dots" /><span className="role">{c.role}</span></span>
         </summary>
         <div className="more">
-          {c.top.length === 0 && <span className="muted small">No other credits found.</span>}
+          {c.top.length === 0 && <span className="muted small">{pending ? "Finding their other credits…" : "No other credits found."}</span>}
           {c.top.map((k) => <MarkRow key={k.key} it={k} sub={k.role} small />)}
           <Link className="btn sm" href={`/person/${c.id}`} style={{ marginTop: 8 }}>Full profile</Link>
         </div>

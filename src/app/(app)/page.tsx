@@ -29,18 +29,24 @@ export default async function Home({ searchParams }: { searchParams: SP }) {
     } catch { /* start empty */ }
     return { mode: t ? "titles" : "people", a: null };
   };
-  const [lib, profile, connect, gm, gt] = await Promise.all([
-    getLibrary(), getProfile(), pick(),
-    genreList("movie").catch(() => []), genreList("tv").catch(() => []),
-  ]);
-  // With a few marked titles to learn from, the home list is "For you"; otherwise Trending.
-  const learn = lib.filter((l) => l.status !== "watchlist" || l.priority === "must").length >= 3;
-  const list = LISTS.includes(one(sp.list) as BrowseList) ? (one(sp.list) as BrowseList) : learn ? "foryou" : "trending";
+  // Everything starts at once; the first page of titles begins as soon as the library says which list to show.
+  const libP = getLibrary(), profileP = getProfile();
   const salt = Math.floor(Math.random() * 1e9) + 1;
-  const first: Page | null = await (filtered
-    ? discover(filters, 1, profile.country, profile.services).then((r) => ({ items: r.items, page: r.page, more: r.page < r.totalPages, notice: r.notice }))
+  const plan = libP.then((lib) => {
+    // With a few marked titles to learn from, the home list is "For you"; otherwise Trending.
+    const learn = lib.filter((l) => l.status !== "watchlist" || l.priority === "must").length >= 3;
+    const list = LISTS.includes(one(sp.list) as BrowseList) ? (one(sp.list) as BrowseList) : learn ? "foryou" : "trending";
+    return { lib, list };
+  });
+  const firstP: Promise<Page | null> = plan.then(async ({ lib, list }) => (filtered
+    ? discover(filters, 1, (await profileP).country, (await profileP).services).then((r) => ({ items: r.items, page: r.page, more: r.page < r.totalPages, notice: r.notice }))
     : (list === "foryou" ? forYou(filters.type, 1, lib, salt) : browse(list, filters.type, 1)).then((r) => ({ ...r, page: 1 }))
-  ).catch(() => null);
+  ).catch(() => null));
+  const [{ lib, list }, profile, connect, gm, gt, first] = await Promise.all([
+    plan, profileP, pick(),
+    genreList("movie").catch(() => []), genreList("tv").catch(() => []),
+    firstP,
+  ]);
 
   const watching = lib.filter((l) => l.status === "watching").map((l) => ({
     key: l.key, type: l.type, id: l.id, title: l.title, year: l.year, poster: l.poster, rating: 0,

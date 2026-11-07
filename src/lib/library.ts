@@ -16,18 +16,31 @@ function toItem(r: any): LibItem & { checkedAt: number } {
   };
 }
 
-/** The signed-in user's library, newest first. Cached per request. */
-export const getLibrary = cache(async (): Promise<LibItem[]> => {
+/** The signed-in user's rows, newest first, with the bookkeeping the new-episode check needs. Cached per request. */
+const getLibraryRaw = cache(async () => {
   const sb = await supabaseServer();
   const { data } = await sb.from("library_items").select("*").order("added_at", { ascending: false });
-  const items = (data ?? []).map(toItem);
-  const back = await returnNewEpisodes(sb, items);
+  return (data ?? []).map(toItem);
+});
+
+/** The signed-in user's library, newest first. Cached per request. Never waits on TMDB: the new-episode check runs separately (see recheckEpisodes). */
+export const getLibrary = cache(async (): Promise<LibItem[]> => {
+  const items = await getLibraryRaw();
   return items.map((it) => {
-    const out: LibItem & { checkedAt?: number } = { ...it, status: back.has(it.key) ? "watchlist" : it.status };
+    const out: LibItem & { checkedAt?: number } = { ...it };
     delete out.checkedAt;
     return out;
   });
 });
+
+/**
+ * Moves watched series with a newer episode back to "To watch". Runs behind a Suspense boundary after the page has been
+ * sent, so it never delays what you see. Returns true when something moved, so the page can refresh itself.
+ */
+export async function recheckEpisodes(): Promise<boolean> {
+  const sb = await supabaseServer();
+  return (await returnNewEpisodes(sb, await getLibraryRaw())).size > 0;
+}
 
 const RECHECK_MS = 12 * 3600 * 1000;
 const MAX_CHECKS = 20;

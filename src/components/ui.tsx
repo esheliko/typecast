@@ -12,18 +12,18 @@ export function Pill({ lib }: { lib?: LibItem | null }) {
 
 export function Thumb({ path, w = 92 }: { path: string | null; w?: number }) {
   // eslint-disable-next-line @next/next/no-img-element
-  return path ? <img className="thumb" src={img(path, `w${w}`)} alt="" loading="lazy" /> : <span className="thumb" />;
+  return path ? <img className="thumb" src={img(path, `w${w}`)} alt="" loading="lazy" decoding="async" /> : <span className="thumb" />;
 }
 
 export function Avatar({ photo, name }: { photo: string | null; name: string }) {
   // eslint-disable-next-line @next/next/no-img-element
-  return photo ? <img className="avatar" src={img(photo, "w185")} alt="" loading="lazy" /> : <span className="avatar">{name.charAt(0)}</span>;
+  return photo ? <img className="avatar" src={img(photo, "w185")} alt="" loading="lazy" decoding="async" /> : <span className="avatar">{name.charAt(0)}</span>;
 }
 
 export function TitleRow({ it, lib, sub, small }: { it: Item; lib?: LibItem | null; sub?: string; small?: boolean }) {
   return (
     <div className="row">
-      <TitleLink className="row-link" k={it.key}>
+      <TitleLink className="row-link" k={it.key} it={it}>
         <Thumb path={it.poster} />
         <span className="row-main">
           <span className="row-title" style={small ? { fontSize: 17 } : undefined}>{it.title}</span>

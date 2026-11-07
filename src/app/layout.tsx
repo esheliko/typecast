@@ -1,7 +1,13 @@
 import type { Metadata, Viewport } from "next";
+import { Barlow_Condensed, IBM_Plex_Mono, Instrument_Sans } from "next/font/google";
 import SwRegister from "@/components/SwRegister";
 import UpdateWatcher from "@/components/UpdateWatcher";
 import "./globals.css";
+
+// Self-hosted at build time: no request to Google Fonts before the page can paint, and the fallback is size-matched so text does not jump.
+const display = Barlow_Condensed({ subsets: ["latin"], weight: ["500", "600", "700"], display: "swap", variable: "--font-display" });
+const body = Instrument_Sans({ subsets: ["latin"], weight: ["400", "500", "600"], display: "swap", variable: "--font-body" });
+const mono = IBM_Plex_Mono({ subsets: ["latin"], weight: ["400", "500"], display: "swap", variable: "--font-mono" });
 
 export const metadata: Metadata = {
   title: { default: "Typecast", template: "%s · Typecast" },
@@ -17,12 +23,10 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" className={`${display.variable} ${body.variable} ${mono.variable}`}>
       <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
-        {/* eslint-disable-next-line @next/next/no-page-custom-font */}
-        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600&display=swap" />
+        {/* Posters and photos all come from here; open the connection while the page is still loading. */}
+        <link rel="preconnect" href="https://image.tmdb.org" />
       </head>
       <body>
         {children}

@@ -18,7 +18,9 @@ export async function middleware(req: NextRequest) {
       },
     },
   });
-  const { data: { user } } = await sb.auth.getUser();
+  // getClaims() checks the signed token locally (the project uses asymmetric signing keys), so there is no round trip to Supabase on every request.
+  const { data } = await sb.auth.getClaims();
+  const user = data?.claims ?? null;
   const path = req.nextUrl.pathname;
   const open = OPEN.some((p) => path === p || path.startsWith(p + "/"));
 

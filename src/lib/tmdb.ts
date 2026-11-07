@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { interleave, type BrowseQuery, type Tag } from "./browse";
 import { shapeCrew, type CrewBy } from "./details";
 import type { BrowseItem, BrowseList, BrowseType, CastMember, Credit, Item, MediaType, Person, ProviderGroup, Related, SearchHit, Title } from "./types";
@@ -175,7 +176,7 @@ export function franchiseBase(title: string): string {
  * Titles that go with this one: the rest of its collection (Iron Man 2, 3), and everything under a shared
  * "universe" theme (the whole Marvel Cinematic Universe). Unreleased titles are left out, nothing can be watched yet.
  */
-export async function getFranchise(type: MediaType, id: number): Promise<FranchiseGroup[]> {
+export const getFranchise = cache(async (type: MediaType, id: number): Promise<FranchiseGroup[]> => {
   const d = await tmdb(`/${type}/${id}`, { append_to_response: "keywords" }, 24 * HOUR);
   const self = `${type}:${id}`;
   const date = type === "movie" ? "primary_release_date" : "first_air_date";
@@ -187,41 +188,40 @@ export async function getFranchise(type: MediaType, id: number): Promise<Franchi
     .sort((a, b) => when(a).localeCompare(when(b)))
     .map((r) => item(t, r)).filter((i) => !have.has(i.key) && have.add(i.key));
 
-  if (d.belongs_to_collection?.id) {
-    try {
-      const c = await tmdb(`/collection/${d.belongs_to_collection.id}`, {}, 24 * HOUR);
-      const items = keep(c.parts ?? [], "movie");
-      if (items.length) out.push({ label: c.name || d.belongs_to_collection.name || "Same collection", items });
-    } catch { /* collection is optional */ }
-  }
-  // Sequels and spin-offs TMDB never linked (a film and its later series): other titles that start with this one's name.
   const base = franchiseBase(d.title ?? d.name ?? "");
-  if (base) {
-    try {
-      const sets = await Promise.all((["movie", "tv"] as const).map((t) =>
-        tmdb(`/search/${t}`, { query: base, include_adult: "false" }, 24 * HOUR).then((r) => (r.results ?? []).map((x: any) => ({ x, t }))).catch(() => [])));
-      const items: Item[] = [];
-      for (const { x, t } of sets.flat()) {
-        const n = plain(x.title ?? x.name ?? "");
-        if ((n === base || n.startsWith(base + " ")) && (x.vote_count ?? 0) >= 10) items.push(...keep([x], t));
-      }
-      items.sort((a, b) => a.year.localeCompare(b.year));
-      const head = (d.title ?? d.name ?? base).split(/\s*[:\u2013\u2014]\s*/)[0];
-      if (items.length) out.push({ label: `More "${head}"`, items: items.slice(0, 20) });
-    } catch { /* name matching is optional */ }
-  }
   const kws: any[] = (type === "movie" ? d.keywords?.keywords : d.keywords?.results) ?? [];
   const kw = kws.find((k) => UNIVERSE_KW.test(k.name));
-  if (kw) {
-    try {
-      const params = { with_keywords: String(kw.id), sort_by: "popularity.desc", include_adult: "false", "vote_count.gte": "150", [`${date}.lte`]: today() };
-      const pages = await Promise.all([1, 2, 3].map((p) => tmdb(`/discover/${type}`, { ...params, page: String(p) }, 24 * HOUR).catch(() => ({ results: [] }))));
-      const items = keep(pages.flatMap((p) => p.results ?? []), type).slice(0, 80);
-      if (items.length) out.push({ label: niceName(kw.name), items });
-    } catch { /* theme is optional */ }
+  const themeParams = kw ? { with_keywords: String(kw.id), sort_by: "popularity.desc", include_adult: "false", "vote_count.gte": "150", [`${date}.lte`]: today() } : null;
+
+  // The collection, the same-name search and the theme pages don't depend on each other: fetch them together, then assemble in order.
+  const [coll, named, themed] = await Promise.all([
+    d.belongs_to_collection?.id ? tmdb(`/collection/${d.belongs_to_collection.id}`, {}, 24 * HOUR).catch(() => null) : null,
+    // Sequels and spin-offs TMDB never linked (a film and its later series): other titles that start with this one's name.
+    base ? Promise.all((["movie", "tv"] as const).map((t) =>
+      tmdb(`/search/${t}`, { query: base, include_adult: "false" }, 24 * HOUR).then((r) => (r.results ?? []).map((x: any) => ({ x, t }))).catch(() => []))).catch(() => null) : null,
+    themeParams ? Promise.all([1, 2, 3].map((p) => tmdb(`/discover/${type}`, { ...themeParams, page: String(p) }, 24 * HOUR).catch(() => ({ results: [] })))).catch(() => null) : null,
+  ]);
+
+  if (coll) {
+    const items = keep(coll.parts ?? [], "movie");
+    if (items.length) out.push({ label: coll.name || d.belongs_to_collection.name || "Same collection", items });
+  }
+  if (named) {
+    const items: Item[] = [];
+    for (const { x, t } of named.flat()) {
+      const n = plain(x.title ?? x.name ?? "");
+      if ((n === base || n.startsWith(base + " ")) && (x.vote_count ?? 0) >= 10) items.push(...keep([x], t));
+    }
+    items.sort((a, b) => a.year.localeCompare(b.year));
+    const head = (d.title ?? d.name ?? base).split(/\s*[:\u2013\u2014]\s*/)[0];
+    if (items.length) out.push({ label: `More "${head}"`, items: items.slice(0, 20) });
+  }
+  if (themed && kw) {
+    const items = keep(themed.flatMap((p) => p.results ?? []), type).slice(0, 80);
+    if (items.length) out.push({ label: niceName(kw.name), items });
   }
   return out;
-}
+});
 
 const BAD_ROLE = /\b(self|himself|herself|themselves|archive footage|uncredited)\b/i;
 async function personRaw(id: number) {

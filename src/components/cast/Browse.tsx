@@ -188,9 +188,9 @@ export function Poster({ it, sub, skippable }: { it: BrowseItem; sub?: string; s
   return (
     <div className={`pc${s ? ` is-${s}` : ""}`}>
       <div className="pc-art">
-        <TitleLink k={it.key} tabIndex={-1} aria-hidden="true">
+        <TitleLink k={it.key} it={it} tabIndex={-1} aria-hidden="true">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          {it.poster ? <img className="pc-img" src={img(it.poster, "w342")} alt="" loading="lazy" /> : <span className="pc-img ph"><span>{it.title}</span></span>}
+          {it.poster ? <img className="pc-img" src={img(it.poster, "w342")} alt="" loading="lazy" decoding="async" /> : <span className="pc-img ph"><span>{it.title}</span></span>}
         </TitleLink>
         {s === "watching" && <span className="pc-flag">Watching</span>}
         {s === "partial" && <span className="pc-flag partial">Partly watched</span>}
@@ -199,7 +199,7 @@ export function Poster({ it, sub, skippable }: { it: BrowseItem; sub?: string; s
         <RelatedButton it={it} />
       </div>
       <span className="pc-gl"><GlimpseButton spec={titleSpec(it)} /></span>
-      <TitleLink k={it.key} className="pc-link">
+      <TitleLink k={it.key} it={it} className="pc-link">
         <span className="pc-t">{it.title}</span>
         <span className="pc-s"><KindIcon type={it.type} />{sub ?? [it.year || "TBA", it.rating ? `★ ${it.rating.toFixed(1)}` : ""].filter(Boolean).join(" · ")}</span>
       </TitleLink>

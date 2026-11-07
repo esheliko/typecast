@@ -2,7 +2,8 @@
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ComponentProps } from "react";
-import { href } from "@/lib/img";
+import { TitleSkeleton } from "./Skeletons";
+import { href, img, typeLabel } from "@/lib/img";
 
 const InModal = createContext(false);
 /** The title whose page this link sits on; passed along so the next popup can say where it was opened from. */
@@ -16,12 +17,27 @@ export function FromProvider({ k, name, children }: { k: string; name: string; c
  * the page behind. Inside the popup each title is a new history entry, so the popup's Back / Forward buttons walk through them
  * and Close returns to the page you came from. Hovering or touching a link warms the cache so the popup opens instantly.
  */
-export function TitleLink({ k, ...rest }: { k: string } & Omit<ComponentProps<typeof Link>, "href" | "replace" | "scroll" | "prefetch">) {
+/** What the popup can show before its details arrive: the title and poster of the thing you just tapped. */
+type Peek = { title: string; year?: string | number; poster?: string | null; src?: string };
+const peeked = new Map<string, Peek>();
+
+export function TitleLink({ k, it, onClick, ...rest }: { k: string; it?: Peek } & Omit<ComponentProps<typeof Link>, "href" | "replace" | "scroll" | "prefetch">) {
   const from = useContext(FromTitle);
   const [warm, setWarm] = useState(false);
   const url = from && from.key !== k ? `${href(k)}?${new URLSearchParams({ from: from.key, fn: from.name })}` : href(k);
   const heat = () => setWarm(true);
-  return <Link href={url} scroll={false} prefetch={warm ? true : null} onMouseEnter={heat} onFocus={heat} onTouchStart={heat} {...rest} />;
+  // Reuse the poster image already on screen (an exact cache hit) so the popup has art the moment it opens.
+  const remember = (el: HTMLElement) => { if (it) peeked.set(k, { title: it.title, year: it.year, poster: it.poster, src: el.querySelector("img")?.currentSrc || undefined }); };
+  return <Link href={url} scroll={false} prefetch={warm ? true : null} onMouseEnter={heat} onFocus={heat} onTouchStart={heat}
+    onClick={(e) => { remember(e.currentTarget); onClick?.(e); }} {...rest} />;
+}
+
+/** The popup's loading state: the title and poster you tapped (when known) over placeholders for the rest. */
+export function ModalLoading() {
+  const m = /^\/title\/(movie|tv)\/(\d+)/.exec(usePathname());
+  const p = m ? peeked.get(`${m[1]}:${m[2]}`) : undefined;
+  const sub = m && p ? [p.year, typeLabel(m[1])].filter(Boolean).join(" · ") : undefined;
+  return <TitleSkeleton title={p?.title} poster={p?.src || (p?.poster ? img(p.poster, "w185") : undefined)} sub={sub} />;
 }
 
 const BG = "tc:bg";

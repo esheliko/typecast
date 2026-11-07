@@ -25,6 +25,7 @@ Next.js 15 (App Router) + Supabase (email/password auth, RLS) + TMDB. See README
 - `public/sw.js` caches only static assets and TMDB images; pages are always network-first. Bump the cache names when changing caching rules.
 - Schema changes go in a new numbered file under `supabase/migrations/` (keep them re-runnable).
 - Titles open as a popup over the current page: `src/app/(app)/@modal/(.)title/…` intercepts soft navigation to `/title/…` (hard loads still get the full page). Link to titles with `TitleLink` (`components/Modal.tsx`), never a bare `Link`. The marks (`LibProvider`) live in `(app)/layout.tsx` so the popup, Browse and Library share them.
+- Speed: functions run in `bom1` (`vercel.json`) next to the Supabase project (ap-south-1); keep them together. Auth is checked with `getClaims()` (local JWT verification), not `getUser()`. Nothing in `app/(app)/layout.tsx` may await TMDB: the new-episode check runs in `<Recheck />` behind Suspense. Pages need a shaped skeleton in `loading.tsx` (`components/Skeletons.tsx`); pass `it={item}` to `TitleLink` so the popup can show the poster and title instantly.
 - `artifact.html` is the legacy single-file prototype, not part of the site.
 
 ## Known gaps

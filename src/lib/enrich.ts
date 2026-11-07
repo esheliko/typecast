@@ -17,6 +17,6 @@ export async function enrich(people: CastMember[], library: LibItem[], curKey: s
       } catch { /* leave this person without extras */ }
     }
   }
-  await Promise.all(Array.from({ length: 6 }, worker));
+  await Promise.all(Array.from({ length: 20 }, worker));
   return people.map((c) => out.get(c.id) ?? { ...c, hits: [], also: [], top: [] });
 }

@@ -13,9 +13,9 @@ export async function GET(req: NextRequest) {
   const p = req.nextUrl.searchParams;
   try {
     const people = (p.get("people") ?? "").split(",").filter((x) => /^\d+$/.test(x)).map(Number);
-    if (people.length === 2) return NextResponse.json(await linkPeople(people[0], people[1]));
+    if (people.length === 2) return NextResponse.json(await linkPeople(people[0], people[1]), { headers: { "Cache-Control": "private, max-age=3600, stale-while-revalidate=86400" } });
     const titles = (p.get("titles") ?? "").split(",").map((k) => k.match(/^(movie|tv):(\d+)$/)).filter(Boolean) as RegExpMatchArray[];
-    if (titles.length === 2) return NextResponse.json(await linkTitles({ type: titles[0][1] as MediaType, id: +titles[0][2] }, { type: titles[1][1] as MediaType, id: +titles[1][2] }));
+    if (titles.length === 2) return NextResponse.json(await linkTitles({ type: titles[0][1] as MediaType, id: +titles[0][2] }, { type: titles[1][1] as MediaType, id: +titles[1][2] }), { headers: { "Cache-Control": "private, max-age=3600, stale-while-revalidate=86400" } });
     if (p.get("regulars")) return NextResponse.json({ regulars: await regulars(await getLibrary()) });
     return NextResponse.json({ error: "Pick two people or two titles" }, { status: 400 });
   } catch (e) { const s = e instanceof TmdbError ? e.status : 500; return NextResponse.json({ error: (e as Error).message }, { status: s }); }

@@ -65,7 +65,7 @@ function PeopleResult({ r }: { r: PeopleLink }) {
       <div className="card"><ul className="rows">
         {r.shared.map((s) => (
           <li key={s.key} className="row">
-            <TitleLink k={s.key} className="row-link"><Thumb path={s.poster} />
+            <TitleLink k={s.key} it={s} className="row-link"><Thumb path={s.poster} />
               <span className="row-main">
                 <span className="row-title" style={{ fontSize: 17 }}>{s.title}</span>
                 <span className="row-sub">{s.year} · {typeLabel(s.type)}</span>

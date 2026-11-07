@@ -38,7 +38,7 @@ export function FranchiseList({ groups: raw, onNavigate, include }: { groups: Gr
             <ul className="rows card">
               {g.items.map((it) => (
                   <li key={it.key} className={`fr-row${get(it.key)?.status === "watched" ? " done" : ""}${it.key === include?.key ? " origin" : ""}`}>
-                    <TitleLink className="fr-main" k={it.key} onClick={onNavigate}>
+                    <TitleLink className="fr-main" k={it.key} it={it} onClick={onNavigate}>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       {it.poster ? <img className="thumb" src={img(it.poster, "w92")} alt="" loading="lazy" /> : <span className="thumb" />}
                       <span className="row-main">

@@ -27,7 +27,7 @@ export async function linkPeople(aId: number, bId: number): Promise<PeopleLink> 
   if (shared.length === 0) {
     const top = (list: Credit[]) => list.slice(0, 10);
     const casts = async (list: Credit[]) => {
-      const res = await pool(top(list), 6, (k) => getCast(k.type, k.id, 30));
+      const res = await pool(top(list), 10, (k) => getCast(k.type, k.id, 30));
       const seen = new Map<number, { person: ReturnType<typeof lite>; via: Credit }>();
       res.forEach((cast, i) => cast?.forEach((c) => { if (!seen.has(c.id)) seen.set(c.id, { person: lite(c), via: top(list)[i] }); }));
       return seen;
@@ -55,7 +55,7 @@ export async function linkTitles(a: { type: MediaType; id: number }, b: { type: 
 /** Actors who keep turning up in what the user has watched or is watching. Only the top-billed cast of each title counts. */
 export async function regulars(lib: LibItem[]): Promise<Regular[]> {
   const seen = lib.filter((l) => l.status !== "watchlist").slice(0, 40);
-  const titles = await pool(seen, 6, (l) => getTitle(l.type, l.id));
+  const titles = await pool(seen, 12, (l) => getTitle(l.type, l.id));
   const map = new Map<number, Regular>();
   titles.forEach((t) => t?.people.slice(0, 15).forEach((c) => {
     const r = map.get(c.id) ?? { ...lite(c), titles: [] };
