@@ -173,6 +173,7 @@ export function Poster({ it, sub, skippable }: { it: BrowseItem; sub?: string; s
         </TitleLink>
         {s === "watching" && <span className="pc-flag">Watching</span>}
         {skippable && !s && <button type="button" className="pc-x" onClick={() => skip(it)} aria-label={`Not interested in ${it.title}`} title="Not interested">×</button>}
+        <span className="pc-kind">{it.type === "tv" ? "Series" : "Film"}</span>
         <QuickMark it={it} />
         <RelatedButton it={it} />
       </div>
