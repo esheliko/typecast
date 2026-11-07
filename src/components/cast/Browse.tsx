@@ -197,8 +197,8 @@ export function Poster({ it, sub, skippable }: { it: BrowseItem; sub?: string; s
         {skippable && !s && <button type="button" className="pc-x" onClick={() => skip(it)} aria-label={`Not interested in ${it.title}`} title="Not interested">×</button>}
         <QuickMark it={it} />
         <RelatedButton it={it} />
-        <span className="pc-gl"><GlimpseButton spec={titleSpec(it)} /></span>
       </div>
+      <span className="pc-gl"><GlimpseButton spec={titleSpec(it)} /></span>
       <TitleLink k={it.key} className="pc-link">
         <span className="pc-t">{it.title}</span>
         <span className="pc-s"><KindIcon type={it.type} />{sub ?? [it.year || "TBA", it.rating ? `★ ${it.rating.toFixed(1)}` : ""].filter(Boolean).join(" · ")}</span>

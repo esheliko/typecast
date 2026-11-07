@@ -99,7 +99,7 @@ export function GlimpseButton({ spec, label }: { spec: GlimpseSpec; label?: stri
   const text = label ?? `See images of ${spec.heading}`;
   return (
     <button type="button" className="gl-b" onClick={() => open(spec)} aria-label={text} title={text}>
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" /></svg>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2.5" /><circle cx="9" cy="10" r="1.8" /><path d="M21 16l-5-5-9 9" /></svg>
     </button>
   );
 }

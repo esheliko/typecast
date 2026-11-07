@@ -431,6 +431,8 @@ button:not([disabled]):active, a.row:active, a.tab:active, .person-chip:active, 
 @media (prefers-reduced-motion: reduce) { .gl-wrap { animation: none; } }
 .credit.has-gl .credit-main { padding-right: 38px; }
 .credit-gl { position: absolute; right: 0; top: 12px; z-index: 1; }
-.pc-gl { position: absolute; bottom: 6px; right: 6px; }
-.pc-gl .gl-b { width: 28px; height: 28px; background: rgb(15 17 22 / .6); color: #fff; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+/* Below the poster, on the caption line, so it never sits over the Watching / To watch / Watched buttons. */
+.pc-gl { position: absolute; bottom: -2px; right: -2px; }
+.pc-gl .gl-b { width: 28px; height: 28px; }
+.pc:has(.pc-gl) .pc-link { padding-right: 26px; }
 .fr-act .gl-b { align-self: flex-end; }
