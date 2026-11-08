@@ -14,6 +14,7 @@ import { titleSpec } from "@/lib/glimpse";
 import MarkRow from "@/components/cast/MarkRow";
 import { FromProvider } from "@/components/Modal";
 import { Where } from "@/components/Where";
+import { getComposers } from "@/lib/awards";
 import { bylineLabel, DETAIL_LABEL, detailLabel, isCrewId, MAIN_CAST, type CrewId, type DetailId } from "@/lib/details";
 import { enrich } from "@/lib/enrich";
 import { img, typeLabel } from "@/lib/img";
@@ -145,6 +146,11 @@ async function Related({ t, origin }: { t: Title; origin?: Item | null }) {
   );
 }
 
+async function WikidataMusic({ t }: { t: Title }) {
+  const names = (await getComposers(t.imdbId)).slice(0, 2);
+  return names.length ? <div className="sh-meta">{bylineLabel("composer", t.type)} {names.join(", ")}</div> : null;
+}
+
 /** Everything about one title. Shown as the full page, and as the popup over Browse, Library and the rest. */
 export default async function TitleView({ t, origin }: { t: Title; origin?: Item | null }) {
   const [lib, profile] = await Promise.all([getLibrary(), getProfile()]);
@@ -154,6 +160,8 @@ export default async function TitleView({ t, origin }: { t: Title; origin?: Item
   const byline = profile.details.find((id): id is CrewId => isCrewId(id) && t.crewBy[id].length > 0 && id !== "crew_rest");
   // Music is always worth a line, even when the Composer detail isn't switched on in Setup.
   const music = byline !== "composer" ? t.crewBy.composer.slice(0, 2).map((p) => p.name).join(", ") : "";
+  // TMDB has no composer for many series; Wikidata fills in behind the header without delaying it.
+  const noMusic = !t.crewBy.composer.length;
   return (
     <FromProvider k={t.key} name={t.title}>
       <div className="sh-top sh-compact" style={{ marginTop: 10 }}>
@@ -165,6 +173,7 @@ export default async function TitleView({ t, origin }: { t: Title; origin?: Item
           <Suspense fallback={null}><AwardChips t={t} /></Suspense>
           {byline && <div className="sh-meta">{bylineLabel(byline, t.type)} {t.crewBy[byline].slice(0, 2).map((p) => p.name).join(", ")}</div>}
           {music && <div className="sh-meta">{bylineLabel("composer", t.type)} {music}</div>}
+          {noMusic && <Suspense fallback={null}><WikidataMusic t={t} /></Suspense>}
           {t.overview && <details className="sh-ov"><summary>{t.overview}</summary><p>{t.overview}</p></details>}
         </div>
       </div>
