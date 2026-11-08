@@ -632,3 +632,21 @@ input, textarea { scroll-margin-top: calc(var(--top-h, 56px) + 12px); }
 /* Films / Series switch above any title list */
 .kind-bar { display: flex; margin: 0 0 8px; }
 .kind-seg button { padding: 4px 11px; font-size: 13px; }
+
+/* Library stats: simple CSS bars (every bar prints its number), no chart library */
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 14px 0; }
+.stat { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; display: grid; gap: 2px; }
+.stat b { font: 700 32px/1 var(--display); letter-spacing: .02em; }
+.stat span { color: var(--muted); font-size: 13px; }
+.stat small { color: var(--muted); font-size: 12px; }
+.stat-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; align-items: start; }
+.stat-card { padding: 14px 16px; }
+.stat-card h3 { font: 600 13px var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin: 0 0 10px; }
+.bars { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.bars li { display: grid; grid-template-columns: 64px 1fr 36px; align-items: center; gap: 10px; font-size: 13px; }
+.bar-l { color: var(--muted); font-family: var(--mono); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bar-t { height: 10px; border-radius: 999px; background: var(--chip); overflow: hidden; }
+.bar-t i { display: block; height: 100%; min-width: 2px; border-radius: 999px; background: var(--gold-fill); }
+.bar-v { text-align: right; font-family: var(--mono); font-weight: 600; font-size: 12px; }
+.plain-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.chip[aria-current="true"] { background: var(--gold-fill); color: var(--on-gold); }

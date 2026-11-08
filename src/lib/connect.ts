@@ -2,7 +2,7 @@ import { getAllCredits, getCast, getTitle } from "./tmdb";
 import type { Bridge, Credit, Item, LibItem, MediaType, PeopleLink, Regular, SharedActor, TitlesLink } from "./types";
 
 /** Run `fn` over `list` with at most `n` requests in flight. Failures are dropped. */
-async function pool<T, R>(list: T[], n: number, fn: (x: T) => Promise<R>): Promise<(R | null)[]> {
+export async function pool<T, R>(list: T[], n: number, fn: (x: T) => Promise<R>): Promise<(R | null)[]> {
   const out: (R | null)[] = new Array(list.length).fill(null);
   let i = 0;
   async function worker() { for (let j = i++; j < list.length; j = i++) { try { out[j] = await fn(list[j]); } catch { /* skip */ } } }

@@ -46,3 +46,21 @@ export function TitleSkeleton({ title, poster, sub }: { title?: string; poster?:
     </div>
   );
 }
+
+export function StatCardsSkeleton({ n = 3 }: { n?: number }) {
+  return (
+    <div className="stat-cards" style={{ marginTop: 20 }} aria-hidden="true">
+      {Array.from({ length: n }, (_, i) => <div key={i} className="card stat-card" style={{ display: "grid", gap: 10 }}>{bar("40%", 12)}{bar("100%", 10)}{bar("80%", 10)}{bar("60%", 10)}</div>)}
+    </div>
+  );
+}
+
+export function StatsSkeleton() {
+  return (
+    <div className="page" aria-busy="true">
+      <div style={{ marginTop: 14 }}><ChipsSkeleton n={3} w={78} /></div>
+      <div className="stat-grid">{Array.from({ length: 3 }, (_, i) => <div key={i} className="stat">{bar("50%", 32)}{bar("70%", 12)}</div>)}</div>
+      <StatCardsSkeleton n={4} />
+    </div>
+  );
+}

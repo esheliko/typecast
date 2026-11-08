@@ -14,7 +14,7 @@ function watch(page: Page) {
 /** The page rendered its content: no error screen, no 5xx, no client or server render errors. */
 async function healthy(page: Page, bad: string[]) {
   await expect(page.getByText("Something went wrong on our side")).toHaveCount(0);
-  await expect(page.getByText(/Could not load your library|Suggestions unavailable/)).toHaveCount(0);
+  await expect(page.getByText(/Could not load your library|Suggestions unavailable|Stats unavailable|unavailable right now/)).toHaveCount(0);
   expect(bad, bad.join("\n")).toEqual([]);
 }
 
@@ -80,6 +80,26 @@ test.describe("signed in", () => {
     await page.getByRole("group", { name: "Show" }).getByRole("button", { name: "Series" }).click();
     await expect(page.getByText("Breaking Bad").first()).toBeVisible();
     await expect(page.locator(".lib-row", { hasText: "The Matrix" })).toHaveCount(0);
+  });
+
+  test("Library stats: chip opens it, every year option and a bad year load", async ({ page }) => {
+    const bad = watch(page);
+    await visit(page, "/library", bad);
+    await page.getByRole("link", { name: "Stats", exact: true }).click();
+    await expect(page).toHaveURL(/\/library\/stats/);
+    await expect(page.getByText("Longest streak")).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByRole("heading", { name: "Your library" })).toBeVisible();
+    // The streamed TMDB part arrives (seeded watched films) with text values, not just bars.
+    await expect(page.getByRole("heading", { name: "Top genres" })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText("Film time watched")).toBeVisible();
+    await healthy(page, bad);
+    for (const q of ["y=2026", "y=2025", "y=1900", "y=abc"]) {
+      await visit(page, `/library/stats?${q}`, bad);
+      await expect(page.getByText("Longest streak")).toBeVisible();
+    }
+    await visit(page, "/library/stats", bad);
+    await page.getByRole("navigation", { name: "Year" }).getByRole("link", { name: "All time" }).click();
+    await expect(page.getByText("Longest streak")).toBeVisible();
   });
 
   test("tabs navigate softly to the Library", async ({ page }) => {
