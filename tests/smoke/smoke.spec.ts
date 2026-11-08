@@ -66,6 +66,10 @@ test.describe("signed in", () => {
     await visit(page, "/library", bad);
     await expect(page.getByText("The Matrix").first()).toBeVisible();
     await expect(page.getByText("Breaking Bad").first()).toBeVisible();
+    // Watch next: the seeded series in progress (just touched) leads the strip.
+    const upnext = page.getByRole("region", { name: "Watch next" });
+    await expect(upnext).toBeVisible();
+    await expect(upnext.getByText("Breaking Bad").first()).toBeVisible({ timeout: 20_000 });
     // The server page reads these params and the client view applies them: this is the path that crashed in production.
     for (const q of ["f=watched", "f=watching", "f=watchlist", "f=partial", "s=title", "s=year", "s=yearOld", "s=rating", "s=watched", "f=watched&s=rating", "s=bogus", "k=movie", "k=tv&f=watching", "k=bogus"]) {
       await visit(page, `/library?${q}`, bad);

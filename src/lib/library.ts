@@ -13,6 +13,7 @@ function toItem(r: any): LibItem & { checkedAt: number } {
     status: r.status, priority: r.priority === "must" ? "must" : "someday", rating: r.rating ?? 0, note: r.note ?? "",
     progress: r.progress_season ? { s: r.progress_season, e: r.progress_episode ?? 1 } : null,
     added: Date.parse(r.added_at) || 0,
+    updated: Date.parse(r.updated_at) || Date.parse(r.added_at) || 0,
     watchedAt: r.watched_at ? Date.parse(r.watched_at) : null,
     checkedAt: r.checked_at ? Date.parse(r.checked_at) : 0,
   };

@@ -1,13 +1,13 @@
 "use client";
 import { useState } from "react";
 import LibraryList from "./LibraryList";
-import UpNext from "./UpNext";
 import { useRef } from "react";
 import { useRetained } from "@/lib/useRetained";
 import { STATUS_LABEL, type LibItem, type Status } from "@/lib/types";
 import { SORTS, type SortKey } from "@/lib/library-sort";
 import { KindSeg } from "./KindSeg";
 import { mixed, ofKind, type Kind } from "@/lib/kind";
+import { KindContext } from "@/lib/kind-context";
 
 const TABS: [Status | "all", string][] = [["all", "All"], ["watching", STATUS_LABEL.watching], ["partial", "Partly"], ["watchlist", STATUS_LABEL.watchlist], ["watched", STATUS_LABEL.watched]];
 
@@ -22,7 +22,7 @@ const SORTERS: Record<SortKey, ((a: LibItem, b: LibItem) => number) | null> = {
 };
 
 /** The filter chips and the list. Switching chips is instant (no server trip); the URL is kept in step so a refresh or shared link lands on the same filter. */
-export default function LibraryView({ items, initial, initialSort = "added", initialKind = "all", between }: { items: LibItem[]; initial: Status | "all"; initialSort?: SortKey; initialKind?: Kind; between?: React.ReactNode }) {
+export default function LibraryView({ items, initial, initialSort = "added", initialKind = "all", top, between }: { items: LibItem[]; initial: Status | "all"; initialSort?: SortKey; initialKind?: Kind; top?: React.ReactNode; between?: React.ReactNode }) {
   const [filter, setFilter] = useState<Status | "all">(initial);
   const [sort, setSort] = useState<SortKey>(initialSort);
   const [kind, setKind] = useState<Kind>(initialKind);
@@ -60,7 +60,7 @@ export default function LibraryView({ items, initial, initialSort = "added", ini
   }
   return (
     <>
-      <UpNext items={pool} />
+      <KindContext.Provider value={kind}>{top}</KindContext.Provider>
       <div className="chips scroll lib-chips" role="group" aria-label="Filter">
         {TABS.map(([k, label]) => <button key={k} type="button" className="chip" aria-pressed={filter === k} onClick={() => choose(k)}>{label} <span className="mono">{count(k)}</span></button>)}
       </div>

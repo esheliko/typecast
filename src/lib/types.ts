@@ -29,6 +29,8 @@ export type SearchHit =
 
 export interface LibItem extends Item {
   status: Status; priority: Priority; rating: number; note: string; progress: { s: number; e: number } | null; added: number; watchedAt: number | null;
+  /** Last change to the row (status, progress, rating…), ms. Tells a series you are in the middle of from one you abandoned. */
+  updated: number;
 }
 /** `details` is the user's chosen order of title-page sections; an id that is absent is hidden. */
 export interface Profile { country: string; services: number[]; serviceNames: Record<string, string>; details: DetailId[]; letterboxd: LetterboxdLink | null }

@@ -147,6 +147,25 @@ export async function getLastAired(id: number): Promise<string | null> {
   return d.last_episode_to_air?.air_date || null;
 }
 
+/** The few facts Watch next ranks by: genres, rating, length, dates, where it streams, and what it recommends. Small and cached 12 hours. */
+export async function getPickBasics(type: MediaType, id: number) {
+  const d = await tmdb(`/${type}/${id}`, { append_to_response: "watch/providers,recommendations" }, 12 * HOUR);
+  const prov: Record<string, number[]> = {};
+  const names = new Map<number, string>();
+  for (const [cc, o] of Object.entries<any>(d["watch/providers"]?.results ?? {})) {
+    prov[cc] = [...(o.flatrate ?? []), ...(o.free ?? []), ...(o.ads ?? [])].map((p: any) => { names.set(p.provider_id, p.provider_name); return p.provider_id as number; });
+  }
+  return {
+    genres: ((d.genres ?? []) as any[]).map((g) => g.id as number), vote: d.vote_average ?? 0, votes: d.vote_count ?? 0,
+    runtime: ((type === "movie" ? d.runtime : d.episode_run_time?.[0] || (d.last_episode_to_air?.runtime <= 90 ? d.last_episode_to_air.runtime : null)) || null) as number | null,
+    released: (d.release_date ?? d.first_air_date ?? "") as string, lastAired: (d.last_episode_to_air?.air_date ?? null) as string | null,
+    prov, names,
+    recs: ((d.recommendations?.results ?? []) as any[]).slice(0, 12).map((r) => ({
+      ...item(type, r), vote: r.vote_average ?? 0, votes: r.vote_count ?? 0, genres: (r.genre_ids ?? []) as number[], released: (r.release_date ?? r.first_air_date ?? "") as string,
+    })),
+  };
+}
+
 /** Cast and sorted crew for one title, without the rest of the page's data (cached a day). Used by the browse glance. */
 export async function getTitleCredits(type: MediaType, id: number): Promise<{ cast: CastMember[]; crewBy: CrewBy }> {
   const key = type === "tv" ? "aggregate_credits" : "credits";
