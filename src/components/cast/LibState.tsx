@@ -153,7 +153,7 @@ export function LibProvider({ initial, children }: { initial: Record<string, Mar
   }, [save, show, franchise, current]);
 
   const similar = useCallback((it: Item) =>
-    fetch(`/api/franchise?type=${it.type}&id=${it.id}&similar=1`).then((r) => r.json()).then((j) => (j.groups ?? []) as Group[]).catch(() => [] as Group[]), []);
+    fetch(`/api/franchise?type=${it.type}&id=${it.id}&similar=1&v=2`).then((r) => r.json()).then((j) => (j.groups ?? []) as Group[]).catch(() => [] as Group[]), []);
 
   const openRelated = useCallback((it: Item) => {
     setSheet(it); // always open the popup; the sheet falls back to loosely similar titles when there is no franchise
