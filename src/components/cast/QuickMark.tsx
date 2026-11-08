@@ -10,7 +10,7 @@ const EYE = <><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 
 const EYE_HALF = <><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z" /><path d="M12 5.5v13" /><circle cx="9.5" cy="12" r="2" fill="currentColor" /></>;
 
 /**
- * Three one-tap toggles: Watching (in progress), To watch and Watched.
+ * Three one-tap toggles: Partly watched (in progress; the confirmation offers Watching), To watch and Watched.
  * To watch is a single button: it adds the title at your default priority (Some day or Must watch, chosen in Profile),
  * shows the matching icon, and the confirmation offers to switch to the other priority.
  */
@@ -26,9 +26,9 @@ export default function QuickMark({ it, variant = "over", quiet }: { it: Item; v
   return (
     // Pressing a mark button must not take focus from whatever has it (e.g. the search box), so you can search, mark, search again.
     <div className={`qm ${variant}`} role="group" aria-label={`Mark ${it.title}`} onMouseDown={(e) => e.preventDefault()}>
-      <button type="button" className="qm-b watching" aria-pressed={inProgress} onClick={() => mark(it, inProgress ? null : "watching", undefined, quiet)}
-        aria-label={partial ? "Partly watched. Tap to remove" : inProgress ? "In progress. Tap to remove" : "Mark in progress"} title={partial ? "Partly watched" : "Watching now"}>
-        <svg viewBox="0 0 24 24" aria-hidden="true">{partial ? EYE_HALF : EYE}</svg>
+      <button type="button" className="qm-b watching" aria-pressed={inProgress} onClick={() => mark(it, inProgress ? null : "partial", undefined, quiet)}
+        aria-label={partial ? "Partly watched. Tap to remove" : inProgress ? "Watching. Tap to remove" : "Mark partly watched"} title={s === "watching" ? "Watching now" : "Partly watched"}>
+        <svg viewBox="0 0 24 24" aria-hidden="true">{s === "watching" ? EYE : EYE_HALF}</svg>
       </button>
       <button type="button" className={`qm-b ${must ? "must" : "watchlist"}`} aria-pressed={onList} onClick={() => (onList ? mark(it, null, undefined, quiet) : mark(it, "watchlist", defaultPriority, quiet))}
         aria-label={onList ? `On your ${must ? "must-watch" : "some day"} list. Tap to remove` : `Add to ${must ? "must-watch" : "some day"} list`} title={must ? "Must watch" : "To watch some day"}>
