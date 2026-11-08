@@ -141,7 +141,8 @@ export default function Browse({ filters, filtered, list: initialList, salt: ser
   // Filter changes arrive as new server props: adopt the server's first page and type.
   useEffect(() => { if (first) setPages((p) => (p[key] ? p : { ...p, [key]: first })); }, [key, first]);
   useEffect(() => { setType(filters.type); }, [filters.type]);
-  useEffect(() => { if (filtered) setPanel(true); }, [filtered]);
+  const keepClosed = useRef(false);
+  useEffect(() => { if (filtered && !keepClosed.current) setPanel(true); keepClosed.current = false; }, [filtered]);
 
   const url = useCallback((page: number) => filtered
     ? `/api/discover?${toParams(filters)}&page=${page}`
@@ -221,7 +222,7 @@ export default function Browse({ filters, filtered, list: initialList, salt: ser
         <p className="nudge small muted" aria-label="Other directions">
           Try:{" "}
           {nudges.map((d) => (
-            <button key={d.id} type="button" className="nudge-b" title={d.why} onClick={() => { const s = toParams({ ...filters, type, ...d.patch }).toString(); startRoute(() => router.replace(`/?${s}`, { scroll: false })); }}>{d.label}</button>
+            <button key={d.id} type="button" className="nudge-b" title={d.why} onClick={() => { keepClosed.current = true; const s = toParams({ ...filters, type, ...d.patch }).toString(); startRoute(() => router.replace(`/?${s}`, { scroll: false })); }}>{d.label}</button>
           ))}
         </p>
       )}
