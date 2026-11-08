@@ -24,14 +24,14 @@ const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),textarea
  * The import review as a popup (same frame as the title popup): every title the import touched, with the original text, so a wrong
  * match or marking can be fixed, plus a button that reverses the whole import.
  */
-export default function ImportReviewDialog({ rows, onChange, onClose, onRevert }: { rows: ReviewRow[]; onChange: (rows: ReviewRow[]) => void; onClose: () => void; onRevert: () => Promise<void> }) {
+export default function ImportReviewDialog({ rows, onChange, onClose, onRevert }: { rows: ReviewRow[]; onChange: (update: (rows: ReviewRow[]) => ReviewRow[]) => void; onClose: () => void; onRevert: () => Promise<void> }) {
   const box = useRef<HTMLDivElement>(null);
   const [fixing, setFixing] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [confirm, setConfirm] = useState(false);
   const [reverting, setReverting] = useState(false);
   const [revertErr, setRevertErr] = useState("");
-  const patch = (id: string, p: Partial<ReviewRow>) => onChange(rows.map((r) => (r.id === id ? { ...r, ...p } : r)));
+  const patch = (id: string, p: Partial<ReviewRow>) => onChange((cur) => cur.map((r) => (r.id === id ? { ...r, ...p } : r)));
 
   useEffect(() => {
     const was = document.activeElement as HTMLElement | null;
