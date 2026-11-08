@@ -37,6 +37,7 @@ function sorted(list: CreditItem[], sort: Sort, rel: Map<string, number>): Credi
 export default function PersonCredits({ known, mineKeys }: { known: CreditItem[]; mineKeys: string[] }) {
   const { get } = useLib();
   const [sort, setSort] = useState<Sort>("release");
+  const [kind, setKind] = useState<"all" | "movie" | "tv">("all");
   const split = useRef<Set<string> | null>(null);
   split.current ??= new Set(mineKeys);
   /** Relevance is taken when the page opens too, so marking a title does not make rows jump. */
@@ -45,8 +46,9 @@ export default function PersonCredits({ known, mineKeys }: { known: CreditItem[]
     const m = get(k.key);
     return [k.key, m ? STATUS_W[m.status] * 10 + (m.priority === "must" ? 5 : 0) : 0];
   }));
-  const mine = sorted(known.filter((k) => split.current!.has(k.key)), sort, rel.current);
-  const restAll = known.filter((k) => !split.current!.has(k.key));
+  const shown = kind === "all" ? known : known.filter((k) => k.type === kind);
+  const mine = sorted(shown.filter((k) => split.current!.has(k.key)), sort, rel.current);
+  const restAll = shown.filter((k) => !split.current!.has(k.key));
   const [all, setAll] = useState(false);
   const rest = sorted(all ? restAll : restAll.slice(0, 30), sort, rel.current);
   const [mineStable, resetMine] = useRetained(mine);
@@ -59,10 +61,16 @@ export default function PersonCredits({ known, mineKeys }: { known: CreditItem[]
         <select id="p-sort" value={sort} onChange={(e) => { resetMine(); resetRest(); setSort(e.target.value as Sort); }}>
           {SORTS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
         </select>
+        <label className="l" htmlFor="p-kind" style={{ margin: "0 0 0 8px" }}>Show</label>
+        <select id="p-kind" value={kind} onChange={(e) => { resetMine(); resetRest(); setKind(e.target.value as typeof kind); }}>
+          <option value="all">Films &amp; shows</option>
+          <option value="movie">Films</option>
+          <option value="tv">Shows</option>
+        </select>
       </div>
       {mineStable.length > 0 && <><h2>In your library</h2>{rows(mineStable)}</>}
       <h2>Known for</h2>
-      {rows(restStable)}
+      {restStable.length ? rows(restStable) : <p className="small muted">Nothing here.</p>}
       {!all && restAll.length > 30 && <button type="button" className="btn sm" style={{ marginTop: 12 }} onClick={() => setAll(true)}>Show all {restAll.length} titles</button>}
     </>
   );
