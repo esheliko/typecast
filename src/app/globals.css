@@ -277,6 +277,8 @@ li.row { gap: 10px; }
 
 .toast-slot { position: fixed; left: 0; right: 0; bottom: calc(84px + env(safe-area-inset-bottom, 0px)); z-index: 100; display: flex; justify-content: center; pointer-events: none; padding: 0 16px; }
 @media (min-width: 720px) { .toast-slot { bottom: 28px; } }
+/* A bottom sheet covers the tab bar, so the toast drops to just above the screen edge instead of floating over the sheet. */
+@media (max-width: 719px) { body:has(.fsheet-wrap, .gl-wrap) .toast-slot { bottom: calc(16px + env(safe-area-inset-bottom, 0px)); } }
 .toast { pointer-events: auto; display: flex; align-items: center; gap: 14px; background: var(--ink); color: var(--bg); padding: 10px 10px 10px 18px; border-radius: 999px; font-size: 14px; max-width: 100%; box-shadow: 0 8px 24px rgb(0 0 0 / .25); animation: up .18s ease-out; }
 .toast.bad { background: var(--bad); color: #fff; padding-right: 18px; }
 .toast > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
