@@ -43,6 +43,9 @@ export default function ImportReviewDialog({ rows, onChange, onClose, onRevert }
   const [reverting, setReverting] = useState(false);
   useBackClose(true, () => { if (!reverting) onClose(); });
   const [revertErr, setRevertErr] = useState("");
+  const revertBox = useRef<HTMLDivElement>(null);
+  // The revert panel sits at the top of the scrolling body: bring it into view if the list was scrolled down.
+  useEffect(() => { if (confirm || revertErr) revertBox.current?.scrollIntoView({ block: "nearest", behavior: "smooth" }); }, [confirm, revertErr]);
   const patch = (id: string, p: Partial<ReviewRow>) => onChange((cur) => cur.map((r) => (r.id === id ? { ...r, ...p } : r)));
 
   useEffect(() => {
@@ -133,7 +136,7 @@ export default function ImportReviewDialog({ rows, onChange, onClose, onRevert }
         <div className="sheet-body" style={{ paddingTop: 12 }}>
           {removes === 0 && restores === 0 && !confirm && <p className="small muted" style={{ margin: "0 0 10px" }}>Nothing to revert yet: this import has not added or changed any title. Titles under &ldquo;Not sure&rdquo; are only added once you confirm them, and titles already in your library are left as they were.</p>}
           {(confirm || revertErr) && (
-            <div className="card pad" style={{ padding: 10, margin: "0 0 10px" }} aria-busy={reverting}>
+            <div ref={revertBox} className="card pad" style={{ padding: 10, margin: "0 0 10px" }} aria-busy={reverting}>
               {confirm && <>
                 <p style={{ margin: "0 0 10px" }}><b>Revert the whole import?</b> {removes} added title{removes === 1 ? "" : "s"} will be removed{restores ? ` and ${restores} changed title${restores === 1 ? "" : "s"} restored` : ""}. Anything you marked or rated yourself on those titles after importing goes with them.</p>
                 <div className="chips">
