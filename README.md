@@ -2,7 +2,7 @@
 
 Find out where you know actors from, keep a list of what you watch, and see where to stream it.
 
-Next.js (App Router) on Vercel, Supabase for the database and password sign-in, TMDB for film and TV data. It installs on a phone as an app (PWA).
+Next.js 16 (App Router) on Vercel, Supabase for the database and password sign-in, TMDB for film and TV data. It installs on a phone as an app (PWA).
 
 ```
 src/app            pages, API routes and server actions

@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 const OPEN = ["/login", "/offline"];
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL, key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !key) return new NextResponse("Typecast is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.", { status: 500 });
 

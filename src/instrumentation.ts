@@ -14,7 +14,7 @@ export async function onRequestError(
     digest: e?.digest ?? null,
     message: e?.message ?? String(err),
     route: context.routePath,
-    routeType: context.routeType, // render | route | action | middleware
+    routeType: context.routeType, // render | route | action | proxy
     renderSource: context.renderSource ?? null,
     method: request.method,
     path: request.path.split("?")[0], // never log query strings
