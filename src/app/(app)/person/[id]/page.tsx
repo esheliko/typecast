@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import Link from "next/link";
 import BackButton from "@/components/BackButton";
-import { TitleRow } from "@/components/ui";
+import PersonCredits from "@/components/cast/CreditList";
 import { GlimpseButton } from "@/components/Glimpse";
 import { personSpec } from "@/lib/glimpse";
 import { img } from "@/lib/img";
@@ -25,11 +25,7 @@ export default async function PersonPage({ params }: Props) {
   const p = await load(params);
   const lib = await getLibrary();
   const byKey = new Map(lib.map((l) => [l.key, l]));
-  const mine = p.known.filter((k) => byKey.has(k.key));
-  const rest = p.known.filter((k) => !byKey.has(k.key)).slice(0, 30);
-  const rows = (list: typeof p.known) => (
-    <div className="card"><ul className="rows">{list.map((k) => <li key={k.key}><TitleRow it={k} lib={byKey.get(k.key)} sub={k.role} small /></li>)}</ul></div>
-  );
+  const mineKeys = p.known.filter((k) => byKey.has(k.key)).map((k) => k.key);
   return (
     <article className="page">
       <div className="pagebar"><BackButton /></div>
@@ -42,9 +38,7 @@ export default async function PersonPage({ params }: Props) {
         </div>
       </div>
       {p.bio && <p className="small muted" style={{ margin: "14px 0 0" }}>{p.bio}{p.bio.length >= 360 ? "…" : ""}</p>}
-      {mine.length > 0 && <><h2>In your library</h2>{rows(mine)}</>}
-      <h2>Known for</h2>
-      {rows(rest)}
+      <PersonCredits known={p.known} mineKeys={mineKeys} />
     </article>
   );
 }

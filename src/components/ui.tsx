@@ -1,5 +1,6 @@
 import { TitleLink } from "./Modal";
 import QuickMark from "./cast/QuickMark";
+import LivePill from "./cast/LivePill";
 import RelatedButton from "./cast/RelatedButton";
 import { GlimpseButton } from "./Glimpse";
 import { titleSpec } from "@/lib/glimpse";
@@ -20,7 +21,7 @@ export function Avatar({ photo, name }: { photo: string | null; name: string }) 
   return photo ? <img className="avatar" src={img(photo, "w185")} alt="" loading="lazy" decoding="async" /> : <span className="avatar">{name.charAt(0)}</span>;
 }
 
-export function TitleRow({ it, lib, sub, small }: { it: Item; lib?: LibItem | null; sub?: string; small?: boolean }) {
+export function TitleRow({ it, sub, small }: { it: Item; sub?: string; small?: boolean }) {
   return (
     <div className="row mark-row">
       <TitleLink className="row-link" k={it.key} it={it}>
@@ -29,7 +30,7 @@ export function TitleRow({ it, lib, sub, small }: { it: Item; lib?: LibItem | nu
           <span className="row-title" style={small ? { fontSize: 17 } : undefined}>{it.title}</span>
           <span className="row-sub">{it.year} · {typeLabel(it.type)}{sub ? ` · ${sub}` : ""}</span>
         </span>
-        <Pill lib={lib} />
+        <LivePill k={it.key} />
       </TitleLink>
       <QuickMark it={it} variant="inline" />
       <GlimpseButton spec={titleSpec(it)} />

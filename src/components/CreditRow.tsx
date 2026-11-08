@@ -1,5 +1,6 @@
 import Link from "next/link";
 import MarkRow from "./cast/MarkRow";
+import { SeenLine } from "./cast/CreditList";
 import { Avatar } from "./ui";
 import { GlimpseButton } from "./Glimpse";
 import { castSpec, personSpec } from "@/lib/glimpse";
@@ -23,7 +24,7 @@ export function CreditRow({ c, title, pending }: { c: EnrichedMember; libKeys?: 
         </div>
       </details>
       <div className="marks">
-        {c.hits.length > 0 && <div className="seen">You know them from: {c.hits.slice(0, 4).map((h) => (h.year ? `${h.title} (${h.year})` : h.title)).join(", ")}</div>}
+        <SeenLine hits={c.hits} />
         {c.also.length > 0 && <div className="also">Also in: {c.also.join(", ")}</div>}
       </div>
     </li>

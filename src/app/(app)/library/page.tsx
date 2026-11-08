@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import LibraryView from "@/components/LibraryView";
-import { TitleRow } from "@/components/ui";
+import { SuggestionRows } from "@/components/cast/CreditList";
 import { getLibrary } from "@/lib/library";
 import { getTitle } from "@/lib/tmdb";
 import type { LibItem, Related, Status } from "@/lib/types";
@@ -25,9 +25,7 @@ async function Suggestions({ lib }: { lib: LibItem[] }) {
   return (
     <>
       <h2>Suggested from your library</h2>
-      <div className="card"><ul className="rows">
-        {sg.map(({ r, from }) => <li key={r.key}><TitleRow it={r} sub={`Because of ${from.slice(0, 2).join(", ")}`} small /></li>)}
-      </ul></div>
+      <SuggestionRows items={sg.map(({ r, from }) => ({ ...r, why: `Because of ${from.slice(0, 2).join(", ")}` }))} />
     </>
   );
 }
