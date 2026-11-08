@@ -352,4 +352,32 @@ test.describe("behaviour (signed in)", () => {
       await deleteRows(sb, userId, [show]);
     }
   });
+
+  test("search: top result for a title and for a person, Enter and arrow keys, no unknown people", async ({ page }) => {
+    await page.goto("/");
+    const box = page.getByRole("searchbox", { name: /Search films/ });
+    await expect(box).toBeVisible({ timeout: 30_000 });
+    // A title: "Top result" is the film, and no stranger named Dune leads the page.
+    await box.fill("dune");
+    const top = page.locator("[data-top]");
+    await expect(top).toContainText(/^Dune/i, { timeout: 30_000 });
+    await expect(page.getByRole("heading", { name: "Top result" })).toBeVisible();
+    await expect(page.locator(".person-chip")).toHaveCount(0);
+    // Arrow Down goes from the box into the results, Arrow Up comes back.
+    await box.press("ArrowDown");
+    await expect(page.locator(".results a:focus")).toHaveCount(1);
+    await page.keyboard.press("ArrowUp");
+    await expect(box).toBeFocused();
+    // Enter opens the top result in the popup.
+    await box.press("Enter");
+    await expect(page).toHaveURL(/\/title\/(movie|tv)\/\d+/, { timeout: 20_000 });
+    await page.goBack();
+    // A person: the famous one leads, not the blank profiles named exactly "Nolan".
+    await box.fill("nolan");
+    await expect(top).toContainText("Christopher Nolan", { timeout: 30_000 });
+    await expect(page.getByRole("heading", { name: /Also named nolan/i })).toBeVisible();
+    // Escape clears the box.
+    await box.press("Escape");
+    await expect(box).toHaveValue("");
+  });
 });

@@ -38,8 +38,9 @@ function item(type: MediaType, r: any): Item {
 
 function hit(r: any, media?: string): SearchHit | null {
   const m = media ?? r.media_type;
-  if (m === "person") return { kind: "person", id: r.id, name: r.name, photo: r.profile_path ?? null, dept: r.known_for_department ?? "", knownFor: (r.known_for ?? []).map((k: any) => k.title ?? k.name).slice(0, 3) };
-  if (m === "movie" || m === "tv") return { kind: "title", ...browseItem(m, r) };
+  if (m === "person") return { kind: "person", id: r.id, name: r.name, photo: r.profile_path ?? null, dept: r.known_for_department ?? "", knownFor: (r.known_for ?? []).map((k: any) => k.title ?? k.name).slice(0, 3),
+    knownKeys: (r.known_for ?? []).slice(0, 3).map((k: any) => `${k.media_type}:${k.id}`), pop: r.popularity ?? 0 };
+  if (m === "movie" || m === "tv") return { kind: "title", ...browseItem(m, r), pop: r.popularity ?? 0, votes: r.vote_count ?? 0 };
   return null;
 }
 
@@ -51,6 +52,8 @@ export async function search(q: string, kind: "all" | "person" | "title" = "all"
     kind === "person" ? [["/search/person", "person"], ["/search/person", "person", "2"]]
     : kind === "title" ? [["/search/movie", "movie"], ["/search/tv", "tv"], ["/search/multi"], ["/search/movie", "movie", "2"]]
     : [["/search/multi"], ["/search/multi", undefined, "2"], ["/search/movie", "movie"], ["/search/tv", "tv"], ["/search/person", "person"]];
+  // For one or two words TMDB matches loosely ("la la" is 10,000 hits), and the film you mean can sit on page 2 (La La Land does).
+  if (kind === "all" && q.trim().split(/\s+/).length <= 2) calls.push(["/search/movie", "movie", "2"], ["/search/tv", "tv", "2"]);
   const sets = await Promise.all(calls.map(([path, media, page]) =>
     tmdb(path, { query: q, include_adult: "false", ...(page ? { page } : {}) }, HOUR)
       .then((d) => (d.results ?? []).map((r: any) => ({ r, media })))
@@ -66,7 +69,7 @@ export async function search(q: string, kind: "all" | "person" | "title" = "all"
     const name = h.kind === "person" ? h.name : h.title;
     scored.push({ h, s: matchScore(q, name, r.popularity ?? 0, r.vote_average ?? 0, r.vote_count ?? 0) });
   }
-  return scored.sort((a, b) => b.s - a.s).map((x) => x.h).slice(0, kind === "all" ? 16 : 8);
+  return scored.sort((a, b) => b.s - a.s).map((x) => x.h).slice(0, kind === "all" ? 24 : 8);
 }
 
 const norm = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/&/g, " and ").replace(/[^a-z0-9]+/g, " ").trim();

@@ -42,8 +42,8 @@ export interface Title extends Item {
 export interface Person { id: number; name: string; photo: string | null; dept: string; bio: string; known: Credit[]; imdbId: string | null }
 export type BrowseList = "foryou" | "trending" | "popular" | "top" | "new" | "soon";
 export type SearchHit =
-  | ({ kind: "title" } & BrowseItem)
-  | { kind: "person"; id: number; name: string; photo: string | null; dept: string; knownFor: string[] };
+  | ({ kind: "title"; /** TMDB popularity and vote count, for ranking the results. */ pop?: number; votes?: number } & BrowseItem)
+  | { kind: "person"; id: number; name: string; photo: string | null; dept: string; knownFor: string[]; /** Item keys ("movie:603") of the same known-for titles, to check them against the library. */ knownKeys?: string[]; pop?: number };
 
 /** The newest episode that aired after a watched series was marked Watched: `at` is its air date (YYYY-MM-DD), `season` that it starts a new season. */
 export interface NewEp { at: string; s: number; e: number; season: boolean }
