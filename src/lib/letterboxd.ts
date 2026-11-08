@@ -307,9 +307,14 @@ export async function applyResolved(sb: Sb, userId: string, input: Resolved[]): 
   const rows = [...merged.values()];
   if (!rows.length) return { added: 0, updated: 0, items: [], failed: [] };
   // Reading what exists is the only step that can stop the whole batch, and it happens before anything is written.
-  const { data, error } = await sb.from("library_items").select("tmdb_type,tmdb_id,status,rating,watched_at,checked_at").eq("user_id", userId).in("tmdb_id", rows.map((r) => r.id));
-  if (error) throw new Error(error.message);
-  const have = new Map<string, Prev>((data ?? []).map((d: any) => [`${d.tmdb_type}:${d.tmdb_id}`, d]));
+  // Chunked: a long `in` list overruns the URL, and each chunk's answer must stay under the 1000-row response cap (a movie and a series can share an id, so at most 2 per id).
+  const ids = [...new Set(rows.map((r) => r.id))], data: any[] = [];
+  for (let i = 0; i < ids.length; i += 200) {
+    const { data: part, error } = await sb.from("library_items").select("tmdb_type,tmdb_id,status,rating,watched_at,checked_at").eq("user_id", userId).in("tmdb_id", ids.slice(i, i + 200));
+    if (error) throw new Error(error.message);
+    data.push(...(part ?? []));
+  }
+  const have = new Map<string, Prev>(data.map((d: any) => [`${d.tmdb_type}:${d.tmdb_id}`, d]));
   const now = new Date().toISOString();
   const at = (d: string | null) => (d ? new Date(`${d}T12:00:00Z`).toISOString() : now);
   const key = (r: Resolved) => `${r.type}:${r.id}`;

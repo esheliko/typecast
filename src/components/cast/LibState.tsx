@@ -1,7 +1,8 @@
 "use client";
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { setStatus, setStatusMany, undoStatusMany } from "@/app/actions";
 import { FranchiseSheet, type Group } from "./Franchise";
+import { unpackMarks, type PackedMarks } from "@/lib/marks";
 import { PRIORITY_LABEL, STATUS_LABEL, type Item, type Mark, type Priority, type Status } from "@/lib/types";
 
 interface Ctx {
@@ -40,7 +41,9 @@ interface Toast { id: number; msg: string; undo?: () => void; err?: boolean; pen
  * Holds the user's marks for the cast tab. Marks change instantly on screen, are saved in the background,
  * and every change can be undone from the toast. Server data replaces local guesses once it agrees with them.
  */
-export function LibProvider({ initial, children }: { initial: Record<string, Mark>; children: React.ReactNode }) {
+export function LibProvider({ packed, children }: { packed: PackedMarks; children: React.ReactNode }) {
+  // Unpacked once per server payload: `initial` keeps the same identity until the server sends new marks, as before.
+  const initial = useMemo(() => unpackMarks(packed), [packed]);
   const [over, setOver] = useState<Record<string, Mark | null>>({});
   const [toast, setToast] = useState<Toast | null>(null);
   const [defaultPriority, setDefaultPriority] = useState<Priority>("someday");

@@ -3,6 +3,7 @@ import { supabaseServer } from "./supabase/server";
 import { normalizeDetails } from "./details";
 import { getLastAired } from "./tmdb";
 import { syncLetterboxd } from "./letterboxd";
+import { fetchAll } from "./paginate";
 import type { LibItem, Profile } from "./types";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -20,8 +21,10 @@ function toItem(r: any): LibItem & { checkedAt: number } {
 /** The signed-in user's rows, newest first, with the bookkeeping the new-episode check needs. Cached per request. */
 const getLibraryRaw = cache(async () => {
   const sb = await supabaseServer();
-  const { data } = await sb.from("library_items").select("*").order("added_at", { ascending: false });
-  return (data ?? []).map(toItem);
+  // Paged: one request returns at most the project's max_rows (1000 by default). The tie-breakers make the order total so pages never overlap.
+  const rows = await fetchAll<any>((from, to) => sb.from("library_items").select("*")
+    .order("added_at", { ascending: false }).order("tmdb_type").order("tmdb_id").range(from, to));
+  return rows.map(toItem);
 });
 
 /** The signed-in user's library, newest first. Cached per request. Never waits on TMDB: the new-episode check runs separately (see recheckEpisodes). */
