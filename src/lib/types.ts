@@ -11,7 +11,7 @@ export const STATUS_LABEL: Record<Status, string> = { watching: "Watching", part
 export interface Item { key: string; type: MediaType; id: number; title: string; year: string; poster: string | null }
 export interface BrowseItem extends Item { rating: number }
 export interface Related extends Item { rel: string }
-export interface Credit extends Item { role: string; votes: number }
+export interface Credit extends Item { role: string; votes: number; rating: number; date: string }
 export interface CastMember { id: number; name: string; photo: string | null; role: string }
 export interface Provider { id: number; name: string; logo: string | null }
 export interface ProviderGroup { link?: string; flatrate?: Provider[]; free?: Provider[]; ads?: Provider[]; rent?: Provider[]; buy?: Provider[] }

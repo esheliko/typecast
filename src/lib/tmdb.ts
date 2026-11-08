@@ -312,7 +312,7 @@ async function personRaw(id: number) {
   const add = (r: any, role: string) => {
     if (r.media_type !== "movie" && r.media_type !== "tv") return;
     const it = item(r.media_type, r); if (seen.has(it.key)) return; seen.add(it.key);
-    known.push({ ...it, role, votes: r.vote_count ?? 0 });
+    known.push({ ...it, role, votes: r.vote_count ?? 0, rating: r.vote_average ?? 0, date: r.release_date ?? r.first_air_date ?? "" });
   };
   for (const r of cc.cast ?? []) {
     if (BAD_ROLE.test(r.character ?? "")) continue;
