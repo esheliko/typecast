@@ -14,8 +14,8 @@ import { titleSpec } from "@/lib/glimpse";
 import MarkRow from "@/components/cast/MarkRow";
 import { FromProvider } from "@/components/Modal";
 import { Where } from "@/components/Where";
-import { getComposers } from "@/lib/awards";
-import { bylineLabel, DETAIL_LABEL, detailLabel, isCrewId, MAIN_CAST, type CrewId, type DetailId } from "@/lib/details";
+import { fillCrew, missingCrew } from "@/lib/crew-fill";
+import { bylineLabel, DETAIL_LABEL, detailLabel, isCrewId, MAIN_CAST, type CrewBy, type CrewId, type DetailId } from "@/lib/details";
 import { enrich } from "@/lib/enrich";
 import { img, typeLabel } from "@/lib/img";
 import { getLibrary, getProfile } from "@/lib/library";
@@ -108,7 +108,9 @@ function Details({ t, lib, order }: { t: Title; lib: LibItem[]; order: DetailId[
   }
   return (
     <>
-      {blocks.map((id) => Array.isArray(id) ? <CrewSection key={id[0]} ids={id} t={t} /> : id === "cast_main" || id === "cast_rest" ? (
+      {blocks.map((id) => Array.isArray(id) ? (
+        <Suspense key={id[0]} fallback={<CrewSection ids={id} t={t} />}><FilledCrew ids={id} t={t} /></Suspense>
+      ) : id === "cast_main" || id === "cast_rest" ? (
         // The cast is already known from the title itself, so show it right away; "you know them from" fills in behind it.
         <Suspense key={id} fallback={<CastBlock part={id} t={t} lib={lib} first={id === casts[0]} last={id === casts[casts.length - 1]} pending
           people={t.people.map((c) => ({ ...c, hits: [], also: [], top: [] }))} />}>
@@ -146,9 +148,24 @@ async function Related({ t, origin }: { t: Title; origin?: Item | null }) {
   );
 }
 
-async function WikidataMusic({ t }: { t: Title }) {
-  const names = (await getComposers(t.imdbId)).slice(0, 2);
-  return names.length ? <div className="sh-meta">{bylineLabel("composer", t.type)} {names.join(", ")}</div> : null;
+/** Header credits: the top-ranked crew detail, plus the composer. Same output for TMDB's data and for the Wikidata-filled version. */
+function Bylines({ t, crewBy, details }: { t: Title; crewBy: CrewBy; details: DetailId[] }) {
+  const byline = details.find((id): id is CrewId => isCrewId(id) && crewBy[id].length > 0 && id !== "crew_rest");
+  // Music is always worth a line, even when the Composer detail isn't switched on in Setup.
+  const music = byline !== "composer" ? crewBy.composer.slice(0, 2).map((p) => p.name).join(", ") : "";
+  return (
+    <>
+      {byline && <div className="sh-meta">{bylineLabel(byline, t.type)} {crewBy[byline].slice(0, 2).map((p) => p.name).join(", ")}</div>}
+      {music && <div className="sh-meta">{bylineLabel("composer", t.type)} {music}</div>}
+    </>
+  );
+}
+/** TMDB's credits show at once; the gaps fill in from Wikidata behind them. */
+async function FilledBylines({ t, details }: { t: Title; details: DetailId[] }) {
+  return <Bylines t={t} crewBy={await fillCrew(t.type, t.imdbId, t.crewBy)} details={details} />;
+}
+async function FilledCrew({ ids, t }: { ids: CrewId[]; t: Title }) {
+  return <CrewSection ids={ids} t={{ ...t, crewBy: await fillCrew(t.type, t.imdbId, t.crewBy) }} />;
 }
 
 /** Everything about one title. Shown as the full page, and as the popup over Browse, Library and the rest. */
@@ -156,12 +173,7 @@ export default async function TitleView({ t, origin }: { t: Title; origin?: Item
   const [lib, profile] = await Promise.all([getLibrary(), getProfile()]);
   const mine = lib.find((l) => l.key === t.key) ?? null;
   const meta = [t.year, typeLabel(t.type), t.runtime ? `${t.runtime} min${t.type === "tv" ? " / ep" : ""}` : "", t.genres.slice(0, 3).join(", ")].filter(Boolean).join(" · ");
-  // The header credit is whichever crew detail the user ranked highest (Director by default, Composer if they put it first).
-  const byline = profile.details.find((id): id is CrewId => isCrewId(id) && t.crewBy[id].length > 0 && id !== "crew_rest");
-  // Music is always worth a line, even when the Composer detail isn't switched on in Setup.
-  const music = byline !== "composer" ? t.crewBy.composer.slice(0, 2).map((p) => p.name).join(", ") : "";
-  // TMDB has no composer for many series; Wikidata fills in behind the header without delaying it.
-  const noMusic = !t.crewBy.composer.length;
+  const gaps = missingCrew(t.crewBy).length > 0 && !!t.imdbId;
   return (
     <FromProvider k={t.key} name={t.title}>
       <div className="sh-top sh-compact" style={{ marginTop: 10 }}>
@@ -171,9 +183,9 @@ export default async function TitleView({ t, origin }: { t: Title; origin?: Item
           <h1 className="sh-title">{t.title} <RelatedButton it={t} /> <GlimpseButton spec={titleSpec(t)} /> {t.imdbId && <a className="imdb-link" href={`https://www.imdb.com/title/${t.imdbId}/`} target="_blank" rel="noopener noreferrer" aria-label="Open on IMDb" title="Open on IMDb">IMDb ↗</a>}</h1>
           <div className="sh-meta">{meta}</div>
           <Suspense fallback={null}><AwardChips t={t} /></Suspense>
-          {byline && <div className="sh-meta">{bylineLabel(byline, t.type)} {t.crewBy[byline].slice(0, 2).map((p) => p.name).join(", ")}</div>}
-          {music && <div className="sh-meta">{bylineLabel("composer", t.type)} {music}</div>}
-          {noMusic && <Suspense fallback={null}><WikidataMusic t={t} /></Suspense>}
+          {gaps
+            ? <Suspense fallback={<Bylines t={t} crewBy={t.crewBy} details={profile.details} />}><FilledBylines t={t} details={profile.details} /></Suspense>
+            : <Bylines t={t} crewBy={t.crewBy} details={profile.details} />}
           {t.overview && <details className="sh-ov"><summary>{t.overview}</summary><p>{t.overview}</p></details>}
         </div>
       </div>

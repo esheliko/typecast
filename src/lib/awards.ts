@@ -91,22 +91,3 @@ export const getAwards = cache(async (imdb: string | null): Promise<Awards | nul
 });
 
 export const hasAwards = (a: Awards | null): a is Awards => !!a && a.groups.length > 0;
-
-/* ---- Composers ---- */
-
-async function fetchComposers(imdb: string): Promise<string[]> {
-  const u = new URL("https://query.wikidata.org/sparql");
-  u.searchParams.set("query", `SELECT DISTINCT ?cLabel WHERE { ?f wdt:P345 "${imdb}". ?f wdt:P86 ?c. SERVICE wikibase:label { bd:serviceParam wikibase:language "en". } } LIMIT 6`);
-  u.searchParams.set("format", "json");
-  const r = await fetch(u, { headers: { accept: "application/sparql-results+json", "user-agent": "Typecast/1.0 (personal film and TV tracker)" }, signal: AbortSignal.timeout(9000) });
-  if (!r.ok) throw new Error(`Wikidata answered ${r.status}`);
-  const j = await r.json() as { results?: { bindings?: { cLabel?: { value: string } }[] } };
-  return (j.results?.bindings ?? []).map((b) => b.cLabel?.value ?? "").filter((n) => n && !/^Q\d+$/.test(n));
-}
-const cachedComposers = unstable_cache(fetchComposers, ["composers-wikidata-v1"], { revalidate: 60 * 60 * 24 * 7 });
-
-/** Composer names from Wikidata, for titles where TMDB has no music credit (many series). Empty when unknown or unreachable. */
-export const getComposers = cache(async (imdb: string | null): Promise<string[]> => {
-  if (!imdb || !/^tt\d+$/.test(imdb)) return [];
-  try { return await cachedComposers(imdb); } catch { return []; }
-});
