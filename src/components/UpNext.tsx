@@ -1,8 +1,7 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { TitleLink } from "./Modal";
-import { Thumb } from "./ui";
-import { typeLabel } from "@/lib/img";
+import { img } from "@/lib/img";
 import type { LibItem } from "@/lib/types";
 
 /** Candidates for the next watch, best first: things already under way, then must-watch, then the rest of the watchlist (oldest first). */
@@ -16,32 +15,37 @@ function candidates(items: LibItem[]): { it: LibItem; why: string }[] {
   return out;
 }
 
-const SHOWN = 4;
+const MAX = 12;
+const KEY = "typecast:upnext-closed";
 
-/** A few things to watch next from the library, shown above the list. "More" moves on to the next few. */
+/** A swipeable strip of posters to watch next, above the list. Collapsible (remembered), so it never pushes the library down more than one slim row. */
 export default function UpNext({ items }: { items: LibItem[] }) {
-  const list = useMemo(() => candidates(items), [items]);
-  const [page, setPage] = useState(0);
+  const list = useMemo(() => candidates(items).slice(0, MAX), [items]);
+  const [closed, setClosed] = useState(false);
+  useEffect(() => { try { setClosed(localStorage.getItem(KEY) === "1"); } catch { /* storage unavailable */ } }, []);
   if (!list.length) return null;
-  const pages = Math.ceil(list.length / SHOWN);
-  const start = (page % pages) * SHOWN;
-  const view = list.slice(start, start + SHOWN);
+  const toggle = () => setClosed((c) => { try { localStorage.setItem(KEY, c ? "0" : "1"); } catch { /* ignore */ } return !c; });
   return (
-    <section className="card upnext" aria-label="Watch next">
-      <div className="upnext-h"><span className="upnext-k">Watch next</span>
-        {pages > 1 && <button type="button" className="chip sm" onClick={() => setPage((n) => n + 1)}>More</button>}
-      </div>
-      <ul className="rows">
-        {view.map(({ it, why }) => (
-          <li key={it.key} className="row"><TitleLink className="row-link" k={it.key} it={it}>
-            <Thumb path={it.poster} />
-            <span className="row-main">
-              <span className="row-title" style={{ fontSize: 17 }}>{it.title}</span>
-              <span className="row-sub">{it.year} · {typeLabel(it.type)} · {why}</span>
-            </span>
-          </TitleLink></li>
-        ))}
-      </ul>
+    <section className="upnext" aria-label="Watch next">
+      <button type="button" className="upnext-h" aria-expanded={!closed} onClick={toggle}>
+        <span className="upnext-k">Watch next</span>
+        <span className="mono upnext-n">{list.length}</span>
+        <span className="upnext-caret" aria-hidden="true">{closed ? "Show" : "Hide"}</span>
+      </button>
+      {!closed && (
+        <ul className="upnext-strip">
+          {list.map(({ it, why }) => (
+            <li key={it.key} className="upnext-card"><TitleLink className="upnext-link" k={it.key} it={it}>
+              {it.poster
+                // eslint-disable-next-line @next/next/no-img-element
+                ? <img className="upnext-poster" src={img(it.poster, "w185")} alt="" loading="lazy" decoding="async" />
+                : <span className="upnext-poster" />}
+              <span className="upnext-t">{it.title}</span>
+              <span className="upnext-w">{why}</span>
+            </TitleLink></li>
+          ))}
+        </ul>
+      )}
     </section>
   );
 }
