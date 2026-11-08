@@ -41,7 +41,7 @@ export const CFG = {
   sleepSec: 30,
   errorCooldownMin: 45, // after a 402 (limit) response
   // Commits that only touch these never need a deployment.
-  noDeploy: /^(.*\.md|\.claude\/.*|\.github\/.*|artifact\.html|supabase\/.*|docs\/.*|scripts\/deploy-manager\.mjs|scripts\/check-client-boundary\.mjs|scripts\/logs\.mjs|tests\/.*|playwright\.config\.ts|\.gitignore|\.env\.example)$/,
+  noDeploy: /^(.*\.md|\.claude\/.*|\.github\/.*|artifact\.html|supabase\/.*|docs\/.*|scripts\/.*|tests\/.*|playwright\.config\.ts|\.gitignore|\.env\.example)$/,
   urgentTag: '[deploy-now]',
   // The CI gate: the head commit's `verify` check (.github/workflows/ci.yml) must have passed before it is deployed.
   ciCheck: 'verify',

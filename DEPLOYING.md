@@ -42,3 +42,4 @@ in roughly 5-15 min; check issue #1 if you need to know.
 https://claude.ai/artifact/UbFWzbLxByvYjzki19uuMv. It reads five JSON files uploaded to the artifact (no GitHub/Vercel connector exists, so it
 cannot query live). Refresh: `node scripts/dashboard-data.mjs <dir>`, then upload each of status/hourly/recent/events .json with the Artifact tool
 (`asset: true`, same url) and `update` the matching `datasets/<id>` document's `source.url`, `source.name` and `updated`. The hourly supervisor does this.
+- 2026-11-08: first push-triggered Actions tick confirmed (board tick #3 with no Claude run). Anything under `scripts/` is now deploy-neutral too.
