@@ -3,7 +3,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { setStatus, setStatusMany, undoStatusMany } from "@/app/actions";
 import { FranchiseSheet, type Group } from "./Franchise";
 import { unpackMarks, type PackedMarks } from "@/lib/marks";
-import { PRIORITY_LABEL, STATUS_LABEL, type Item, type Mark, type Priority, type Status } from "@/lib/types";
+import { PRIORITY_LABEL, STATUS_LABEL, markLabel, type Item, type Mark, type Priority, type Status } from "@/lib/types";
 
 interface Ctx {
   get: (key: string) => Mark | undefined;
@@ -128,7 +128,7 @@ export function LibProvider({ packed, children }: { packed: PackedMarks; childre
     if (status === null && prev?.rich && !window.confirm(`Remove ${it.title}? Your rating and notes for it will be deleted.`)) return;
     const saved = save(it, status, prev, priority);
     {
-      const msg = status ? `${it.title}: ${status === "watchlist" && priority === "must" ? PRIORITY_LABEL.must : STATUS_LABEL[status]}` : `Removed ${it.title}`;
+      const msg = status ? `${it.title}: ${markLabel(status, priority ?? prev?.priority)}` : `Removed ${it.title}`;
       // Undo after removing a title with a rating or note cannot bring those back, so offer it only when it can.
       const canUndo = !(status === null && prev?.rich);
       // One orange pill names the change it makes. Using it applies the change and offers the way back, so you can flip back and forth
@@ -137,10 +137,10 @@ export function LibProvider({ packed, children }: { packed: PackedMarks; childre
         const next: Mark | null = cur.status === "watchlist" ? { ...cur, priority: cur.priority === "must" ? "someday" : "must" }
           : cur.status === "watching" ? { ...cur, status: "partial" } : cur.status === "partial" ? { ...cur, status: "watching" } : null;
         if (!next) return undefined;
-        const label = next.status === "watchlist" ? (next.priority === "must" ? "Make must-watch" : "Make some day") : next.status === "partial" ? "Make partly watched" : "Make watching";
+        const label = next.status === "watchlist" ? `Make ${PRIORITY_LABEL[next.priority]}` : next.status === "partial" ? `Make ${STATUS_LABEL.partial}` : `Make ${STATUS_LABEL.watching}`;
         return { label, run: () => {
           save(it, next.status, cur, next.priority);
-          show({ msg: `${it.title}: ${next.status === "watchlist" && next.priority === "must" ? PRIORITY_LABEL.must : STATUS_LABEL[next.status]}`, action: flip(next) });
+          show({ msg: `${it.title}: ${markLabel(next.status, next.priority)}`, action: flip(next) });
         } };
       };
       const action = status ? flip({ status, priority: priority ?? prev?.priority ?? "someday", rich: false }) : undefined;

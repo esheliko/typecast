@@ -8,6 +8,11 @@ export type Priority = "someday" | "must";
 export const PRIORITY_LABEL: Record<Priority, string> = { someday: "Some day", must: "Must watch" };
 export const STATUS_LABEL: Record<Status, string> = { watching: "Watching", partial: "Partly watched", watchlist: "To watch", watched: "Watched" };
 
+/** The one name for a mark, everywhere: a must-watch title reads "Must watch", the rest use STATUS_LABEL. */
+export function markLabel(status: Status, priority?: Priority): string {
+  return status === "watchlist" && priority === "must" ? PRIORITY_LABEL.must : STATUS_LABEL[status];
+}
+
 export interface Item { key: string; type: MediaType; id: number; title: string; year: string; poster: string | null }
 export interface BrowseItem extends Item { rating: number }
 export interface Related extends Item { rel: string }

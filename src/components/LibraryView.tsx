@@ -9,7 +9,7 @@ import { KindSeg } from "./KindSeg";
 import { mixed, ofKind, type Kind } from "@/lib/kind";
 import { KindContext } from "@/lib/kind-context";
 
-const TABS: [Status | "all", string][] = [["all", "All"], ["watching", STATUS_LABEL.watching], ["partial", "Partly"], ["watchlist", STATUS_LABEL.watchlist], ["watched", STATUS_LABEL.watched]];
+const TABS: [Status | "all", string][] = [["all", "All"], ["watching", STATUS_LABEL.watching], ["partial", STATUS_LABEL.partial], ["watchlist", STATUS_LABEL.watchlist], ["watched", STATUS_LABEL.watched]];
 
 const num = (y: string) => parseInt(y, 10) || 0;
 const SORTERS: Record<SortKey, ((a: LibItem, b: LibItem) => number) | null> = {

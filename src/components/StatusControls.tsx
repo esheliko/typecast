@@ -1,46 +1,62 @@
 "use client";
-import { useOptimistic, useState, useTransition } from "react";
+import { useEffect, useOptimistic, useState, useTransition } from "react";
 import { useLib } from "@/components/cast/LibState";
-import { setPriority, setRating, setStatus } from "@/app/actions";
+import StatusIcon from "@/components/cast/StatusIcon";
+import { setRating } from "@/app/actions";
 import { PRIORITY_LABEL, STATUS_LABEL, type Item, type LibItem, type Priority, type Status } from "@/lib/types";
 
-interface View { status: Status | null; priority: Priority; rating: number }
-
+/**
+ * The title popup's status controls: the same marks as the quick marks (same names, icons, colours, toast with Undo,
+ * confirm before losing a rating or note, "Mark related" after Watched), only bigger and labelled. Tapping the lit one removes the mark.
+ * Status and priority live in LibProvider, so the poster underneath changes at once; only the rating is saved from here.
+ */
 export default function StatusControls({ item, lib }: { item: Item; lib: LibItem | null }) {
+  const { get, mark, markRich, defaultPriority } = useLib();
+  const m = get(item.key);
+  const status = m?.status ?? null;
+  const priority: Priority = m?.priority ?? lib?.priority ?? defaultPriority;
   const [pending, start] = useTransition();
-  const [v, setV] = useOptimistic<View, Partial<View>>({ status: lib?.status ?? null, priority: lib?.priority ?? "someday", rating: lib?.rating ?? 0 }, (s, p) => ({ ...s, ...p }));
-  const { get, markRich } = useLib();
+  const [rating, setR] = useOptimistic<number, number>(lib?.rating ?? 0, (_s, n) => n);
   const [err, setErr] = useState("");
-  /** Runs one change optimistically. A failure rolls the view back (the optimistic state ends with the transition) and shows a small note instead of reaching the error boundary. */
-  const run = (view: Partial<View>, save: () => Promise<unknown>, after?: () => void) => start(async () => {
-    setErr(""); setV(view);
-    try { await save(); after?.(); } catch { setErr("Could not save that. Check your connection and try again."); }
-  });
-  const choose = (status: Status | null) => {
-    if (status === null && (get(item.key)?.rich || v.rating > 0) && !window.confirm(`Remove ${item.title}? Your rating and notes for it will be deleted.`)) return;
-    run(status === null ? { status: null, rating: 0 } : { status }, () => setStatus({ type: item.type, id: item.id, title: item.title, year: item.year, poster: item.poster }, status));
+  const [saved, setSaved] = useState<number | null>(null);
+  // A removed title loses its rating on the server; start from zero if it is added again before the page refreshes.
+  useEffect(() => { if (!m) setSaved(0); }, [m]);
+  const stars = !m ? 0 : saved ?? rating;
+  const toggle = (s: Status) => mark(item, status === s ? null : s, s === "watchlist" ? priority : undefined);
+  const rate = (n: number) => {
+    const next = stars === n ? 0 : n;
+    start(async () => {
+      setErr(""); setR(next);
+      try { await setRating(item.type, item.id, next); setSaved(next); if (next > 0) markRich(item.key); }
+      catch { setErr("Could not save that. Check your connection and try again."); }
+    });
   };
-  const prioritize = (priority: Priority) => run({ priority }, () => setPriority(item.type, item.id, priority));
-  const rate = (n: number) => { const next = v.rating === n ? 0 : n; run({ rating: next }, () => setRating(item.type, item.id, next), () => { if (next > 0) markRich(item.key); }); };
+  const sc = (s: Status, cls: string) => (
+    <button key={s} type="button" className={`chip sc ${cls}`} aria-pressed={status === s} onClick={() => toggle(s)}>
+      <StatusIcon kind={s === "watchlist" && priority === "must" && status === s ? "must" : s} size={16} />{STATUS_LABEL[s]}
+    </button>
+  );
   return (
     <div aria-busy={pending}>
       <div className="status" role="group" aria-label="Status">
-        {(Object.keys(STATUS_LABEL) as Status[]).map((s) => (
-          <button key={s} className="chip" aria-pressed={v.status === s} onClick={() => choose(s)}>{STATUS_LABEL[s]}</button>
-        ))}
-        {v.status && <button className="chip" style={{ color: "var(--bad)" }} onClick={() => choose(null)}>Remove</button>}
-        {v.status && (
+        {sc("watching", "watching")}
+        {sc("partial", "partial")}
+        {sc("watchlist", priority === "must" ? "must" : "watchlist")}
+        {sc("watched", "watched")}
+        {status && (
           <div className="stars" role="group" aria-label="Your rating" style={{ fontSize: 20 }}>
-          {[1, 2, 3, 4, 5].map((n) => (
-            <button key={n} onClick={() => rate(n)} aria-label={`${n} stars`} style={{ color: "var(--gold)" }}>{n <= v.rating ? "★" : "☆"}</button>
-          ))}
-        </div>
+            {[1, 2, 3, 4, 5].map((n) => (
+              <button key={n} onClick={() => rate(n)} aria-label={`${n} stars`} style={{ color: "var(--gold)" }}>{n <= stars ? "★" : "☆"}</button>
+            ))}
+          </div>
         )}
       </div>
-      {v.status === "watchlist" && (
+      {status === "watchlist" && (
         <div className="status" role="group" aria-label="How much you want to watch it" style={{ marginTop: 0 }}>
           {(Object.keys(PRIORITY_LABEL) as Priority[]).map((p) => (
-            <button key={p} className="chip" aria-pressed={v.priority === p} onClick={() => prioritize(p)}>{PRIORITY_LABEL[p]}</button>
+            <button key={p} type="button" className={`chip sc ${p === "must" ? "must" : "watchlist"}`} aria-pressed={priority === p} onClick={() => mark(item, "watchlist", p)}>
+              <StatusIcon kind={p === "must" ? "must" : "watchlist"} size={16} />{PRIORITY_LABEL[p]}
+            </button>
           ))}
         </div>
       )}

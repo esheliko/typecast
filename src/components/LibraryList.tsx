@@ -8,7 +8,7 @@ import QuickMark from "./cast/QuickMark";
 import { useLib } from "./cast/LibState";
 import RelatedButton from "./cast/RelatedButton";
 import { typeLabel } from "@/lib/img";
-import { PRIORITY_LABEL, STATUS_LABEL, type LibItem } from "@/lib/types";
+import { PRIORITY_LABEL, STATUS_LABEL, markLabel, type LibItem } from "@/lib/types";
 
 /** The status label as a fixed-width column. Tap it to flip To watch <-> Must watch or Watching <-> Partly watched. */
 function StatusPill({ it }: { it: LibItem }) {
@@ -16,11 +16,11 @@ function StatusPill({ it }: { it: LibItem }) {
   const m = get(it.key);
   if (!m) return <span className="pill-slot" />;
   const must = m.status === "watchlist" && m.priority === "must";
-  const label = must ? PRIORITY_LABEL.must : STATUS_LABEL[m.status];
+  const label = markLabel(m.status, m.priority);
   const cls = `pill ${must ? "must" : m.status}`;
-  const flip = m.status === "watchlist" ? { text: must ? "Make some day" : "Make must-watch", run: () => mark(it, "watchlist", must ? "someday" : "must") }
-    : m.status === "watching" ? { text: "Make partly watched", run: () => mark(it, "partial") }
-    : m.status === "partial" ? { text: "Make watching", run: () => mark(it, "watching") } : null;
+  const flip = m.status === "watchlist" ? { text: `Make ${PRIORITY_LABEL[must ? "someday" : "must"]}`, run: () => mark(it, "watchlist", must ? "someday" : "must") }
+    : m.status === "watching" ? { text: `Make ${STATUS_LABEL.partial}`, run: () => mark(it, "partial") }
+    : m.status === "partial" ? { text: `Make ${STATUS_LABEL.watching}`, run: () => mark(it, "watching") } : null;
   return (
     <span className="pill-slot">
       {flip ? <button type="button" className={`${cls} pill-flip`} onClick={flip.run} title={flip.text} aria-label={`${label}. ${flip.text}`}>{label}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10l5-5 5 5M7 14l5 5 5-5" /></svg></button>

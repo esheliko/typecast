@@ -9,7 +9,7 @@ import { titleSpec } from "@/lib/glimpse";
 import { useGlimpse } from "./Glimpse";
 import { TitleLink } from "./Modal";
 import type { Applied, Failed, Unmatched, Unsure } from "@/lib/letterboxd";
-import type { BrowseItem, SearchHit, Status } from "@/lib/types";
+import { STATUS_LABEL, type BrowseItem, type SearchHit, type Status } from "@/lib/types";
 
 /** What the import (or a fix made in the review) did to one title, kept so the whole import can be reverted. */
 export type Rec = Pick<Applied, "type" | "id" | "isNew" | "prev">;
@@ -27,7 +27,7 @@ export const toRows = (items: Applied[], missing: Unmatched[], failed: Failed[] 
   ...items.map((a): ReviewRow => ({ id: `r${n++}`, label: a.label, item: { key: `${a.type}:${a.id}`, type: a.type, id: a.id, title: a.title, year: a.year, poster: a.poster, rating: 0 }, status: a.status, rating: a.rating, isNew: a.isNew, recs: [{ type: a.type, id: a.id, isNew: a.isNew, prev: a.prev }] })),
 ];
 
-const OPTIONS: [Status, string][] = [["watched", "Watched"], ["watching", "Watching"], ["watchlist", "To watch"]];
+const OPTIONS: [Status, string][] = [["watched", STATUS_LABEL.watched], ["watching", STATUS_LABEL.watching], ["watchlist", STATUS_LABEL.watchlist]];
 const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),textarea:not([disabled]),select:not([disabled]),[tabindex]:not([tabindex="-1"])';
 
 /**
@@ -175,7 +175,7 @@ export default function ImportReviewDialog({ rows, onChange, onClose, onRevert }
                   {r.item ? (
                     <select aria-label={`Marking for ${r.label}`} value={r.status} disabled={busy === r.id} onChange={(e) => mark(r, e.target.value as Status)}>
                       {OPTIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-                      {r.status === "partial" && <option value="partial">Partly watched</option>}
+                      {r.status === "partial" && <option value="partial">{STATUS_LABEL.partial}</option>}
                     </select>
                   ) : <span className="small muted">Would be {OPTIONS.find((o) => o[0] === r.status)?.[1].toLowerCase()}</span>}
                   {r.item && r.unsure && <button className="btn sm gold" type="button" disabled={busy === r.id || bulk} onClick={() => mark(r, r.status)}>Yes, add it</button>}

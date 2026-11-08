@@ -5,10 +5,10 @@ import RelatedButton from "./cast/RelatedButton";
 import { GlimpseButton } from "./Glimpse";
 import { titleSpec } from "@/lib/glimpse";
 import { img, typeLabel } from "@/lib/img";
-import { STATUS_LABEL, type Item, type LibItem } from "@/lib/types";
+import { markLabel, type Item, type LibItem } from "@/lib/types";
 
 export function Pill({ lib }: { lib?: LibItem | null }) {
-  return lib ? <span className={`pill ${lib.status}`}>{STATUS_LABEL[lib.status]}</span> : null;
+  return lib ? <span className={`pill ${lib.status === "watchlist" && lib.priority === "must" ? "must" : lib.status}`}>{markLabel(lib.status, lib.priority)}</span> : null;
 }
 
 export function Thumb({ path, w = 92 }: { path: string | null; w?: number }) {

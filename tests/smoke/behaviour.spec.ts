@@ -31,6 +31,13 @@ test.describe("behaviour (signed in)", () => {
       await expect(group).toBeVisible({ timeout: 30_000 });
       await group.getByRole("button", { name: "Watched", exact: true }).click();
       await expect.poll(async () => (await status())?.status, { timeout: 15_000 }).toBe("watched");
+      await expect(page.getByRole("status").filter({ hasText: `${inception.title}: Watched` })).toBeVisible();
+      await group.getByRole("button", { name: "Partly watched", exact: true }).click();
+      await expect.poll(async () => (await status())?.status, { timeout: 15_000 }).toBe("partial");
+      await group.getByRole("button", { name: "Watching", exact: true }).click();
+      await expect.poll(async () => (await status())?.status, { timeout: 15_000 }).toBe("watching");
+      await group.getByRole("button", { name: "Watched", exact: true }).click();
+      await expect.poll(async () => (await status())?.status, { timeout: 15_000 }).toBe("watched");
 
       await page.goto("/library?f=watched");
       await expect(inRow(page, inception.title)).toBeVisible({ timeout: 20_000 });
@@ -51,7 +58,13 @@ test.describe("behaviour (signed in)", () => {
 
       await page.goto(`/title/movie/${inception.tmdb_id}`);
       await expect(group).toBeVisible({ timeout: 30_000 });
-      await group.getByRole("button", { name: "Remove" }).click();
+      // Tapping the lit mark removes it, with the same toast and Undo as the quick marks; Undo brings it back.
+      await group.getByRole("button", { name: "To watch", exact: true }).click();
+      await expect.poll(status, { timeout: 15_000 }).toBeNull();
+      await expect(page.getByRole("status").filter({ hasText: `Removed ${inception.title}` })).toBeVisible();
+      await page.getByRole("status").getByRole("button", { name: "Undo" }).click();
+      await expect.poll(async () => (await status())?.status, { timeout: 15_000 }).toBe("watchlist");
+      await group.getByRole("button", { name: "To watch", exact: true }).click();
       await expect.poll(status, { timeout: 15_000 }).toBeNull();
       await page.goto("/library");
       await expect(inRow(page, "The Matrix")).toBeVisible({ timeout: 20_000 });

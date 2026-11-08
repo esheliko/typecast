@@ -70,6 +70,11 @@ textarea { width: 100%; resize: vertical; min-height: 72px; }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .chip { padding: 6px 14px; border-radius: 999px; background: var(--chip); font-size: 14px; font-weight: 500; }
 .chip[aria-pressed="true"] { background: var(--gold-fill); color: var(--on-gold); }
+/* Status chips in the title popup: same icons and colours as the quick marks and library pills. */
+.chip.sc { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; }
+.chip.sc svg { flex: none; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.chip.sc.watched[aria-pressed="true"] { background: var(--good); color: #fff; }
+.chip.sc.must[aria-pressed="true"] svg, .chip.sc.watchlist[aria-pressed="true"] svg { fill: currentColor; }
 
 .rows { list-style: none; margin: 0; padding: 0; }
 .row { display: flex; align-items: center; gap: 12px; width: 100%; padding: 11px 16px; border-top: 1px solid var(--line); }
