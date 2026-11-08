@@ -7,7 +7,7 @@ const at = (s: string) => Date.parse(s);
 let n = 0;
 const item = (o: Partial<LibItem>): LibItem => ({
   key: `movie:${++n}`, type: "movie", id: n, title: `T${n}`, year: "2000", poster: null,
-  status: "watched", priority: "someday", rating: 0, note: "", progress: null, added: 0, watchedAt: null, ...o,
+  status: "watched", priority: "someday", rating: 0, note: "", progress: null, added: 0, updated: 0, watchedAt: null, ...o,
 });
 const NOW = at("2026-11-08T12:00:00Z");
 
