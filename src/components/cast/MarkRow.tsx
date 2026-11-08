@@ -11,7 +11,7 @@ import type { Item } from "@/lib/types";
 /** A title in a list: tap the name for its details, or tap Watched / To watch / Must watch right there without leaving the list. */
 export default function MarkRow({ it, sub, small, actor }: { it: Item; sub?: string; small?: boolean; actor?: string }) {
   return (
-    <div className="row">
+    <div className="row mark-row">
       <TitleLink k={it.key} it={it} className="row-link">
         <Thumb path={it.poster} />
         <span className="row-main">

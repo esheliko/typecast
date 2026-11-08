@@ -457,16 +457,17 @@ button:not([disabled]):active, a.row:active, a.tab:active, .person-chip:active, 
 @media (max-width: 560px) { .pill-slot { width: 112px; } .pill-flip svg { display: none; } }
 /* Library rows on phones: the poster, title and every control can't share one line (they need ~430px), so the title gets the full width and the controls sit on a second line. */
 @media (max-width: 559px) {
-  .lib-row { flex-wrap: wrap; row-gap: 6px; }
-  .lib-row .row-link { flex: 1 1 100%; }
-  .lib-row { column-gap: 6px; position: relative; }
-  .lib-row .row-link { padding-right: 78px; }
-  .lib-row .pill-slot { width: auto; justify-content: flex-start; margin-right: auto; }
+  .lib-row, .mark-row { flex-wrap: wrap; row-gap: 6px; }
+  .lib-row .row-link, .mark-row .row-link { flex: 1 1 100%; }
+  .lib-row, .mark-row { column-gap: 6px; position: relative; }
+  .lib-row .row-link, .mark-row .row-link { padding-right: 78px; }
+  .lib-row .pill-slot, .mark-row .pill-slot { width: auto; justify-content: flex-start; margin-right: auto; }
   /* Glimpse and related float in the top-right corner beside the title, so they take no height of their own. */
-  .lib-row .gl-b, .lib-row .rel-b { position: absolute; top: 8px; width: 36px; min-width: 36px; height: 36px; padding: 0; justify-content: center; }
-  .lib-row .rel-b { right: 8px; }
-  .lib-row .gl-b { right: 44px; }
-  .lib-row .pill-flip svg { display: inline; }
+  .lib-row .gl-b, .lib-row .rel-b, .mark-row .gl-b, .mark-row .rel-b { position: absolute; top: 8px; width: 36px; min-width: 36px; height: 36px; padding: 0; justify-content: center; }
+  .lib-row .rel-b, .mark-row .rel-b { right: 8px; }
+  .lib-row .gl-b, .mark-row .gl-b { right: 44px; }
+  .lib-row .pill-flip svg, .mark-row .pill-flip svg { display: inline; }
+  .mark-row .qm.inline { margin-left: 56px; }
 }
 
 /* Skeletons: placeholders shaped like the content, so a page change shows its layout at once instead of a spinner. */
