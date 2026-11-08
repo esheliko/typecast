@@ -272,6 +272,7 @@ export const getFranchise = cache(async (type: MediaType, id: number): Promise<F
  * Fallback for titles with no collection or universe: loosely related titles, found by similar names (first words of the title),
  * TMDB's own recommendations and "similar" lists, and shared keywords. Unreleased titles are left out.
  */
+const CREATOR_MAX = 12;
 export const getSimilar = cache(async (type: MediaType, id: number): Promise<FranchiseGroup[]> => {
   const d = await tmdb(`/${type}/${id}`, { append_to_response: "keywords,recommendations,similar" }, 24 * HOUR);
   const title: string = d.title ?? d.name ?? "";
@@ -281,6 +282,26 @@ export const getSimilar = cache(async (type: MediaType, id: number): Promise<Fra
     .filter((r) => r.poster_path && when(r) && when(r) <= today())
     .map((r) => item(t, r)).filter((i) => !have.has(i.key) && have.add(i.key));
   const out: FranchiseGroup[] = [];
+  // Same creator: the strongest signal for a distinctive author (a series' creator, a film's director). Their other work comes first.
+  // Skipped for prolific people (more than CREATOR_MAX credits in that role), where "same person" says little about similarity.
+  const makers: { id: number }[] = type === "tv" ? (d.created_by ?? []) : [];
+  if (type === "movie") {
+    const cr = await tmdb(`/movie/${id}/credits`, {}, 24 * HOUR).catch(() => null);
+    const dir = (cr?.crew ?? []).find((c: any) => c.job === "Director");
+    if (dir) makers.push({ id: dir.id });
+  }
+  if (makers.length) {
+    const roles = type === "tv" ? ["Creator", "Director", "Writer"] : ["Director"];
+    const lists = await Promise.all(makers.slice(0, 2).map((m) => tmdb(`/person/${m.id}/combined_credits`, {}, 24 * HOUR).then((c) => {
+      const rows = (c.crew ?? []).filter((r: any) => roles.includes(r.job) && (r.media_type === "movie" || r.media_type === "tv"));
+      const byKey = new Map<string, any>(); for (const r of rows) byKey.set(`${r.media_type}:${r.id}`, r);
+      return byKey.size <= CREATOR_MAX ? [...byKey.values()] : [];
+    }).catch(() => [])));
+    const rows = lists.flat().filter((r: any) => (r.vote_count ?? 0) >= 5).sort((a: any, b: any) => (when(a)).localeCompare(when(b)));
+    const same: Item[] = [];
+    for (const r of rows) same.push(...keep([r], r.media_type));
+    if (same.length) out.push({ label: "Same creator", items: same.slice(0, 20) });
+  }
   // Similar names: the title before any subtitle, then its first two words.
   const head = title.split(/\s*[:\u2013\u2014-]\s*/)[0].trim();
   const words = plain(head).split(" ").filter(Boolean);
