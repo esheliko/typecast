@@ -3,8 +3,11 @@ import Link from "next/link";
 import { Suspense } from "react";
 import LibraryView from "@/components/LibraryView";
 import UpNext from "@/components/UpNext";
+import Upcoming, { UpcomingSkeleton } from "@/components/Upcoming";
 import { rankUpNext, realServices } from "@/lib/upnext";
 import { loadUpNext } from "@/lib/upnext-data";
+import { hasUpcomingCandidates, loadUpcoming } from "@/lib/upcoming-data";
+import { dayOf } from "@/lib/upcoming";
 import { isSort } from "@/lib/library-sort";
 import { isKind } from "@/lib/kind";
 import { SuggestionRows } from "@/components/cast/CreditList";
@@ -58,6 +61,18 @@ async function WatchNext({ lib }: { lib: LibItem[] }) {
   }
 }
 
+/** Decoration: unreleased films and next episodes from the library. On any failure it renders nothing. */
+async function UpcomingFromList({ lib }: { lib: LibItem[] }) {
+  try {
+    const now = Date.now();
+    const entries = await loadUpcoming(lib, await getProfile(), now);
+    return entries.length ? <Upcoming entries={entries} today={dayOf(now)} /> : null;
+  } catch (e) {
+    console.error("Upcoming failed", e);
+    return null;
+  }
+}
+
 export default async function Library({ searchParams }: { searchParams: Promise<{ f?: string; s?: string; k?: string }> }) {
   const { f, s, k } = await searchParams;
   let lib: LibItem[];
@@ -75,7 +90,10 @@ export default async function Library({ searchParams }: { searchParams: Promise<
           <Link className="btn gold" href="/">Find a title</Link>
         </div>
       ) : <><p style={{ margin: "14px 0 0" }}><Link className="chip" href="/library/stats" style={{ display: "inline-block" }}>Stats</Link></p><LibraryView items={lib} initial={filter} initialSort={isSort(s) ? s : "added"} initialKind={isKind(k) && k !== "all" ? k : "all"}
-        top={<Suspense fallback={<UpNext picks={quickPicks(lib)} services="pending" />}><WatchNext lib={lib} /></Suspense>} /></>}
+        top={<>
+          <Suspense fallback={<UpNext picks={quickPicks(lib)} services="pending" />}><WatchNext lib={lib} /></Suspense>
+          <Suspense fallback={hasUpcomingCandidates(lib) ? <UpcomingSkeleton /> : null}><UpcomingFromList lib={lib} /></Suspense>
+        </>} /></>}
       {lib.length > 0 && <Suspense fallback={null}><Suggestions lib={lib} /></Suspense>}
     </div>
   );

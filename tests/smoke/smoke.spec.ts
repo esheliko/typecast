@@ -70,6 +70,21 @@ test.describe("signed in", () => {
     const upnext = page.getByRole("region", { name: "Watch next" });
     await expect(upnext).toBeVisible();
     await expect(upnext.getByText("Breaking Bad").first()).toBeVisible({ timeout: 20_000 });
+    // Upcoming: the seeded series are all candidates, but whether any has a future episode depends on TMDB today, so the section is
+    // optional. When it is there it must open, and every row needs a date and a countdown (never "Invalid" or an empty cell).
+    const upcoming = page.getByRole("region", { name: "Upcoming" });
+    await page.waitForTimeout(3000);
+    if (await upcoming.count()) {
+      await upcoming.getByRole("button", { name: /Upcoming/ }).click();
+      const rows = upcoming.locator(".up-row");
+      await expect(rows.first()).toBeVisible();
+      for (const row of await rows.all()) {
+        await expect(row.locator(".up-date")).toHaveText(/\d/);
+        await expect(row.locator(".pill")).not.toBeEmpty();
+        await expect(row).not.toContainText(/NaN|undefined|Invalid/);
+      }
+      await upcoming.getByRole("button", { name: /Upcoming/ }).click(); // leave it collapsed for the steps below
+    }
     // "On my services" toggle (shown only when the smoke user has services): filters to streamable picks or says nothing qualifies, and undoes cleanly.
     const mine = upnext.getByRole("button", { name: "On my services" });
     if (await mine.isVisible()) {

@@ -36,6 +36,8 @@ export interface Title extends Item {
   prov: Record<string, ProviderGroup>; collection: number | null; related: Related[]; imdbId: string | null;
   /** Series only: show-wide facts, and everyone else who appeared (beyond `people`), for searching the cast. */
   show?: ShowInfo; extras?: CastMember[];
+  /** Films only: the release date (YYYY-MM-DD), "" when TMDB has none. */
+  release?: string;
 }
 export interface Person { id: number; name: string; photo: string | null; dept: string; bio: string; known: Credit[]; imdbId: string | null }
 export type BrowseList = "foryou" | "trending" | "popular" | "top" | "new" | "soon";

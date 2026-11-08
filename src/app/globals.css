@@ -756,3 +756,16 @@ body:has(.wbar) .toast-slot { bottom: calc(146px + env(safe-area-inset-bottom, 0
 .pill.newep { background: transparent; color: var(--gold); box-shadow: inset 0 0 0 1px var(--gold-fill); padding: 0 8px; font-size: 10px; margin-top: 3px; }
 .pill.newep .newep-d { text-transform: none; letter-spacing: 0; }
 .pc-flag.newep { background: rgb(15 17 22 / .78); color: var(--gold-fill); box-shadow: inset 0 0 0 1px var(--gold-fill); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+
+/* Upcoming from your list (Library): reuses the Watch next header; rows reuse .row and .thumb. */
+.upcoming { margin-bottom: 4px; }
+.up-grp { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin: 10px 0 4px; }
+.up-rows { margin: 0; overflow: hidden; }
+.up-row { text-decoration: none; color: inherit; }
+.up-row .thumb { width: 38px; height: 56px; }
+.up-row .row-title { font-size: 17px; }
+.up-svc { display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 4px; background: var(--chip); color: var(--ink); font: 600 10px/1.6 var(--body); }
+.up-when { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
+.up-date { font-size: 12px; }
+.up-more { display: block; margin-top: 8px; }
+.up-sk { height: 34px; margin-top: 8px; }

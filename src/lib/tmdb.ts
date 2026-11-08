@@ -154,6 +154,7 @@ export async function getTitle(type: MediaType, id: number): Promise<Title> {
     ...item(type, d),
     overview: d.overview ?? "", tagline: d.tagline ?? "", genres: (d.genres ?? []).map((g: any) => g.name),
     runtime: (type === "movie" ? d.runtime : d.episode_run_time?.[0]) ?? null, status: d.status ?? "",
+    ...(type === "movie" ? { release: (d.release_date ?? "") as string } : {}),
     crew: crewBy.director.map((p) => p.name), crewBy,
     seasons: type === "tv" ? (d.seasons ?? []).filter((s: any) => s.season_number > 0).map((s: any) => ({ n: s.season_number, eps: s.episode_count })) : [],
     imdbId: d.external_ids?.imdb_id || d.imdb_id || null,
@@ -198,6 +199,24 @@ export async function getEpisodeFacts(id: number): Promise<EpisodeFacts> {
     last: l?.air_date ? { s: l.season_number ?? 1, e: l.episode_number ?? 1, date: l.air_date } : null,
     seasons: ((d.seasons ?? []) as any[]).map((x) => ({ n: x.season_number as number, air: (x.air_date ?? null) as string | null })),
   };
+}
+
+/**
+ * When a title next arrives, for "Upcoming from your list": a film's release date, or a series' next episode (with where it streams).
+ * Films are cached 12 hours, series 6 (schedules shift). `date` is "" when TMDB has no future date.
+ */
+export async function getUpcomingFacts(type: MediaType, id: number): Promise<{ date: string; s?: number; e?: number; epName?: string; prov: Record<string, { id: number; name: string }[]> }> {
+  if (type === "movie") {
+    const d = await tmdb(`/movie/${id}`, {}, 12 * HOUR);
+    return { date: (d.release_date ?? "") as string, prov: {} };
+  }
+  const d = await tmdb(`/tv/${id}`, { append_to_response: "watch/providers" }, 6 * HOUR);
+  const n = d.next_episode_to_air;
+  const prov: Record<string, { id: number; name: string }[]> = {};
+  for (const [cc, o] of Object.entries<any>(d["watch/providers"]?.results ?? {})) {
+    prov[cc] = [...(o.flatrate ?? []), ...(o.free ?? []), ...(o.ads ?? [])].map((p: any) => ({ id: p.provider_id as number, name: p.provider_name as string }));
+  }
+  return { date: (n?.air_date ?? "") as string, s: n?.season_number, e: n?.episode_number, epName: n?.name, prov };
 }
 
 /** The few facts Watch next ranks by: genres, rating, length, dates, where it streams, and what it recommends. Small and cached 12 hours. */

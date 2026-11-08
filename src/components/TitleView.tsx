@@ -211,6 +211,13 @@ function ShowFacts({ t }: { t: Title }) {
   );
 }
 
+/** An unreleased film: "Releases Fri 18 Dec 2026 (in 40 days)". Nothing once it is out or when TMDB has no date. */
+function ReleaseLine({ date }: { date: string }) {
+  const until = untilLabel(date, today());
+  if (!until) return null;
+  return <div className="sh-meta">Releases {fmtDate(date, true)} ({until})</div>;
+}
+
 /** Opened from a person (their filmography, or their row in another title's cast): their part in this one, and for a series which episodes. */
 function Focus({ t, id }: { t: Title; id: number }) {
   const c = t.people.find((x) => x.id === id) ?? t.extras?.find((x) => x.id === id)
@@ -246,6 +253,7 @@ export default async function TitleView({ t, origin, focus }: { t: Title; origin
           <h1 className="sh-title">{t.title} <RelatedButton it={t} /> <GlimpseButton spec={titleSpec(t)} /> {t.imdbId && <a className="imdb-link" href={`https://www.imdb.com/title/${t.imdbId}/`} target="_blank" rel="noopener noreferrer" aria-label="Open on IMDb" title="Open on IMDb">IMDb ↗</a>}</h1>
           <div className="sh-meta">{meta}</div>
           {t.show && <ShowFacts t={t} />}
+          {t.release && <ReleaseLine date={t.release} />}
           {mine?.newEp && <div style={{ margin: "4px 0 2px" }}><NewEpPill k={t.key} detail={newEpDetail(mine.newEp)} /></div>}
           <Suspense fallback={null}><AwardChips t={t} /></Suspense>
           {gaps
