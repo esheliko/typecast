@@ -87,12 +87,26 @@ test.describe("signed in", () => {
     await visit(page, "/setup", bad);
   });
 
-  test("title and person pages (hard load)", async ({ page }) => {
+  // A hard load of /title/... restores the popup over Browse; ?full=1 is the standalone page ("Open full page").
+  test("title page (full page)", async ({ page }) => {
+    const bad = watch(page);
+    await visit(page, "/title/movie/603?full=1", bad);
+    await expect(page.getByRole("heading", { name: /The Matrix/ })).toBeVisible({ timeout: 20_000 });
+    await visit(page, "/title/tv/1396?full=1", bad);
+    await expect(page.getByRole("heading", { name: /Breaking Bad/ })).toBeVisible({ timeout: 20_000 });
+  });
+
+  test("title popup (hard load restores it over Browse)", async ({ page }) => {
     const bad = watch(page);
     await visit(page, "/title/movie/603", bad);
-    await expect(page.getByText("The Matrix").first()).toBeVisible();
-    await visit(page, "/title/tv/1396", bad);
+    await expect(page.getByRole("heading", { name: /The Matrix/ })).toBeVisible({ timeout: 20_000 });
+    await healthy(page, bad);
+  });
+
+  test("person page", async ({ page }) => {
+    const bad = watch(page);
     await visit(page, "/person/6384", bad);
+    await expect(page.getByRole("heading").first()).toBeVisible({ timeout: 20_000 });
   });
 
   test("API routes answer when signed in", async ({ page }) => {
