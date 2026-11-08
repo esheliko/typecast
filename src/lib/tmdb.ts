@@ -1,5 +1,5 @@
 import { cache } from "react";
-import { interleave, type BrowseQuery, type Tag } from "./browse";
+import { genresFor, interleave, type BrowseQuery, type Tag } from "./browse";
 import { shapeCrew, type CrewBy } from "./details";
 import type { BrowseItem, BrowseList, BrowseType, CastMember, Credit, Item, MediaType, Person, ProviderGroup, Related, SearchHit, Title } from "./types";
 
@@ -428,10 +428,19 @@ export const browseItem = (type: MediaType, r: any): BrowseItem => ({ ...item(ty
 export async function discover(q: BrowseQuery, page: number, region: string, services: number[]): Promise<BrowsePage> {
   page = Math.min(Math.max(1, Math.floor(page) || 1), 500);
   if (q.type === "all") {
-    // Genre ids differ between films and series, so a mixed search ignores them.
-    const both = { ...q, genres: [] };
-    const [m, t] = await Promise.all([discover({ ...both, type: "movie" }, page, region, services), discover({ ...both, type: "tv" }, page, region, services)]);
-    return { items: interleave(m.items, t.items), page, totalPages: Math.max(m.totalPages, t.totalPages), notice: m.notice ?? t.notice };
+    // Genres in a mixed search are the merged list; each type gets its own ids, and a type with no such genre is left out.
+    const run = (type: MediaType): Promise<BrowsePage | null> => {
+      const genres = genresFor(type, q.genres);
+      return genres ? discover({ ...q, type, genres }, page, region, services) : Promise.resolve(null);
+    };
+    const [m, t] = await Promise.all([run("movie"), run("tv")]);
+    const empty: BrowsePage = { items: [], page, totalPages: 1 };
+    const [a, b] = [m ?? empty, t ?? empty];
+    const only = !m ? "series" : !t ? "films" : undefined;
+    return {
+      items: interleave(a.items, b.items), page, totalPages: Math.max(a.totalPages, b.totalPages),
+      notice: only ? `Only ${only} have this genre.` : a.notice ?? b.notice,
+    };
   }
   if (q.type === "tv" && q.people.length) return tvByPeople(q, page);
 

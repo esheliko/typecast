@@ -1,6 +1,6 @@
 import CastHome, { type HomeProps } from "@/components/cast/CastHome";
 import type { Page } from "@/components/cast/Browse";
-import { isActive, parseBrowse } from "@/lib/browse";
+import { isActive, mergeGenres, parseBrowse } from "@/lib/browse";
 import { getLibrary, getProfile } from "@/lib/library";
 import { forYou } from "@/lib/foryou";
 import { browse, discover, genreList, getPerson, getTitle } from "@/lib/tmdb";
@@ -55,6 +55,6 @@ export default async function Home({ searchParams }: { searchParams: SP }) {
   const view = one(sp.view) === "connect" || connect.a ? "connect" : "browse";
   return (
     <CastHome view={view} connect={connect} watching={watching}
-      browse={{ filters, filtered, list, salt, first, genres: { movie: gm, tv: gt }, canFilterMine: profile.services.length > 0 }} />
+      browse={{ filters, filtered, list, salt, first, genres: { movie: gm, tv: gt, all: mergeGenres(gm, gt) }, canFilterMine: profile.services.length > 0 }} />
   );
 }

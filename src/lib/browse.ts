@@ -1,4 +1,4 @@
-import type { BrowseType } from "./types";
+import type { BrowseType, MediaType } from "./types";
 
 /** Pure helpers shared by the server (parsing, TMDB calls) and the browser (filter UI). */
 
@@ -92,4 +92,39 @@ export function interleave<T extends { key: string }>(a: T[], b: T[]): T[] {
   const out: T[] = [], seen = new Set<string>();
   for (let i = 0; i < Math.max(a.length, b.length); i++) for (const x of [a[i], b[i]]) if (x && !seen.has(x.key)) { seen.add(x.key); out.push(x); }
   return out;
+}
+
+/**
+ * TMDB keeps separate genre lists for films and series. In "Both" mode the user sees one merged list whose ids are the
+ * film ids (or the series id where films have no such genre); this maps them back to each type's own ids.
+ */
+const TV_FOR_FILM: Record<number, number> = { 28: 10759, 12: 10759, 878: 10765, 14: 10765, 10752: 10768 }; // Action, Adventure, Sci-Fi, Fantasy, War
+const FILM_ONLY = new Set([36, 27, 10402, 10749, 53, 10770]); // History, Horror, Music, Romance, Thriller, TV Movie
+const TV_ONLY = new Set([10762, 10763, 10764, 10766, 10767]); // Kids, News, Reality, Soap, Talk
+const FILM_FOR_TV: Record<number, number> = { 10759: 28, 10765: 878, 10768: 10752 };
+const TV_MERGED = new Set(Object.values(TV_FOR_FILM)); // series genres folded into the film ones above
+
+/** One list for "Both": film genres plus the series-only ones, A to Z. */
+export function mergeGenres(film: Tag[], tv: Tag[]): Tag[] {
+  const out = [...film, ...tv.filter((g) => !TV_MERGED.has(g.id) && !film.some((f) => f.id === g.id))];
+  return out.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/** Merged ids → ids for one type, or null when that type has no such genre (so it has nothing to show). */
+export function genresFor(type: MediaType, ids: number[]): number[] | null {
+  const out = new Set<number>();
+  for (const g of ids) {
+    if (type === "movie") { if (TV_ONLY.has(g)) return null; out.add(g); }
+    else { if (FILM_ONLY.has(g)) return null; out.add(TV_FOR_FILM[g] ?? g); }
+  }
+  return [...out];
+}
+
+/** Carry the chosen genres over when Films / Series / Both changes; genres the new type lacks are dropped. */
+export function convertGenres(ids: number[], from: BrowseType, to: BrowseType): number[] {
+  if (from === to) return ids;
+  const merged = from === "tv" ? ids.map((g) => FILM_FOR_TV[g] ?? g) : ids;
+  if (to === "all") return [...new Set(merged)];
+  const ok = merged.filter((g) => (to === "movie" ? !TV_ONLY.has(g) : !FILM_ONLY.has(g)));
+  return [...new Set(to === "tv" ? ok.map((g) => TV_FOR_FILM[g] ?? g) : ok)];
 }

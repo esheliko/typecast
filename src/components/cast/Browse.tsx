@@ -10,10 +10,10 @@ import PassedCell from "./PassedCell";
 import QuickMark from "./QuickMark";
 import RelatedButton from "./RelatedButton";
 import type { Nudge } from "@/lib/nudges";
-import { SORTS, toParams, type BrowseQuery, type Sort, type Tag } from "@/lib/browse";
+import { SORTS, convertGenres, toParams, type BrowseQuery, type Sort, type Tag } from "@/lib/browse";
 import { img } from "@/lib/img";
 import { faded, loadPassed, type Passed } from "@/lib/passed";
-import type { BrowseItem, BrowseList, BrowseType, MediaType } from "@/lib/types";
+import type { BrowseItem, BrowseList, BrowseType } from "@/lib/types";
 
 const LISTS: { k: BrowseList; label: string; tv?: string }[] = [
   { k: "foryou", label: "For you" },
@@ -35,7 +35,7 @@ export interface BrowseProps {
   salt: number;
   /** First page from the server: of the filtered results when filtered, otherwise of the quick list. */
   first: Page | null;
-  genres: Record<MediaType, Tag[]>;
+  genres: Record<BrowseType, Tag[]>;
   canFilterMine: boolean;
 }
 
@@ -173,8 +173,8 @@ export default function Browse({ filters, filtered, list: initialList, salt: ser
   function chooseList(l: BrowseList) { setList(l); setUrl({ list: l }); }
   function chooseType(t: BrowseType) {
     if (t === type) return;
-    // With filters set the server runs the search again. Genre ids differ between films and series, so they reset.
-    if (filtered) { const s = toParams({ ...filters, type: t, genres: [] }).toString(); startRoute(() => router.replace(s ? `/?${s}` : "/", { scroll: false })); return; }
+    // With filters set the server runs the search again. Genre ids differ between films and series, so they are translated.
+    if (filtered) { const s = toParams({ ...filters, type: t, genres: convertGenres(filters.genres, type, t) }).toString(); startRoute(() => router.replace(s ? `/?${s}` : "/", { scroll: false })); return; }
     setType(t); setUrl({ type: t === "all" ? null : t });
   }
 
@@ -225,7 +225,7 @@ export default function Browse({ filters, filtered, list: initialList, salt: ser
         </select>
         <button type="button" className="chip sm" aria-pressed={hide} onClick={() => setHide(!hide)} title="Hide titles you have already marked or skipped, and make ones you keep scrolling past turn up less often">Hide marked{hide && hiddenCount > 0 ? ` · ${hiddenCount}` : ""}</button>
       </div>
-      {panel && <BrowseFilters q={{ ...filters, type }} genres={type === "all" ? [] : genres[type]} canFilterMine={canFilterMine} active={filtered} />}
+      {panel && <BrowseFilters q={{ ...filters, type }} genres={genres[type]} canFilterMine={canFilterMine} active={filtered} />}
       {filtered && <h2>{routing ? <span><span className="spin" />Updating</span> : "Filtered results"}</h2>}
       {data?.notice && <p className="small muted" style={{ margin: "8px 0 0" }}>{data.notice}</p>}
 

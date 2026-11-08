@@ -34,7 +34,6 @@ export default function BrowseFilters({ q, genres, canFilterMine, active }: { q:
     <section className="card pad filters" aria-busy={pending} aria-label="Browse filters">
       {pending && <span className="small muted"><span className="spin" />Updating</span>}
       <div className="frow" role="group" aria-label="Genre">
-        {q.type === "all" && <span className="small muted">Pick Films or Series to filter by genre.</span>}
         {genres.map((g) => <button key={g.id} type="button" className="chip" aria-pressed={q.genres.includes(g.id)} onClick={() => toggleGenre(g.id)}>{g.name}</button>)}
       </div>
 
