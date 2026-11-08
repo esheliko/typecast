@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Avatar } from "./ui";
 import { Poster } from "./cast/Browse";
 import { useLib } from "./cast/LibState";
@@ -40,9 +40,14 @@ export default function Search({ onActive }: { onActive: (on: boolean) => void }
 
   const people = hits?.filter((h) => h.kind === "person") ?? [];
   // Titles you have rated or noted come first, then other marked ones, then the rest (each group keeps TMDB's order).
-  const rank = (k: string) => { const m = get(k); return m ? (m.rich ? 2 : 1) : 0; };
-  const titles = (hits?.filter((h) => h.kind === "title") ?? []).map((h, i) => ({ h, i, r: h.kind === "title" ? rank(h.key) : 0 }))
-    .sort((a, b) => b.r - a.r || a.i - b.i).map((x) => x.h);
+  // The order is fixed when a result set arrives, so marking a title here never makes the list jump around.
+  const getRef = useRef(get);
+  getRef.current = get;
+  const titles = useMemo(() => {
+    const rank = (k: string) => { const m = getRef.current(k); return m ? (m.rich ? 2 : 1) : 0; };
+    return (hits?.filter((h) => h.kind === "title") ?? []).map((h, i) => ({ h, i, r: h.kind === "title" ? rank(h.key) : 0 }))
+      .sort((a, b) => b.r - a.r || a.i - b.i).map((x) => x.h);
+  }, [hits]);
   return (
     <>
       <form className="search" role="search" onSubmit={(e) => { e.preventDefault(); input.current?.blur(); }}>
