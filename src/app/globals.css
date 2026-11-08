@@ -669,7 +669,17 @@ body:has(.wbar) { padding-bottom: calc(160px + var(--kb, 0px)); }
 body:has(.wbar) .toast-slot { bottom: calc(146px + env(safe-area-inset-bottom, 0px)); }
 @media (min-width: 720px) { .wbar { bottom: 14px; } body:has(.wbar) { padding-bottom: 110px; } body:has(.wbar) .toast-slot { bottom: 90px; } }
 .modal ~ .wbar, body:has(.modal) .wbar { display: none; }
-.wbtn-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 4px 0 14px; }
+.wbtn-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin: 14px 0 0; padding-top: 14px; border-top: 1px solid var(--line); }
+.mark-card { margin: 14px 0 16px; padding: 14px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line); }
+.mc-label { font: 600 11px/1.2 var(--body); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.mc-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 8px; }
+@media (min-width: 520px) { .mc-grid { grid-template-columns: repeat(4, 1fr); } }
+.chip.sc.mc-opt { justify-content: center; padding: 9px 10px; white-space: nowrap; }
+.mc-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; margin-top: 14px; }
+.mc-row .stars { letter-spacing: 0; white-space: nowrap; }
+.mc-row .stars button { padding: 0 2px; line-height: 1; }
+.mc-remove { display: block; margin-top: 12px; padding: 0; font-size: 13px; color: var(--muted); text-decoration: underline; text-underline-offset: 2px; }
+.mc-remove:hover { color: var(--bad); }
 .wbtn-row .btn svg { flex: none; }
 
 .ask-wrap { z-index: 85; }

@@ -32,33 +32,41 @@ export default function StatusControls({ item, lib }: { item: Item; lib: LibItem
     });
   };
   const sc = (s: Status, cls: string) => (
-    <button key={s} type="button" className={`chip sc ${cls}`} aria-pressed={status === s} onClick={() => toggle(s)}>
+    <button key={s} type="button" className={`chip sc mc-opt ${cls}`} aria-pressed={status === s} onClick={() => toggle(s)}>
       <StatusIcon kind={s === "watchlist" && priority === "must" && status === s ? "must" : s} size={16} />{STATUS_LABEL[s]}
     </button>
   );
   return (
     <div aria-busy={pending}>
-      <div className="status" role="group" aria-label="Status">
+      <div className="mc-label">Where is it for you?</div>
+      <div className="mc-grid" role="group" aria-label="Status">
+        {sc("watchlist", priority === "must" ? "must" : "watchlist")}
         {sc("watching", "watching")}
         {sc("partial", "partial")}
-        {sc("watchlist", priority === "must" ? "must" : "watchlist")}
         {sc("watched", "watched")}
-        {status && (
-          <div className="stars" role="group" aria-label="Your rating" style={{ fontSize: 20 }}>
+      </div>
+      {status === "watchlist" && (
+        <div className="mc-row" role="group" aria-label="How much you want to watch it">
+          <span className="mc-label">How much do you want it?</span>
+          <div className="seg">
+            {(Object.keys(PRIORITY_LABEL) as Priority[]).map((p) => (
+              <button key={p} type="button" aria-pressed={priority === p} onClick={() => mark(item, "watchlist", p)}>{PRIORITY_LABEL[p]}</button>
+            ))}
+          </div>
+        </div>
+      )}
+      {status && (
+        <div className="mc-row">
+          <span className="mc-label">Your rating</span>
+          <div className="stars" role="group" aria-label="Your rating" style={{ fontSize: 22 }}>
             {[1, 2, 3, 4, 5].map((n) => (
               <button key={n} onClick={() => rate(n)} aria-label={`${n} stars`} style={{ color: "var(--gold)" }}>{n <= stars ? "★" : "☆"}</button>
             ))}
           </div>
-        )}
-      </div>
-      {status === "watchlist" && (
-        <div className="status" role="group" aria-label="How much you want to watch it" style={{ marginTop: 0 }}>
-          {(Object.keys(PRIORITY_LABEL) as Priority[]).map((p) => (
-            <button key={p} type="button" className={`chip sc ${p === "must" ? "must" : "watchlist"}`} aria-pressed={priority === p} onClick={() => mark(item, "watchlist", p)}>
-              <StatusIcon kind={p === "must" ? "must" : "watchlist"} size={16} />{PRIORITY_LABEL[p]}
-            </button>
-          ))}
         </div>
+      )}
+      {status && (
+        <button type="button" className="mc-remove" onClick={() => mark(item, null)}>Remove from my library</button>
       )}
       {err && <p className="small err" role="alert" style={{ margin: "6px 0 0" }}>{err}</p>}
     </div>

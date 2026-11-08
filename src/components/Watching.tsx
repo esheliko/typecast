@@ -95,7 +95,7 @@ export function WatchButton({ it, runtime, progress }: { it: Item; runtime: numb
           {c.watch ? "Watch this now instead" : "I'm watching this now"}
         </button>
       )}
-      {!mine && <span className="small muted">Ask anything about it while you watch</span>}
+      {!mine && <span className="small muted">Ask about the cast, plot or where you know them from.</span>}
     </div>
   );
 }
