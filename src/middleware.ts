@@ -19,8 +19,14 @@ export async function middleware(req: NextRequest) {
     },
   });
   // getClaims() checks the signed token locally (the project uses asymmetric signing keys), so there is no round trip to Supabase on every request.
-  const { data } = await sb.auth.getClaims();
-  const user = data?.claims ?? null;
+  let user: Record<string, unknown> | null;
+  try {
+    user = (await sb.auth.getClaims()).data?.claims ?? null;
+  } catch {
+    // Auth backend unreachable. Never fail open and never show a bare 500: answer with a self-retrying page (or JSON for the API).
+    if (req.nextUrl.pathname.startsWith("/api/")) return NextResponse.json({ error: "Temporarily unavailable" }, { status: 503, headers: { "Retry-After": "5" } });
+    return NextResponse.rewrite(new URL("/retry.html", req.url), { status: 503, headers: { "Retry-After": "5", "Cache-Control": "no-store" } });
+  }
   const path = req.nextUrl.pathname;
   const open = OPEN.some((p) => path === p || path.startsWith(p + "/"));
 
@@ -37,5 +43,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|sw.js|manifest.webmanifest|icons/|.*\\.(?:png|jpg|jpeg|svg|ico|webp)$).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|sw.js|manifest.webmanifest|icons/|retry\\.html|.*\\.(?:png|jpg|jpeg|svg|ico|webp)$).*)"],
 };

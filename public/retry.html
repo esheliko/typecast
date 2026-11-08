@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Typecast</title>
+<style>
+  :root { --bg:#eef0f4; --ink:#14161c; --muted:#5d6472; --chip:#e3e6ed; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#0f1116; --ink:#eceef3; --muted:#98a0b0; --chip:#232734; } }
+  body { margin:0; min-height:100vh; display:grid; place-items:center; padding:24px; box-sizing:border-box; background:var(--bg); color:var(--ink); font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif; text-align:center; }
+  .logo { font-weight:700; font-size:22px; letter-spacing:.02em; margin-bottom:12px; }
+  p { color:var(--muted); margin:0 0 18px; max-width:32ch; }
+  button { font:600 14px system-ui,sans-serif; padding:9px 18px; border:0; border-radius:999px; background:var(--chip); color:var(--ink); cursor:pointer; }
+</style>
+</head>
+<body>
+<main>
+  <div class="logo">Typecast</div>
+  <p>Back in a moment. We're updating or the connection hiccuped. Your library is safe. Retrying automatically…</p>
+  <button type="button" onclick="location.reload()">Retry now</button>
+</main>
+<script>setTimeout(function () { location.reload(); }, 4000);</script>
+</body>
+</html>

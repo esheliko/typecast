@@ -11,7 +11,8 @@ import { getLibrary } from "@/lib/library";
 import type { Mark } from "@/lib/types";
 
 export default async function AppLayout({ children, modal }: { children: React.ReactNode; modal: React.ReactNode }) {
-  const lib = await getLibrary();
+  // Marks are decoration: if the database blips, the shell and the page's own error handling should still work.
+  const lib = await getLibrary().catch(() => []);
   // GlimpseProvider wraps LibProvider: the franchise sheet (rendered by LibProvider) has glimpse buttons too.
   // One set of marks for every page and for the title popup, so a title marked anywhere is marked everywhere at once.
   const marks: Record<string, Mark> = Object.fromEntries(lib.map((l) => [l.key, { status: l.status, priority: l.priority, rich: l.rating > 0 || !!l.note.trim() }]));
