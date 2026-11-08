@@ -25,3 +25,8 @@ in roughly 5-15 min; check issue #1 if you need to know.
 - 2026-11-08: ~45 deployments in 5h from parallel sessions pushing one by one; Vercel then refused all deployments.
   The Vercel list API caps at 100 per page, so "100 in 24h" was really 150+. The block lifted early (a manual API deployment
   was accepted ~2h after the last one), so the 24h count is a pacing signal, not an exact quota. Only a real 402 is a hard stop.
+
+## Visual board (Claude artifact "Typecast deploy board")
+https://claude.ai/artifact/UbFWzbLxByvYjzki19uuMv. It reads five JSON files uploaded to the artifact (no GitHub/Vercel connector exists, so it
+cannot query live). Refresh: `node scripts/dashboard-data.mjs <dir>`, then upload each of status/hourly/recent/events .json with the Artifact tool
+(`asset: true`, same url) and `update` the matching `datasets/<id>` document's `source.url`, `source.name` and `updated`. The hourly supervisor does this.
