@@ -380,6 +380,10 @@ li.row { gap: 10px; }
   .back:hover { background: var(--line); }
   .views button:not([aria-selected="true"]):hover { color: var(--ink); border-bottom-color: var(--line); }
   .seg button:not([aria-pressed="true"]):hover { color: var(--ink); background: color-mix(in srgb, var(--surface) 55%, transparent); }
+  button.srow, a.srow { transition: background-color .15s, box-shadow .15s; }
+  .chev { display: inline-block; transition: transform .15s, color .15s; }
+  button.srow:hover, a.srow:hover { background: color-mix(in srgb, var(--ink) 5%, transparent); box-shadow: -8px 0 0 color-mix(in srgb, var(--ink) 5%, transparent), 8px 0 0 color-mix(in srgb, var(--ink) 5%, transparent); }
+  button.srow:hover .chev, a.srow:hover .chev { transform: translateX(2px); color: var(--ink); }
   a.row:hover, li.row:hover, .fr-row:hover, .bridge:hover { background: color-mix(in srgb, var(--ink) 5%, transparent); }
   a.row:hover .row-title, .row-link:hover .row-title, .fr-main:hover .row-title, .bridge-who:hover .nm, .person-chip:hover .nm, .pc:hover .pc-t, .credit-main:hover .nm { color: var(--gold); }
   .person-chip:hover { border-color: var(--gold-fill); transform: translateY(-1px); box-shadow: 0 4px 14px rgb(0 0 0 / .12); }
