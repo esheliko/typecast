@@ -2,13 +2,14 @@
 import { useContext, useEffect, useState } from "react";
 import { TitleLink } from "./Modal";
 import { img } from "@/lib/img";
-import type { Pick } from "@/lib/upnext";
+import { onYourServices, type Pick } from "@/lib/upnext";
 import { ofKind } from "@/lib/kind";
 import { KindContext } from "@/lib/kind-context";
 
 const SHOW = 16;
 const KEY = "typecast:upnext-closed";
 const SNOOZE_KEY = "typecast:upnext-snoozed";
+const MINE_KEY = "typecast:upnext-mine";
 const SNOOZE_MS = 30 * 24 * 3600 * 1000;
 
 type Snoozed = Record<string, number>;
@@ -24,17 +25,32 @@ function saveSnoozed(s: Snoozed) { try { localStorage.setItem(SNOOZE_KEY, JSON.s
  * A swipeable strip of what to watch next, ranked on the server (see lib/upnext.ts). "Not now" hides a card on this device
  * for a month; the header can bring them back. Collapsible (remembered), so it never pushes the library down more than one slim row.
  */
-export default function UpNext({ picks: all }: { picks: Pick[] }) {
-  const picks = ofKind(all, useContext(KindContext)); // follows the Library's Films / Series switch
+/**
+ * `services`: "yes" when the user picked streaming services and availability was looked up, "no" when they picked none
+ * (the toggle is hidden), "pending" while the TMDB lookup is still streaming in, "failed" when it could not be done.
+ */
+export type ServicesState = "yes" | "no" | "pending" | "failed";
+
+export default function UpNext({ picks: all, services }: { picks: Pick[]; services: ServicesState }) {
+  const kindPicks = ofKind(all, useContext(KindContext)); // follows the Library's Films / Series switch
   const [closed, setClosed] = useState(false);
+  const [mineOnly, setMineOnly] = useState(false);
   const [snoozed, setSnoozed] = useState<Snoozed>({});
   useEffect(() => {
-    try { setClosed(localStorage.getItem(KEY) === "1"); } catch { /* storage unavailable */ }
+    try { setClosed(localStorage.getItem(KEY) === "1"); setMineOnly(localStorage.getItem(MINE_KEY) === "1"); } catch { /* storage unavailable */ }
     setSnoozed(loadSnoozed());
   }, []);
+  const canFilter = services !== "no";
+  const mine = canFilter && mineOnly;
+  const picks = mine ? onYourServices(kindPicks) : kindPicks;
   const list = picks.filter((p) => !snoozed[p.key]).slice(0, SHOW);
   const hidden = picks.filter((p) => snoozed[p.key]).length;
-  if (!list.length && !hidden) return null;
+  if (!kindPicks.length) return null;
+  const toggleMine = () => setMineOnly((m) => { try { localStorage.setItem(MINE_KEY, m ? "0" : "1"); } catch { /* ignore */ } return !m; });
+  const empty = !mine ? "Nothing left to suggest: everything here is hidden for now."
+    : services === "pending" ? "Checking where these stream…"
+    : services === "failed" ? "Couldn't check your services just now. Try again in a moment."
+    : "Nothing from your list is streaming on your services right now.";
   const toggle = () => setClosed((c) => { try { localStorage.setItem(KEY, c ? "0" : "1"); } catch { /* ignore */ } return !c; });
   const snooze = (k: string) => { const s = { ...loadSnoozed(), [k]: Date.now() + SNOOZE_MS }; saveSnoozed(s); setSnoozed(s); };
   const restore = () => { saveSnoozed({}); setSnoozed({}); };
@@ -46,8 +62,10 @@ export default function UpNext({ picks: all }: { picks: Pick[] }) {
           <span className="mono upnext-n">{list.length}</span>
           <span className="upnext-caret" aria-hidden="true">{closed ? "Show" : "Hide"}</span>
         </button>
+        {!closed && canFilter && <button type="button" className="chip upnext-mine" aria-pressed={mine} onClick={toggleMine} title="Only what you can stream tonight on the services you picked in Settings">On my services</button>}
         {!closed && hidden > 0 && <button type="button" className="upnext-restore" onClick={restore}>{hidden} hidden · bring back</button>}
       </div>
+      {!closed && !list.length && <p className="muted upnext-empty">{empty}{mine && services === "yes" && <> <button type="button" className="upnext-restore" onClick={toggleMine}>Show everything</button></>}</p>}
       {!closed && list.length > 0 && (
         <ul className="upnext-strip">
           {list.map((p) => (

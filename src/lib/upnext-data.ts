@@ -1,5 +1,5 @@
 import { getPickBasics } from "./tmdb";
-import { discoveryCandidates, rankUpNext, tasteSeeds, type Facts, type Pick } from "./upnext";
+import { discoveryCandidates, rankUpNext, realServices, tasteSeeds, type Facts, type Pick } from "./upnext";
 import type { Item, LibItem, Profile } from "./types";
 
 const MAX_WATCHLIST = 45;
@@ -14,7 +14,7 @@ async function pool<T, R>(xs: T[], n: number, fn: (x: T) => Promise<R>): Promise
 }
 
 async function factsFor(items: Item[], profile: Profile, into: Map<string, Facts>) {
-  const mine = new Set(profile.services);
+  const mine = new Set(realServices(profile.services));
   const todo = items.filter((it, i) => !into.has(it.key) && items.findIndex((x) => x.key === it.key) === i);
   const got = await pool(todo, 12, (it) => getPickBasics(it.type, it.id).catch(() => null));
   todo.forEach((it, i) => {
@@ -38,5 +38,6 @@ export async function loadUpNext(lib: LibItem[], profile: Profile, now = Date.no
   await factsFor([...tasteSeeds(lib), ...progress, ...wl], profile, facts);
   await factsFor(discoveryCandidates(lib, facts, now), profile, facts);
   // Titles not looked up (a very long watchlist) are still ranked, just on what the library knows.
-  return rankUpNext(lib, { now, facts, hasServices: profile.services.length > 0 }, new Set(), 32);
+  // 48 so the "on your services" view still has enough after filtering.
+  return rankUpNext(lib, { now, facts, hasServices: realServices(profile.services).length > 0 }, new Set(), 48);
 }

@@ -34,7 +34,14 @@ export interface Facts {
 }
 
 export type PickKind = "continue" | "new-eps" | "library" | "stale" | "discover";
-export interface Pick extends Item { why: string; tag: string | null; length: string | null; kind: PickKind; score: number }
+/** `tag` is the first of your services it streams on (null if none or not looked up); `checked` is whether TMDB was asked. */
+export interface Pick extends Item { why: string; tag: string | null; length: string | null; kind: PickKind; score: number; checked: boolean }
+
+/** Service ids that TMDB knows. Negative ids are labels the user typed in by hand, with no availability data. */
+export const realServices = (ids: number[]) => ids.filter((id) => Number.isInteger(id) && id > 0);
+
+/** "Tonight on your services": only picks you can stream right now on a service you have. */
+export const onYourServices = (picks: Pick[]) => picks.filter((p) => p.tag !== null);
 
 export interface Ctx {
   now: number;
@@ -94,7 +101,7 @@ function inProgress(l: LibItem, ctx: Ctx): Pick {
   const f = ctx.facts.get(l.key);
   const age = daysSince(l.updated, ctx.now);
   const where = l.progress ? `S${l.progress.s} E${l.progress.e}` : null;
-  const base = { key: l.key, type: l.type, id: l.id, title: l.title, year: l.year, poster: l.poster, length: lengthLabel(l.type, f?.runtime ?? null), tag: f?.onMine[0] ?? null };
+  const base = { key: l.key, type: l.type, id: l.id, title: l.title, year: l.year, poster: l.poster, length: lengthLabel(l.type, f?.runtime ?? null), tag: f?.onMine[0] ?? null, checked: !!f };
   // A series with an episode newer than your last touch is worth picking back up even if it sat for a while.
   const newer = l.type === "tv" && !!f?.lastAired && f.lastAired > iso(l.updated);
   if (age <= FRESH_DAYS) return { ...base, kind: "continue", score: 20 - age / 7, why: where ? `Continue from ${where}` : l.status === "watching" ? "You're watching this" : "Pick up where you left off" };
@@ -107,7 +114,7 @@ function fromWatchlist(l: LibItem, ctx: Ctx, taste: Map<number, number>, recBy: 
   const f = ctx.facts.get(l.key);
   const today = iso(ctx.now);
   if (f?.released && f.released > today) return null; // not out yet: not a next watch
-  const base = { key: l.key, type: l.type, id: l.id, title: l.title, year: l.year, poster: l.poster, length: lengthLabel(l.type, f?.runtime ?? null), tag: f?.onMine[0] ?? null };
+  const base = { key: l.key, type: l.type, id: l.id, title: l.title, year: l.year, poster: l.poster, length: lengthLabel(l.type, f?.runtime ?? null), tag: f?.onMine[0] ?? null, checked: !!f };
   const reasons: [number, string][] = [];
   let score = 3;
   // A watched series moved back to the watchlist because a new episode aired (see recheckEpisodes).
@@ -158,7 +165,7 @@ export function discoveries(lib: LibItem[], ctx: Ctx, seeds: LibItem[], taste: M
     let score = from.length * 2 + voteBoost(r.vote, r.votes) + tasteOf(r.genres, taste);
     if (f?.onMine.length) score += 2; else if (ctx.hasServices) score -= 1.5;
     return { key: r.key, type: r.type, id: r.id, title: r.title, year: r.year, poster: r.poster, kind: "discover" as const, score,
-      tag: f?.onMine[0] ?? null, length: lengthLabel(r.type, f?.runtime ?? null), why: because(from) };
+      tag: f?.onMine[0] ?? null, checked: !!f, length: lengthLabel(r.type, f?.runtime ?? null), why: because(from) };
   }).sort((a, b) => b.score - a.score).slice(0, max);
 }
 

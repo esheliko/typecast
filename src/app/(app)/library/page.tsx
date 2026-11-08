@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import LibraryView from "@/components/LibraryView";
 import UpNext from "@/components/UpNext";
-import { rankUpNext } from "@/lib/upnext";
+import { rankUpNext, realServices } from "@/lib/upnext";
 import { loadUpNext } from "@/lib/upnext-data";
 import { isSort } from "@/lib/library-sort";
 import { isKind } from "@/lib/kind";
@@ -49,10 +49,12 @@ const quickPicks = (lib: LibItem[]) => rankUpNext(lib, { now: Date.now(), facts:
 
 /** Watch next with TMDB facts (streaming, taste, new episodes, discoveries). Decoration: on any failure it keeps the quick ranking. */
 async function WatchNext({ lib }: { lib: LibItem[] }) {
-  try { return <UpNext picks={await loadUpNext(lib, await getProfile())} />; }
-  catch (e) {
+  try {
+    const profile = await getProfile();
+    return <UpNext picks={await loadUpNext(lib, profile)} services={realServices(profile.services).length ? "yes" : "no"} />;
+  } catch (e) {
     console.error("Watch next failed", e);
-    return <UpNext picks={quickPicks(lib)} />;
+    return <UpNext picks={quickPicks(lib)} services="failed" />;
   }
 }
 
@@ -74,7 +76,7 @@ export default async function Library({ searchParams }: { searchParams: Promise<
           <Link className="btn gold" href="/">Find a title</Link>
         </div>
       ) : <><p style={{ margin: "14px 0 0" }}><Link className="chip" href="/library/stats" style={{ display: "inline-block" }}>Stats</Link></p><LibraryView items={lib} initial={filter} initialSort={isSort(s) ? s : "added"} initialKind={isKind(k) && k !== "all" ? k : "all"}
-        top={<Suspense fallback={<UpNext picks={quickPicks(lib)} />}><WatchNext lib={lib} /></Suspense>} /></>}
+        top={<Suspense fallback={<UpNext picks={quickPicks(lib)} services="pending" />}><WatchNext lib={lib} /></Suspense>} /></>}
       {lib.length > 0 && <Suspense fallback={null}><Suggestions lib={lib} /></Suspense>}
     </div>
   );

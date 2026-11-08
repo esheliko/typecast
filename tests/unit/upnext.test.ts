@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { because, lengthLabel, rankUpNext, type Facts } from "../../src/lib/upnext";
+import { because, lengthLabel, onYourServices, rankUpNext, realServices, type Facts } from "../../src/lib/upnext";
 import type { LibItem } from "../../src/lib/types";
 
 const DAY = 24 * 3600 * 1000;
@@ -87,4 +87,19 @@ test("length labels", () => {
 test("'loved' only for titles rated 4+", () => {
   assert.equal(because([lib({ status: "watched", rating: 5, title: "A" })]), "Because you loved A");
   assert.equal(because([lib({ status: "watched", rating: 0, title: "B" }), lib({ status: "watched", rating: 5, title: "A" })]), "Because you watched A and B");
+});
+
+test("manual (negative) service ids are ignored", () => {
+  assert.deepEqual(realServices([8, -1, 337, -42, 0]), [8, 337]);
+});
+
+test("'on my services' keeps only picks streaming on a chosen service, and they rank first", () => {
+  const on = lib({ status: "watchlist" });
+  const off = lib({ status: "watchlist", priority: "must" });
+  const unknown = lib({ status: "watchlist" });
+  const out = rankUpNext([off, on, unknown], ctx([[on, facts({ onMine: ["Netflix"] })], [off, facts({ streamable: false })]], true));
+  assert.equal(out[0].key, on.key, "streamable beats an unavailable must-watch");
+  assert.deepEqual(onYourServices(out).map((p) => p.key), [on.key]);
+  assert.equal(out.find((p) => p.key === unknown.key)!.checked, false);
+  assert.equal(out.find((p) => p.key === on.key)!.checked, true);
 });

@@ -70,6 +70,16 @@ test.describe("signed in", () => {
     const upnext = page.getByRole("region", { name: "Watch next" });
     await expect(upnext).toBeVisible();
     await expect(upnext.getByText("Breaking Bad").first()).toBeVisible({ timeout: 20_000 });
+    // "On my services" toggle (shown only when the smoke user has services): filters to streamable picks or says nothing qualifies, and undoes cleanly.
+    const mine = upnext.getByRole("button", { name: "On my services" });
+    if (await mine.isVisible()) {
+      await mine.click();
+      await expect(mine).toHaveAttribute("aria-pressed", "true");
+      await expect(upnext.locator(".upnext-card").first().or(upnext.locator(".upnext-empty"))).toBeVisible({ timeout: 20_000 });
+      await mine.click();
+      await expect(mine).toHaveAttribute("aria-pressed", "false");
+      await expect(upnext.getByText("Breaking Bad").first()).toBeVisible();
+    }
     // The server page reads these params and the client view applies them: this is the path that crashed in production.
     for (const q of ["f=watched", "f=watching", "f=watchlist", "f=partial", "s=title", "s=year", "s=yearOld", "s=rating", "s=watched", "f=watched&s=rating", "s=bogus", "k=movie", "k=tv&f=watching", "k=bogus"]) {
       await visit(page, `/library?${q}`, bad);
