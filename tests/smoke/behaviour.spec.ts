@@ -183,8 +183,8 @@ test.describe("behaviour (signed in)", () => {
 
       await dialog.getByRole("button", { name: /^Review import/ }).click();
       const review = page.getByRole("dialog", { name: "Review import" });
-      await expect(review.getByText(/Inception \(2010\)/)).toBeVisible();
-      await expect(review.getByText(/Spirited Away \(2001\)/)).toBeVisible();
+      await expect(review.getByText("Inception (2010)", { exact: true })).toBeVisible();
+      await expect(review.getByText("Spirited Away (2001)", { exact: true })).toBeVisible();
 
       await review.getByRole("button", { name: "Revert import" }).click();
       await review.getByRole("button", { name: "Yes, revert it" }).click();
