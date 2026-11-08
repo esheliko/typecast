@@ -78,7 +78,8 @@ export default function ProfileForm({ initial }: { initial: Profile }) {
       </div>
       <SettingRow label="Your services" value={summary}>
         <input id="svq" type="search" aria-label="Search or add a service" placeholder="Search or add a service" value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.key === "Enter" && show.length === 0 && addCustom(q)} style={{ width: "100%", marginBottom: 8 }} />
-        <div className="chips">
+        {/* Keep focus in the search box when a pill is clicked (mousedown would otherwise move focus to the button). */}
+        <div className="chips" onMouseDown={(e) => { if ((e.target as Element).closest("button")) e.preventDefault(); }}>
           {error ? <span className="err small">{error}</span> : list === null ? <span className="small muted"><span className="spin" />Loading</span>
             : <>
               {show.map((p) => <button key={p.ids[0]} type="button" className="chip" aria-pressed={p.ids.some((i) => services.includes(i))} onClick={() => toggle(p)}>{p.name}</button>)}
