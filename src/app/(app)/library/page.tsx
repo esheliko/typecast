@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import LibraryView from "@/components/LibraryView";
+import LibraryView, { isSort } from "@/components/LibraryView";
 import { SuggestionRows } from "@/components/cast/CreditList";
 import { getLibrary } from "@/lib/library";
 import { getTitle } from "@/lib/tmdb";
@@ -30,8 +30,8 @@ async function Suggestions({ lib }: { lib: LibItem[] }) {
   );
 }
 
-export default async function Library({ searchParams }: { searchParams: Promise<{ f?: string }> }) {
-  const { f } = await searchParams;
+export default async function Library({ searchParams }: { searchParams: Promise<{ f?: string; s?: string }> }) {
+  const { f, s } = await searchParams;
   const lib = await getLibrary();
   const filter = (["watching", "partial", "watchlist", "watched"] as string[]).includes(f ?? "") ? (f as Status) : "all";
   return (
@@ -42,7 +42,7 @@ export default async function Library({ searchParams }: { searchParams: Promise<
           <p className="muted">Find a title on the Browse tab and mark it Watching, To watch or Watched. Suggestions and connections between your titles appear here as your library grows.</p>
           <Link className="btn gold" href="/">Find a title</Link>
         </div>
-      ) : <LibraryView items={lib} initial={filter} />}
+      ) : <LibraryView items={lib} initial={filter} initialSort={isSort(s) ? s : "added"} />}
       {lib.length > 0 && <Suspense fallback={null}><Suggestions lib={lib} /></Suspense>}
     </div>
   );
