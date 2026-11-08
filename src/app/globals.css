@@ -109,9 +109,7 @@ textarea { width: 100%; resize: vertical; min-height: 72px; }
 .sh-compact .sh-poster { width: 84px; }
 .sh-compact .sh-title { font-size: 26px; }
 .sh-compact .sh-meta { margin-top: 4px; font-size: 12px; }
-.sh-where { display: flex; align-items: center; gap: 6px; margin-top: 10px; font-size: 12px; white-space: nowrap; overflow-x: auto; scrollbar-width: none; }
-.sh-where::-webkit-scrollbar { display: none; }
-.sh-where > * { flex: none; }
+.sh-where { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 10px; font-size: 12px; }
 .sh-where b { font: 600 13px var(--display); text-transform: uppercase; letter-spacing: .05em; margin-right: 2px; }
 .sh-where.ok b { color: var(--good); } .sh-where.no b { color: var(--bad); }
 .sh-where img { width: 24px; height: 24px; border-radius: 6px; }
