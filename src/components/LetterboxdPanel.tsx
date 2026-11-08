@@ -51,8 +51,10 @@ export default function LetterboxdPanel({ link }: { link: LetterboxdLink | null 
     if (!entries) return;
     setBusy(true); setDone(0); setImportErr(""); setReverted(""); setTally(null); setStarted(entries); setReview([]); setReviewOpen(false);
     const sum = { added: 0, updated: 0, unmatched: 0, failed: 0 }, all: ReviewRow[] = [], applied: Applied[] = [];
+    let at = 0;
     try {
       for (let i = 0; i < entries.length; i += BATCH) {
+        at = i;
         const r = await importLetterboxd(entries.slice(i, i + BATCH), i + BATCH >= entries.length);
         applied.push(...r.items);
         sum.added += r.added; sum.updated += r.updated; sum.unmatched += r.unmatched.length; sum.failed += r.failed.length; all.push(...toRows(r.items, r.unmatched, r.failed));
@@ -60,11 +62,15 @@ export default function LetterboxdPanel({ link }: { link: LetterboxdLink | null 
       }
       setRaw(null); setPasted(""); setFileKey((k) => k + 1); setPicked(false);
       if (all.length) setReviewOpen(true);
-    } catch {
+    } catch (e) {
       // The import itself broke (connection lost, signed out). Keep nothing from it: remove what earlier batches added and restore what they changed.
       setTally(null); setReview([]);
-      try { await rollbackImport(applied); setImportErr("The import stopped, so nothing from it was kept. Your library is as it was. Your list is still here: press Import to try again."); }
-      catch { setImportErr("The import stopped and the undo did not finish, so some titles may have been added. Press Import again: titles already added are skipped, and nothing is added twice."); }
+      const raw = e instanceof Error ? e.message : String(e);
+      const why = /fetch|network|load failed/i.test(raw) ? "the connection dropped" : /unauthor|sign|auth/i.test(raw) ? "you were signed out" : raw.slice(0, 160) || "an unknown error";
+      const where = `It stopped around line ${at + 1} of ${entries.length} because ${why}.`;
+      console.error("[import] stopped", e);
+      try { await rollbackImport(applied); setImportErr(`${where} Nothing from it was kept, so your library is as it was. Your list is still here: press Import to try again.`); }
+      catch { setImportErr(`${where} The undo did not finish, so some titles may have been added. Press Import again: titles already added are skipped, and nothing is added twice.`); }
     }
     setStarted(null); setBusy(false);
   }

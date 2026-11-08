@@ -43,26 +43,79 @@ export interface Failed { label: string; type: MediaType; id: number; title: str
 const norm = (s: string) => s.toLowerCase().normalize("NFKD").replace(/[^\p{L}\p{N}]/gu, "");
 const yearOf = (r: any) => parseInt((r.release_date ?? "").slice(0, 4), 10);
 
-/** Find the TMDB film for a Letterboxd name and year (exports carry no TMDB id). Exact title in the right year first, then within a year. */
+const ROMAN: Record<string, string> = { ii: "2", iii: "3", iv: "4", v: "5", vi: "6", vii: "7", viii: "8", ix: "9", x: "10" };
+/** Like `norm` but forgiving about sequels: "Part II", "II" and "2" are the same, "&" is "and", a leading "the" is ignored. Words stay joined. */
+function normSeq(s: string): string {
+  const w = s.toLowerCase().normalize("NFKD").replace(/&/g, " and ").replace(/[^\p{L}\p{N}]+/gu, " ").trim().split(" ").filter(Boolean);
+  if (w.length > 1 && w[0] === "the") w.shift();
+  const last = w.length - 1;
+  if (last > 0 && ROMAN[w[last]]) w[last] = ROMAN[w[last]];
+  if (last > 0 && /^\d+$/.test(w[last]) && (w[last - 1] === "part" || w[last - 1] === "chapter")) w.splice(last - 1, 1);
+  return w.join("");
+}
+const head = (t: string) => t.split(/\s*[:–—-]\s+/)[0];
+/** Edit distance between two short strings. */
+function lev(a: string, b: string): number {
+  let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    const cur = [i];
+    for (let j = 1; j <= b.length; j++) cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    prev = cur;
+  }
+  return prev[b.length];
+}
+/** The name without a trailing "1" or "2": a base to search when TMDB's own search does not find "Dead pool 2". */
+const baseOf = (name: string): string | null => { const m = name.trim().match(/^(.{2,}?)\s+(\d{1,2}|[ivx]{1,4})$/i); return m ? m[1] : null; };
+
+/**
+ * How well a TMDB result matches the typed name: 3 same title (sequel numbers and "&" ignored), 2 same title before a subtitle
+ * ("Dungeons & Dragons: Honor Among Thieves"), 1 a near miss (a typo), 0 no match. A trailing " 1" also matches the first film.
+ */
+function score(titles: (string | undefined)[], name: string): number {
+  const wants = [normSeq(name)];
+  const m = name.trim().match(/^(.{2,}?)\s+1$/);
+  if (m) wants.push(normSeq(m[1]));
+  const ts = titles.filter((t): t is string => !!t);
+  if (ts.some((t) => wants.includes(normSeq(t)))) return 3;
+  if (ts.some((t) => wants.includes(normSeq(head(t))))) return 2;
+  // A typo only: the numbers must agree, so "Avatar 2" never settles for "Avatar".
+  const nums = (x: string) => x.replace(/\D/g, "");
+  const near = (a: string, b: string) => a.length >= 6 && b.length >= 6 && nums(a) === nums(b) && 1 - lev(a, b) / Math.max(a.length, b.length) >= 0.85;
+  return ts.some((t) => wants.some((w) => near(w, normSeq(t)) || near(w, normSeq(head(t))))) ? 1 : 0;
+}
+/** The best result for a name with its score (ties go to the more popular), or null when none is close enough. */
+function best(res: any[], name: string, titles: (r: any) => (string | undefined)[], ok: (r: any) => boolean = () => true): { hit: any; s: number } | null {
+  let out: { hit: any; s: number } | null = null;
+  for (const r of res) {
+    if (!ok(r)) continue;
+    const s = score(titles(r), name);
+    if (s && (!out || s > out.s || (s === out.s && (r.popularity ?? 0) > (out.hit.popularity ?? 0)))) out = { hit: r, s };
+  }
+  return out;
+}
+const movieTitles = (r: any) => [r.title, r.original_title];
+const tvTitles = (r: any) => [r.name, r.original_name];
+
+/** Find the TMDB film for a Letterboxd name and year (exports carry no TMDB id). Forgives sequel numbers, subtitles and small typos. */
 async function findMovie(name: string, year: number | null): Promise<any | null> {
-  const search = async (extra: Record<string, string>) => ((await tmdb("/search/movie", { query: name, include_adult: "false", ...extra }, DAY_MS)).results ?? []) as any[];
-  const want = norm(name);
-  const exact = (r: any) => norm(r.title ?? "") === want || norm(r.original_title ?? "") === want;
+  const search = async (query: string, extra: Record<string, string>) => ((await tmdb("/search/movie", { query, include_adult: "false", ...extra }, DAY_MS)).results ?? []) as any[];
   if (year) {
-    const a = await search({ year: String(year) });
-    const hit = a.find(exact) ?? a[0];
+    const a = await search(name, { year: String(year) });
+    const hit = best(a, name, movieTitles)?.hit ?? a[0];
     if (hit) return hit;
   }
-  const b = await search({});
-  if (!year) return b.find(exact) ?? null;
-  return b.find((r) => exact(r) && Math.abs(yearOf(r) - year) <= 1) ?? null;
+  let b = await search(name, {});
+  const close = (r: any) => !year || Math.abs(yearOf(r) - year) <= 1;
+  // TMDB's search often misses "Dead pool 2" or "Madagascar 3": search the base name and pick the numbered film from the results.
+  const base = baseOf(name);
+  if (base && best(b, name, movieTitles, close)?.s !== 3) b = [...b, ...(await search(base, {}))];
+  return best(b, name, movieTitles, close)?.hit ?? null;
 }
 
-/** TV fallback for free-text lists, which can hold series too. Exact title only unless a year narrows it. */
+/** TV fallback for free-text lists, which can hold series too. Same forgiving match; a year can also settle for the first result. */
 async function findTv(name: string, year: number | null): Promise<any | null> {
   const res = ((await tmdb("/search/tv", { query: name, include_adult: "false", ...(year ? { first_air_date_year: String(year) } : {}) }, DAY_MS)).results ?? []) as any[];
-  const want = norm(name);
-  return res.find((r) => norm(r.name ?? "") === want || norm(r.original_name ?? "") === want) ?? (year ? res[0] ?? null : null);
+  return best(res, name, tvTitles)?.hit ?? (year ? res[0] ?? null : null);
 }
 
 const fields = (d: any) => ({ title: (d.title ?? d.name ?? "") as string, year: ((d.release_date ?? d.first_air_date ?? "") as string).slice(0, 4), poster: (d.poster_path ?? null) as string | null });
