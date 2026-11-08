@@ -99,7 +99,14 @@ test.describe("signed in", () => {
   test("title popup (hard load restores it over Browse)", async ({ page }) => {
     const bad = watch(page);
     await visit(page, "/title/movie/603", bad);
-    await expect(page.getByRole("heading", { name: /The Matrix/ })).toBeVisible({ timeout: 20_000 });
+    try {
+      await expect(page.getByRole("heading", { name: /The Matrix/ })).toBeVisible({ timeout: 20_000 });
+    } catch (e) {
+      // Say what the page actually shows: CI has no screenshots, and this decides "test bug" vs "popup bug".
+      const text = (await page.locator("body").innerText().catch(() => "?")).replace(/\s+/g, " ").slice(0, 600);
+      const dialogs = await page.locator('[role="dialog"], dialog').count();
+      throw new Error(`Title popup never showed "The Matrix". url=${page.url()} dialogs=${dialogs} bad=[${bad.join(" | ")}] body="${text}"\n${String(e).slice(0, 200)}`);
+    }
     await healthy(page, bad);
   });
 
