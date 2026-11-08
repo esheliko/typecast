@@ -5,6 +5,7 @@ import { GlimpseProvider } from "@/components/Glimpse";
 import Recheck from "@/components/Recheck";
 import ScrollKeeper from "@/components/ScrollKeeper";
 import HeaderHeight from "@/components/HeaderHeight";
+import { ImportProvider } from "@/components/ImportState";
 import { LibProvider } from "@/components/cast/LibState";
 import { getLibrary } from "@/lib/library";
 import type { Mark } from "@/lib/types";
@@ -17,6 +18,7 @@ export default async function AppLayout({ children, modal }: { children: React.R
   return (
     <GlimpseProvider>
       <LibProvider initial={marks}>
+      <ImportProvider>
       <Suspense fallback={null}><BgTracker /></Suspense>
       <ScrollKeeper />
       <Suspense fallback={null}><Recheck /></Suspense>
@@ -28,6 +30,7 @@ export default async function AppLayout({ children, modal }: { children: React.R
       <main className="wrap">{children}</main>
       <Tabs where="bottom" />
       {modal}
+      </ImportProvider>
       </LibProvider>
     </GlimpseProvider>
   );

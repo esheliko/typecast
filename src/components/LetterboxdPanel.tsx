@@ -1,88 +1,18 @@
 "use client";
-import { useMemo, useState, useTransition } from "react";
-import { connectLetterboxd, disconnectLetterboxd, importLetterboxd, rollbackImport, syncLetterboxdNow } from "@/app/actions";
-import { readZip } from "@/lib/letterboxd-parse";
-import { parseAny, type Plain } from "@/lib/list-parse";
-import ImportReviewDialog, { toRows, type ReviewRow } from "./ImportReview";
+import { useState, useTransition } from "react";
+import { connectLetterboxd, disconnectLetterboxd, syncLetterboxdNow } from "@/app/actions";
+import type { Plain } from "@/lib/list-parse";
+import { useImport } from "./ImportState";
 import type { LetterboxdLink } from "@/lib/types";
-import type { Applied } from "@/lib/letterboxd";
-
-const BATCH = 25;
 
 /** Two independent, opt-in tools: a one-time import of a Letterboxd export, and a connection that pulls new diary entries. */
 export default function LetterboxdPanel({ link }: { link: LetterboxdLink | null }) {
-  const [raw, setRaw] = useState<{ name: string; text: string }[] | null>(null);
-  const [pasted, setPasted] = useState("");
-  const [plain, setPlain] = useState<Plain>("watched");
-  const [fileKey, setFileKey] = useState(0);
-  const [picked, setPicked] = useState(false);
-  const sources = useMemo(() => [...(raw ?? []), ...(pasted.trim() ? [{ name: "pasted.txt", text: pasted }] : [])], [raw, pasted]);
-  const parsed = useMemo(() => (sources.length ? parseAny(sources, plain) : []), [sources, plain]);
-  const [started, setStarted] = useState<typeof parsed | null>(null);
-  const entries = started ?? (parsed.length ? parsed : null);
-  const [readErr, setReadErr] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [done, setDone] = useState(0);
-  const [tally, setTally] = useState<{ added: number; updated: number; unmatched: number; failed: number } | null>(null);
-  const [review, setReview] = useState<ReviewRow[]>([]);
-  const [reviewOpen, setReviewOpen] = useState(false);
-  const [reverted, setReverted] = useState("");
-  const [importErr, setImportErr] = useState("");
+  const { entries, pasted, setPasted, plain, setPlain, fileKey, picked, readErr, importErr, reverted, busy, done, tally, review, openReview, pick, run } = useImport();
 
   const [name, setName] = useState("");
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
   const [pending, start] = useTransition();
-
-  async function pick(files: FileList | null) {
-    setRaw(null); setTally(null); setReadErr(""); setImportErr(""); setPicked(false);
-    if (!files?.length) return;
-    try {
-      const texts: { name: string; text: string }[] = [];
-      for (const f of Array.from(files)) {
-        if (f.name.toLowerCase().endsWith(".zip")) texts.push(...(await readZip(await f.arrayBuffer())));
-        else texts.push({ name: f.name, text: await f.text() });
-      }
-      setRaw(texts); setPicked(true);
-    } catch (e) { setReadErr((e as Error).message || "Could not read that file."); }
-  }
-
-  async function run() {
-    if (!entries) return;
-    setBusy(true); setDone(0); setImportErr(""); setReverted(""); setTally(null); setStarted(entries); setReview([]); setReviewOpen(false);
-    const sum = { added: 0, updated: 0, unmatched: 0, failed: 0 }, all: ReviewRow[] = [], applied: Applied[] = [];
-    let at = 0;
-    try {
-      for (let i = 0; i < entries.length; i += BATCH) {
-        at = i;
-        const r = await importLetterboxd(entries.slice(i, i + BATCH), i + BATCH >= entries.length);
-        applied.push(...r.items);
-        sum.added += r.added; sum.updated += r.updated; sum.unmatched += r.unmatched.length; sum.failed += r.failed.length; all.push(...toRows(r.items, r.unmatched, r.failed));
-        setDone(Math.min(entries.length, i + BATCH)); setTally({ ...sum }); setReview([...all].sort((a, b) => Number(!!b.problem) - Number(!!a.problem)));
-      }
-      setRaw(null); setPasted(""); setFileKey((k) => k + 1); setPicked(false);
-      if (all.length) setReviewOpen(true);
-    } catch (e) {
-      // The import itself broke (connection lost, signed out). Keep nothing from it: remove what earlier batches added and restore what they changed.
-      setTally(null); setReview([]);
-      const raw = e instanceof Error ? e.message : String(e);
-      const why = /fetch|network|load failed/i.test(raw) ? "the connection dropped" : /unauthor|sign|auth/i.test(raw) ? "you were signed out" : raw.slice(0, 160) || "an unknown error";
-      const where = `It stopped around line ${at + 1} of ${entries.length} because ${why}.`;
-      console.error("[import] stopped", e);
-      try { await rollbackImport(applied); setImportErr(`${where} Nothing from it was kept, so your library is as it was. Your list is still here: press Import to try again.`); }
-      catch { setImportErr(`${where} The undo did not finish, so some titles may have been added. Press Import again: titles already added are skipped, and nothing is added twice.`); }
-    }
-    setStarted(null); setBusy(false);
-  }
-
-  /** Reverse the whole import: remove what it added, restore what it changed (including fixes made in the review). */
-  async function revertAll() {
-    const undo = review.flatMap((r) => r.recs);
-    await rollbackImport(undo);
-    const added = review.filter((r) => r.item && r.isNew && !r.problem && !r.gone).length;
-    setReview([]); setTally(null); setReviewOpen(false);
-    setReverted(`Import reverted: ${added} added title${added === 1 ? "" : "s"} removed${undo.some((x) => !x.isNew && x.prev) ? " and changed titles restored" : ""}. Your library is as it was before.`);
-  }
 
   function connect() { setErr(""); setMsg(""); start(async () => { const r = await connectLetterboxd(name); if (r.ok) { setMsg(`Connected. ${r.added} added, ${r.updated} updated.`); setName(""); } else setErr(r.error); }); }
   function syncNow() { setErr(""); setMsg(""); start(async () => { const r = await syncLetterboxdNow(); if (r.ok) setMsg(r.added + r.updated ? `${r.added} added, ${r.updated} updated.` : "Up to date."); else setErr(r.error); }); }
@@ -100,7 +30,7 @@ export default function LetterboxdPanel({ link }: { link: LetterboxdLink | null 
           <p style={{ margin: "6px 0 0" }}>Letterboxd .zip or CSV (Settings, Data, Export), or text with a title per line. Checklists work: <b>[x]</b> watched, <b>[ ]</b> to watch, trailing <b>WIP</b> watching. Add a year (2019) or rating (4/5, ★★★★) if you have one. Existing titles are never overwritten.</p>
         </details>
         <input id="lbf" key={fileKey} type="file" accept=".zip,.csv,.txt,.md,.text,application/zip,text/csv,text/plain" multiple disabled={busy} onChange={(e) => pick(e.target.files)} />
-        <textarea aria-label="Paste a list" placeholder={"Or paste a list:\n[x] Inception (2010)\n[ ] Dune Part Two"} rows={3} disabled={busy} value={pasted} onChange={(e) => { setPasted(e.target.value); setTally(null); setImportErr(""); }} style={{ width: "100%", marginTop: 8 }} />
+        <textarea aria-label="Paste a list" placeholder={"Or paste a list:\n[x] Inception (2010)\n[ ] Dune Part Two"} rows={3} disabled={busy} value={pasted} onChange={(e) => setPasted(e.target.value)} style={{ width: "100%", marginTop: 8 }} />
         <div className="small muted" style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8 }}>
           <label htmlFor="plain">Unmarked lines are</label>
           <select id="plain" value={plain} disabled={busy} onChange={(e) => setPlain(e.target.value as Plain)}>
@@ -116,18 +46,17 @@ export default function LetterboxdPanel({ link }: { link: LetterboxdLink | null 
             <button className="btn gold" type="button" onClick={run}>Import</button>
           </>
         )}
-        {busy && entries && <p className="small muted" style={{ margin: "10px 0 0" }}><span className="spin" />Importing {done} of {entries.length}. Keep this page open.</p>}
+        {busy && entries && <p className="small muted" style={{ margin: "10px 0 0" }}><span className="spin" />Importing {done} of {entries.length}. You can switch tabs; keep the app open.</p>}
         {tally && !busy && (
           <p className="small" style={{ margin: "10px 0 0" }}>Done: {tally.added} added, {tally.updated} updated{tally.unmatched ? `, ${tally.unmatched} not found on TMDB` : ""}{tally.failed ? `, ${tally.failed} could not be saved` : ""}.{tally.unmatched + tally.failed > 0 ? " Fix those in the list below." : ""}</p>
         )}
         {importErr && <p className="small err" style={{ margin: "10px 0 0" }}>{importErr}</p>}
         {review.length > 0 && !busy && (
-          <button className="btn" type="button" style={{ marginTop: 10 }} onClick={() => setReviewOpen(true)}>
+          <button className="btn" type="button" style={{ marginTop: 10 }} onClick={openReview}>
             Review import{review.some((r) => r.problem && !r.gone) ? ` (${review.filter((r) => r.problem && !r.gone).length} to fix)` : ""}
           </button>
         )}
         {reverted && <p className="small" style={{ margin: "10px 0 0" }}>{reverted}</p>}
-        {reviewOpen && review.length > 0 && !busy && <ImportReviewDialog rows={review} onChange={setReview} onClose={() => setReviewOpen(false)} onRevert={revertAll} />}
       </div>
       </details>
       <details className="fold" open={shown || undefined}>
