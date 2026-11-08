@@ -10,7 +10,7 @@ import PassedCell from "./PassedCell";
 import QuickMark from "./QuickMark";
 import RelatedButton from "./RelatedButton";
 import type { Nudge } from "@/lib/nudges";
-import { toParams, type BrowseQuery, type Tag } from "@/lib/browse";
+import { SORTS, toParams, type BrowseQuery, type Sort, type Tag } from "@/lib/browse";
 import { img } from "@/lib/img";
 import { faded, loadPassed, type Passed } from "@/lib/passed";
 import type { BrowseItem, BrowseList, BrowseType, MediaType } from "@/lib/types";
@@ -220,6 +220,9 @@ export default function Browse({ filters, filtered, list: initialList, salt: ser
         <button type="button" className="chip sm filt" aria-expanded={panel} aria-pressed={n > 0} onClick={() => setPanel(!panel)}>
           Filters{n ? ` · ${n}` : ""} <span aria-hidden="true">{panel ? "▴" : "▾"}</span>
         </button>
+        <select aria-label="Sort by" value={filters.sort} onChange={(e) => { const s = toParams({ ...filters, type, sort: e.target.value as Sort }).toString(); startRoute(() => router.replace(s ? `/?${s}` : "/", { scroll: false })); }}>
+          {SORTS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
         <button type="button" className="chip sm" aria-pressed={hide} onClick={() => setHide(!hide)} title="Hide titles you have already marked or skipped, and make ones you keep scrolling past turn up less often">Hide marked{hide && hiddenCount > 0 ? ` · ${hiddenCount}` : ""}</button>
       </div>
       {panel && <BrowseFilters q={{ ...filters, type }} genres={type === "all" ? [] : genres[type]} canFilterMine={canFilterMine} active={filtered} />}
