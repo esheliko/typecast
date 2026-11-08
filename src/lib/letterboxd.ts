@@ -1,5 +1,7 @@
 /** Optional Letterboxd link. Server only. Nothing here runs unless the user imports an export or connects a username in Setup. */
 import { search, tmdb } from "./tmdb";
+import { suggestSpelling } from "./spell";
+import { baseOf, charSim, isLiteral, normSeq, sameNumbers, score, sim, splitQualifier, startsWithWords, trailingNumber, variants } from "./title-match";
 import { parseFeed, type FeedEntry, type LbEntry } from "./letterboxd-parse";
 import type { supabaseServer } from "./supabase/server";
 import type { BrowseItem, MediaType, SearchHit, Status } from "./types";
@@ -44,65 +46,25 @@ export interface Failed { label: string; type: MediaType; id: number; title: str
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const yearOf = (r: any) => parseInt((r.release_date ?? "").slice(0, 4), 10);
 
-const ROMAN: Record<string, string> = { ii: "2", iii: "3", iv: "4", v: "5", vi: "6", vii: "7", viii: "8", ix: "9", x: "10" };
-/** Like `norm` but forgiving about sequels: "Part II", "II" and "2" are the same, "&" is "and", a leading "the" is ignored. Words stay joined. */
-function normSeq(s: string): string {
-  const w = s.toLowerCase().normalize("NFKD").replace(/&/g, " and ").replace(/[^\p{L}\p{N}]+/gu, " ").trim().split(" ").filter(Boolean);
-  if (w.length > 1 && w[0] === "the") w.shift();
-  const keep = w.filter((x) => x !== "and");
-  if (keep.length) w.splice(0, w.length, ...keep);
-  const last = w.length - 1;
-  if (last > 0 && ROMAN[w[last]]) w[last] = ROMAN[w[last]];
-  if (last > 0 && /^\d+$/.test(w[last]) && (w[last - 1] === "part" || w[last - 1] === "chapter")) w.splice(last - 1, 1);
-  return w.join("");
-}
-const head = (t: string) => t.split(/\s*[:–—-]\s+/)[0];
-/** Edit distance between two short strings. */
-function lev(a: string, b: string): number {
-  let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
-  for (let i = 1; i <= a.length; i++) {
-    const cur = [i];
-    for (let j = 1; j <= b.length; j++) cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
-    prev = cur;
-  }
-  return prev[b.length];
-}
-/** The name without a trailing "1" or "2": a base to search when TMDB's own search does not find "Dead pool 2". */
-const baseOf = (name: string): string | null => { const m = name.trim().match(/^(.{2,}?)\s+(\d{1,2}|[ivx]{1,4})$/i); return m ? m[1] : null; };
-
-/**
- * How well a TMDB result matches the typed name: 3 same title (sequel numbers and "&" ignored), 2 same title before a subtitle
- * ("Dungeons & Dragons: Honor Among Thieves"), 1 a near miss (a typo), 0 no match. A trailing " 1" also matches the first film.
- */
-function score(titles: (string | undefined)[], name: string): number {
-  const wants = [normSeq(name)];
-  const m = name.trim().match(/^(.{2,}?)\s+1$/);
-  if (m) wants.push(normSeq(m[1]));
-  const ts = titles.filter((t): t is string => !!t);
-  if (ts.some((t) => wants.includes(normSeq(t)))) return 3;
-  if (ts.some((t) => wants.includes(normSeq(head(t))))) return 2;
-  // A typo only: the numbers must agree, so "Avatar 2" never settles for "Avatar".
-  const nums = (x: string) => x.replace(/\D/g, "");
-  const near = (a: string, b: string) => a.length >= 6 && b.length >= 6 && nums(a) === nums(b) && 1 - lev(a, b) / Math.max(a.length, b.length) >= 0.85;
-  return ts.some((t) => wants.some((w) => near(w, normSeq(t)) || near(w, normSeq(head(t))))) ? 1 : 0;
-}
 /** How well known a result is. Vote count is steadier than TMDB's popularity, which swings with what was released lately. */
 const fame = (h: any) => (h?.vote_count ?? 0) as number;
-type Found = { all: { hit: any; s: number }[] };
+type Found = { all: { hit: any; s: number; lit?: boolean }[] };
 /** Every result close enough to the name, with its score (3 same title, 2 same before a subtitle, 1 a typo away). */
 function best(res: any[], name: string, titles: (r: any) => (string | undefined)[], ok: (r: any) => boolean = () => true): Found | null {
-  const all: { hit: any; s: number }[] = [];
+  const all: { hit: any; s: number; lit?: boolean }[] = [];
   for (const r of res) {
     if (!ok(r)) continue;
     const s = score(titles(r), name);
-    if (s) all.push({ hit: r, s });
+    if (s) all.push({ hit: r, s, lit: s === 3 && isLiteral(titles(r), name) });
   }
   return all.length ? { all } : null;
 }
 const movieTitles = (r: any) => [r.title, r.original_title];
 const tvTitles = (r: any) => [r.name, r.original_name];
+/** A plain, widely known exact title: nothing else needs searching for. */
+const settled = (f: Found | null) => !!f?.all.some((x) => x.s === 3 && fame(x.hit) >= 5000);
 
-/** Find the TMDB film for a Letterboxd name and year (exports carry no TMDB id). Forgives sequel numbers, subtitles and small typos. */
+/** Find the TMDB film for a Letterboxd name and year (exports carry no TMDB id). Forgives sequel numbers, subtitles, run-together words and small typos. */
 async function findMovie(name: string, year: number | null): Promise<Found | null> {
   const search = async (query: string, extra: Record<string, string>) => ((await tmdb("/search/movie", { query, include_adult: "false", ...extra }, DAY_MS)).results ?? []) as any[];
   if (year) {
@@ -116,8 +78,11 @@ async function findMovie(name: string, year: number | null): Promise<Found | nul
   // TMDB's search often misses "Dead pool 2" or "Madagascar 3": search the base name and pick the numbered film from the results.
   const base = baseOf(name);
   if (base && !best(b, name, movieTitles, close)?.all.some((x) => x.s === 3)) b = [...b, ...(await search(base, {}))];
-  return best(b, name, movieTitles, close);
+  // "Dead pool" finds an obscure "The Dead Pool" and never "Deadpool"; "5 feet apart" is "Five Feet Apart". Unless a famous exact title is already in hand, try the other spellings too.
+  if (!settled(best(b, name, movieTitles, close))) for (const v of variants(name)) b = [...b, ...(await search(v, {}))];
+  return best(dedupe(b), name, movieTitles, close);
 }
+const dedupe = (rs: any[]) => { const seen = new Set<number>(); return rs.filter((r) => !seen.has(r.id) && !!seen.add(r.id)); };
 
 /** TV fallback for free-text lists, which can hold series too. Same forgiving match; a year can also settle for the first result. */
 async function findTv(name: string, year: number | null): Promise<Found | null> {
@@ -131,17 +96,19 @@ const fields = (d: any) => ({ title: (d.title ?? d.name ?? "") as string, year: 
 export interface TraceRow { input: string; asTv: boolean; watched: boolean; watching: boolean; watchlist: boolean; movie: Cand | null; tv: Cand | null; picked: MediaType | null; error?: string }
 type Cand = { id: number; title: string; year: string };
 
-/** 0 to 1: how alike a typed name and a title are (one containing the other counts as close). */
-function sim(a: string, b: string): number {
-  const x = normSeq(a), y = normSeq(b);
-  if (!x || !y) return 0;
-  if (x.includes(y) || y.includes(x)) return 0.9;
-  return 1 - lev(x, y) / Math.max(x.length, y.length);
-}
-/** For a name TMDB's search finds nothing for (a typo: "Erin brokovich"): search its longest words alone and keep the titles that look most like the whole name. */
+/**
+ * For a name TMDB's search finds nothing for (a typo: "Erin brokovich", "The big lebowskey"): search its longest words alone, each also cut short
+ * (TMDB matches the start of the last word, so "lebowsk" finds "Lebowski"), and keep the titles that look most like the whole name.
+ */
 async function looseSearch(name: string): Promise<SearchHit[]> {
-  const words = [...new Set(name.split(/[\s\p{P}]+/u).filter((w) => w.length >= 3))].sort((a, b) => b.length - a.length).slice(0, 2);
-  const pools = await Promise.all(words.map((w) => search(w, "title").catch(() => [] as SearchHit[])));
+  const all = [...new Set(name.split(/[\s\p{P}]+/u).filter((w) => w.length >= 3))];
+  const longest = [...all].sort((a, b) => b.length - a.length).slice(0, 3);
+  const words = longest.slice(0, 2);
+  // Each long word alone and cut short, and the longest words together in the order typed ("brother where" finds "O Brother, Where Art Thou?").
+  const together = (ws: string[]) => all.filter((w) => ws.includes(w)).join(" ");
+  const probes = [...words.flatMap((w) => [w, ...[1, 2].filter((cut) => w.length - cut >= 4).map((cut) => w.slice(0, w.length - cut))]),
+    ...(words.length === 2 ? [together(words)] : []), ...(longest.length === 3 ? [together([longest[0], longest[2]])] : [])];
+  const pools = await Promise.all(probes.map((w) => search(w, "title").catch(() => [] as SearchHit[])));
   const seen = new Set<string>();
   return pools.flat().filter((h) => h.kind === "title" && !seen.has(h.key) && !!seen.add(h.key))
     .map((h) => ({ h, r: sim(name, (h as { title: string }).title) })).filter((x) => x.r >= 0.55).sort((a, b) => b.r - a.r).slice(0, 5).map((x) => x.h);
@@ -158,64 +125,171 @@ function searchName(name: string): string {
 }
 const asItem = (type: MediaType, h: any): BrowseItem => ({ key: `${type}:${h.id}`, type, id: h.id, ...fields(h), rating: 0 });
 
+/** Titles from the "Find it" search, plus the loose search when that finds little, ranked by how much they look like the typed name. */
+async function nearHits(q: string): Promise<BrowseItem[]> {
+  const toItems = (hs: SearchHit[]) => hs.filter((h): h is Extract<SearchHit, { kind: "title" }> => h.kind === "title").map((h) => { const { kind, ...rest } = h; void kind; return { ...rest, rating: 0 } as BrowseItem; });
+  let hits = toItems(await search(q, "title").catch(() => []));
+  if (!hits.length || Math.max(...hits.map((h) => sim(q, h.title))) < 0.8) {
+    const have = new Set(hits.map((h) => h.key));
+    hits = [...hits, ...toItems(await looseSearch(q)).filter((h) => !have.has(h.key))];
+  }
+  return hits.map((h, i) => ({ h, i, r: sim(q, h.title) })).sort((a, b) => b.r - a.r || a.i - b.i).map((x) => x.h);
+}
+
+type C = { hit: any; s: number; lit?: boolean; type: MediaType; w: number };
+const weight = (s: number, lit?: boolean) => (s === 3 ? (lit ? 4 : 1) : s === 2 ? 0.5 : 0.1);
+const dateOf = (h: any) => (h?.release_date ?? h?.first_air_date ?? "") as string;
+const titleOf = (h: any) => (h?.title ?? h?.name ?? "") as string;
+
+/** Every film and series of that name, ranked by how well the title matches and how well known it is (vote count). */
+async function poolFor(q: string, e: LbEntry): Promise<C[]> {
+  const [mv, tvh] = await Promise.all([findMovie(q, e.year), e.tv ? findTv(q, e.year) : null]);
+  let pool: C[] = [...(mv?.all ?? []).map((x) => ({ ...x, type: "movie" as MediaType })), ...(tvh?.all ?? []).map((x) => ({ ...x, type: "tv" as MediaType }))].map((x) => ({ ...x, w: (fame(x.hit) + 5) * weight(x.s, x.lit) }));
+  // A line marked as watching is a series, so films are left out when a series matches.
+  if (e.watching && pool.some((c) => c.type === "tv" && c.s >= 2)) pool = pool.filter((c) => c.type === "tv");
+  return pool.sort((a, b) => b.w - a.w);
+}
+
+/**
+ * Sure = the same title, and nothing else of that name (the other kind, a remake, a typo of a famous title) comes close in how well known it is.
+ * A sequel or spin-off with a longer title ("Thor: Ragnarok") is not a rival of "Thor"; only a title that matches as well is. `why` is empty when sure.
+ */
+function judge(pool: C[], e: LbEntry, newest: boolean): { top?: C; second?: C; why: string } {
+  const top = pool[0] as C | undefined;
+  if (!top) return { why: "" };
+  if (newest) {
+    // "... live action" / "remake": the newest film of that name.
+    const today = new Date().toISOString().slice(0, 10);
+    const latest = pool.filter((c) => c.type === "movie" && c.s === 3 && fame(c.hit) >= 100 && dateOf(c.hit) && dateOf(c.hit) <= today).sort((a, b) => dateOf(b.hit).localeCompare(dateOf(a.hit)))[0];
+    if (latest) return { top: latest, why: "" };
+  }
+  const second = pool.find((c) => c !== top && c.s >= top!.s);
+  const exact = top.s === 3 || (top.s === 2 && (!!e.year || fame(top.hit) >= 100));
+  const dominant = !second || !!e.year || top.w >= 3 * second.w;
+  // A misspelling of a famous title nobody else is near, with no real title of that name, is taken as the famous title.
+  const typoOk = top.s === 1 && fame(top.hit) >= 500 && !pool.some((c) => c.s >= 2) && (!second || top.w >= 4 * second.w);
+  let why = "";
+  if (top.s === 1 && !typoOk) why = pool.some((c) => c.s >= 2) ? "Spelled a little differently from a better known title." : "The spelling is a little different.";
+  else if (top.s === 2 && !exact) why = "The title only partly matches.";
+  else if (!typoOk && !dominant) why = second!.type !== top.type && second!.s === 3 ? (top.type === "tv" ? "There is a film with the same name." : "There is a series with the same name.") : "Several titles share this name.";
+  else if (e.watching && top.type === "movie") why = "Marked as watching, which fits a series better.";
+  else if (!e.year && dateOf(top.hit) > new Date().toISOString().slice(0, 10)) why = "This one is not out yet.";
+  return { top, second, why };
+}
+
+/** "Avatar 2" is the second film of the Avatar collection, whatever its title is ("The Way of Water"). The film is only a guess to confirm. */
+async function sequelGuess(name: string): Promise<{ guess: BrowseItem; alts: BrowseItem[]; why: string } | null> {
+  const t = trailingNumber(name);
+  if (!t || t.n < 2 || t.n > 12) return null;
+  const found = (((await tmdb("/search/movie", { query: t.base, include_adult: "false" }, DAY_MS)).results ?? []) as any[])
+    .filter((r) => score(movieTitles(r), t.base) === 3).sort((a, b) => fame(b) - fame(a))[0];
+  if (!found || fame(found) < 100) return null;
+  const cid = (await tmdb(`/movie/${found.id}`, {}, DAY_MS)).belongs_to_collection?.id;
+  if (!cid) return null;
+  const col = await tmdb(`/collection/${cid}`, {}, DAY_MS);
+  const today = new Date().toISOString().slice(0, 10);
+  const parts = ((col.parts ?? []) as any[]).filter((p) => p.release_date && p.release_date <= today).sort((a, b) => a.release_date.localeCompare(b.release_date));
+  const pick = parts[t.n - 1];
+  if (!pick || pick.id === found.id) return null;
+  const alts = parts.filter((p) => p.id !== pick.id).map((p) => asItem("movie", p)).slice(0, 4);
+  return { guess: asItem("movie", pick), alts, why: `Film ${t.n} of ${col.name ?? "the collection"}.` };
+}
+
+/** Run `fn` over `items` at most `n` at a time, so a long list does not flood TMDB. */
+async function mapLimit<T>(items: T[], n: number, fn: (x: T) => Promise<void>): Promise<void> {
+  let i = 0;
+  await Promise.all(Array.from({ length: Math.min(n, items.length) }, async () => { while (i < items.length) await fn(items[i++]); }));
+}
+
 /** Match export entries to TMDB. `unmatched` lists names nothing was found for; `unsure` names a best guess to confirm before it is saved. */
 export async function resolveEntries(entries: LbEntry[]): Promise<{ rows: Resolved[]; unmatched: Unmatched[]; unsure: Unsure[]; trace: TraceRow[] }> {
   const rows: Resolved[] = [], unmatched: Unmatched[] = [], unsure: Unsure[] = [], trace: TraceRow[] = [];
-  await Promise.all(entries.map(async (e) => {
+  await mapLimit(entries, 12, async (e) => {
     const label = e.year ? `${e.name} (${e.year})` : e.name;
     const status: Status = e.watched ? "watched" : e.watching ? "watching" : "watchlist";
     try {
-      const q = searchName(e.name);
-      const [mv, tvh] = await Promise.all([findMovie(q, e.year), e.tv ? findTv(q, e.year) : null]);
-      // Every film and series of that name, ranked by how well the title matches and how well known it is (vote count).
-      // A line marked as watching is a series, so films are left out when a series matches.
-      type C = { hit: any; s: number; type: MediaType; w: number };
-      const weight = (s: number) => (s === 3 ? 1 : s === 2 ? 0.5 : 0.1);
-      let pool: C[] = [...(mv?.all ?? []).map((x) => ({ ...x, type: "movie" as MediaType })), ...(tvh?.all ?? []).map((x) => ({ ...x, type: "tv" as MediaType }))].map((x) => ({ ...x, w: (fame(x.hit) + 5) * weight(x.s) }));
-      if (e.watching && pool.some((c) => c.type === "tv" && c.s >= 2)) pool = pool.filter((c) => c.type === "tv");
-      pool.sort((a, b) => b.w - a.w);
-      const top = pool[0] as C | undefined, second = pool[1] as C | undefined;
-      const dateOf = (h: any) => (h?.release_date ?? h?.first_air_date ?? "") as string;
-      const cand = (c?: C) => (c ? { id: c.hit.id as number, title: (c.hit.title ?? c.hit.name ?? "") as string, year: dateOf(c.hit).slice(0, 4) } : null);
-      trace.push({ input: label, asTv: !!e.tv, watched: e.watched, watching: !!e.watching, watchlist: e.watchlist, movie: cand(pool.find((c) => c.type === "movie")), tv: cand(pool.find((c) => c.type === "tv")), picked: top?.type ?? null });
+      const { name: typed, newest } = splitQualifier(searchName(e.name));
+      let q = typed;
+      let pool = await poolFor(q, e);
+      let v = judge(pool, e, newest);
+      let near: BrowseItem[] | null = null;
+      let doubtful = false;
+      let suggested: string | null = null;
 
-      // Sure = the same title, and nothing else of that name (the other kind, a remake, a typo of a famous title) comes close in how well known it is.
-      let why = "";
-      if (top) {
-        const exact = top.s === 3 || (top.s === 2 && (!!e.year || (fame(top.hit) >= 100 && !pool.some((c) => c !== top && c.s >= 2))));
-        const dominant = !second || !!e.year || top.w >= 3 * second.w;
-        if (top.s === 1) why = pool.some((c) => c.s >= 2) ? "Spelled a little differently from a better known title." : "The spelling is a little different.";
-        else if (!exact) why = "The title only partly matches.";
-        else if (!dominant) why = second!.type !== top.type && second!.s === 3 ? (top.type === "tv" ? "There is a film with the same name." : "There is a series with the same name.") : "Several titles share this name.";
-        else if (e.watching && top.type === "movie") why = "Marked as watching, which fits a series better.";
-        else if (!e.year && dateOf(top.hit) > new Date().toISOString().slice(0, 10)) why = "This one is not out yet.";
+      // Nothing matched the typed name: a numbered sequel by its place in the collection ("Avatar 2"), or the name spelled the way a close title or Wikipedia spells it.
+      const obscureTop = !!v.top && v.top.s < 3 && fame(v.top.hit) < 100 && !e.year;
+      if (!v.top || obscureTop) {
+        const sq = v.top ? null : await sequelGuess(q).catch(() => null);
+        if (sq) {
+          trace.push({ input: label, asTv: !!e.tv, watched: e.watched, watching: !!e.watching, watchlist: e.watchlist, movie: { id: sq.guess.id, title: sq.guess.title, year: sq.guess.year }, tv: null, picked: "movie" });
+          unsure.push({ label, status, rating: e.rating, why: sq.why, guess: sq.guess, alts: sq.alts });
+          return;
+        }
+        near = await nearHits(q);
+        const names: string[] = [];
+        for (const h of near) if (charSim(q, h.title) >= 0.8 && sameNumbers(q, h.title) && names.length < 2 && !names.includes(h.title)) names.push(h.title);
+        if (!near[0] || charSim(q, near[0].title) < 0.85) { const s = await suggestSpelling(q); if (s && sameNumbers(q, s)) { names.push(s); suggested = s; } }
+        for (const nm of names) {
+          if (normSeq(nm) === normSeq(q)) continue;
+          const p2 = await poolFor(nm, e);
+          const v2 = judge(p2, e, newest);
+          if (!v2.top || v2.top.s !== 3 || !sameNumbers(q, titleOf(v2.top.hit))) continue;
+          // A different spelling is only trusted when the match is a well known title that looks like what was typed.
+          const like = charSim(q, titleOf(v2.top.hit));
+          const trusted = !v2.why && ((fame(v2.top.hit) >= 500 && like >= 0.78) || (fame(v2.top.hit) >= 100 && like >= 0.9));
+          pool = p2; q = nm;
+          v = trusted ? v2 : { ...v2, why: v2.why || "The spelling is a little different." };
+          doubtful = !trusted;
+          break;
+        }
       }
+      const { top, second, why } = v;
+      const cand = (c?: C) => (c ? { id: c.hit.id as number, title: titleOf(c.hit), year: dateOf(c.hit).slice(0, 4) } : null);
+      trace.push({ input: label, asTv: !!e.tv, watched: e.watched, watching: !!e.watching, watchlist: e.watchlist, movie: cand(pool.find((c) => c.type === "movie")), tv: cand(pool.find((c) => c.type === "tv")), picked: top?.type ?? null });
       if (top && !why) { rows.push({ type: top.type, id: top.hit.id, ...fields(top.hit), watched: e.watched, watching: !!e.watching, rating: e.rating, date: e.date, label }); return; }
 
       // Not sure, or not found by the strict match: ask the same search the "Find it" box uses, so its first result is never missed.
-      let found = await search(q, "title").catch(() => []);
+      let hits = near ?? await nearHits(q);
+      // Nothing near what was typed, but a spelling fix exists ("Zotropolis" is "Zootropolis", TMDB's "Zootopia"): offer what the fixed spelling finds.
+      if (!top && !hits.length && suggested) hits = await nearHits(suggested);
       const obscure = !!top && top.s < 3 && fame(top.hit) < 100 && !e.year;
-      if ((!top && !found.length) || obscure) { const loose = await looseSearch(q); found = obscure ? [...loose, ...found] : loose; }
-      const hits = found.filter((h): h is Extract<typeof h, { kind: "title" }> => h.kind === "title").map((h) => { const { kind, ...rest } = h; void kind; return { ...rest, rating: 0 } as BrowseItem; });
+      if (!top && !hits.length) { unmatched.push({ label, status, rating: e.rating }); return; }
       // A series that is marked as watching and has no series match: prefer the first series the search finds over a film.
       const seriesFirst = e.watching && (!top || top.type === "movie") ? hits.find((h) => h.type === "tv") : undefined;
       // A partial match nobody has voted on (a concert film, a podcast) loses to whatever the search ranks first.
-      const first: BrowseItem | null = seriesFirst ?? (top && !(obscure && hits[0]) ? asItem(top.type, top.hit) : hits[0] ?? null);
-      if (!first) { unmatched.push({ label, status, rating: e.rating }); return; }
+      const first: BrowseItem = seriesFirst ?? (top && !(obscure && hits[0]) ? asItem(top.type, top.hit) : hits[0]);
       const alts: BrowseItem[] = [];
       for (const c of [...pool.filter((c) => c.s === 3 || fame(c.hit) >= 20).map((c) => asItem(c.type, c.hit)), ...hits]) {
         if (c.key !== first.key && !alts.some((a) => a.key === c.key)) alts.push(c);
       }
-      const weak = !top && sim(q, first.title) < 0.5;
+      const weak = !top && sim(suggested ?? q, first.title) < 0.5;
       // Only a clear favourite may be added in bulk; a toss-up between several titles is for the user to settle.
-      const risky = !top || obscure || top.s < 3 || !!seriesFirst || (!!second && top.w < 2 * second.w);
+      const risky = !top || obscure || doubtful || top.s < 3 || !!seriesFirst || (!!second && top.w < 2 * second.w);
       unsure.push({ label, status, rating: e.rating, why: weak ? "Nothing close; this is only the nearest search result." : why || "Best guess from search.", ...(weak ? { weak } : {}), ...(risky ? { risky } : {}), guess: first, alts: alts.slice(0, 4) });
     } catch (err) {
       unmatched.push({ label, status, rating: e.rating, error: "Could not look this up on TMDB." });
       trace.push({ input: label, asTv: !!e.tv, watched: e.watched, watching: !!e.watching, watchlist: e.watchlist, movie: null, tv: null, picked: null, error: String((err as Error)?.message ?? err).slice(0, 200) });
     }
-  }));
+  });
+  franchisePass(rows, unsure);
   return { rows, unmatched, unsure, trace };
+}
+
+/**
+ * Several films share a name ("Descendants", 2011 and 2015) and the list itself says which: it also holds "Descendants 2" (2017), so the one whose
+ * title starts that later title and came a few years before it is the one meant. Still left for the user to confirm, but no longer a toss-up.
+ */
+function franchisePass(rows: Resolved[], unsure: Unsure[]): void {
+  for (const u of unsure) {
+    if (u.weak || !/share this name|spelling/i.test(u.why)) continue;
+    const cands = [u.guess, ...u.alts].filter((c) => c.type === "movie" && /^\d{4}$/.test(c.year));
+    const proof = (c: BrowseItem) => rows.find((r) => r.type === "movie" && r.id !== c.id && /^\d{4}$/.test(r.year) && +r.year > +c.year && +r.year - +c.year <= 15 && startsWithWords(r.title, c.title));
+    const pick = cands.find((c) => proof(c));
+    if (!pick) continue;
+    if (pick.key !== u.guess.key) { u.alts = [u.guess, ...u.alts.filter((a) => a.key !== pick.key)].slice(0, 4); u.guess = pick; }
+    u.why = `Same series as “${proof(pick)!.title}” in this list.`;
+    delete u.risky;
+  }
 }
 
 /**

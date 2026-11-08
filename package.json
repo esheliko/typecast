@@ -10,7 +10,8 @@
     "lint": "eslint src && node scripts/check-client-boundary.mjs",
     "check:boundary": "node scripts/check-client-boundary.mjs",
     "test": "node --import tsx --test \"tests/unit/*.test.ts\"",
-    "smoke": "playwright test"
+    "smoke": "playwright test",
+    "eval:import": "tsx scripts/eval-import.mts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
