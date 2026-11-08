@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Barlow_Condensed, IBM_Plex_Mono, Instrument_Sans } from "next/font/google";
+import KeyboardAware from "@/components/KeyboardAware";
 import SwRegister from "@/components/SwRegister";
 import "./globals.css";
 
@@ -16,7 +17,7 @@ export const metadata: Metadata = {
   icons: { icon: "/icons/icon.svg", apple: "/icons/apple-touch-icon.png" },
 };
 export const viewport: Viewport = {
-  width: "device-width", initialScale: 1, viewportFit: "cover",
+  width: "device-width", initialScale: 1, viewportFit: "cover", interactiveWidget: "resizes-content",
   themeColor: [{ media: "(prefers-color-scheme: light)", color: "#eef0f4" }, { media: "(prefers-color-scheme: dark)", color: "#0f1116" }],
 };
 
@@ -30,6 +31,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         {children}
         <SwRegister />
+        <KeyboardAware />
       </body>
     </html>
   );
