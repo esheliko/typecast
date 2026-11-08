@@ -38,7 +38,7 @@ export default function LibraryList({ items }: { items: LibItem[] }) {
       {list.length === 0 ? <p className="muted" style={{ marginTop: 20 }}>Nothing matches.</p> : (
         <div className="card" style={{ marginTop: 14 }}><ul className="rows">
           {list.map((l) => (
-            <li key={l.key} className="row"><TitleLink className="row-link" k={l.key} it={l}>
+            <li key={l.key} className="row lib-row"><TitleLink className="row-link" k={l.key} it={l}>
               <Thumb path={l.poster} />
               <span className="row-main">
                 <span className="row-title">{l.title}</span>

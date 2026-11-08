@@ -455,6 +455,13 @@ button:not([disabled]):active, a.row:active, a.tab:active, .person-chip:active, 
 .pill-flip { display: inline-flex; align-items: center; gap: 4px; border: 0; cursor: pointer; }
 .pill-flip svg { width: 11px; height: 11px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
 @media (max-width: 560px) { .pill-slot { width: 112px; } .pill-flip svg { display: none; } }
+/* Library rows on phones: the poster, title and every control can't share one line (they need ~430px), so the title gets the full width and the controls sit on a second line. */
+@media (max-width: 559px) {
+  .lib-row { flex-wrap: wrap; row-gap: 6px; }
+  .lib-row .row-link { flex: 1 1 100%; }
+  .lib-row .pill-slot { width: auto; justify-content: flex-start; margin-right: auto; margin-left: 56px; }
+  .lib-row .pill-flip svg { display: inline; }
+}
 
 /* Skeletons: placeholders shaped like the content, so a page change shows its layout at once instead of a spinner. */
 .sk-b { background: var(--chip); border-radius: 8px; animation: pulse 1.2s ease-in-out infinite alternate; }
