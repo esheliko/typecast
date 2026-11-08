@@ -1,6 +1,6 @@
-import Link from "next/link";
 import { SeenLine, TopCredits } from "./cast/CreditList";
 import { Avatar } from "./ui";
+import { PersonLink } from "./Modal";
 import { GlimpseButton } from "./Glimpse";
 import { castSpec, personSpec } from "@/lib/glimpse";
 import type { CastMember, EnrichedMember } from "@/lib/types";
@@ -17,7 +17,7 @@ export function CreditRow({ c, title, pending }: { c: EnrichedMember; libKeys?: 
           <span className="credit-line"><span className="nm">{c.name}</span><span className="dots" /><span className="role">{c.role}</span></span>
         </summary>
         <div className="more">
-          <div className="more-top"><Link className="btn sm" href={`/person/${c.id}`}>Full profile →</Link></div>
+          <div className="more-top"><PersonLink className="btn sm" pid={c.id} it={c}>Full profile →</PersonLink></div>
           {c.top.length === 0 && <span className="muted small">{pending ? "Finding their other credits…" : "No other credits found."}</span>}
           <TopCredits items={c.top} actor={c.name} />
         </div>
@@ -35,10 +35,10 @@ export function CrewRow({ c }: { c: CastMember }) {
   return (
     <li className="credit has-gl">
       <span className="credit-gl"><GlimpseButton spec={personSpec(c.name, c.role)} label={`See images of ${c.name}`} /></span>
-      <Link className="credit-main" href={`/person/${c.id}`}>
+      <PersonLink className="credit-main" pid={c.id} it={c}>
         <Avatar photo={c.photo} name={c.name} />
         <span className="credit-line"><span className="nm">{c.name}</span><span className="dots" /><span className="role">{c.role}</span></span>
-      </Link>
+      </PersonLink>
     </li>
   );
 }

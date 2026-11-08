@@ -47,6 +47,25 @@ export function TitleSkeleton({ title, poster, sub }: { title?: string; poster?:
   );
 }
 
+export function PersonSkeleton({ name, photo }: { name?: string; photo?: string }) {
+  return (
+    <div aria-busy="true">
+      <div className="sh-top" style={{ marginTop: 14 }}>
+        {photo
+          // eslint-disable-next-line @next/next/no-img-element
+          ? <img className="sh-poster" src={photo} alt="" />
+          : <div className="sh-poster sk-b" style={{ aspectRatio: "2 / 3" }} />}
+        <div style={{ minWidth: 0, flex: 1 }}>
+          {name ? <h1 className="sh-title">{name}</h1> : bar("65%", 34)}
+          {bar("30%", 13, { marginTop: 12 })}
+        </div>
+      </div>
+      <h2><span className="sk-b" style={{ width: 90, height: 12 }} /></h2>
+      <RowsSkeleton n={6} />
+    </div>
+  );
+}
+
 export function StatCardsSkeleton({ n = 3 }: { n?: number }) {
   return (
     <div className="stat-cards" style={{ marginTop: 20 }} aria-hidden="true">

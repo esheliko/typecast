@@ -1,5 +1,5 @@
 "use client";
-import Link from "next/link";
+import { PersonLink } from "./Modal";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Avatar } from "./ui";
 import { Poster } from "./cast/Browse";
@@ -67,10 +67,10 @@ export default function Search({ onActive }: { onActive: (on: boolean) => void }
               <h2>People</h2>
               <div className="chips scroll people">
                 {people.map((h) => h.kind === "person" && (
-                  <Link key={h.id} className="person-chip" href={`/person/${h.id}`}>
+                  <PersonLink key={h.id} className="person-chip" pid={h.id} it={h}>
                     <Avatar photo={h.photo} name={h.name} />
                     <span><span className="nm">{h.name}</span><span className="row-sub">{h.knownFor.slice(0, 2).join(", ") || h.dept}</span></span>
-                  </Link>
+                  </PersonLink>
                 ))}
               </div>
             </>

@@ -3,7 +3,7 @@ import { lockScroll } from "@/lib/scroll-lock";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ComponentProps } from "react";
-import { TitleSkeleton } from "./Skeletons";
+import { PersonSkeleton, TitleSkeleton } from "./Skeletons";
 import { href, img, typeLabel } from "@/lib/img";
 
 const InModal = createContext(false);
@@ -39,14 +39,35 @@ export function ModalLoading() {
   return <TitleSkeleton title={p?.title} poster={p?.src || (p?.poster ? img(p.poster, "w185") : undefined)} sub={sub} />;
 }
 
+/** What the popup can show before a person's page arrives: the name and photo of whoever you tapped. */
+type PersonPeek = { name: string; photo?: string | null; src?: string };
+const peekedPeople = new Map<string, PersonPeek>();
+
+/** A link to a person. Same rules as TitleLink: opens the popup over the current page, never scrolls it, never prefetches. */
+export function PersonLink({ pid, it, onClick, ...rest }: { pid: number | string; it?: { name: string; photo?: string | null } } & Omit<ComponentProps<typeof Link>, "href" | "replace" | "scroll" | "prefetch">) {
+  const remember = (el: HTMLElement) => { if (it) peekedPeople.set(String(pid), { name: it.name, photo: it.photo, src: el.querySelector("img")?.currentSrc || undefined }); };
+  return <Link href={`/person/${pid}`} scroll={false} prefetch={false}
+    onClick={(e) => { remember(e.currentTarget); onClick?.(e); }} {...rest} />;
+}
+
+/** The popup's loading state for a person. */
+export function PersonModalLoading() {
+  const m = /^\/person\/(\d+)/.exec(usePathname());
+  const p = m ? peekedPeople.get(m[1]) : undefined;
+  return <PersonSkeleton name={p?.name} photo={p?.src || (p?.photo ? img(p.photo, "w185") : undefined)} />;
+}
+
+/** Titles and people open as popups; every other path is a page that can sit underneath one. */
+const isPopupPath = (p: string) => /^\/(title|person)(\/|$)/.test(p);
+
 const BG = "tc:bg";
 const safe = <T,>(f: () => T, d: T): T => { try { return f(); } catch { return d; } };
 
-/** Set by RestorePopup: the title URL to open as a popup once the page underneath is on screen (see BgTracker). */
+/** Set by RestorePopup: the title or person URL to open as a popup once the page underneath is on screen (see BgTracker). */
 let restoreTo: string | null = null;
 
 /**
- * Remembers the last page that was not a title, so a refresh on a popup can put the popup back over that page.
+ * Remembers the last page that was not a title or person, so a refresh on a popup can put the popup back over that page.
  * It also finishes that restore: it lives in the layout, so it survives the navigation RestorePopup starts, and opens the popup
  * once the page underneath has landed. (Two router calls in one tick do not work: the second supersedes the first.)
  */
@@ -55,7 +76,7 @@ export function BgTracker() {
   const sp = useSearchParams();
   const router = useRouter();
   useEffect(() => {
-    if (path.startsWith("/title")) return;
+    if (isPopupPath(path)) return;
     if (restoreTo) { const to = restoreTo; restoreTo = null; router.push(to, { scroll: false }); return; }
     const q = sp.toString();
     safe(() => sessionStorage.setItem(BG, path + (q ? `?${q}` : "")), undefined);
@@ -64,8 +85,8 @@ export function BgTracker() {
 }
 
 /**
- * Wraps the full title page. A hard load (refresh, shared link) of a title would otherwise show the bare page; instead it
- * replays the original navigation: go to the page that was underneath, then open the title as a popup again.
+ * Wraps the full title or person page. A hard load (refresh, shared link) of one would otherwise show the bare page; instead it
+ * replays the original navigation: go to the page that was underneath, then open it as a popup again.
  * "Open full page" adds ?full=1 to skip this.
  */
 export function RestorePopup({ children }: { children: React.ReactNode }) {
@@ -76,8 +97,8 @@ export function RestorePopup({ children }: { children: React.ReactNode }) {
     if (u.searchParams.has("full")) { setShow(true); return; }
     const bg = safe(() => sessionStorage.getItem(BG), null);
     restoreTo = u.pathname + u.search;
-    router.replace(bg && !bg.startsWith("/title") ? bg : "/", { scroll: false });
-    // If the page underneath never lands (this component is still mounted), show the title page itself rather than "Loading details" forever.
+    router.replace(bg && !isPopupPath(bg) ? bg : "/", { scroll: false });
+    // If the page underneath never lands (this component is still mounted), show the full page itself rather than "Loading details" forever.
     const t = setTimeout(() => { restoreTo = null; setShow(true); }, 4000);
     return () => clearTimeout(t);
   }, [router]);
@@ -91,7 +112,7 @@ export function OpenedFrom({ k, name }: { k: string; name: string }) {
   return <p className="small" style={{ margin: "6px 0 0" }}>Opened from <TitleLink k={k}><b>{name}</b></TitleLink></p>;
 }
 
-/** The popup frame for title details. Close (button, Esc, tap outside) returns to the page underneath, untouched; Back / Forward step through titles opened inside the popup. */
+/** The popup frame for title and person details. Close (button, Esc, tap outside) returns to the page underneath, untouched; Back / Forward step through the titles and people opened inside the popup. */
 export function Modal({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const path = usePathname();
@@ -150,12 +171,12 @@ export function Modal({ children }: { children: React.ReactNode }) {
 
   return (
     <InModal.Provider value>
-      <div ref={box} className="modal" role="dialog" aria-modal="true" aria-label="Title details" tabIndex={-1} onClick={(e) => { if (e.target === e.currentTarget) close(); }}>
+      <div ref={box} className="modal" role="dialog" aria-modal="true" aria-label={path.startsWith("/person") ? "Person details" : "Title details"} tabIndex={-1} onClick={(e) => { if (e.target === e.currentTarget) close(); }}>
         <div className="sheet">
           <div className="sheet-bar">
             <div className="sheet-nav">
-              <button type="button" className="back strong" disabled={pos.i === 0} onClick={() => router.back()} aria-label="Back to previous title"><span aria-hidden="true">&#8249;</span></button>
-              <button type="button" className="back strong" disabled={pos.i >= pos.n - 1} onClick={() => router.forward()} aria-label="Forward to next title"><span aria-hidden="true">&#8250;</span></button>
+              <button type="button" className="back strong" disabled={pos.i === 0} onClick={() => router.back()} aria-label="Back"><span aria-hidden="true">&#8249;</span></button>
+              <button type="button" className="back strong" disabled={pos.i >= pos.n - 1} onClick={() => router.forward()} aria-label="Forward"><span aria-hidden="true">&#8250;</span></button>
             </div>
             <div className="sheet-nav">
               {/* A plain link on purpose: it loads the full page instead of opening another popup. */}

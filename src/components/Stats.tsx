@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { TitleLink } from "./Modal";
+import { PersonLink, TitleLink } from "./Modal";
 import type { Counted } from "@/lib/stats";
 import type { LibItem } from "@/lib/types";
 
@@ -51,7 +51,7 @@ export function PeopleList({ people, empty }: { people: { id: number; name: stri
   return (
     <ul className="plain-list">
       {people.map((p) => (
-        <li key={p.id}><Link href={`/person/${p.id}`}>{p.name}</Link> <span className="muted small">{p.n} {p.sub ?? "titles"}</span></li>
+        <li key={p.id}><PersonLink pid={p.id} it={{ name: p.name }}>{p.name}</PersonLink> <span className="muted small">{p.n} {p.sub ?? "titles"}</span></li>
       ))}
     </ul>
   );

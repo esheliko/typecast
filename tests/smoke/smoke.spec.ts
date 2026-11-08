@@ -157,10 +157,52 @@ test.describe("signed in", () => {
     await healthy(page, bad);
   });
 
-  test("person page", async ({ page }) => {
+  test("person page (full page)", async ({ page }) => {
+    const bad = watch(page);
+    await visit(page, "/person/6384?full=1", bad);
+    await expect(page.getByRole("heading", { name: /Keanu Reeves/ })).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+  });
+
+  test("person popup (hard load restores it over Browse)", async ({ page }) => {
     const bad = watch(page);
     await visit(page, "/person/6384", bad);
-    await expect(page.getByRole("heading").first()).toBeVisible({ timeout: 20_000 });
+    const dlg = page.getByRole("dialog", { name: "Person details" });
+    await expect(dlg.getByRole("heading", { name: /Keanu Reeves/ })).toBeVisible({ timeout: 20_000 });
+    await healthy(page, bad);
+    await dlg.getByRole("button", { name: "Close" }).click();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(page).not.toHaveURL(/\/person\//);
+  });
+
+  test("person popup from a title popup: Back returns to the title, Close returns to Browse", async ({ page }) => {
+    const bad = watch(page);
+    await visit(page, "/", bad);
+    // A hard load of the title restores its popup over Browse; then open a person from inside it.
+    await page.goto("/title/movie/603");
+    const title = page.getByRole("dialog", { name: "Title details" });
+    await expect(title.getByRole("heading", { name: /The Matrix/ })).toBeVisible({ timeout: 20_000 });
+    // Crew rows are plain links to people.
+    const who = title.locator("a.credit-main[href^='/person/']").first();
+    await expect(who).toBeVisible({ timeout: 20_000 });
+    const href = await who.getAttribute("href");
+    await who.click();
+    await expect(page).toHaveURL(new RegExp(`${href}$`));
+    const person = page.getByRole("dialog", { name: "Person details" });
+    await expect(person).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByRole("dialog")).toHaveCount(1);
+    await expect(person.getByRole("link", { name: "Full page" })).toHaveAttribute("href", `${href}?full=1`);
+    // Back walks the trail to the title; Forward returns to the person.
+    await person.getByRole("button", { name: "Back" }).click();
+    await expect(page).toHaveURL(/\/title\/movie\/603/);
+    await expect(page.getByRole("dialog", { name: "Title details" }).getByRole("heading", { name: /The Matrix/ })).toBeVisible({ timeout: 20_000 });
+    await page.getByRole("button", { name: "Forward" }).click();
+    await expect(page.getByRole("dialog", { name: "Person details" })).toBeVisible({ timeout: 20_000 });
+    // Close goes all the way back to the page underneath.
+    await page.getByRole("button", { name: "Close" }).click();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(page).not.toHaveURL(/\/(person|title)\//);
+    await healthy(page, bad);
   });
 
   test("API routes answer when signed in", async ({ page }) => {

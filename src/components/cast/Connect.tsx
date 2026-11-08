@@ -1,10 +1,9 @@
 "use client";
-import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { Avatar, Thumb } from "../ui";
 import QuickMark from "./QuickMark";
 import RelatedButton from "./RelatedButton";
-import { TitleLink } from "../Modal";
+import { PersonLink, TitleLink } from "../Modal";
 import { KindFilter } from "../KindSeg";
 import { typeLabel } from "@/lib/img";
 import type { Item, PeopleLink, PersonLite, Regular, SearchHit, TitlesLink } from "@/lib/types";
@@ -88,7 +87,7 @@ function PeopleResult({ r }: { r: PeopleLink }) {
           <div className="card"><ul className="rows">
             {r.bridges.map((x) => (
               <li key={x.person.id} className="bridge">
-                <Link href={`/person/${x.person.id}`} className="bridge-who"><Avatar photo={x.person.photo} name={x.person.name} /><span className="row-title" style={{ fontSize: 17 }}>{x.person.name}</span></Link>
+                <PersonLink pid={x.person.id} it={x.person} className="bridge-who"><Avatar photo={x.person.photo} name={x.person.name} /><span className="row-title" style={{ fontSize: 17 }}>{x.person.name}</span></PersonLink>
                 <div className="bridge-via">
                   <TitleLink k={x.viaA.key}>with {r.a.name} in <b>{x.viaA.title}</b>{x.viaA.year ? ` (${x.viaA.year})` : ""}</TitleLink>
                   <TitleLink k={x.viaB.key}>with {r.b.name} in <b>{x.viaB.title}</b>{x.viaB.year ? ` (${x.viaB.year})` : ""}</TitleLink>
@@ -109,14 +108,14 @@ function TitlesResult({ r }: { r: TitlesLink }) {
       {r.shared.length > 0 && (
         <div className="card"><ul className="rows">
           {r.shared.map((p) => (
-            <li key={p.id}><Link className="row" href={`/person/${p.id}`}>
+            <li key={p.id}><PersonLink className="row" pid={p.id} it={p}>
               <Avatar photo={p.photo} name={p.name} />
               <span className="row-main">
                 <span className="row-title" style={{ fontSize: 17 }}>{p.name}</span>
                 <span className="row-sub">{p.roles[0] || "Unnamed role"} in {r.a.title}</span>
                 <span className="row-sub">{p.roles[1] || "Unnamed role"} in {r.b.title}</span>
               </span>
-            </Link></li>
+            </PersonLink></li>
           ))}
         </ul></div>
       )}
@@ -140,13 +139,13 @@ function Regulars({ onPick }: { onPick: (p: PersonLite) => void }) {
         <div className="card"><ul className="rows">
           {list.map((p) => (
             <li key={p.id} className="row">
-              <Link href={`/person/${p.id}`} className="row-link">
+              <PersonLink pid={p.id} it={p} className="row-link">
                 <Avatar photo={p.photo} name={p.name} />
                 <span className="row-main">
                   <span className="row-title" style={{ fontSize: 17 }}>{p.name}</span>
                   <span className="row-sub"><span className="seen-n">{p.titles.length} of yours</span> · {p.titles.slice(0, 4).map((t) => t.title).join(", ")}</span>
                 </span>
-              </Link>
+              </PersonLink>
               <button type="button" className="btn sm" onClick={() => onPick(p)}>Connect</button>
             </li>
           ))}
