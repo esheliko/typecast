@@ -16,7 +16,7 @@ import { LinkedRows } from "@/components/cast/CreditList";
 import { FromProvider } from "@/components/Modal";
 import { Where } from "@/components/Where";
 import { fillCrew, missingCrew } from "@/lib/crew-fill";
-import { bylineLabel, DETAIL_LABEL, detailLabel, isCrewId, MAIN_CAST, type CrewBy, type CrewId, type DetailId } from "@/lib/details";
+import { bylineLabel, DETAIL_IDS, DETAIL_LABEL, detailLabel, isCrewId, MAIN_CAST, type CrewBy, type CrewId, type DetailId } from "@/lib/details";
 import { enrich } from "@/lib/enrich";
 import { img, typeLabel } from "@/lib/img";
 import { getLibrary, getProfile } from "@/lib/library";
@@ -120,6 +120,18 @@ function Details({ t, lib, order }: { t: Title; lib: LibItem[]; order: DetailId[
   );
 }
 
+/** Details switched off in Setup stay one tap away, folded under a single collapsed section. */
+function Unchosen({ t, lib, order }: { t: Title; lib: LibItem[]; order: DetailId[] }) {
+  const rest = DETAIL_IDS.filter((id) => !order.includes(id));
+  if (!rest.length) return null;
+  return (
+    <details className="cw" style={{ marginTop: 22 }}>
+      <summary>More details<span className="cw-n">{rest.length}</span></summary>
+      <Details t={t} lib={lib} order={rest} />
+    </details>
+  );
+}
+
 /** The rest of the collection / universe with one-tap marks. Opens by itself once this title is marked as seen. */
 async function Franchise({ t }: { t: Title }) {
   const groups = await getFranchise(t.type, t.id).catch(() => []);
@@ -198,6 +210,7 @@ export default async function TitleView({ t, origin }: { t: Title; origin?: Item
       <Where t={t} profile={profile} />
       <DetailOrder initial={profile.details} type={t.type} />
       <Details t={t} lib={lib} order={profile.details} />
+      <Unchosen t={t} lib={lib} order={profile.details} />
       <Suspense fallback={null}><AwardsSection t={t} /></Suspense>
       <Suspense fallback={null}><Franchise t={t} /></Suspense>
       <Suspense fallback={null}><Related t={t} origin={origin} /></Suspense>
