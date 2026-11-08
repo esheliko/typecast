@@ -5,6 +5,8 @@ export type Plain = "watched" | "watchlist";
 
 const CHECKED = /^\s*(?:[-*+•]\s*)?(?:\[\s*[xXvV✓✔]\s*\]|\(\s*[xXvV✓✔]\s*\)|[☑☒✅✔✓■])\s*/;
 const UNCHECKED = /^\s*(?:[-*+•]\s*)?(?:\[\s*\]|\(\s*\)|[☐□▢⬜])\s*/;
+/** A list number in front of a title: "1. ", "12) ", "3.Title", "#4. ", "(5) ", optionally after a bullet. Not "2001: A Space Odyssey" or "12 Angry Men". */
+const NUMBER = /^\s*(?:[-*+•]\s+)?(?:#?\d{1,4}[.)](?!\d)|\(\d{1,4}\))\s*/;
 const BULLET = /^\s*(?:[-*+•–—]\s+|\d+[.)]\s+)/;
 const TODO_HEAD = /^(to ?watch|watch ?list|want to watch|wish ?list|to ?do|queue|up next|unwatched|plan to watch|watch later)(\s+list)?$/i;
 const DONE_HEAD = /^(watched|seen|already watched|done|finished|watch history|history|completed)$/i;
@@ -14,9 +16,10 @@ const SKIP = /^(movies?|films?|tv|shows?|series|tv shows?)$/i;
 function parseLine(raw: string, mode: Plain): { entry: LbEntry } | { mode: Plain } | null {
   let s = raw.trim();
   if (!s || s.length > 200) return null;
+  s = s.replace(NUMBER, "");
   let watched: boolean | null = null;
-  if (CHECKED.test(s)) { watched = true; s = s.replace(CHECKED, ""); }
-  else if (UNCHECKED.test(s)) { watched = false; s = s.replace(UNCHECKED, ""); }
+  if (CHECKED.test(s)) { watched = true; s = s.replace(CHECKED, "").replace(NUMBER, ""); }
+  else if (UNCHECKED.test(s)) { watched = false; s = s.replace(UNCHECKED, "").replace(NUMBER, ""); }
   else {
     const head = s.replace(/^#+\s*/, "").replace(/[:\-–—]+$/, "").replace(/\*\*/g, "").trim();
     const topic = "(?:movies?|films?|shows?|tv(?: shows?)?|series)", words = new RegExp(`^(?:my\\s+)?(?:${topic}\\s+)?|(?:\\s+${topic})$`, "gi");
