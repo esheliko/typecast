@@ -12,7 +12,7 @@ export default async function Setup() {
   const [profile, { data }] = await Promise.all([getProfile(), supabaseServer().then((sb) => sb.auth.getClaims())]);
   return (
     <div className="page">
-      <h2>Where you watch</h2>
+      <h2>Streaming</h2>
       <ProfileForm initial={profile} />
       <h2>Title details</h2>
       <DetailOrder initial={profile.details} always />

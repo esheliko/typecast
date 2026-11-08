@@ -68,10 +68,15 @@ export default function LetterboxdPanel({ link }: { link: LetterboxdLink | null 
   const shown = open || !!link;
   return (
     <>
-      <h2>Import watch history</h2>
+      <h2>Import</h2>
       <div className="card pad" aria-busy={busy}>
         <label className="l" htmlFor="lbf">Import a list or a Letterboxd export</label>
-        <p className="small muted" style={{ margin: "0 0 10px" }}>Choose a file or paste text, then press Import. Works with a Letterboxd .zip or CSV, a plain list with a title per line, or a checklist from your notes app (Apple Notes, Google Keep, Samsung Notes): <b>[x]</b>, <b>[v]</b> or a ticked box is watched, <b>[ ]</b> or an empty box is to watch, and a trailing <b>WIP</b> marks a title you are watching now. Add a year like (2019) to be exact, and a rating like 4/5 or ★★★★ if you have one. Series work too. Nothing is sent until you press Import.</p>
+        <p className="small muted" style={{ margin: "0 0 10px" }}>Choose a file or paste a list, then press Import. Nothing is sent until you do.</p>
+        <details className="small muted" style={{ margin: "0 0 12px" }}>
+          <summary style={{ cursor: "pointer" }}>Supported formats and rules</summary>
+          <p style={{ margin: "8px 0 0" }}>Works with a Letterboxd .zip or CSV, a plain list with a title per line, or a checklist from your notes app (Apple Notes, Google Keep, Samsung Notes): <b>[x]</b>, <b>[v]</b> or a ticked box is watched, <b>[ ]</b> or an empty box is to watch, and a trailing <b>WIP</b> marks a title you are watching now. Add a year like (2019) to be exact, and a rating like 4/5 or ★★★★ if you have one. Series work too.</p>
+          <p style={{ margin: "8px 0 0" }}>Titles you already have are never overwritten: an existing title is only marked watched if it was not, and given a rating only if it had none. Half stars are rounded up to whole stars. For Letterboxd, open Settings, then Data, then Export your data.</p>
+        </details>
         <input id="lbf" key={fileKey} type="file" accept=".zip,.csv,.txt,.md,.text,application/zip,text/csv,text/plain" multiple disabled={busy} onChange={(e) => pick(e.target.files)} />
         <textarea aria-label="Or paste your list here" placeholder={"Or paste your list here, one title per line:\n[x] Inception (2010)\n[ ] Dune Part Two\nSeverance"} rows={5} disabled={busy} value={pasted} onChange={(e) => { setPasted(e.target.value); setTally(null); setImportErr(""); }} style={{ width: "100%", marginTop: 10 }} />
         <label className="small muted" htmlFor="plain" style={{ display: "block", margin: "10px 0 0" }}>Lines with no checkbox are </label>
@@ -93,10 +98,8 @@ export default function LetterboxdPanel({ link }: { link: LetterboxdLink | null 
         )}
         {importErr && <p className="small err" style={{ margin: "10px 0 0" }}>{importErr}</p>}
         {review.length > 0 && !busy && <ImportReview rows={review} onChange={setReview} />}
-        <p className="small muted" style={{ margin: "10px 0 0" }}>Titles you already have are never overwritten: an existing title is only marked watched if it was not, and given a rating only if it had none. Half stars are rounded up to whole stars. For Letterboxd, open Settings, then Data, then Export your data.</p>
       </div>
-      <div className="sp" />
-      <h2>Services you can add</h2>
+      <h2>Letterboxd sync</h2>
       <div className="card pad" style={{ display: "flex", alignItems: "center", gap: 12 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <b>Letterboxd</b>
@@ -106,7 +109,6 @@ export default function LetterboxdPanel({ link }: { link: LetterboxdLink | null 
       </div>
       {shown && <div className="sp" />}
       {shown && <div className="card pad" aria-busy={pending}>
-        <label className="l" htmlFor="lbu">Keep in sync</label>
         {link ? (
           <>
             <p className="small" style={{ margin: "0 0 10px" }}>Connected to <b>{link.user}</b>. {link.syncedAt ? <>Last checked <span suppressHydrationWarning>{new Date(link.syncedAt).toLocaleString()}</span>.</> : "Not checked yet."}</p>
@@ -120,7 +122,7 @@ export default function LetterboxdPanel({ link }: { link: LetterboxdLink | null 
           <>
             <p className="small muted" style={{ margin: "0 0 10px" }}>Optional. Enter your Letterboxd username and new films from your diary are added as Watched, with your rating and watched date. Typecast checks when you open it, at most every 6 hours.</p>
             <div style={{ display: "flex", gap: 8 }}>
-              <input id="lbu" type="text" placeholder="Letterboxd username" autoCapitalize="none" autoCorrect="off" spellCheck={false} value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && name.trim() && connect()} style={{ flex: 1 }} />
+              <input id="lbu" aria-label="Letterboxd username" type="text" placeholder="Letterboxd username" autoCapitalize="none" autoCorrect="off" spellCheck={false} value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && name.trim() && connect()} style={{ flex: 1 }} />
               <button className="btn gold" type="button" onClick={connect} disabled={pending || !name.trim()}>{pending ? "Connecting…" : "Connect"}</button>
             </div>
           </>
@@ -128,7 +130,7 @@ export default function LetterboxdPanel({ link }: { link: LetterboxdLink | null 
         {msg && <p className="small" style={{ margin: "10px 0 0" }}>{msg}</p>}
         {!link && err && <p className="small err" style={{ margin: "10px 0 0" }}>{err}</p>}
         {link && err && !link.error && <p className="small err" style={{ margin: "10px 0 0" }}>{err}</p>}
-        <p className="small muted" style={{ margin: "10px 0 0" }}>Needs a public profile. Only films you log in your Letterboxd diary come through (about the latest 50 are visible to a sync, which is plenty to stay current). Syncing is one way: nothing is written back to Letterboxd. Disconnecting keeps what was imported.</p>
+        <p className="small muted" style={{ margin: "10px 0 0" }}>Needs a public profile. Only diary entries come through (about the latest 50). Syncing is one way and disconnecting keeps what was imported.</p>
       </div>}
     </>
   );

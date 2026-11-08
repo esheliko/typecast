@@ -63,15 +63,10 @@ export default function ProfileForm({ initial }: { initial: Profile }) {
   }
   const show = [...merged, ...extra].filter((p) => (term ? p.name.toLowerCase().includes(term) : p.ids.some((i) => services.includes(i)) || p.pri < 25 || PINNED.has(p.name.toLowerCase()))).sort((a, b) => a.pri - b.pri).slice(0, 80);
   return (
+    <>
     <div className="card pad" aria-busy={pending}>
       <label className="l" htmlFor="cc">Country</label>
       <select id="cc" value={country} onChange={(e) => pickCountry(e.target.value)}>{COUNTRIES.map(([c, n]) => <option key={c} value={c}>{n}</option>)}</select>
-      <div className="sp" />
-      <span className="l" id="dp">The To watch button on posters adds titles as</span>
-      <div className="chips" role="group" aria-labelledby="dp" style={{ marginBottom: 4 }}>
-        {(Object.keys(PRIORITY_LABEL) as Priority[]).map((p) => <button key={p} className="chip" aria-pressed={prio === p} onClick={() => pickPrio(p)}>{PRIORITY_LABEL[p]}</button>)}
-      </div>
-      <p className="small muted" style={{ margin: "0 0 4px" }}>Saved on this device. After you tap it, a message offers to switch that title to the other one.</p>
       <div className="sp" />
       <label className="l" htmlFor="svq">Your streaming services</label>
       <input id="svq" type="search" placeholder="Filter services" value={q} onChange={(e) => setQ(e.target.value)} style={{ width: "100%", marginBottom: 10 }} />
@@ -86,5 +81,14 @@ export default function ProfileForm({ initial }: { initial: Profile }) {
       </div>
       <p className="small muted" style={{ margin: "10px 0 0" }}>{pending ? "Saving…" : "Changes save automatically."}</p>
     </div>
+    <h2>Quick add</h2>
+    <div className="card pad">
+      <span className="l" id="dp">The To watch button on posters adds titles as</span>
+      <div className="chips" role="group" aria-labelledby="dp" style={{ marginBottom: 8 }}>
+        {(Object.keys(PRIORITY_LABEL) as Priority[]).map((p) => <button key={p} className="chip" aria-pressed={prio === p} onClick={() => pickPrio(p)}>{PRIORITY_LABEL[p]}</button>)}
+      </div>
+      <p className="small muted" style={{ margin: 0 }}>Saved on this device. After you tap it, a message offers to switch that title to the other one.</p>
+    </div>
+    </>
   );
 }
