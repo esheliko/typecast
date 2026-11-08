@@ -5,7 +5,7 @@ import { requireUser, supabaseServer } from "@/lib/supabase/server";
 import { normalizeDetails, type DetailId } from "@/lib/details";
 import type { MediaType, Priority, Status } from "@/lib/types";
 import type { LbEntry } from "@/lib/letterboxd-parse";
-import { applyResolved, cleanUsername, fetchFeed, LbError, resolveEntries, type Applied, type Failed, type Prev, type Unmatched, syncLetterboxd } from "@/lib/letterboxd";
+import { applyResolved, cleanUsername, fetchFeed, LbError, resolveEntries, type Applied, type Failed, type Prev, type Unmatched, type Unsure, syncLetterboxd } from "@/lib/letterboxd";
 
 const STATUSES = ["watching", "partial", "watchlist", "watched"];
 const where = (type: MediaType, id: number) => ({ tmdb_type: type, tmdb_id: id });
@@ -99,25 +99,25 @@ export async function saveDetails(order: DetailId[]) {
 }
 
 /** Import one batch (max 25) of films parsed from a Letterboxd export or a text list. Opt-in: only called when the user imports in Setup. */
-export async function importLetterboxd(entries: LbEntry[], last: boolean): Promise<{ added: number; updated: number; items: Applied[]; unmatched: Unmatched[]; failed: Failed[] }> {
+export async function importLetterboxd(entries: LbEntry[], last: boolean): Promise<{ added: number; updated: number; items: Applied[]; unmatched: Unmatched[]; unsure: Unsure[]; failed: Failed[] }> {
   const { sb, user } = await requireUser();
   const clean = entries.slice(0, 25).filter((e) => typeof e?.name === "string" && e.name && e.name.length < 300).map((e): LbEntry => ({
     name: e.name, tv: !!e.tv, watching: !!e.watching, year: Number.isInteger(e.year) ? e.year : null, watched: !!e.watched, watchlist: !!e.watchlist,
     rating: Number.isInteger(e.rating) ? Math.max(0, Math.min(5, e.rating)) : 0, date: typeof e.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(e.date) ? e.date : null,
   })).filter((e) => e.watched || e.watchlist || e.watching);
-  const { rows, unmatched, trace } = await resolveEntries(clean);
+  const { rows, unmatched, unsure, trace } = await resolveEntries(clean);
   let res: Awaited<ReturnType<typeof applyResolved>> = { added: 0, updated: 0, items: [], failed: [] }, failure: string | null = null;
   try { res = await applyResolved(sb, user.id, rows); } catch (e) { failure = e instanceof Error ? e.message : String(e); }
   // Audit trail: one line in the Vercel runtime logs and one row in `import_log` (table migration 0007). Logging never breaks an import.
-  const summary = { received: entries.length, kept: clean.length, added: res.added, updated: res.updated, items: res.items, unmatched, failed: res.failed, failure };
+  const summary = { received: entries.length, kept: clean.length, added: res.added, updated: res.updated, items: res.items, unmatched, unsure, failed: res.failed, failure };
   console.log("[import]", JSON.stringify({ user: user.id, ...summary, trace }));
   try {
-    const { error } = await sb.from("import_log").insert({ user_id: user.id, received: entries.length, kept: clean.length, added: res.added, updated: res.updated, unmatched, failure, trace: { lines: trace, applied: res.items, failed: res.failed } });
+    const { error } = await sb.from("import_log").insert({ user_id: user.id, received: entries.length, kept: clean.length, added: res.added, updated: res.updated, unmatched: [...unmatched, ...unsure.map((u) => ({ label: u.label, unsure: u.guess.title }))], failure, trace: { lines: trace, applied: res.items, failed: res.failed } });
     if (error) console.error("[import] log insert failed:", error.message);
   } catch (e) { console.error("[import] log insert failed:", e); }
   if (failure) throw new Error(failure);
   if (last) done();
-  return { ...res, unmatched };
+  return { ...res, unmatched, unsure };
 }
 
 /**

@@ -4,6 +4,7 @@ import { connectLetterboxd, disconnectLetterboxd, syncLetterboxdNow } from "@/ap
 import type { Plain } from "@/lib/list-parse";
 import SettingRow from "./SettingRow";
 import { useImport } from "./ImportState";
+import { unsaved } from "./ImportReview";
 import type { LetterboxdLink } from "@/lib/types";
 
 /** Two independent, opt-in tools: a one-time import of a Letterboxd export, and a connection that pulls new diary entries. */
@@ -22,7 +23,7 @@ export default function LetterboxdPanel({ link }: { link: LetterboxdLink | null 
   const watched = entries?.filter((e) => e.watched).length ?? 0, listed = entries?.filter((e) => e.watchlist).length ?? 0, watchingN = entries?.filter((e) => e.watching).length ?? 0, rated = entries?.filter((e) => e.rating > 0).length ?? 0;
   return (
     <>
-      <SettingRow label="Import a list" value={busy && entries ? `Importing ${done} of ${entries.length}` : review.some((r) => r.problem && !r.gone) ? "Needs review" : tally ? "Done" : undefined}>
+      <SettingRow label="Import a list" value={busy && entries ? `Importing ${done} of ${entries.length}` : review.some((r) => unsaved(r) && !r.gone) ? "Needs review" : tally ? "Done" : undefined}>
       {(close) => <div aria-busy={busy}>
         <details className="small muted" style={{ margin: "0 0 10px" }} open>
           <summary style={{ cursor: "pointer" }}>Formats</summary>
@@ -47,12 +48,12 @@ export default function LetterboxdPanel({ link }: { link: LetterboxdLink | null 
         )}
         {busy && entries && <p className="small muted" style={{ margin: "10px 0 0" }}><span className="spin" />Importing {done} of {entries.length}. You can switch tabs; keep the app open.</p>}
         {tally && !busy && (
-          <p className="small" style={{ margin: "10px 0 0" }}>Done: {tally.added} added, {tally.updated} updated{tally.unmatched ? `, ${tally.unmatched} not found on TMDB` : ""}{tally.failed ? `, ${tally.failed} could not be saved` : ""}.{tally.unmatched + tally.failed > 0 ? " Fix those in the list below." : ""}</p>
+          <p className="small" style={{ margin: "10px 0 0" }}>Done: {tally.added} added, {tally.updated} updated{tally.unsure ? `, ${tally.unsure} not sure (to confirm)` : ""}{tally.unmatched ? `, ${tally.unmatched} not found on TMDB` : ""}{tally.failed ? `, ${tally.failed} could not be saved` : ""}.{tally.unmatched + tally.failed + tally.unsure > 0 ? " Check those in the review." : ""}</p>
         )}
         {importErr && <p className="small err" style={{ margin: "10px 0 0" }}>{importErr}</p>}
         {review.length > 0 && !busy && (
           <button className="btn" type="button" style={{ marginTop: 10 }} onClick={() => { close(); openReview(); }}>
-            Review import{review.some((r) => r.problem && !r.gone) ? ` (${review.filter((r) => r.problem && !r.gone).length} to fix)` : ""}
+            Review import{review.some((r) => unsaved(r) && !r.gone) ? ` (${review.filter((r) => unsaved(r) && !r.gone).length} to check)` : ""}
           </button>
         )}
         {reverted && <p className="small" style={{ margin: "10px 0 0" }}>{reverted}</p>}

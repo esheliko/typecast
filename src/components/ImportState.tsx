@@ -6,12 +6,12 @@ import { importLetterboxd, rollbackImport } from "@/app/actions";
 import { readZip } from "@/lib/letterboxd-parse";
 import { parseAny, type Plain } from "@/lib/list-parse";
 import type { Applied } from "@/lib/letterboxd";
-import ImportReviewDialog, { toRows, type ReviewRow } from "./ImportReview";
+import ImportReviewDialog, { rank, toRows, unsaved, type ReviewRow } from "./ImportReview";
 
 const BATCH = 25;
 
 type Entries = ReturnType<typeof parseAny>;
-type Tally = { added: number; updated: number; unmatched: number; failed: number };
+type Tally = { added: number; updated: number; unmatched: number; failed: number; unsure: number };
 
 type Ctx = {
   entries: Entries | null;
@@ -82,15 +82,15 @@ export function ImportProvider({ children }: { children: React.ReactNode }) {
   async function run() {
     if (!entries) return;
     setBusy(true); setDone(0); setImportErr(""); setReverted(""); setTally(null); setStarted(entries); setReview([]); setReviewOpen(false);
-    const sum = { added: 0, updated: 0, unmatched: 0, failed: 0 }, all: ReviewRow[] = [], applied: Applied[] = [];
+    const sum = { added: 0, updated: 0, unmatched: 0, failed: 0, unsure: 0 }, all: ReviewRow[] = [], applied: Applied[] = [];
     let at = 0;
     try {
       for (let i = 0; i < entries.length; i += BATCH) {
         at = i;
         const r = await importLetterboxd(entries.slice(i, i + BATCH), i + BATCH >= entries.length);
         applied.push(...r.items);
-        sum.added += r.added; sum.updated += r.updated; sum.unmatched += r.unmatched.length; sum.failed += r.failed.length; all.push(...toRows(r.items, r.unmatched, r.failed));
-        setDone(Math.min(entries.length, i + BATCH)); setTally({ ...sum }); setReview([...all].sort((a, b) => Number(!!b.problem) - Number(!!a.problem)));
+        sum.added += r.added; sum.updated += r.updated; sum.unmatched += r.unmatched.length; sum.failed += r.failed.length; sum.unsure += r.unsure.length; all.push(...toRows(r.items, r.unmatched, r.failed, r.unsure));
+        setDone(Math.min(entries.length, i + BATCH)); setTally({ ...sum }); setReview([...all].sort((a, b) => rank(a) - rank(b)));
       }
       setRaw(null); setPastedRaw(""); setFileKey((k) => k + 1); setPicked(false);
       if (all.length) setReviewOpen(true);
@@ -111,13 +111,13 @@ export function ImportProvider({ children }: { children: React.ReactNode }) {
   async function revertAll() {
     const undo = review.flatMap((r) => r.recs);
     await rollbackImport(undo);
-    const added = review.filter((r) => r.item && r.isNew && !r.problem && !r.gone).length;
+    const added = review.filter((r) => r.item && r.isNew && !unsaved(r) && !r.gone).length;
     setReview([]); setTally(null); setReviewOpen(false);
     setReverted(`Import reverted: ${added} added title${added === 1 ? "" : "s"} removed${undo.some((x) => !x.isNew && x.prev) ? " and changed titles restored" : ""}. Your library is as it was before.`);
   }
 
   const value: Ctx = { entries, pasted, setPasted, plain, setPlain, fileKey, picked, readErr, importErr, reverted, busy, done, tally, review, openReview: () => setReviewOpen(true), pick, run };
-  const problems = review.filter((r) => r.problem && !r.gone).length;
+  const problems = review.filter((r) => unsaved(r) && !r.gone).length;
   // Off the Settings page, a small bar keeps the import visible and gets back to its review.
   const bar = path !== "/setup" && (busy || (review.length > 0 && !reviewOpen));
   return (
@@ -128,7 +128,7 @@ export function ImportProvider({ children }: { children: React.ReactNode }) {
           <div className="toast">
             {busy
               ? <span><span className="spin" />Importing {done} of {entries?.length ?? 0}…</span>
-              : <><span>Import finished{problems ? `: ${problems} to fix` : ""}</span><button type="button" className="toast-undo" onClick={() => setReviewOpen(true)}>Review</button></>}
+              : <><span>Import finished{problems ? `: ${problems} to check` : ""}</span><button type="button" className="toast-undo" onClick={() => setReviewOpen(true)}>Review</button></>}
             {busy && <Link href="/setup" className="toast-undo plain">Details</Link>}
           </div>
         </div>

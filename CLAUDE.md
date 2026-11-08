@@ -28,6 +28,7 @@ Next.js 15 (App Router) + Supabase (email/password auth, RLS) + TMDB. See README
 - Speed: functions run in `bom1` (`vercel.json`) next to the Supabase project (ap-south-1); keep them together. Auth is checked with `getClaims()` (local JWT verification), not `getUser()`. Nothing in `app/(app)/layout.tsx` may await TMDB: the new-episode check runs in `<Recheck />` behind Suspense. Pages need a shaped skeleton in `loading.tsx` (`components/Skeletons.tsx`); pass `it={item}` to `TitleLink` so the popup can show the poster and title instantly.
 - Awards come from Wikidata (no key), looked up by the title's IMDb id (`src/lib/awards.ts`, cached a week); failures show nothing. `AwardChips` is the compact header summary, `AwardsSection` the full list (`components/Awards.tsx`).
 - Setup has one Import card: `parseAny` (`src/lib/list-parse.ts`) takes Letterboxd CSV/zip, free text or notes-app checklists (`[x]` watched, `[ ]` to watch); free-text titles fall back from movie to TV when matching on TMDB.
+- Import matching (`resolveEntries` in `src/lib/letterboxd.ts`) returns three buckets: sure (saved), `unsure` (a guess plus alternatives, NOT saved until the user confirms in the review popup) and unmatched. Confidence comes from exact-title score and vote-count rivalry (same name as a film vs a series, remakes, typos of a better-known title); anything TMDB's strict match misses falls back to the same `search()` the review's "Find it" box uses.
 - `artifact.html` is the legacy single-file prototype, not part of the site.
 
 ## Known gaps

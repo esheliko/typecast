@@ -1,8 +1,8 @@
 /** Optional Letterboxd link. Server only. Nothing here runs unless the user imports an export or connects a username in Setup. */
-import { tmdb } from "./tmdb";
+import { search, tmdb } from "./tmdb";
 import { parseFeed, type FeedEntry, type LbEntry } from "./letterboxd-parse";
 import type { supabaseServer } from "./supabase/server";
-import type { MediaType, Status } from "./types";
+import type { BrowseItem, MediaType, SearchHit, Status } from "./types";
 
 type Sb = Awaited<ReturnType<typeof supabaseServer>>;
 const DAY_MS = 24 * 3600;
@@ -36,11 +36,12 @@ export interface Applied { label: string; type: MediaType; id: number; title: st
 export interface Prev { status: Status; rating: number; watched_at: string | null; checked_at: string | null }
 /** A line that could not be matched on TMDB (`error` is set when the lookup itself failed rather than finding nothing). */
 export interface Unmatched { label: string; status: Status; rating: number; error?: string }
+/** A line matched with low confidence. Nothing is saved until the user approves `guess` or picks one of `alts` in the review. */
+export interface Unsure { label: string; status: Status; rating: number; why: string; /** The guess looks unrelated to what was typed (excluded from "add all"). */ weak?: boolean; guess: BrowseItem; alts: BrowseItem[] }
 /** A line that matched a title but could not be saved. Shown in the review so the user can retry or pick another title. */
 export interface Failed { label: string; type: MediaType; id: number; title: string; year: string; poster: string | null; rating: number; status: Status; error: string }
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-const norm = (s: string) => s.toLowerCase().normalize("NFKD").replace(/[^\p{L}\p{N}]/gu, "");
 const yearOf = (r: any) => parseInt((r.release_date ?? "").slice(0, 4), 10);
 
 const ROMAN: Record<string, string> = { ii: "2", iii: "3", iv: "4", v: "5", vi: "6", vii: "7", viii: "8", ix: "9", x: "10" };
@@ -48,6 +49,8 @@ const ROMAN: Record<string, string> = { ii: "2", iii: "3", iv: "4", v: "5", vi: 
 function normSeq(s: string): string {
   const w = s.toLowerCase().normalize("NFKD").replace(/&/g, " and ").replace(/[^\p{L}\p{N}]+/gu, " ").trim().split(" ").filter(Boolean);
   if (w.length > 1 && w[0] === "the") w.shift();
+  const keep = w.filter((x) => x !== "and");
+  if (keep.length) w.splice(0, w.length, ...keep);
   const last = w.length - 1;
   if (last > 0 && ROMAN[w[last]]) w[last] = ROMAN[w[last]];
   if (last > 0 && /^\d+$/.test(w[last]) && (w[last - 1] === "part" || w[last - 1] === "chapter")) w.splice(last - 1, 1);
@@ -83,25 +86,35 @@ function score(titles: (string | undefined)[], name: string): number {
   const near = (a: string, b: string) => a.length >= 6 && b.length >= 6 && nums(a) === nums(b) && 1 - lev(a, b) / Math.max(a.length, b.length) >= 0.85;
   return ts.some((t) => wants.some((w) => near(w, normSeq(t)) || near(w, normSeq(head(t))))) ? 1 : 0;
 }
-/** The best result for a name with its score (ties go to the more popular), or null when none is close enough. */
-function best(res: any[], name: string, titles: (r: any) => (string | undefined)[], ok: (r: any) => boolean = () => true): { hit: any; s: number } | null {
-  let out: { hit: any; s: number } | null = null;
+/** How well known a result is. Vote count is steadier than TMDB's popularity, which swings with what was released lately. */
+const fame = (h: any) => (h?.vote_count ?? 0) as number;
+type Found = { hit: any; s: number; rival: any | null; near: any | null };
+/**
+ * The best result for a name with its score (ties go to the better known), or null when none is close enough.
+ * `rival` is the strongest other result of the same score (the name is ambiguous); `near` is a much better known title that is only a typo away.
+ */
+function best(res: any[], name: string, titles: (r: any) => (string | undefined)[], ok: (r: any) => boolean = () => true): Found | null {
+  const scored: { hit: any; s: number }[] = [];
   for (const r of res) {
     if (!ok(r)) continue;
     const s = score(titles(r), name);
-    if (s && (!out || s > out.s || (s === out.s && (r.popularity ?? 0) > (out.hit.popularity ?? 0)))) out = { hit: r, s };
+    if (s) scored.push({ hit: r, s });
   }
-  return out;
+  scored.sort((a, b) => b.s - a.s || fame(b.hit) - fame(a.hit));
+  const top = scored[0];
+  if (!top) return null;
+  const near = top.s > 1 ? scored.find((x) => x.s === 1 && fame(x.hit) >= 5 * Math.max(fame(top.hit), 20))?.hit ?? null : null;
+  return { ...top, rival: scored.find((x) => x !== top && x.s === top.s)?.hit ?? null, near };
 }
 const movieTitles = (r: any) => [r.title, r.original_title];
 const tvTitles = (r: any) => [r.name, r.original_name];
 
 /** Find the TMDB film for a Letterboxd name and year (exports carry no TMDB id). Forgives sequel numbers, subtitles and small typos. */
-async function findMovie(name: string, year: number | null): Promise<any | null> {
+async function findMovie(name: string, year: number | null): Promise<Found | null> {
   const search = async (query: string, extra: Record<string, string>) => ((await tmdb("/search/movie", { query, include_adult: "false", ...extra }, DAY_MS)).results ?? []) as any[];
   if (year) {
     const a = await search(name, { year: String(year) });
-    const hit = best(a, name, movieTitles)?.hit ?? a[0];
+    const hit = best(a, name, movieTitles) ?? (a[0] ? { hit: a[0], s: 0, rival: null, near: null } : null);
     if (hit) return hit;
   }
   let b = await search(name, {});
@@ -109,13 +122,13 @@ async function findMovie(name: string, year: number | null): Promise<any | null>
   // TMDB's search often misses "Dead pool 2" or "Madagascar 3": search the base name and pick the numbered film from the results.
   const base = baseOf(name);
   if (base && best(b, name, movieTitles, close)?.s !== 3) b = [...b, ...(await search(base, {}))];
-  return best(b, name, movieTitles, close)?.hit ?? null;
+  return best(b, name, movieTitles, close);
 }
 
 /** TV fallback for free-text lists, which can hold series too. Same forgiving match; a year can also settle for the first result. */
-async function findTv(name: string, year: number | null): Promise<any | null> {
+async function findTv(name: string, year: number | null): Promise<Found | null> {
   const res = ((await tmdb("/search/tv", { query: name, include_adult: "false", ...(year ? { first_air_date_year: String(year) } : {}) }, DAY_MS)).results ?? []) as any[];
-  return best(res, name, tvTitles)?.hit ?? (year ? res[0] ?? null : null);
+  return best(res, name, tvTitles) ?? (year && res[0] ? { hit: res[0], s: 0, rival: null, near: null } : null);
 }
 
 const fields = (d: any) => ({ title: (d.title ?? d.name ?? "") as string, year: ((d.release_date ?? d.first_air_date ?? "") as string).slice(0, 4), poster: (d.poster_path ?? null) as string | null });
@@ -124,27 +137,85 @@ const fields = (d: any) => ({ title: (d.title ?? d.name ?? "") as string, year: 
 export interface TraceRow { input: string; asTv: boolean; watched: boolean; watching: boolean; watchlist: boolean; movie: Cand | null; tv: Cand | null; picked: MediaType | null; error?: string }
 type Cand = { id: number; title: string; year: string };
 
-/** Match export entries to TMDB. `unmatched` lists names that could not be found. */
-export async function resolveEntries(entries: LbEntry[]): Promise<{ rows: Resolved[]; unmatched: Unmatched[]; trace: TraceRow[] }> {
-  const rows: Resolved[] = [], unmatched: Unmatched[] = [], trace: TraceRow[] = [];
+/** 0 to 1: how alike a typed name and a title are (one containing the other counts as close). */
+function sim(a: string, b: string): number {
+  const x = normSeq(a), y = normSeq(b);
+  if (!x || !y) return 0;
+  if (x.includes(y) || y.includes(x)) return 0.9;
+  return 1 - lev(x, y) / Math.max(x.length, y.length);
+}
+/** For a name TMDB's search finds nothing for (a typo: "Erin brokovich"): search its longest words alone and keep the titles that look most like the whole name. */
+async function looseSearch(name: string): Promise<SearchHit[]> {
+  const words = [...new Set(name.split(/[\s\p{P}]+/u).filter((w) => w.length >= 3))].sort((a, b) => b.length - a.length).slice(0, 2);
+  const pools = await Promise.all(words.map((w) => search(w, "title").catch(() => [] as SearchHit[])));
+  const seen = new Set<string>();
+  return pools.flat().filter((h) => h.kind === "title" && !seen.has(h.key) && !!seen.add(h.key))
+    .map((h) => ({ h, r: sim(name, (h as { title: string }).title) })).filter((x) => x.r >= 0.55).sort((a, b) => b.r - a.r).slice(0, 5).map((x) => x.h);
+}
+const ALIASES: Record<string, string> = { got: "Game of Thrones", lotr: "The Lord of the Rings", htgawm: "How to Get Away with Murder", tbbt: "The Big Bang Theory" };
+/** The part of a line worth searching: a note in another script after the title ("Bojack horseman לא") is dropped, and common abbreviations are spelled out. */
+function searchName(name: string): string {
+  const alias = ALIASES[name.trim().toLowerCase()];
+  if (alias) return alias;
+  const mixed = /\p{Script=Latin}/u.test(name) && /[^\p{Script=Latin}\p{N}\p{P}\p{S}\s\p{M}]/u.test(name);
+  if (!mixed) return name;
+  const latin = name.replace(/[^\p{Script=Latin}\p{N}\p{P}\s]+/gu, " ").replace(/\s+/g, " ").trim();
+  return latin || name;
+}
+const asItem = (type: MediaType, h: any): BrowseItem => ({ key: `${type}:${h.id}`, type, id: h.id, ...fields(h), rating: 0 });
+
+/** Match export entries to TMDB. `unmatched` lists names nothing was found for; `unsure` names a best guess to confirm before it is saved. */
+export async function resolveEntries(entries: LbEntry[]): Promise<{ rows: Resolved[]; unmatched: Unmatched[]; unsure: Unsure[]; trace: TraceRow[] }> {
+  const rows: Resolved[] = [], unmatched: Unmatched[] = [], unsure: Unsure[] = [], trace: TraceRow[] = [];
   await Promise.all(entries.map(async (e) => {
     const label = e.year ? `${e.name} (${e.year})` : e.name;
+    const status: Status = e.watched ? "watched" : e.watching ? "watching" : "watchlist";
     try {
-      const [mv, tvh] = await Promise.all([findMovie(e.name, e.year), e.tv ? findTv(e.name, e.year) : null]);
-      const want = norm(e.name), ex = (h: any) => !!h && [h.title, h.original_title, h.name, h.original_name].some((n) => norm(n ?? "") === want);
-      // A title can be both a film and a series ("Fargo", "Lost"): an exact match wins, then WIP (a series) , then the more popular one.
-      const useTv = !!tvh && (!mv || (ex(tvh) !== ex(mv) ? ex(tvh) : e.watching || (tvh.popularity ?? 0) > (mv.popularity ?? 0)));
-      const hit = useTv ? tvh : mv, type: MediaType = useTv ? "tv" : "movie";
+      const q = searchName(e.name);
+      const [mv, tvh] = await Promise.all([findMovie(q, e.year), e.tv ? findTv(q, e.year) : null]);
+      // A title can be both a film and a series ("Fargo", "Lost"): an exact match wins, then WIP (a series), then the better known one.
+      const ex = (f: Found | null) => f?.s === 3;
+      const useTv = !!tvh && (!mv || (ex(tvh) !== ex(mv) ? ex(tvh) : e.watching || fame(tvh.hit) > fame(mv.hit)));
+      const pick = useTv ? tvh : mv, other = useTv ? mv : tvh, type: MediaType = useTv ? "tv" : "movie";
       const cand = (h: any) => (h ? { id: h.id as number, title: (h.title ?? h.name ?? "") as string, year: ((h.release_date ?? h.first_air_date ?? "") as string).slice(0, 4) } : null);
-      trace.push({ input: label, asTv: !!e.tv, watched: e.watched, watching: !!e.watching, watchlist: e.watchlist, movie: cand(mv), tv: cand(tvh), picked: hit ? type : null });
-      if (!hit) { unmatched.push({ label, status: e.watched ? "watched" : e.watching ? "watching" : "watchlist", rating: e.rating }); return; }
-      rows.push({ type, id: hit.id, ...fields(hit), watched: e.watched, watching: !!e.watching, rating: e.rating, date: e.date, label });
+      trace.push({ input: label, asTv: !!e.tv, watched: e.watched, watching: !!e.watching, watchlist: e.watchlist, movie: cand(mv?.hit), tv: cand(tvh?.hit), picked: pick ? type : null });
+
+      // How sure are we? Sure = the same title, and nothing else of that name is about as well known (the other kind, or another film or series).
+      let why = "";
+      if (pick) {
+        const date = (pick.hit.release_date ?? pick.hit.first_air_date ?? "") as string;
+        const exact = pick.s === 3 || (pick.s === 2 && (!!e.year || !pick.rival));
+        const otherClash = !!other && ex(other) && pick.s === 3 && !(e.year || (useTv && e.watching) || fame(pick.hit) >= 4 * fame(other.hit));
+        const rivalClash = !!pick.rival && !e.year && fame(pick.rival) * 2.5 >= fame(pick.hit);
+        if (pick.near) why = "Spelled a little differently from a much better known title.";
+        else if (!exact) why = pick.s === 2 ? "The title only partly matches." : "The spelling is a little different.";
+        else if (e.watching && type === "movie") why = "Marked as watching, which fits a series better.";
+        else if (otherClash) why = useTv ? "There is a film with the same name." : "There is a series with the same name.";
+        else if (rivalClash) why = "Several titles share this name.";
+        else if (!e.year && date > new Date().toISOString().slice(0, 10)) why = "This one is not out yet.";
+      }
+      if (pick && !why) { rows.push({ type, id: pick.hit.id, ...fields(pick.hit), watched: e.watched, watching: !!e.watching, rating: e.rating, date: e.date, label }); return; }
+
+      // Not sure, or not found by the strict match: ask the same search the "Find it" box uses, so its first result is never missed.
+      let found = await search(q, "title").catch(() => []);
+      if (!pick && !found.length) found = await looseSearch(q);
+      const hits = found.filter((h): h is Extract<typeof h, { kind: "title" }> => h.kind === "title").map((h) => { const { kind, ...rest } = h; void kind; return { ...rest, rating: 0 } as BrowseItem; });
+      // A series that is marked as watching: prefer the first series the search finds over a film of that name.
+      const seriesFirst = e.watching && type === "movie" ? hits.find((h) => h.type === "tv") : undefined;
+      const first: BrowseItem | null = seriesFirst ?? (pick?.near ? asItem(type, pick.near) : pick ? asItem(type, pick.hit) : hits[0] ?? null);
+      if (!first) { unmatched.push({ label, status, rating: e.rating }); return; }
+      const alts: BrowseItem[] = [];
+      for (const c of [pick && first.key !== `${type}:${pick.hit.id}` ? asItem(type, pick.hit) : null, other ? asItem(useTv ? "movie" : "tv", other.hit) : null, pick?.rival ? asItem(type, pick.rival) : null, ...hits]) {
+        if (c && c.key !== first.key && !alts.some((a) => a.key === c.key)) alts.push(c);
+      }
+      const weak = !pick && sim(q, first.title) < 0.5;
+      unsure.push({ label, status, rating: e.rating, why: weak ? "Nothing close; this is only the nearest search result." : why || "Best guess from search.", ...(weak ? { weak } : {}), guess: first, alts: alts.slice(0, 4) });
     } catch (err) {
-      unmatched.push({ label, status: e.watched ? "watched" : e.watching ? "watching" : "watchlist", rating: e.rating, error: "Could not look this up on TMDB." });
+      unmatched.push({ label, status, rating: e.rating, error: "Could not look this up on TMDB." });
       trace.push({ input: label, asTv: !!e.tv, watched: e.watched, watching: !!e.watching, watchlist: e.watchlist, movie: null, tv: null, picked: null, error: String((err as Error)?.message ?? err).slice(0, 200) });
     }
   }));
-  return { rows, unmatched, trace };
+  return { rows, unmatched, unsure, trace };
 }
 
 /**
