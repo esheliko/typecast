@@ -9,6 +9,7 @@ import { useLib } from "./LibState";
 import PassedCell from "./PassedCell";
 import QuickMark from "./QuickMark";
 import RelatedButton from "./RelatedButton";
+import type { Nudge } from "@/lib/nudges";
 import { toParams, type BrowseQuery, type Tag } from "@/lib/browse";
 import { img } from "@/lib/img";
 import { faded, loadPassed, type Passed } from "@/lib/passed";
@@ -36,8 +37,6 @@ export interface BrowseProps {
   first: Page | null;
   genres: Record<MediaType, Tag[]>;
   canFilterMine: boolean;
-  /** Decades your marks barely touch; shown as a quiet "try another angle" row under "For you". */
-  nudges?: { label: string; from: string; to: string }[];
 }
 
 /** Number of filters set, not counting Films / Series. */
@@ -52,7 +51,7 @@ function countFilters(q: BrowseQuery) {
 const SNAP = "tc:browse";
 interface Snap { url: string; salt: number; list: BrowseList; type: BrowseType; pages: Record<string, Page>; y: number; t: number }
 
-export default function Browse({ filters, filtered, list: initialList, salt: serverSalt, first, genres, canFilterMine, nudges = [] }: BrowseProps) {
+export default function Browse({ filters, filtered, list: initialList, salt: serverSalt, first, genres, canFilterMine }: BrowseProps) {
   const router = useRouter();
   // The "For you" seed. Kept in state (and in a snapshot while a title is open) so coming back never reshuffles the grid.
   const [salt, setSalt] = useState(serverSalt);
@@ -66,6 +65,16 @@ export default function Browse({ filters, filtered, list: initialList, salt: ser
   const [pages, setPages] = useState<Record<string, Page>>(() => (first ? { [key]: first } : {}));
   const [state, setState] = useState<"idle" | "loading" | "error">("idle");
   const [error, setError] = useState("");
+  // Suggested directions, read off the watched history. Fetched after the grid, kept for the session.
+  const [nudges, setNudges] = useState<Nudge[]>([]);
+  useEffect(() => {
+    if (filtered || list !== "foryou") return;
+    try { const c = sessionStorage.getItem("tc:nudges"); if (c) { setNudges(JSON.parse(c)); return; } } catch { /* ignore */ }
+    fetch("/api/nudges").then((r) => r.json()).then((j) => {
+      const items = (j.items ?? []) as Nudge[]; setNudges(items);
+      try { sessionStorage.setItem("tc:nudges", JSON.stringify(items)); } catch { /* ignore */ }
+    }).catch(() => {});
+  }, [filtered, list]);
   const seq = useRef(0);
   const { marked, skipped } = useLib();
   const [seen] = useState(() => marked());
@@ -198,9 +207,9 @@ export default function Browse({ filters, filtered, list: initialList, salt: ser
       )}
       {!filtered && list === "foryou" && nudges.length > 0 && (
         <p className="nudge small muted" aria-label="Other directions">
-          Try another angle:{" "}
+          Try:{" "}
           {nudges.map((d) => (
-            <button key={d.label} type="button" className="nudge-b" onClick={() => { const s = toParams({ ...filters, type, from: d.from, to: d.to }).toString(); startRoute(() => router.replace(`/?${s}`, { scroll: false })); }}>{d.label}</button>
+            <button key={d.id} type="button" className="nudge-b" title={d.why} onClick={() => { const s = toParams({ ...filters, type, ...d.patch }).toString(); startRoute(() => router.replace(`/?${s}`, { scroll: false })); }}>{d.label}</button>
           ))}
         </p>
       )}

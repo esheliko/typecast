@@ -1,6 +1,6 @@
 import CastHome, { type HomeProps } from "@/components/cast/CastHome";
 import type { Page } from "@/components/cast/Browse";
-import { DECADES, isActive, parseBrowse } from "@/lib/browse";
+import { isActive, parseBrowse } from "@/lib/browse";
 import { getLibrary, getProfile } from "@/lib/library";
 import { forYou } from "@/lib/foryou";
 import { browse, discover, genreList, getPerson, getTitle } from "@/lib/tmdb";
@@ -52,20 +52,9 @@ export default async function Home({ searchParams }: { searchParams: SP }) {
     key: l.key, type: l.type, id: l.id, title: l.title, year: l.year, poster: l.poster, rating: 0,
     sub: l.progress ? `S${l.progress.s} E${l.progress.e}` : l.year,
   }));
-  // Decades the library barely touches: "For you" learns from what is marked, so these are where it is blind.
-  const years = lib.map((l) => parseInt(l.year, 10)).filter((y) => y > 1800);
-  const nudges = years.length < 8 ? [] : DECADES
-    .map((d) => {
-      const lo = d.from ? +d.from : 0, hi = +d.to;
-      return { label: d.label, from: d.from, to: d.to, share: years.filter((y) => y >= lo && y <= hi).length / years.length };
-    })
-    .filter((d) => d.share < 0.12)
-    .sort((x, y) => x.share - y.share)
-    .slice(0, 3)
-    .map(({ label, from, to }) => ({ label, from, to }));
   const view = one(sp.view) === "connect" || connect.a ? "connect" : "browse";
   return (
     <CastHome view={view} connect={connect} watching={watching}
-      browse={{ filters, filtered, list, salt, first, genres: { movie: gm, tv: gt }, canFilterMine: profile.services.length > 0, nudges }} />
+      browse={{ filters, filtered, list, salt, first, genres: { movie: gm, tv: gt }, canFilterMine: profile.services.length > 0 }} />
   );
 }
