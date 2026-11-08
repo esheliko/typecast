@@ -123,13 +123,28 @@ function pendingCommits(baseSha) {
   if (base && !gitOk('merge-base', '--is-ancestor', base, head)) base = git('merge-base', base, head); // history was rewritten
   const range = base ? `${base}..${head}` : `-30 ${head}`;
   const rows = git('log', '--format=%H%x1f%ct%x1f%s', ...range.split(' ')).split('\n').filter(Boolean);
-  const commits = rows.map((r) => {
+  const raw = rows.map((r) => {
     const [sha, ct, subject] = r.split('\x1f');
     const files = git('show', '--name-only', '--format=', '--no-renames', sha).split('\n').filter(Boolean);
-    const relevant = files.length === 0 || files.some((f) => !CFG.noDeploy.test(f));
-    return { sha, at: Number(ct) * 1000, subject, relevant, urgent: subject.toLowerCase().includes(CFG.urgentTag) };
+    return { sha, at: Number(ct) * 1000, subject, files, urgent: subject.toLowerCase().includes(CFG.urgentTag) };
   });
-  return { head, commits, relevant: commits.filter((c) => c.relevant) };
+  // What actually differs between what is live and main (null when there is no known live commit).
+  const net = base ? git('diff', '--name-only', '--no-renames', base, head).split('\n').filter(Boolean) : null;
+  const commits = markRelevant(raw, net);
+  return { head, commits, relevant: commits.filter((c) => c.relevant), netFiles: net };
+}
+
+/**
+ * Pure. A commit needs a deployment only if it touched a file that the site is built from AND that file still differs from what is live.
+ * Docs, scripts, tests, CI config never count; neither do edits that were reverted (net diff empty). Files we do not know count as site files.
+ */
+export function markRelevant(commits, netFiles) {
+  const netSite = netFiles ? new Set(netFiles.filter((f) => !CFG.noDeploy.test(f))) : null;
+  return commits.map((c) => {
+    const site = c.files.filter((f) => !CFG.noDeploy.test(f));
+    const relevant = netSite ? site.some((f) => netSite.has(f)) : c.files.length === 0 || site.length > 0;
+    return { ...c, relevant };
+  });
 }
 
 // ---------------------------------------------------------------- status-board state (hidden JSON in the issue body)
@@ -161,7 +176,7 @@ export function decide(ctx) {
   const base = { used, spendable, free, nextSlotAt: slotFreeAt(CFG.dailyLimit - 1) };
 
   if (inflight) return { ...base, action: 'hold', why: `build in progress (${inflight.sha?.slice(0, 7) ?? inflight.id})`, dueAt: null };
-  if (!pending.relevant.length) return { ...base, action: 'idle', why: pending.commits.length ? 'only docs/config-neutral commits pending' : 'main is live' };
+  if (!pending.relevant.length) return { ...base, action: 'idle', why: pending.commits.length ? 'nothing user-facing differs from what is live (docs, scripts, tests, CI or reverted edits only)' : 'main is live' };
 
   const head = pending.head;
   const failedHead = list.find((d) => d.sha === head && (d.state === 'ERROR' || d.state === 'CANCELED'));
