@@ -13,8 +13,9 @@ import type { Item } from "@/lib/types";
 /** Titles that belong together (a collection, a shared universe), in release order. */
 export interface Group { label: string; items: Item[]; by?: string }
 
-/** Ways to find related titles. "Default" is the franchise, or loosely similar titles when there is none; the rest show one signal on its own. */
-const MODES = [["default", "Default"], ["creator", "Creator"], ["names", "Similar names"], ["recommended", "Recommended"], ["themes", "Themes"]] as const;
+/** Ways to find related titles, each showing one signal on its own. Recommended is selected first. */
+const MODES = [["creator", "Creator"], ["names", "Similar names"], ["recommended", "Recommended"], ["themes", "Themes"]] as const;
+const FIRST: Mode = "recommended";
 type Mode = (typeof MODES)[number][0];
 
 /**
@@ -71,23 +72,15 @@ export function FranchiseSheet({ it, load, loadSimilar, onClose }: { it: Item; l
   const [groups, setGroups] = useState<Group[] | null>(null);
   const close = useRef<HTMLButtonElement>(null);
   useBackClose(true, onClose);
-  const [loose, setLoose] = useState(false);
-  const [mode, setMode] = useState<Mode>("default");
-  const [all, setAll] = useState<Group[] | null>(null); // every loose group, fetched the first time a non-default view is picked
+  const [mode, setMode] = useState<Mode>(FIRST);
+  const [all, setAll] = useState<Group[] | null>(null); // every loose group, fetched up front
   useEffect(() => {
     let on = true;
-    load(it).then(async (g) => {
-      if (g.length || !loadSimilar) return on && setGroups(g);
-      const s = await loadSimilar(it);
-      if (on) { setLoose(s.length > 0); setGroups(s); setAll(s); }
-    });
+    if (loadSimilar) loadSimilar(it).then((s) => on && setAll(s));
+    else load(it).then((g) => on && setGroups(g)); // no picker: plain franchise list
     return () => { on = false; };
   }, [it, load, loadSimilar]);
-  useEffect(() => {
-    if (mode === "default" || all || !loadSimilar) return;
-    let on = true; loadSimilar(it).then((s) => on && setAll(s)); return () => { on = false; };
-  }, [mode, all, it, loadSimilar]);
-  const shown = mode === "default" ? groups : all && all.filter((g) => g.by === mode);
+  const shown = loadSimilar ? all && all.filter((g) => g.by === mode) : groups;
   useEffect(() => {
     close.current?.focus();
     const key = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
@@ -100,7 +93,7 @@ export function FranchiseSheet({ it, load, loadSimilar, onClose }: { it: Item; l
       <div className="fsheet" role="dialog" aria-modal="true" aria-label={`Related to ${it.title}`} onClick={(e) => e.stopPropagation()}>
         <div className="fsheet-top">
           <div style={{ minWidth: 0 }}>
-            <div className="small muted">{mode !== "default" ? `Related to ${it.title}, by ${MODES.find((m) => m[0] === mode)![1].toLowerCase()}.` : loose ? `No franchise found for ${it.title}. Here are titles with similar names or themes.` : `You marked ${it.title}. Which of these have you seen?`}</div>
+            <div className="small muted">{loadSimilar ? `Related to ${it.title}, by ${MODES.find((m) => m[0] === mode)![1].toLowerCase()}.` : `You marked ${it.title}. Which of these have you seen?`}</div>
           </div>
           <button ref={close} type="button" className="btn sm gold" onClick={onClose}>Done</button>
         </div>
@@ -112,8 +105,8 @@ export function FranchiseSheet({ it, load, loadSimilar, onClose }: { it: Item; l
           </div>
         )}
         {!shown ? <p className="muted"><span className="spin" />Finding related titles</p>
-          : shown.length === 0 ? <p className="muted">{mode === "default" ? "Nothing related found." : "Nothing found this way. Try another view."}</p>
-          : <FranchiseList groups={shown} include={mode === "default" && !loose ? it : undefined} onNavigate={() => { keepHistory(); onClose(); }} />}
+          : shown.length === 0 ? <p className="muted">{loadSimilar ? "Nothing found this way. Try another view." : "Nothing related found."}</p>
+          : <FranchiseList groups={shown} include={!loadSimilar ? it : undefined} onNavigate={() => { keepHistory(); onClose(); }} />}
       </div>
     </div>
   );
