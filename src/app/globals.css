@@ -525,3 +525,5 @@ button.aw-chip:hover { filter: brightness(1.08); }
 .upnext .chip.sm { margin-left: auto; }
 .nudge { margin: 8px 0 0; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
 .nudge-b { background: none; border: 0; padding: 2px 0; color: inherit; font: inherit; text-decoration: underline dotted; text-underline-offset: 3px; cursor: pointer; }
+
+.imdb-link { display: inline-block; vertical-align: middle; font: 700 11px/1 var(--sans, system-ui); letter-spacing: .04em; text-transform: none; padding: 4px 7px; border-radius: 5px; background: #f5c518; color: #000; text-decoration: none; white-space: nowrap; }

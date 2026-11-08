@@ -37,8 +37,7 @@ export default async function PersonPage({ params }: Props) {
         {/* eslint-disable-next-line @next/next/no-img-element */}
         {p.photo && <img className="sh-poster" src={img(p.photo, "w185")} alt="" />}
         <div style={{ minWidth: 0 }}>
-          <h1 className="sh-title">{p.name} <GlimpseButton spec={personSpec(p.name, p.dept)} /></h1><div className="sh-meta">{p.dept}</div>
-          {p.imdbId && <a className="btn sm" href={`https://www.imdb.com/name/${p.imdbId}/`} target="_blank" rel="noopener noreferrer" style={{ marginTop: 12, marginRight: 8 }}>Open on IMDb ↗</a>}
+          <h1 className="sh-title">{p.name} <GlimpseButton spec={personSpec(p.name, p.dept)} /> {p.imdbId && <a className="imdb-link" href={`https://www.imdb.com/name/${p.imdbId}/`} target="_blank" rel="noopener noreferrer" aria-label="Open on IMDb" title="Open on IMDb">IMDb ↗</a>}</h1><div className="sh-meta">{p.dept}</div>
           <Link className="btn sm gold" href={`/?view=connect&a=${p.id}`} style={{ marginTop: 12 }}>Connect with another person</Link>
         </div>
       </div>
