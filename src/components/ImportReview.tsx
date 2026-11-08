@@ -116,9 +116,24 @@ export default function ImportReviewDialog({ rows, onChange, onClose, onRevert }
       <div className="sheet">
         <div className="sheet-bar">
           <b>Review import</b>
-          <button type="button" className="back" onClick={onClose} disabled={reverting} aria-label="Close"><span aria-hidden="true">&#215;</span> Close</button>
+          <span style={{ display: "flex", gap: 8 }}>
+            <button type="button" className="btn sm" disabled={reverting || confirm || (removes === 0 && restores === 0)} onClick={() => setConfirm(true)}>Revert import</button>
+            <button type="button" className="btn sm gold" onClick={onClose} disabled={reverting}>Done</button>
+          </span>
         </div>
         <div className="sheet-body" style={{ paddingTop: 12 }}>
+          {(confirm || revertErr) && (
+            <div className="card pad" style={{ padding: 10, margin: "0 0 10px" }} aria-busy={reverting}>
+              {confirm && <>
+                <p style={{ margin: "0 0 10px" }}><b>Revert the whole import?</b> {removes} added title{removes === 1 ? "" : "s"} will be removed{restores ? ` and ${restores} changed title${restores === 1 ? "" : "s"} restored` : ""}. Anything you marked or rated yourself on those titles after importing goes with them.</p>
+                <div className="chips">
+                  <button className="btn gold" type="button" disabled={reverting} onClick={revert}>{reverting ? "Reverting…" : "Yes, revert it"}</button>
+                  <button className="btn" type="button" disabled={reverting} onClick={() => setConfirm(false)}>Cancel</button>
+                </div>
+              </>}
+              {revertErr && <p className="small err" style={{ margin: confirm ? "8px 0 0" : 0 }}>{revertErr}</p>}
+            </div>
+          )}
           {problems > 0 && <p className="small err" style={{ margin: "0 0 4px" }}><b>{problems} could not be imported.</b> They are at the top: search for the right title, retry, or skip each one.</p>}
           {toCheck.length > 0 && (
             <div className="card pad" style={{ padding: 10, margin: "0 0 10px" }}>
@@ -177,23 +192,6 @@ export default function ImportReviewDialog({ rows, onChange, onClose, onRevert }
               </li>
             ))}
           </ul>
-          <div style={{ marginTop: 18, paddingTop: 14, borderTop: "1px solid var(--line)" }}>
-            {!confirm ? (
-              <>
-                <button className="btn" type="button" disabled={reverting || (removes === 0 && restores === 0)} onClick={() => setConfirm(true)}>Revert whole import</button>
-                <p className="small muted" style={{ margin: "8px 0 0" }}>Removes every title this import added and puts the ones it changed back as they were.</p>
-              </>
-            ) : (
-              <div aria-busy={reverting}>
-                <p style={{ margin: "0 0 10px" }}><b>Revert the whole import?</b> {removes} added title{removes === 1 ? "" : "s"} will be removed{restores ? ` and ${restores} changed title${restores === 1 ? "" : "s"} restored` : ""}. Anything you marked or rated yourself on those titles after importing goes with them.</p>
-                <div className="chips">
-                  <button className="btn gold" type="button" disabled={reverting} onClick={revert}>{reverting ? "Reverting…" : "Yes, revert it"}</button>
-                  <button className="btn" type="button" disabled={reverting} onClick={() => setConfirm(false)}>Cancel</button>
-                </div>
-              </div>
-            )}
-            {revertErr && <p className="small err" style={{ margin: "8px 0 0" }}>{revertErr}</p>}
-          </div>
         </div>
       </div>
     </div>,
