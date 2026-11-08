@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { useBackClose } from "@/lib/back-layer";
 import { lockScroll } from "@/lib/scroll-lock";
 import { createPortal } from "react-dom";
-import { addImported, setStatus } from "@/app/actions";
+import { addImported, setStatusFresh as setStatus } from "@/app/actions";
 import { img } from "@/lib/img";
 import { titleSpec } from "@/lib/glimpse";
 import { useGlimpse } from "./Glimpse";

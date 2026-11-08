@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { BgTracker } from "@/components/Modal";
 import Tabs from "@/components/Tabs";
 import { GlimpseProvider } from "@/components/Glimpse";
-import Recheck from "@/components/Recheck";
+import RecheckOnce from "@/components/RecheckOnce";
 import ScrollKeeper from "@/components/ScrollKeeper";
 import HeaderHeight from "@/components/HeaderHeight";
 import { ImportProvider } from "@/components/ImportState";
@@ -27,7 +27,7 @@ export default async function AppLayout({ children, modal }: { children: React.R
       <WatchProvider initial={watch}>
       <Suspense fallback={null}><BgTracker /></Suspense>
       <ScrollKeeper />
-      <Suspense fallback={null}><Recheck /></Suspense>
+      <RecheckOnce />
       <header className="top"><div className="top-in">
         <div className="logo"><span className="mark" aria-hidden="true" />Typecast</div>
         <Tabs where="top" />

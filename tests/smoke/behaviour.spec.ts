@@ -90,17 +90,80 @@ test.describe("behaviour (signed in)", () => {
       made = target;
 
       await poster.hover();
-      await poster.getByRole("button", { name: /^Add to .* list$/ }).click();
+      await poster.getByRole("button", { name: /^To watch: .*(?<!Tap to remove)$/ }).click();
       const toast = page.locator(".toast", { has: page.getByRole("button", { name: "Undo" }) });
       await expect(toast).toBeVisible();
       await expect.poll(() => rowOf(sb, userId, target.type, target.id), { timeout: 4_000, intervals: [150] }).not.toBeNull();
       await toast.getByRole("button", { name: "Undo" }).click();
       await expect.poll(() => rowOf(sb, userId, target.type, target.id), { timeout: 15_000 }).toBeNull();
-      await expect(poster.getByRole("button", { name: /^Add to .* list$/ })).toHaveAttribute("aria-pressed", "false");
+      await expect(poster.getByRole("button", { name: /^To watch: .*(?<!Tap to remove)$/ })).toHaveAttribute("aria-pressed", "false");
       // Still nothing after the app has had time to settle and a reload.
       await page.reload();
       await page.waitForLoadState("networkidle", { timeout: 20_000 }).catch(() => {});
       expect(await rowOf(sb, userId, target.type, target.id)).toBeNull();
+    } finally {
+      if (made) await deleteRows(sb, userId, [{ tmdb_type: made.type, tmdb_id: made.id }]);
+    }
+  });
+
+  test("quick mark has no server round trip, yet Library (client navigation) shows it", async ({ page }) => {
+    const { sb, userId } = await smokeClient();
+    let made: { type: string; id: number } | null = null;
+    try {
+      await page.goto("/");
+      const poster = page.locator(".pc:not(.is-watching):not(.is-partial):not(.is-watched):not(.is-watchlist)").first();
+      await expect(poster).toBeVisible({ timeout: 30_000 });
+      const m = /\/title\/(movie|tv)\/(\d+)/.exec((await poster.locator("a.pc-link").getAttribute("href")) ?? "");
+      expect(m).not.toBeNull();
+      const target = { type: m![1], id: Number(m![2]) };
+      expect(await rowOf(sb, userId, target.type, target.id), "poster title must start unsaved").toBeNull();
+      made = target;
+      // Visit Library first so it sits in the client router cache: the mark must still show up there afterwards.
+      await page.getByRole("link", { name: "Library" }).first().click();
+      await expect(inRow(page, "The Matrix")).toBeVisible({ timeout: 20_000 });
+      await page.getByRole("link", { name: /^(Browse|Home|Discover)/ }).first().click();
+      await expect(poster).toBeVisible({ timeout: 30_000 });
+
+      // The mark is one server action POST whose response carries no re-rendered page (a revalidating action returns the whole RSC tree).
+      const sizes: number[] = [];
+      page.on("response", async (r) => { if (r.request().method() === "POST" && r.request().headers()["next-action"]) sizes.push((await r.body().catch(() => Buffer.alloc(0))).length); });
+      await poster.hover();
+      await poster.getByRole("button", { name: /^To watch: .*(?<!Tap to remove)$/ }).click();
+      await expect.poll(() => rowOf(sb, userId, target.type, target.id), { timeout: 8_000, intervals: [150] }).not.toBeNull();
+      await page.waitForTimeout(1_000);
+      expect(sizes.length, "one server action for one mark").toBe(1);
+      expect(sizes[0], "action response must not carry a re-rendered page").toBeLessThan(2_000);
+
+      const title = (await rowOf(sb, userId, target.type, target.id))!.title;
+      await page.getByRole("link", { name: "Library" }).first().click();
+      await expect(inRow(page, title)).toBeVisible({ timeout: 20_000 });
+    } finally {
+      if (made) await deleteRows(sb, userId, [{ tmdb_type: made.type, tmdb_id: made.id }]);
+    }
+  });
+
+  test("popup: mark in the popup, close it, the poster underneath shows the mark", async ({ page }) => {
+    const { sb, userId } = await smokeClient();
+    let made: { type: string; id: number } | null = null;
+    try {
+      await page.goto("/");
+      const poster = page.locator(".pc:not(.is-watching):not(.is-partial):not(.is-watched):not(.is-watchlist)").first();
+      await expect(poster).toBeVisible({ timeout: 30_000 });
+      const link = poster.locator("a.pc-link");
+      const m = /\/title\/(movie|tv)\/(\d+)/.exec((await link.getAttribute("href")) ?? "");
+      expect(m).not.toBeNull();
+      const target = { type: m![1], id: Number(m![2]) };
+      expect(await rowOf(sb, userId, target.type, target.id), "poster title must start unsaved").toBeNull();
+      made = target;
+      await link.click();
+      const group = page.getByRole("group", { name: "Status" });
+      await expect(group).toBeVisible({ timeout: 30_000 });
+      await group.getByRole("button", { name: "To watch", exact: true }).click();
+      await expect(group.getByRole("button", { name: "To watch", exact: true })).toHaveAttribute("aria-pressed", "true");
+      await expect.poll(async () => (await rowOf(sb, userId, target.type, target.id))?.status, { timeout: 15_000 }).toBe("watchlist");
+      await page.keyboard.press("Escape");
+      await expect(group).toHaveCount(0, { timeout: 10_000 });
+      await expect(poster.getByRole("button", { name: /^To watch: .*Tap to remove$/ })).toHaveAttribute("aria-pressed", "true");
     } finally {
       if (made) await deleteRows(sb, userId, [{ tmdb_type: made.type, tmdb_id: made.id }]);
     }

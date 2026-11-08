@@ -40,7 +40,7 @@ export async function deleteRows(sb: SB, userId: string, rows: readonly { tmdb_t
 export async function rowOf(sb: SB, userId: string, type: string, id: number) {
   const { data, error } = await sb.from("library_items").select("*").eq("user_id", userId).eq("tmdb_type", type).eq("tmdb_id", id).maybeSingle();
   if (error) throw new Error(error.message);
-  return data as { status: string; priority: string; rating: number; new_episode_at?: string | null } | null;
+  return data as { status: string; priority: string; rating: number; title: string; new_episode_at?: string | null } | null;
 }
 
 export function configured() {

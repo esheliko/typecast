@@ -188,7 +188,7 @@ function AskSheet({ w, first, onChange, onClose, onStop }: { w: Watch; first?: s
   const setEp = (s: number, e: number) => {
     const next = { ...w, s: Math.max(1, s), e: Math.max(1, e) };
     onChange(next);
-    if (lib.get(w.key)) setProgress("tv", w.id, next.s!, next.e!).catch(() => {});
+    if (lib.get(w.key)) setProgress("tv", w.id, next.s!, next.e!).then(lib.touch).catch(() => {});
   };
   const toggleSpoilers = () => { const v = !spoilers; setSpoilers(v); safe(() => localStorage.setItem(SPOIL_KEY, v ? "1" : "0"), undefined); };
   const listen = () => {

@@ -10,6 +10,7 @@ import { applyResolved, cleanUsername, fetchFeed, LbError, resolveEntries, type 
 
 const STATUSES = ["watching", "partial", "watchlist", "watched"];
 const where = (type: MediaType, id: number) => ({ tmdb_type: type, tmdb_id: id });
+/** Full refresh of every page. Only for bulk or settings changes: a quick mark must NOT call this (see "Marks and freshness" in CLAUDE.md). */
 const done = () => revalidatePath("/", "layout");
 
 /**
@@ -20,7 +21,23 @@ async function clearNewEp(sb: Awaited<ReturnType<typeof requireUser>>["sb"], use
   try { await sb.from("library_items").update({ new_episode_at: null, new_episode_s: null, new_episode_e: null, new_season: false }).eq("user_id", userId).match(where(type, id)).not("new_episode_at", "is", null); } catch { /* column not there yet */ }
 }
 
-export async function setStatus(item: { type: MediaType; id: number; title: string; year: string; poster: string | null }, status: Status | null, priority?: Priority) {
+type Single = { type: MediaType; id: number; title: string; year: string; poster: string | null };
+
+/**
+ * Quick mark: one database write and nothing else. No revalidation: LibProvider holds the truth on screen and refreshes the
+ * server-rendered pages once, on the next navigation after a burst of marks.
+ */
+export async function setStatus(item: Single, status: Status | null, priority?: Priority) {
+  await writeStatus(item, status, priority);
+}
+
+/** Same write, then a full refresh. For flows that show server data right away (import review). */
+export async function setStatusFresh(item: Single, status: Status | null, priority?: Priority) {
+  await writeStatus(item, status, priority);
+  done();
+}
+
+async function writeStatus(item: Single, status: Status | null, priority?: Priority) {
   const { sb, user } = await requireUser();
   if (status === null) {
     const { error } = await sb.from("library_items").delete().eq("user_id", user.id).match(where(item.type, item.id));
@@ -36,7 +53,6 @@ export async function setStatus(item: { type: MediaType; id: number; title: stri
     // Marked Watched again (or moved off Watching): the new episode is dealt with.
     if (status !== "watching") await clearNewEp(sb, user.id, item.type, item.id);
   }
-  done();
 }
 
 type Row = { type: MediaType; id: number; title: string; year: string; poster: string | null };
@@ -76,10 +92,10 @@ async function patch(type: MediaType, id: number, values: Record<string, unknown
 }
 export async function setPriority(type: MediaType, id: number, priority: Priority) {
   if (priority !== "someday" && priority !== "must") throw new Error("Bad priority");
-  await patch(type, id, { priority }); done();
+  await patch(type, id, { priority });
 }
 export async function setRating(type: MediaType, id: number, rating: number) {
-  await patch(type, id, { rating: Math.max(0, Math.min(5, Math.round(rating))) }); done();
+  await patch(type, id, { rating: Math.max(0, Math.min(5, Math.round(rating))) });
 }
 export async function setNote(type: MediaType, id: number, note: string) {
   await patch(type, id, { note: note.slice(0, 5000) });
@@ -90,7 +106,6 @@ export async function setProgress(type: MediaType, id: number, season: number, e
   const { sb, user } = await requireUser();
   const { data } = await sb.from("library_items").select("new_episode_s,new_episode_e").eq("user_id", user.id).match(where(type, id)).maybeSingle();
   if (data?.new_episode_s && progressPassed({ s: season, e: episode }, { s: data.new_episode_s, e: data.new_episode_e ?? 1 })) await clearNewEp(sb, user.id, type, id);
-  done();
 }
 
 /**

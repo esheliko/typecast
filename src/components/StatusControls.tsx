@@ -11,7 +11,7 @@ import { PRIORITY_LABEL, STATUS_LABEL, type Item, type LibItem, type Priority, t
  * Status and priority live in LibProvider, so the poster underneath changes at once; only the rating is saved from here.
  */
 export default function StatusControls({ item, lib }: { item: Item; lib: LibItem | null }) {
-  const { get, mark, markRich, defaultPriority } = useLib();
+  const { get, mark, markRich, touch, defaultPriority } = useLib();
   const m = get(item.key);
   const status = m?.status ?? null;
   const priority: Priority = m?.priority ?? lib?.priority ?? defaultPriority;
@@ -27,7 +27,7 @@ export default function StatusControls({ item, lib }: { item: Item; lib: LibItem
     const next = stars === n ? 0 : n;
     start(async () => {
       setErr(""); setR(next);
-      try { await setRating(item.type, item.id, next); setSaved(next); if (next > 0) markRich(item.key); }
+      try { await setRating(item.type, item.id, next); setSaved(next); touch(); if (next > 0) markRich(item.key); }
       catch { setErr("Could not save that. Check your connection and try again."); }
     });
   };

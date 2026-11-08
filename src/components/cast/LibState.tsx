@@ -1,4 +1,5 @@
 "use client";
+import { usePathname, useRouter } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { setStatus, setStatusMany, undoStatusMany } from "@/app/actions";
 import { FranchiseSheet, type Group } from "./Franchise";
@@ -20,6 +21,10 @@ interface Ctx {
   /** Titles skipped with "Not interested". Saved on this device. */
   skipped: ReadonlySet<string>;
   skip: (it: Item) => void;
+  /** Save a status/priority change made from the title popup: same instant, queued, undoable-on-failure path as a poster tap, but with no toast. */
+  put: (it: Item, status: Status | null, priority?: Priority) => Promise<boolean>;
+  /** Something other than marks changed on the server (rating, progress): server-rendered pages are refreshed once on the next navigation. */
+  touch: () => void;
   /** A rating or note was saved for this title: mark it rich so removing it asks first. No-op for unmarked titles. */
   markRich: (key: string) => void;
   /** What the one-tap To watch button adds a title as. Saved on this device. */
@@ -58,6 +63,10 @@ export function LibProvider({ packed, children }: { packed: PackedMarks; childre
   const saveQueue = useRef(new Map<string, Promise<boolean>>());
   const version = useRef(new Map<string, number>());
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const router = useRouter();
+  const pathname = usePathname();
+  /** Set by any quick save. The server never re-renders after one (see "Marks and freshness" in CLAUDE.md); instead the next navigation refreshes once. */
+  const dirty = useRef(false);
   const live = useRef(initial); live.current = initial;
   const overRef = useRef(over); overRef.current = over;
   const skippedRef = useRef(skipped); skippedRef.current = skipped;
@@ -70,6 +79,14 @@ export function LibProvider({ packed, children }: { packed: PackedMarks; childre
     });
   }, [initial]);
   useEffect(() => () => clearTimeout(timer.current), []);
+  // After a burst of quick marks, the first move to another page refreshes the server-rendered data once (Library, Watch next, Continue watching),
+  // after the saves have landed. Opening or closing a popup is not a page change as far as the page underneath is concerned, so it waits.
+  useEffect(() => {
+    if (!dirty.current) return;
+    if (/^\/(title|person)\//.test(pathname) && !new URLSearchParams(window.location.search).has("full")) return;
+    dirty.current = false;
+    Promise.all([...saveQueue.current.values()]).then(() => router.refresh());
+  }, [pathname, router]);
   useEffect(() => {
     try { const raw = JSON.parse(localStorage.getItem(SKIP_KEY) ?? "[]"); if (Array.isArray(raw)) setSkipped(new Set(raw.filter((x) => typeof x === "string"))); } catch { /* storage unavailable */ }
     try { if (localStorage.getItem(PRIO_KEY) === "must") setDefaultPriority("must"); } catch { /* storage unavailable */ }
@@ -108,6 +125,7 @@ export function LibProvider({ packed, children }: { packed: PackedMarks; childre
   const save = useCallback(async (it: Item, status: Status | null, prev: Mark | null, priority?: Priority) => {
     const k = it.key, v = (version.current.get(k) ?? 0) + 1;
     version.current.set(k, v);
+    dirty.current = true;
     setOver((o) => ({ ...o, [k]: status ? { status, priority: priority ?? prev?.priority ?? "someday", rich: prev?.rich ?? false } : null }));
     const run = (saveQueue.current.get(k) ?? Promise.resolve(true)).then(async () => {
       try { await setStatus({ type: it.type, id: it.id, title: it.title, year: it.year, poster: it.poster }, status, priority); return true; }
@@ -157,6 +175,13 @@ export function LibProvider({ packed, children }: { packed: PackedMarks; childre
     }
   }, [save, show, franchise, current]);
 
+  const touch = useCallback(() => { dirty.current = true; }, []);
+  const put = useCallback((it: Item, status: Status | null, priority?: Priority) => {
+    const prev = (it.key in overRef.current ? overRef.current[it.key] : live.current[it.key]) ?? null;
+    if ((prev?.status ?? null) === status && (priority === undefined || prev?.priority === priority)) return Promise.resolve(true);
+    return save(it, status, prev, priority);
+  }, [save]);
+
   const markRich = useCallback((key: string) => {
     setOver((o) => {
       const m = key in o ? o[key] : live.current[key];
@@ -175,14 +200,14 @@ export function LibProvider({ packed, children }: { packed: PackedMarks; childre
     const todo = its.filter((i) => !current(i.key));
     if (!todo.length) return;
     const row = (i: Item) => ({ type: i.type, id: i.id, title: i.title, year: i.year, poster: i.poster });
-    const put = (list: Item[], m: Mark | null) => setOver((o) => ({ ...o, ...Object.fromEntries(list.map((i) => [i.key, m])) }));
-    put(todo, { status, priority: "someday", rich: false });
+    const setMany = (list: Item[], m: Mark | null) => setOver((o) => ({ ...o, ...Object.fromEntries(list.map((i) => [i.key, m])) }));
+    setMany(todo, { status, priority: "someday", rich: false });
     setStatusMany(todo.map(row), status).then(() => {
       show({
         msg: `${todo.length} ${todo.length === 1 ? "title" : "titles"}: ${STATUS_LABEL[status]}`,
-        undo: () => { setToast(null); put(todo, null); undoStatusMany(todo.map(row), status).catch(() => { put(todo, { status, priority: "someday", rich: false }); show({ msg: "Could not undo. Check your connection.", err: true }); }); },
+        undo: () => { setToast(null); setMany(todo, null); undoStatusMany(todo.map(row), status).catch(() => { setMany(todo, { status, priority: "someday", rich: false }); show({ msg: "Could not undo. Check your connection.", err: true }); }); },
       });
-    }).catch(() => { put(todo, null); show({ msg: "Could not save those titles. Check your connection.", err: true }); });
+    }).catch(() => { setMany(todo, null); show({ msg: "Could not save those titles. Check your connection.", err: true }); });
   }, [current, show]);
 
   const writeSkipped = useCallback((next: Set<string>) => {
@@ -195,7 +220,7 @@ export function LibProvider({ packed, children }: { packed: PackedMarks; childre
   }, [show, writeSkipped]);
 
   return (
-    <LibCtx.Provider value={{ get, mark, markMany, openRelated, groupsOf: franchise, marked, skipped, skip, markRich, defaultPriority }}>
+    <LibCtx.Provider value={{ get, mark, markMany, openRelated, groupsOf: franchise, marked, skipped, skip, put, touch, markRich, defaultPriority }}>
       {children}
       {sheet && <FranchiseSheet it={sheet} load={franchise} loadSimilar={similar} onClose={() => setSheet(null)} />}
       <div className="toast-slot" aria-live="polite">
