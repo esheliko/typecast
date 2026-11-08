@@ -2,12 +2,15 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { setProgress } from "@/app/actions";
 import { useLib } from "./cast/LibState";
-import { useBackClose } from "@/lib/back-layer";
+import { TitleLink } from "./Modal";
+import { keepHistory, useBackClose } from "@/lib/back-layer";
 import { img } from "@/lib/img";
 import { quickQuestions, serializeWatch, WATCH_COOKIE, WATCH_MAX_MS, whereLabel, type Watch } from "@/lib/watching";
 import type { Item } from "@/lib/types";
+import type { Answer, AnswerCard } from "@/lib/answer";
 
-type Msg = { role: "user" | "assistant"; content: string };
+/** `assistant` is a plain-text AI answer (benched, ASK_AI=1); `answer` is the built-in, no-AI answer with cards and links. */
+type Msg = { role: "user"; content: string } | { role: "assistant"; content: string } | { role: "answer"; a: Answer };
 type Face = { id: number; name: string; photo: string | null; role: string; guest?: boolean; hits: { key: string; title: string; year: string }[] };
 
 interface Ctx {
@@ -102,7 +105,8 @@ export function WatchButton({ it, runtime, progress }: { it: Item; runtime: numb
 
 /** Tiny, safe renderer for the assistant's light markdown: **bold**, bullet lines, paragraphs. */
 function Rich({ text }: { text: string }) {
-  const inline = (s: string) => s.split(/(\*\*[^*]+\*\*)/g).map((p, i) => (p.startsWith("**") && p.endsWith("**") && p.length > 4 ? <b key={i}>{p.slice(2, -2)}</b> : p.replace(/(^|\s)\*([^*]+)\*/g, "$1$2")));
+  const inline = (s: string) => s.split(/(\*\*[^*]+\*\*|\*[^*\s][^*]*\*)/g).map((p, i) =>
+    p.startsWith("**") && p.endsWith("**") && p.length > 4 ? <b key={i}>{p.slice(2, -2)}</b> : p.startsWith("*") && p.endsWith("*") && p.length > 2 ? <i key={i}>{p.slice(1, -1)}</i> : p);
   const blocks: React.ReactNode[] = [];
   let list: string[] = [];
   const flush = () => { if (list.length) blocks.push(<ul key={blocks.length}>{list.map((l, i) => <li key={i}>{inline(l)}</li>)}</ul>); list = []; };
@@ -111,10 +115,49 @@ function Rich({ text }: { text: string }) {
     const b = /^(?:[-*•]|\d+[.)])\s+(.*)$/.exec(line);
     if (b) { list.push(b[1]); continue; }
     flush();
-    if (line) blocks.push(<p key={blocks.length}>{inline(line.replace(/^#+\s*/, ""))}</p>);
+    if (line.startsWith(">")) blocks.push(<blockquote key={blocks.length}>{inline(line.replace(/^>\s*/, ""))}</blockquote>);
+    else if (line) blocks.push(<p key={blocks.length}>{inline(line.replace(/^#+\s*/, ""))}</p>);
   }
   flush();
   return <>{blocks}</>;
+}
+
+/** One built-in answer: text, then a row of tappable titles and people, then links out. */
+function AnswerView({ a, onAsk, onLeave }: { a: Answer; onAsk: (q: string) => void; onLeave: () => void }) {
+  const titles = (a.cards ?? []).filter((c): c is Extract<AnswerCard, { kind: "title" }> => c.kind === "title");
+  const people = (a.cards ?? []).filter((c): c is Extract<AnswerCard, { kind: "person" }> => c.kind === "person");
+  return (
+    <>
+      <Rich text={a.text} />
+      {people.length > 0 && (
+        <div className="ask-cards">
+          {people.map((p) => (
+            <button key={p.id} type="button" className="ask-pc" onClick={() => onAsk(`Where do I know ${p.name} from?`)} title={`Where do I know ${p.name} from?`}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              {p.photo ? <img src={img(p.photo, "w185")} alt="" loading="lazy" /> : <span className="ask-noph" aria-hidden="true">{p.name[0]}</span>}
+              <b>{p.name}</b>{p.sub && <span className="small muted">{p.sub}</span>}
+            </button>
+          ))}
+        </div>
+      )}
+      {titles.length > 0 && (
+        <div className="ask-cards">
+          {titles.map((t) => (
+            <TitleLink key={t.key} k={t.key} it={t} className="ask-tc" onClick={onLeave}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              {t.poster ? <img src={img(t.poster, "w185")} alt="" loading="lazy" /> : <span className="ask-noph" aria-hidden="true">{t.title[0]}</span>}
+              <b>{t.title}</b>
+              <span className="small muted">{[t.year, t.sub].filter(Boolean).join(" · ")}</span>
+              {t.status && <span className={`ask-st ${t.status === "watchlist" ? "list" : "seen"}`}>{t.status === "watchlist" ? "On your list" : "Seen"}</span>}
+            </TitleLink>
+          ))}
+        </div>
+      )}
+      {a.links && a.links.length > 0 && (
+        <div className="ask-links">{a.links.map((l) => <a key={l.url} href={l.url} target="_blank" rel="noopener noreferrer">{l.label} ↗</a>)}</div>
+      )}
+    </>
+  );
 }
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -128,6 +171,7 @@ function AskSheet({ w, first, onChange, onClose, onStop }: { w: Watch; first?: s
   const [q, setQ] = useState("");
   const [busy, setBusy] = useState(false);
   const [faces, setFaces] = useState<Face[] | null>(null);
+  const [ai, setAi] = useState(false);
   const [facesErr, setFacesErr] = useState(false);
   const [ending, setEnding] = useState(false);
   const [listening, setListening] = useState(false);
@@ -151,21 +195,38 @@ function AskSheet({ w, first, onChange, onClose, onStop }: { w: Watch; first?: s
   useEffect(() => {
     let live = true;
     setFaces(null); setFacesErr(false);
-    fetch("/api/ask").then((r) => (r.ok ? r.json() : Promise.reject())).then((j) => { if (live) setFaces(j.faces ?? []); }).catch(() => { if (live) setFacesErr(true); });
+    fetch("/api/ask").then((r) => (r.ok ? r.json() : Promise.reject())).then((j) => { if (live) { setFaces(j.faces ?? []); setAi(j.ai === true); } }).catch(() => { if (live) setFacesErr(true); });
     return () => { live = false; };
   }, [epKey]);
+
+  /** Who the last answer was about, so "and what else was he in?" works. */
+  const lastAbout = () => { for (let i = msgs.length - 1; i >= 0; i--) { const m = msgs[i]; if (m.role === "answer" && m.a.about?.length) return m.a.about; } return []; };
 
   const send = useCallback(async (text: string) => {
     const question = text.trim();
     if (!question || busy) return;
     setQ("");
     const history: Msg[] = [...msgs, { role: "user", content: question }];
-    setMsgs([...history, { role: "assistant", content: "" }]);
     setBusy(true);
     const ctl = new AbortController(); abort.current = ctl;
+    const fail = (msg: string): Msg => ({ role: "answer", a: { text: `⚠ ${msg}` } });
+    if (!ai) {
+      setMsgs([...history, { role: "answer", a: { text: "" } }]);
+      try {
+        const r = await fetch("/api/ask", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ q: question, last: lastAbout(), spoilers }), signal: ctl.signal });
+        const j = await r.json().catch(() => ({}));
+        setMsgs([...history, r.ok && typeof j.text === "string" ? { role: "answer", a: j as Answer } : fail(j.error ?? `Couldn't answer (${r.status}). Try again.`)]);
+      } catch (e) {
+        setMsgs([...history, (e as Error).name === "AbortError" ? fail("Stopped.") : fail("Couldn't reach Typecast. Check your connection.")]);
+      } finally { setBusy(false); }
+      return;
+    }
+    // Benched AI path (ASK_AI=1): plain-text conversation, streamed.
+    const convo = history.map((m): { role: "user" | "assistant"; content: string } => (m.role === "answer" ? { role: "assistant", content: m.a.text } : m));
+    setMsgs([...history, { role: "assistant", content: "" }]);
     let got = "";
     try {
-      const r = await fetch("/api/ask", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ messages: history, spoilers }), signal: ctl.signal });
+      const r = await fetch("/api/ask", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ messages: convo, spoilers }), signal: ctl.signal });
       if (!r.ok || !r.body) throw new Error((await r.json().catch(() => ({}))).error ?? `Failed (${r.status})`);
       const rd = r.body.getReader(), dec = new TextDecoder();
       for (;;) {
@@ -179,7 +240,8 @@ function AskSheet({ w, first, onChange, onClose, onStop }: { w: Watch; first?: s
       if ((e as Error).name === "AbortError") { setMsgs([...history, { role: "assistant", content: got || "(Stopped)" }]); return; }
       setMsgs([...history, { role: "assistant", content: got || `⚠ ${(e as Error).message || "Couldn't answer right now."}` }]);
     } finally { setBusy(false); }
-  }, [busy, msgs, spoilers]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [busy, msgs, spoilers, ai]);
 
   // A question handed in when the sheet opened (a face, a chip elsewhere) is asked once.
   useEffect(() => { if (first && !asked.current) { asked.current = true; send(first); } }, [first, send]);
@@ -207,6 +269,8 @@ function AskSheet({ w, first, onChange, onClose, onStop }: { w: Watch; first?: s
   };
 
   const chips = quickQuestions(w.type);
+  const lastMsg = msgs[msgs.length - 1];
+  const nextUp = lastMsg?.role === "answer" ? lastMsg.a.next ?? [] : [];
   return (
     <div className="gl-wrap ask-wrap" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="gl ask" role="dialog" aria-modal="true" aria-label={`Ask about ${w.title}`}>
@@ -260,15 +324,17 @@ function AskSheet({ w, first, onChange, onClose, onStop }: { w: Watch; first?: s
 
           <div className="ask-log" aria-live="polite">
             {msgs.map((m, i) => (
-              <div key={i} className={`ask-msg ${m.role}`}>
-                {m.role === "user" ? m.content : m.content ? <Rich text={m.content} /> : <span className="muted"><span className="spin" />Thinking</span>}
+              <div key={i} className={`ask-msg ${m.role === "user" ? "user" : "assistant"}`}>
+                {m.role === "user" ? m.content
+                  : m.role === "answer" ? (m.a.text ? <AnswerView a={m.a} onAsk={send} onLeave={() => { keepHistory(); onClose(); }} /> : <span className="muted"><span className="spin" />Looking it up</span>)
+                  : m.content ? <Rich text={m.content} /> : <span className="muted"><span className="spin" />Thinking</span>}
               </div>
             ))}
           </div>
           {msgs.length > 0 && !busy && (
             <div className="chips scroll ask-more">
               <button type="button" className="chip" onClick={() => { setMsgs([]); input.current?.focus(); }}>New chat</button>
-              {chips.slice(0, 5).map((c) => <button key={c} type="button" className="chip" onClick={() => send(c)}>{c}</button>)}
+              {[...new Set([...nextUp, ...chips])].slice(0, 6).map((c) => <button key={c} type="button" className="chip" onClick={() => send(c)}>{c}</button>)}
             </div>
           )}
 
@@ -284,7 +350,7 @@ function AskSheet({ w, first, onChange, onClose, onStop }: { w: Watch; first?: s
         </div>
 
         <form className="ask-input" onSubmit={(e) => { e.preventDefault(); send(q); }}>
-          <textarea ref={input} value={q} rows={1} placeholder={listening ? "Listening…" : `Ask anything about ${w.title}`} aria-label="Your question"
+          <textarea ref={input} value={q} rows={1} placeholder={listening ? "Listening…" : "Ask anything: a name, a character, a question"} aria-label="Your question"
             onChange={(e) => setQ(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(q); } }} />
           {Speech && <button type="button" className={`ask-mic${listening ? " on" : ""}`} onClick={listen} aria-label={listening ? "Stop listening" : "Ask by voice"} aria-pressed={listening}>

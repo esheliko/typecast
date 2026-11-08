@@ -10,7 +10,7 @@ src/lib/tmdb.ts    TMDB client (server only, the token never reaches the browser
 src/lib/enrich.ts  "where do I know them from": exact matching of cast credits against your library
 src/lib/connect.ts shared titles between two actors (or co-stars linking them), shared cast between two titles, your regulars
 src/components/cast  the Browse tab: browse grid with one-tap Watched / To watch, and Connections
-src/lib/ask.ts     Watching now: the Ask companion (Claude via Vercel AI Gateway, with TMDB tools and your library)
+src/lib/answer.ts  Watching now: answers questions mid-watch from TMDB, Wikipedia and your library (no AI; src/lib/ask.ts is the benched AI version)
 src/lib/library.ts reads your library and settings from Supabase
 supabase/migrations/0001_init.sql   tables and row-level security
 supabase/migrations/0002_priority.sql   "Some day" / "Must watch" level for To watch titles

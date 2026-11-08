@@ -1,32 +1,19 @@
 import { stepCountIs, streamText, tool, type ModelMessage } from "ai";
 import { z } from "zod";
-import { enrich } from "./enrich";
+import { watchCast, type WatchFace } from "./answer";
 import { linkPeople } from "./connect";
 import { getAllCredits, getEpisode, getTitle, search } from "./tmdb";
 import { spoilerPoint, type Watch } from "./watching";
-import type { CastMember, EnrichedMember, LibItem, MediaType, Title } from "./types";
+import type { LibItem, MediaType, Title } from "./types";
+
+/**
+ * BENCHED: the AI version of Watching now's Ask. Off unless ASK_AI=1 (needs Vercel AI Gateway credits). The live feature is the
+ * no-AI engine in answer.ts; this stays so it can be switched back on, and answers free-form questions the rules can't.
+ */
+export const aiEnabled = () => process.env.ASK_AI === "1";
 
 /** Through Vercel AI Gateway: on Vercel it signs in with the project's OIDC token, so no API key is needed. Override with ASK_MODEL. */
 const MODELS = [...new Set([process.env.ASK_MODEL, "anthropic/claude-sonnet-5.5", "anthropic/claude-sonnet-4.5", "anthropic/claude-haiku-4.5"].filter(Boolean) as string[])];
-
-/** A face in the Ask sheet: who they are, who they play, and the titles the user has watched them in. */
-export interface WatchFace { id: number; name: string; photo: string | null; role: string; guest?: boolean; hits: { key: string; title: string; year: string }[] }
-
-/** The people on screen: for a series, this episode's cast and guest stars first, then the regulars; each with where the user knows them from. */
-export async function watchCast(w: Watch, lib: LibItem[]): Promise<{ title: Title; faces: WatchFace[] }> {
-  const t = await getTitle(w.type, w.id);
-  let people: (CastMember & { guest?: boolean })[] = t.people;
-  if (w.type === "tv" && w.s && w.e) {
-    const ep = await getEpisode(w.id, w.s, w.e).catch(() => null);
-    if (ep) {
-      const seen = new Set<number>();
-      people = [...ep.cast, ...ep.guests.map((g) => ({ ...g, guest: true })), ...t.people].filter((p) => !seen.has(p.id) && seen.add(p.id));
-    }
-  }
-  people = people.slice(0, 24);
-  const rich: EnrichedMember[] = await enrich(people, lib, t.key);
-  return { title: t, faces: rich.map((p, i) => ({ id: p.id, name: p.name, photo: p.photo, role: p.role, guest: people[i].guest, hits: p.hits.slice(0, 6) })) };
-}
 
 const yearOf = (l: { year: string }) => (l.year ? ` (${l.year})` : "");
 

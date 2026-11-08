@@ -638,3 +638,28 @@ async function tvByPeople(q: BrowseQuery, page: number): Promise<BrowsePage> {
     notice: ignored.length ? `Series searches with an actor can't also filter by ${ignored.join(", ")}, so that part is ignored.` : undefined,
   };
 }
+
+/** Facts the Watching-now answers need beyond getTitle: keywords (true story, post-credits scenes), money, dates, ratings, places. Cached a day. */
+export interface TitleFacts {
+  keywords: string[]; budget: number; revenue: number; release: string; votes: number; rating: number;
+  countries: string[]; languages: string[]; companies: string[]; original: string;
+}
+export async function getTitleFacts(type: MediaType, id: number): Promise<TitleFacts> {
+  const d = await tmdb(`/${type}/${id}`, { append_to_response: "keywords" }, 24 * HOUR);
+  const kw: any[] = d.keywords?.keywords ?? d.keywords?.results ?? [];
+  return {
+    keywords: kw.map((k) => String(k.name ?? "").toLowerCase()).filter(Boolean),
+    budget: d.budget ?? 0, revenue: d.revenue ?? 0, release: d.release_date ?? d.first_air_date ?? "",
+    votes: d.vote_count ?? 0, rating: Math.round((d.vote_average ?? 0) * 10) / 10,
+    countries: (d.production_countries ?? []).map((c: any) => c.name).filter(Boolean),
+    languages: (d.spoken_languages ?? []).map((l: any) => l.english_name || l.name).filter(Boolean),
+    companies: (d.production_companies ?? []).map((c: any) => c.name).filter(Boolean).slice(0, 4),
+    original: d.original_title ?? d.original_name ?? "",
+  };
+}
+
+/** Birthday, birthplace and the full biography of a person. Same request as getPerson, so it shares its cache. */
+export async function getPersonBasics(id: number): Promise<{ id: number; name: string; photo: string | null; birthday: string; deathday: string; place: string; bio: string; imdbId: string | null }> {
+  const { d } = await personRaw(id);
+  return { id: d.id, name: d.name, photo: d.profile_path ?? null, birthday: d.birthday ?? "", deathday: d.deathday ?? "", place: d.place_of_birth ?? "", bio: d.biography ?? "", imdbId: d.external_ids?.imdb_id || null };
+}

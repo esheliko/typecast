@@ -769,3 +769,18 @@ body:has(.wbar) .toast-slot { bottom: calc(146px + env(safe-area-inset-bottom, 0
 .up-date { font-size: 12px; }
 .up-more { display: block; margin-top: 8px; }
 .up-sk { height: 34px; margin-top: 8px; }
+
+/* Built-in (no-AI) answers: quotes, a row of tappable people and titles, links out. */
+.ask-msg.assistant { width: 100%; max-width: 100%; min-width: 0; }
+.ask-msg blockquote { margin: 0 0 8px; padding: 2px 0 2px 10px; border-left: 3px solid var(--gold-fill); color: var(--ink); font-size: 14px; }
+.ask-msg blockquote:last-child { margin-bottom: 0; }
+.ask-cards { display: flex; gap: 10px; overflow-x: auto; scrollbar-width: none; margin: 10px -13px 2px; padding: 0 13px 4px; }
+.ask-cards::-webkit-scrollbar { display: none; }
+.ask-pc, .ask-tc { flex: none; width: 76px; display: flex; flex-direction: column; gap: 1px; font-size: 12px; line-height: 1.25; color: inherit; text-decoration: none; }
+.ask-pc img, .ask-tc img, .ask-pc .ask-noph, .ask-tc .ask-noph { width: 76px; height: 108px; border-radius: 8px; object-fit: cover; background: var(--chip); margin-bottom: 4px; }
+.ask-pc b, .ask-tc b { font-size: 12px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.ask-pc .small, .ask-tc .small { font-size: 11px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.ask-pc:hover img, .ask-tc:hover img { outline: 2px solid var(--gold-fill); }
+.ask-st { font-size: 11px; font-weight: 600; }
+.ask-st.seen { color: var(--good); } .ask-st.list { color: var(--gold); }
+.ask-links { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 8px; font-size: 13px; }
