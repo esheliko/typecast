@@ -598,3 +598,5 @@ a.srow { color: inherit; text-decoration: none; }
 .sheet::after, .fsheet::after { content: ""; display: block; height: var(--kb, 0px); }
 .gl { padding-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--kb, 0px)); }
 input, textarea { scroll-margin-top: calc(var(--top-h, 56px) + 12px); }
+.chips.lib-chips { margin-top: 0; }
+.chips.lib-chips .chip { padding: 5px 12px; font-size: 13px; }

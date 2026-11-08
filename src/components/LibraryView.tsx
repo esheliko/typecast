@@ -6,7 +6,7 @@ import { useRef } from "react";
 import { useRetained } from "@/lib/useRetained";
 import { STATUS_LABEL, type LibItem, type Status } from "@/lib/types";
 
-const TABS: [Status | "all", string][] = [["all", "All"], ["watching", STATUS_LABEL.watching], ["partial", STATUS_LABEL.partial], ["watchlist", STATUS_LABEL.watchlist], ["watched", STATUS_LABEL.watched]];
+const TABS: [Status | "all", string][] = [["all", "All"], ["watching", STATUS_LABEL.watching], ["partial", "Partly"], ["watchlist", STATUS_LABEL.watchlist], ["watched", STATUS_LABEL.watched]];
 
 const SORTS = [["added", "Recently added"], ["title", "Title A–Z"], ["year", "Year, newest"], ["yearOld", "Year, oldest"], ["rating", "My rating"], ["watched", "Recently watched"]] as const;
 export type SortKey = (typeof SORTS)[number][0];
@@ -52,7 +52,7 @@ export default function LibraryView({ items, initial, initialSort = "added", bet
   return (
     <>
       <UpNext items={items} />
-      <div className="chips" role="group" aria-label="Filter">
+      <div className="chips scroll lib-chips" role="group" aria-label="Filter">
         {TABS.map(([k, label]) => <button key={k} type="button" className="chip" aria-pressed={filter === k} onClick={() => choose(k)}>{label} <span className="mono">{count(k)}</span></button>)}
       </div>
       <div className="field" style={{ marginTop: 12 }}>
