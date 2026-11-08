@@ -20,6 +20,8 @@ interface Ctx {
   /** Titles skipped with "Not interested". Saved on this device. */
   skipped: ReadonlySet<string>;
   skip: (it: Item) => void;
+  /** A rating or note was saved for this title: mark it rich so removing it asks first. No-op for unmarked titles. */
+  markRich: (key: string) => void;
   /** What the one-tap To watch button adds a title as. Saved on this device. */
   defaultPriority: Priority;
 }
@@ -155,6 +157,13 @@ export function LibProvider({ packed, children }: { packed: PackedMarks; childre
     }
   }, [save, show, franchise, current]);
 
+  const markRich = useCallback((key: string) => {
+    setOver((o) => {
+      const m = key in o ? o[key] : live.current[key];
+      return !m || m.rich ? o : { ...o, [key]: { ...m, rich: true } };
+    });
+  }, []);
+
   const similar = useCallback((it: Item) =>
     fetch(`/api/franchise?type=${it.type}&id=${it.id}&similar=1&v=2`).then((r) => r.json()).then((j) => (j.groups ?? []) as Group[]).catch(() => [] as Group[]), []);
 
@@ -186,7 +195,7 @@ export function LibProvider({ packed, children }: { packed: PackedMarks; childre
   }, [show, writeSkipped]);
 
   return (
-    <LibCtx.Provider value={{ get, mark, markMany, openRelated, groupsOf: franchise, marked, skipped, skip, defaultPriority }}>
+    <LibCtx.Provider value={{ get, mark, markMany, openRelated, groupsOf: franchise, marked, skipped, skip, markRich, defaultPriority }}>
       {children}
       {sheet && <FranchiseSheet it={sheet} load={franchise} loadSimilar={similar} onClose={() => setSheet(null)} />}
       <div className="toast-slot" aria-live="polite">

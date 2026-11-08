@@ -12,18 +12,25 @@ export default function EpisodeCast({ tvId, seasons, initial, inLibrary }: { tvI
   const [res, setRes] = useState<Result | null>(null);
   const [state, setState] = useState<"idle" | "loading">("idle");
   const [error, setError] = useState("");
+  const [progress, setProgressState] = useState<"" | "saved" | "failed">("");
   const maxEp = seasons.find((x) => x.n === s)?.eps;
 
   async function go(ev: React.FormEvent) {
     ev.preventDefault();
     if (!e || e < 1) return;
-    setState("loading"); setError(""); setRes(null);
+    setState("loading"); setError(""); setRes(null); setProgressState("");
     try {
       const r = await fetch(`/api/episode?tv=${tvId}&s=${s}&e=${e}`);
       const j = await r.json();
       if (!r.ok) throw new Error(r.status === 404 ? "That episode is not on TMDB." : j.error ?? "Lookup failed.");
       setRes(j);
-      if (inLibrary) await setProgress("tv" as MediaType, tvId, s, e);
+      setState("idle");
+      // Saving progress is secondary: if it fails the loaded cast stays, with a small note.
+      if (inLibrary) {
+        try { await setProgress("tv" as MediaType, tvId, s, e); setProgressState("saved"); }
+        catch { setProgressState("failed"); }
+      }
+      return;
     } catch (er) { setError((er as Error).message); }
     setState("idle");
   }
@@ -43,7 +50,8 @@ export default function EpisodeCast({ tvId, seasons, initial, inLibrary }: { tvI
         {res && (
           <>
             <div className="row-title" style={{ fontSize: 18 }}>{res.name}</div>
-            {inLibrary && <div className="small muted">Progress saved: S{s} E{e}</div>}
+            {inLibrary && progress === "saved" && <div className="small muted">Progress saved: S{s} E{e}</div>}
+            {progress === "failed" && <div className="small err" role="alert">Could not save your progress. Check your connection and try again.</div>}
             {res.guests.length > 0 && <div className="mono small muted" style={{ margin: "10px 0 0" }}>GUEST STARS FIRST</div>}
             <ul className="credits">{all.map((c) => <CreditRow key={c.id} c={c} libKeys={res.libKeys} />)}</ul>
             {all.length === 0 && <p className="muted small">No cast listed for this episode.</p>}

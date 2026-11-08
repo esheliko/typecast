@@ -110,6 +110,24 @@ test.describe("signed in", () => {
     await healthy(page, bad);
   });
 
+  test("a note typed just before leaving the title is saved", async ({ page }) => {
+    const bad = watch(page);
+    const note = `smoke note ${Date.now()}`;
+    await visit(page, "/title/movie/550?full=1", bad);
+    const box = page.getByLabel("Notes");
+    await expect(box).toBeEnabled({ timeout: 20_000 });
+    await box.fill(note);
+    // Leave well inside the 700 ms debounce: the pending save must be flushed, not dropped.
+    await page.getByRole("link", { name: "Library" }).first().click();
+    await expect(page).toHaveURL(/\/library/);
+    await visit(page, "/title/movie/550?full=1", bad);
+    await expect(page.getByLabel("Notes")).toHaveValue(note, { timeout: 20_000 });
+    // Leave the seeded row as it was.
+    await page.getByLabel("Notes").fill("");
+    await expect(page.getByText("Saved")).toBeVisible({ timeout: 10_000 });
+    await healthy(page, bad);
+  });
+
   test("person page", async ({ page }) => {
     const bad = watch(page);
     await visit(page, "/person/6384", bad);
