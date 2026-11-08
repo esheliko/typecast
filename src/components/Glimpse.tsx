@@ -3,6 +3,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 import type { GlimpseImage } from "@/app/api/glimpse/route";
 
 import type { GlimpseSpec } from "@/lib/glimpse";
+import { useBackClose } from "@/lib/back-layer";
 
 const Ctx = createContext<(s: GlimpseSpec) => void>(() => {});
 export const useGlimpse = () => useContext(Ctx);
@@ -20,6 +21,10 @@ export function GlimpseProvider({ children }: { children: React.ReactNode }) {
 
   const open = useCallback((s: GlimpseSpec) => { opener.current = document.activeElement as HTMLElement | null; setTab(0); setBig(null); setSpec(s); }, []);
   const close = useCallback(() => { setSpec(null); setBig(null); const o = opener.current; if (o && document.contains(o)) o.focus({ preventScroll: true }); }, []);
+
+  // Back button: first leaves a big image, then closes the panel.
+  useBackClose(!!spec, close);
+  useBackClose(!!big, useCallback(() => setBig(null), []));
 
   const q = spec?.tabs[tab]?.q;
   // Each query is fetched once. No abort on cleanup: storing the "loading" state re-runs this effect, which would cancel its own request.

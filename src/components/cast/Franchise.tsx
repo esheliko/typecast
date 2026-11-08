@@ -3,6 +3,7 @@ import { TitleLink } from "../Modal";
 import { GlimpseButton } from "../Glimpse";
 import { titleSpec } from "@/lib/glimpse";
 import { useEffect, useRef, useState } from "react";
+import { keepHistory, useBackClose } from "@/lib/back-layer";
 import { useLib } from "./LibState";
 import QuickMark from "./QuickMark";
 import { img, typeLabel } from "@/lib/img";
@@ -64,6 +65,7 @@ export function FranchiseList({ groups: raw, onNavigate, include }: { groups: Gr
 export function FranchiseSheet({ it, load, loadSimilar, onClose }: { it: Item; load: (it: Item) => Promise<Group[]>; loadSimilar?: (it: Item) => Promise<Group[]>; onClose: () => void }) {
   const [groups, setGroups] = useState<Group[] | null>(null);
   const close = useRef<HTMLButtonElement>(null);
+  useBackClose(true, onClose);
   const [loose, setLoose] = useState(false);
   useEffect(() => {
     let on = true;
@@ -92,7 +94,7 @@ export function FranchiseSheet({ it, load, loadSimilar, onClose }: { it: Item; l
         </div>
         {!groups ? <p className="muted"><span className="spin" />Finding related titles</p>
           : groups.length === 0 ? <p className="muted">Nothing related found.</p>
-          : <FranchiseList groups={groups} include={loose ? undefined : it} onNavigate={onClose} />}
+          : <FranchiseList groups={groups} include={loose ? undefined : it} onNavigate={() => { keepHistory(); onClose(); }} />}
       </div>
     </div>
   );

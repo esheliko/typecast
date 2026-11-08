@@ -2,6 +2,8 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
+import { useBackClose } from "@/lib/back-layer";
+
 const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),textarea:not([disabled]),select:not([disabled]),[tabindex]:not([tabindex="-1"])';
 
 /** One settings line: label on the left, a short summary and a chevron on the right. Tapping it opens the details in a popup. */
@@ -21,6 +23,7 @@ export default function SettingRow({ label, value, title, children }: { label: s
 
 function Popup({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
   const box = useRef<HTMLDivElement>(null);
+  useBackClose(true, onClose);
   useEffect(() => {
     const was = document.activeElement as HTMLElement | null;
     box.current?.focus({ preventScroll: true });

@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import { useBackClose } from "@/lib/back-layer";
 import { createPortal } from "react-dom";
 import { addImported, setStatus } from "@/app/actions";
 import { img } from "@/lib/img";
@@ -36,6 +37,7 @@ export default function ImportReviewDialog({ rows, onChange, onClose, onRevert }
   const [confirm, setConfirm] = useState(false);
   const [bulk, setBulk] = useState(false);
   const [reverting, setReverting] = useState(false);
+  useBackClose(true, () => { if (!reverting) onClose(); });
   const [revertErr, setRevertErr] = useState("");
   const patch = (id: string, p: Partial<ReviewRow>) => onChange((cur) => cur.map((r) => (r.id === id ? { ...r, ...p } : r)));
 

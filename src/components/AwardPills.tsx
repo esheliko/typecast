@@ -1,4 +1,5 @@
 "use client";
+import { useBackClose } from "@/lib/back-layer";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
 export interface PillSection { name: string; entries: { category: string; year: string }[]; won: boolean }
@@ -8,6 +9,7 @@ export interface Pill { text: string; win: boolean; sections: PillSection[] }
 export function AwardPills({ pills, icon }: { pills: Pill[]; icon: ReactNode }) {
   const [open, setOpen] = useState<number | null>(null);
   const box = useRef<HTMLDivElement>(null);
+  useBackClose(open !== null, () => setOpen(null));
   useEffect(() => {
     if (open === null) return;
     const down = (e: PointerEvent) => { if (!box.current?.contains(e.target as Node)) setOpen(null); };
