@@ -218,11 +218,15 @@ export default function Browse({ filters, filtered, list: initialList, salt: ser
           {(["all", "movie", "tv"] as BrowseType[]).map((t) => <button key={t} type="button" aria-pressed={type === t} onClick={() => chooseType(t)}>{t === "all" ? "Both" : t === "movie" ? "Films" : "Series"}</button>)}
         </div>
         <button type="button" className="chip sm filt" aria-expanded={panel} aria-pressed={n > 0} onClick={() => setPanel(!panel)}>
+          <svg className="pill-i" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M4 5h16l-6 8v6l-4-2v-4z" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" /></svg>
           Filters{n ? ` · ${n}` : ""} <span aria-hidden="true">{panel ? "▴" : "▾"}</span>
         </button>
-        <select aria-label="Sort by" value={filters.sort} onChange={(e) => { const s = toParams({ ...filters, type, sort: e.target.value as Sort }).toString(); startRoute(() => router.replace(s ? `/?${s}` : "/", { scroll: false })); }}>
-          {SORTS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-        </select>
+        <label className="pillsel" title="Sort order">
+          <svg className="pill-i" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M8 4v16m0 0-3-3m3 3 3-3M16 20V4m0 0-3 3m3-3 3 3" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+          <select aria-label="Sort by" value={filters.sort} onChange={(e) => { const s = toParams({ ...filters, type, sort: e.target.value as Sort }).toString(); startRoute(() => router.replace(s ? `/?${s}` : "/", { scroll: false })); }}>
+            {SORTS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+        </label>
         <button type="button" className="chip sm" aria-pressed={hide} onClick={() => setHide(!hide)} title="Hide titles you have already marked or skipped, and make ones you keep scrolling past turn up less often">Hide marked{hide && hiddenCount > 0 ? ` · ${hiddenCount}` : ""}</button>
       </div>
       {panel && <BrowseFilters q={{ ...filters, type }} genres={genres[type]} canFilterMine={canFilterMine} active={filtered} />}

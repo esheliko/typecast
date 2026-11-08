@@ -10,6 +10,7 @@ export default function BrowseFilters({ q, genres, canFilterMine, active }: { q:
   const [pending, start] = useTransition();
   const [from, setFrom] = useState(q.from);
   const [to, setTo] = useState(q.to);
+  const [gOpen, setGOpen] = useState(q.genres.length > 0);
   useEffect(() => { setFrom(q.from); setTo(q.to); }, [q.from, q.to]);
 
   const go = (next: Partial<BrowseQuery>) => {
@@ -32,21 +33,31 @@ export default function BrowseFilters({ q, genres, canFilterMine, active }: { q:
 
   return (
     <section className="card pad filters" aria-busy={pending} aria-label="Browse filters">
-      {pending && <span className="small muted"><span className="spin" />Updating</span>}
-      <div className="frow" role="group" aria-label="Genre">
-        {genres.map((g) => <button key={g.id} type="button" className="chip" aria-pressed={q.genres.includes(g.id)} onClick={() => toggleGenre(g.id)}>{g.name}</button>)}
-      </div>
-
-      <div className="frow" role="group" aria-label="Year and rating">
-        {DECADES.map((d) => <button key={d.label} type="button" className="chip" aria-pressed={decadeOn(d)} onClick={() => decadeOn(d) ? go({ from: "", to: "" }) : decade(d)}>{d.label}</button>)}
+      {pending && <span className="small muted fbusy"><span className="spin" />Updating</span>}
+      <div className="frow">
+        <button type="button" className="chip" aria-expanded={gOpen} aria-pressed={q.genres.length > 0} onClick={() => setGOpen(!gOpen)}>
+          Genre{q.genres.length ? ` · ${q.genres.length}` : ""} <span aria-hidden="true">{gOpen ? "▴" : "▾"}</span>
+        </button>
+        <select aria-label="Decade" className={q.from || q.to ? "on" : ""} value={DECADES.find(decadeOn)?.label ?? (q.from || q.to ? "custom" : "")}
+          onChange={(e) => { const d = DECADES.find((x) => x.label === e.target.value); if (d) decade(d); else if (!e.target.value) go({ from: "", to: "" }); }}>
+          <option value="">Any decade</option>
+          {DECADES.map((d) => <option key={d.label} value={d.label}>{d.label}</option>)}
+          {!DECADES.some(decadeOn) && (q.from || q.to) && <option value="custom">Custom</option>}
+        </select>
+        <select aria-label="Minimum rating" className={q.minRating ? "on" : ""} value={q.minRating} onChange={(e) => go({ minRating: Number(e.target.value) })}>
+          {RATINGS.map((r) => <option key={r} value={r}>{r ? `★ ${r}+` : "Any rating"}</option>)}
+        </select>
         <span className="years">
           <input inputMode="numeric" maxLength={4} placeholder="From" aria-label="From year" value={from} onChange={(e) => setFrom(e.target.value.replace(/\D/g, ""))} />
           <span className="muted">–</span>
           <input inputMode="numeric" maxLength={4} placeholder="To" aria-label="To year" value={to} onChange={(e) => setTo(e.target.value.replace(/\D/g, ""))} />
         </span>
-        <span className="fsep" aria-hidden="true" />
-        {RATINGS.filter((r) => r).map((r) => <button key={r} type="button" className="chip" aria-pressed={q.minRating === r} aria-label={`Rating ${r} or higher`} onClick={() => go({ minRating: q.minRating === r ? 0 : r })}>★ {r}+</button>)}
       </div>
+      {gOpen && (
+        <div className="chips gchips" role="group" aria-label="Genre">
+          {genres.map((g) => <button key={g.id} type="button" className="chip" aria-pressed={q.genres.includes(g.id)} onClick={() => toggleGenre(g.id)}>{g.name}</button>)}
+        </div>
+      )}
 
       <div className="two">
         <TagPicker kind="person" label="Cast or crew" placeholder="Search a person" value={q.people} onChange={(people) => go({ people })} />
