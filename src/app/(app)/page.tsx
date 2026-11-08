@@ -50,7 +50,7 @@ export default async function Home({ searchParams }: { searchParams: SP }) {
 
   const watching = lib.filter((l) => l.status === "watching").map((l) => ({
     key: l.key, type: l.type, id: l.id, title: l.title, year: l.year, poster: l.poster, rating: 0,
-    sub: l.progress ? `S${l.progress.s} E${l.progress.e}` : l.year,
+    sub: l.newEp ? newEpDetail(l.newEp) : l.progress ? `S${l.progress.s} E${l.progress.e}` : l.year,
   }));
   const view = one(sp.view) === "connect" || connect.a ? "connect" : "browse";
   return (

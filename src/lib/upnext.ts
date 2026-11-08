@@ -1,3 +1,4 @@
+import { newEpDetail } from "./new-episode";
 import type { Item, LibItem } from "./types";
 
 /**
@@ -35,7 +36,7 @@ export interface Facts {
 
 export type PickKind = "continue" | "new-eps" | "library" | "stale" | "discover";
 /** `tag` is the first of your services it streams on (null if none or not looked up); `checked` is whether TMDB was asked. */
-export interface Pick extends Item { why: string; tag: string | null; length: string | null; kind: PickKind; score: number; checked: boolean }
+export interface Pick extends Item { why: string; tag: string | null; length: string | null; kind: PickKind; score: number; checked: boolean; /** A watched series that came back because a new episode (or season) aired: shown as a badge. */ fresh?: "episode" | "season" }
 
 /** Service ids that TMDB knows. Negative ids are labels the user typed in by hand, with no availability data. */
 export const realServices = (ids: number[]) => ids.filter((id) => Number.isInteger(id) && id > 0);
@@ -102,6 +103,10 @@ function inProgress(l: LibItem, ctx: Ctx): Pick {
   const age = daysSince(l.updated, ctx.now);
   const where = l.progress ? `S${l.progress.s} E${l.progress.e}` : null;
   const base = { key: l.key, type: l.type, id: l.id, title: l.title, year: l.year, poster: l.poster, length: lengthLabel(l.type, f?.runtime ?? null), tag: f?.onMine[0] ?? null, checked: !!f };
+  // Came back from Watched because an episode aired: it leads, and says which one. Does not go stale while it waits.
+  if (l.status === "watching" && l.newEp) {
+    return { ...base, kind: "new-eps", score: 21, fresh: l.newEp.season ? "season" : "episode", why: `${newEpDetail(l.newEp, ctx.now)}${where ? ` · you're at ${where}` : ""}` };
+  }
   // A series with an episode newer than your last touch is worth picking back up even if it sat for a while.
   const newer = l.type === "tv" && !!f?.lastAired && f.lastAired > iso(l.updated);
   if (age <= FRESH_DAYS) return { ...base, kind: "continue", score: 20 - age / 7, why: where ? `Continue from ${where}` : l.status === "watching" ? "You're watching this" : "Pick up where you left off" };

@@ -4,12 +4,21 @@ import { redirect } from "next/navigation";
 import { requireUser, supabaseServer } from "@/lib/supabase/server";
 import { normalizeDetails, type DetailId } from "@/lib/details";
 import type { MediaType, Priority, Status } from "@/lib/types";
+import { progressPassed } from "@/lib/new-episode";
 import type { LbEntry } from "@/lib/letterboxd-parse";
 import { applyResolved, cleanUsername, fetchFeed, LbError, resolveEntries, type Applied, type Failed, type Prev, type Unmatched, type Unsure, syncLetterboxd } from "@/lib/letterboxd";
 
 const STATUSES = ["watching", "partial", "watchlist", "watched"];
 const where = (type: MediaType, id: number) => ({ tmdb_type: type, tmdb_id: id });
 const done = () => revalidatePath("/", "layout");
+
+/**
+ * Drops the "New episode" flag. Best effort and separate from the main write: the columns come from migration 0008, and
+ * until it is applied this errors harmlessly instead of breaking the change the user asked for.
+ */
+async function clearNewEp(sb: Awaited<ReturnType<typeof requireUser>>["sb"], userId: string, type: MediaType, id: number) {
+  try { await sb.from("library_items").update({ new_episode_at: null, new_episode_s: null, new_episode_e: null, new_season: false }).eq("user_id", userId).match(where(type, id)).not("new_episode_at", "is", null); } catch { /* column not there yet */ }
+}
 
 export async function setStatus(item: { type: MediaType; id: number; title: string; year: string; poster: string | null }, status: Status | null, priority?: Priority) {
   const { sb, user } = await requireUser();
@@ -24,6 +33,8 @@ export async function setStatus(item: { type: MediaType; id: number; title: stri
       { onConflict: "user_id,tmdb_type,tmdb_id" },
     );
     if (error) throw new Error(error.message);
+    // Marked Watched again (or moved off Watching): the new episode is dealt with.
+    if (status !== "watching") await clearNewEp(sb, user.id, item.type, item.id);
   }
   done();
 }
@@ -74,7 +85,12 @@ export async function setNote(type: MediaType, id: number, note: string) {
   await patch(type, id, { note: note.slice(0, 5000) });
 }
 export async function setProgress(type: MediaType, id: number, season: number, episode: number) {
-  await patch(type, id, { progress_season: season, progress_episode: episode }); done();
+  await patch(type, id, { progress_season: season, progress_episode: episode });
+  // Progress at or past the new episode settles the flag.
+  const { sb, user } = await requireUser();
+  const { data } = await sb.from("library_items").select("new_episode_s,new_episode_e").eq("user_id", user.id).match(where(type, id)).maybeSingle();
+  if (data?.new_episode_s && progressPassed({ s: season, e: episode }, { s: data.new_episode_s, e: data.new_episode_e ?? 1 })) await clearNewEp(sb, user.id, type, id);
+  done();
 }
 
 /**

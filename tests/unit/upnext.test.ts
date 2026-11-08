@@ -103,3 +103,14 @@ test("'on my services' keeps only picks streaming on a chosen service, and they 
   assert.equal(out.find((p) => p.key === unknown.key)!.checked, false);
   assert.equal(out.find((p) => p.key === on.key)!.checked, true);
 });
+
+test("a series back from Watched with a new episode leads, flagged and named, even if it sat untouched", () => {
+  const s = lib({ status: "watching", type: "tv", updated: NOW - 300 * DAY, newEp: { at: "2026-11-02", s: 3, e: 1, season: true } });
+  const fresh = lib({ status: "watching", type: "tv", updated: NOW - 2 * DAY, progress: { s: 1, e: 2 } });
+  const out = rankUpNext([fresh, s], ctx());
+  assert.equal(out[0].key, s.key);
+  assert.equal(out[0].kind, "new-eps");
+  assert.equal(out[0].fresh, "season");
+  assert.equal(out[0].why, "S3 E1 aired 2 Nov");
+  assert.equal(out.find((p) => p.key === fresh.key)?.fresh, undefined);
+});

@@ -43,10 +43,15 @@ export type SearchHit =
   | ({ kind: "title" } & BrowseItem)
   | { kind: "person"; id: number; name: string; photo: string | null; dept: string; knownFor: string[] };
 
+/** The newest episode that aired after a watched series was marked Watched: `at` is its air date (YYYY-MM-DD), `season` that it starts a new season. */
+export interface NewEp { at: string; s: number; e: number; season: boolean }
+
 export interface LibItem extends Item {
   status: Status; priority: Priority; rating: number; note: string; progress: { s: number; e: number } | null; added: number; watchedAt: number | null;
   /** Last change to the row (status, progress, rating…), ms. Tells a series you are in the middle of from one you abandoned. */
   updated: number;
+  /** Set while the series is Watching because an episode aired after it was marked Watched. Absent until migration 0008 is applied. */
+  newEp?: NewEp | null;
 }
 /** `details` is the user's chosen order of title-page sections; an id that is absent is hidden. */
 export interface Profile { country: string; services: number[]; serviceNames: Record<string, string>; details: DetailId[]; letterboxd: LetterboxdLink | null }
@@ -60,7 +65,7 @@ export interface EnrichedMember extends CastMember {
 }
 
 /** How the Browse tab sees a library entry: enough to draw a mark and to warn before deleting a rating or note. */
-export interface Mark { status: Status; priority: Priority; rich: boolean }
+export interface Mark { status: Status; priority: Priority; rich: boolean; /** Watching because a new episode (or season) aired. */ fresh?: "episode" | "season" }
 
 export interface PersonLite { id: number; name: string; photo: string | null }
 /** A title two people were both in, with the part each played. */

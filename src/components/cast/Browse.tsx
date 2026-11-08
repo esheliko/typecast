@@ -12,6 +12,7 @@ import RelatedButton from "./RelatedButton";
 import type { Nudge } from "@/lib/nudges";
 import { SORTS, convertGenres, toParams, type BrowseQuery, type Sort, type Tag } from "@/lib/browse";
 import { img } from "@/lib/img";
+import { newEpLabel } from "@/lib/new-episode";
 import { faded, loadPassed, type Passed } from "@/lib/passed";
 import { STATUS_LABEL, type BrowseItem, type BrowseList, type BrowseType } from "@/lib/types";
 
@@ -284,7 +285,7 @@ function KindIcon({ type }: { type: string }) {
 
 export function Poster({ it, sub, skippable }: { it: BrowseItem; sub?: string; skippable?: boolean }) {
   const { get, skip } = useLib();
-  const s = get(it.key)?.status;
+  const s = get(it.key)?.status, fresh = get(it.key)?.fresh;
   return (
     <div className={`pc${s ? ` is-${s}` : ""}`}>
       <div className="pc-art">
@@ -292,7 +293,7 @@ export function Poster({ it, sub, skippable }: { it: BrowseItem; sub?: string; s
           {/* eslint-disable-next-line @next/next/no-img-element */}
           {it.poster ? <img className="pc-img" src={img(it.poster, "w342")} alt="" loading="lazy" decoding="async" /> : <span className="pc-img ph"><span>{it.title}</span></span>}
         </TitleLink>
-        {s === "watching" && <span className="pc-flag">{STATUS_LABEL.watching}</span>}
+        {s === "watching" && (fresh ? <span className="pc-flag newep" data-testid="new-ep">{newEpLabel({ season: fresh === "season" })}</span> : <span className="pc-flag">{STATUS_LABEL.watching}</span>)}
         {s === "partial" && <span className="pc-flag partial">{STATUS_LABEL.partial}</span>}
         {skippable && !s && <button type="button" className="pc-x" onClick={() => skip(it)} aria-label={`Not interested in ${it.title}`} title="Not interested"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" /></svg></button>}
         <QuickMark it={it} />

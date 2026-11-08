@@ -252,4 +252,39 @@ test.describe("behaviour (signed in)", () => {
     await dialog.getByRole("button", { name: "Change password" }).click();
     await expect(dialog.getByRole("alert")).toContainText("current password is wrong", { timeout: 30_000 });
   });
+
+  test("a watched series with a newer episode returns as Watching with a New episode badge, and Watched clears it", async ({ page }) => {
+    const { sb, userId } = await smokeClient();
+    const show = SCRATCH[2];
+    const row = () => rowOf(sb, userId, "tv", show.tmdb_id);
+    // The flag columns come from migration 0008; until it is applied the series still moves to Watching, just without a badge.
+    const hasFlag = !(await sb.from("library_items").select("new_episode_at").limit(1)).error;
+    try {
+      const { error } = await sb.from("library_items").upsert({ user_id: userId, ...show, year: "2019", poster_path: null, status: "watched", priority: "someday", rating: 0, note: "",
+        watched_at: "2015-01-01T00:00:00Z", checked_at: null }, { onConflict: "user_id,tmdb_type,tmdb_id" });
+      expect(error?.message).toBeUndefined();
+      await page.goto("/library");
+      await expect.poll(async () => (await row())?.status, { timeout: 45_000, message: "the new-episode check should move it to Watching" }).toBe("watching");
+      if (hasFlag) {
+        expect((await row())?.new_episode_at).toBeTruthy();
+        await page.goto("/library?f=watching");
+        await expect(inRow(page, show.title)).toBeVisible({ timeout: 20_000 });
+        const badge = page.locator(".lib-row", { hasText: show.title }).getByTestId("new-ep");
+        await expect(badge).toBeVisible({ timeout: 20_000 });
+        await expect(badge).toHaveText(/New (episode|season)/);
+      }
+      await page.goto(`/title/tv/${show.tmdb_id}`);
+      const group = page.getByRole("group", { name: "Status" });
+      await expect(group).toBeVisible({ timeout: 30_000 });
+      if (hasFlag) await expect(page.getByTestId("new-ep").first()).toContainText(/aired/);
+      await group.getByRole("button", { name: "Watched", exact: true }).click();
+      await expect.poll(async () => (await row())?.status, { timeout: 15_000 }).toBe("watched");
+      if (hasFlag) {
+        await expect.poll(async () => (await row())?.new_episode_at ?? null, { timeout: 15_000 }).toBeNull();
+        await expect(page.getByTestId("new-ep")).toHaveCount(0);
+      }
+    } finally {
+      await deleteRows(sb, userId, [show]);
+    }
+  });
 });

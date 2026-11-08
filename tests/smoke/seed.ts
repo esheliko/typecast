@@ -22,6 +22,8 @@ export const SEED = [
 export const SCRATCH = [
   { tmdb_type: "movie", tmdb_id: 27205, title: "Inception" },
   { tmdb_type: "movie", tmdb_id: 129, title: "Spirited Away" },
+  /** Ended series used for the "New episode" test: seeded as Watched long before its episodes aired. */
+  { tmdb_type: "tv", tmdb_id: 87108, title: "Chernobyl" },
 ] as const;
 
 /** Deletes the smoke user's rows for the given titles (and only those). */
@@ -38,7 +40,7 @@ export async function deleteRows(sb: SB, userId: string, rows: readonly { tmdb_t
 export async function rowOf(sb: SB, userId: string, type: string, id: number) {
   const { data, error } = await sb.from("library_items").select("*").eq("user_id", userId).eq("tmdb_type", type).eq("tmdb_id", id).maybeSingle();
   if (error) throw new Error(error.message);
-  return data as { status: string; priority: string; rating: number } | null;
+  return data as { status: string; priority: string; rating: number; new_episode_at?: string | null } | null;
 }
 
 export function configured() {

@@ -1,6 +1,7 @@
 import { cache } from "react";
 import { genresFor, interleave, type BrowseQuery, type Tag } from "./browse";
 import { shapeCrew, type CrewBy } from "./details";
+import type { EpisodeFacts } from "./new-episode";
 import type { Appearances, BrowseItem, BrowseList, BrowseType, CastMember, Credit, Episode, EpisodeLite, Item, MediaType, Person, ProviderGroup, Related, SearchHit, ShowInfo, Title } from "./types";
 
 const BASE = process.env.TMDB_BASE_URL ?? "https://api.themoviedb.org/3";
@@ -167,8 +168,17 @@ export async function getTitle(type: MediaType, id: number): Promise<Title> {
 
 /** Air date (YYYY-MM-DD) of the newest episode that has already aired, or null. Cached 6 hours. */
 export async function getLastAired(id: number): Promise<string | null> {
+  return (await getEpisodeFacts(id)).last?.date ?? null;
+}
+
+/** The newest aired episode and when each season began (one cached call, shared with getLastAired). */
+export async function getEpisodeFacts(id: number): Promise<EpisodeFacts> {
   const d = await tmdb(`/tv/${id}`, {}, 6 * HOUR);
-  return d.last_episode_to_air?.air_date || null;
+  const l = d.last_episode_to_air;
+  return {
+    last: l?.air_date ? { s: l.season_number ?? 1, e: l.episode_number ?? 1, date: l.air_date } : null,
+    seasons: ((d.seasons ?? []) as any[]).map((x) => ({ n: x.season_number as number, air: (x.air_date ?? null) as string | null })),
+  };
 }
 
 /** The few facts Watch next ranks by: genres, rating, length, dates, where it streams, and what it recommends. Small and cached 12 hours. */

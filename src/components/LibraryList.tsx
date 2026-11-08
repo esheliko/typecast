@@ -6,6 +6,7 @@ import { useState } from "react";
 import { Thumb } from "./ui";
 import QuickMark from "./cast/QuickMark";
 import { useLib } from "./cast/LibState";
+import NewEpPill from "./NewEp";
 import RelatedButton from "./cast/RelatedButton";
 import { typeLabel } from "@/lib/img";
 import { PRIORITY_LABEL, STATUS_LABEL, markLabel, type LibItem } from "@/lib/types";
@@ -43,6 +44,7 @@ export default function LibraryList({ items }: { items: LibItem[] }) {
               <span className="row-main">
                 <span className="row-title">{l.title}</span>
                 <span className="row-sub">{l.year} · {typeLabel(l.type)}{l.progress ? ` · S${l.progress.s} E${l.progress.e}` : ""}</span>
+                <NewEpPill k={l.key} />
                 {l.rating > 0 && <span className="stars" aria-label={`${l.rating} of 5`}>{"★".repeat(l.rating) + "☆".repeat(5 - l.rating)}</span>}
               </span>
             </TitleLink><StatusPill it={l} /><QuickMark it={l} variant="inline" /><GlimpseButton spec={titleSpec(l)} /><RelatedButton it={l} /></li>

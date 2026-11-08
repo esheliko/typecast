@@ -2,6 +2,7 @@
 import { useContext, useEffect, useState } from "react";
 import { TitleLink } from "./Modal";
 import { img } from "@/lib/img";
+import { newEpLabel } from "@/lib/new-episode";
 import { onYourServices, type Pick } from "@/lib/upnext";
 import { ofKind } from "@/lib/kind";
 import { KindContext } from "@/lib/kind-context";
@@ -77,7 +78,7 @@ export default function UpNext({ picks: all, services }: { picks: Pick[]; servic
                     ? <img className="upnext-poster" src={img(p.poster, "w185")} alt="" loading="lazy" decoding="async" />
                     : <span className="upnext-poster" />}
                   {p.kind === "discover" && <span className="upnext-badge">New pick</span>}
-                  {p.kind === "new-eps" && <span className="upnext-badge">New eps</span>}
+                  {p.kind === "new-eps" && <span className="upnext-badge">{p.fresh ? newEpLabel({ season: p.fresh === "season" }) : "New eps"}</span>}
                   {p.tag && <span className="upnext-svc">{p.tag}</span>}
                 </span>
                 <span className="upnext-t">{p.title}</span>

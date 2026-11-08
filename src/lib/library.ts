@@ -1,7 +1,8 @@
 import { cache } from "react";
 import { supabaseServer } from "./supabase/server";
 import { normalizeDetails } from "./details";
-import { getLastAired } from "./tmdb";
+import { getEpisodeFacts } from "./tmdb";
+import { newEpisodeSince } from "./new-episode";
 import { syncLetterboxd } from "./letterboxd";
 import { fetchAll } from "./paginate";
 import type { LibItem, Profile } from "./types";
@@ -15,6 +16,7 @@ function toItem(r: any): LibItem & { checkedAt: number } {
     added: Date.parse(r.added_at) || 0,
     updated: Date.parse(r.updated_at) || Date.parse(r.added_at) || 0,
     watchedAt: r.watched_at ? Date.parse(r.watched_at) : null,
+    newEp: r.status === "watching" && r.new_episode_at && r.new_episode_s ? { at: String(r.new_episode_at).slice(0, 10), s: r.new_episode_s, e: r.new_episode_e ?? 1, season: !!r.new_season } : null,
     checkedAt: r.checked_at ? Date.parse(r.checked_at) : 0,
   };
 }
@@ -39,7 +41,7 @@ export const getLibrary = cache(async (): Promise<LibItem[]> => {
 });
 
 /**
- * Moves watched series with a newer episode back to "To watch". Runs behind a Suspense boundary after the page has been
+ * Moves watched series with a newer episode back to Watching, with a "New episode" flag. Runs behind a Suspense boundary after the page has been
  * sent, so it never delays what you see. Returns true when something moved, so the page can refresh itself.
  */
 export async function recheckEpisodes(): Promise<boolean> {
@@ -57,17 +59,22 @@ export async function recheckEpisodes(): Promise<boolean> {
 const RECHECK_MS = 12 * 3600 * 1000;
 const MAX_CHECKS = 20;
 
-/** Watched series with an episode aired after the day they were marked go back to "To watch". Returns the keys moved. */
+/** Watched series with an episode aired after the day they were marked go back to Watching, flagged with that episode. Returns the keys moved. */
 async function returnNewEpisodes(sb: Awaited<ReturnType<typeof supabaseServer>>, items: (LibItem & { checkedAt: number })[]): Promise<Set<string>> {
   const moved = new Set<string>();
   const now = Date.now();
   const due = items.filter((i) => i.type === "tv" && i.status === "watched" && i.watchedAt && now - i.checkedAt > RECHECK_MS).slice(0, MAX_CHECKS);
   await Promise.all(due.map(async (i) => {
     try {
-      const aired = await getLastAired(i.id);
-      const fresh = !!aired && aired > new Date(i.watchedAt!).toISOString().slice(0, 10);
-      const { error } = await sb.from("library_items").update(fresh ? { status: "watchlist", checked_at: new Date().toISOString() } : { checked_at: new Date().toISOString() }).eq("tmdb_type", "tv").eq("tmdb_id", i.id).eq("status", "watched");
-      if (!error && fresh) moved.add(i.key);
+      const ne = newEpisodeSince(i.watchedAt!, await getEpisodeFacts(i.id));
+      const at = new Date().toISOString();
+      const q = (v: Record<string, unknown>) => sb.from("library_items").update(v).eq("tmdb_type", "tv").eq("tmdb_id", i.id).eq("status", "watched");
+      if (!ne) { await q({ checked_at: at }); return; }
+      const back = { status: "watching", checked_at: at };
+      let { error } = await q({ ...back, new_episode_at: ne.at, new_episode_s: ne.s, new_episode_e: ne.e, new_season: ne.season });
+      // Migration 0008 not applied yet (no such column): still move it to Watching, just without the flag.
+      if (error && /new_episode|new_season/.test(error.message)) ({ error } = await q(back));
+      if (!error) moved.add(i.key);
     } catch { /* TMDB hiccup: try again next visit */ }
   }));
   return moved;

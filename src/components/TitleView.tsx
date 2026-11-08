@@ -10,6 +10,8 @@ import { Avatar } from "@/components/ui";
 import { epCode, epsLabel, fmtDate, showLine, untilLabel } from "@/lib/episodes";
 import DetailOrder from "@/components/DetailOrder";
 import NoteBox from "@/components/NoteBox";
+import NewEpPill from "@/components/NewEp";
+import { newEpDetail } from "@/lib/new-episode";
 import StatusControls from "@/components/StatusControls";
 import RelatedButton from "@/components/cast/RelatedButton";
 import { GlimpseButton } from "@/components/Glimpse";
@@ -244,6 +246,7 @@ export default async function TitleView({ t, origin, focus }: { t: Title; origin
           <h1 className="sh-title">{t.title} <RelatedButton it={t} /> <GlimpseButton spec={titleSpec(t)} /> {t.imdbId && <a className="imdb-link" href={`https://www.imdb.com/title/${t.imdbId}/`} target="_blank" rel="noopener noreferrer" aria-label="Open on IMDb" title="Open on IMDb">IMDb ↗</a>}</h1>
           <div className="sh-meta">{meta}</div>
           {t.show && <ShowFacts t={t} />}
+          {mine?.newEp && <div style={{ margin: "4px 0 2px" }}><NewEpPill k={t.key} detail={newEpDetail(mine.newEp)} /></div>}
           <Suspense fallback={null}><AwardChips t={t} /></Suspense>
           {gaps
             ? <Suspense fallback={<Bylines t={t} crewBy={t.crewBy} details={profile.details} />}><FilledBylines t={t} details={profile.details} /></Suspense>

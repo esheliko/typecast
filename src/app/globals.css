@@ -741,3 +741,8 @@ body:has(.wbar) .toast-slot { bottom: calc(146px + env(safe-area-inset-bottom, 0
 .apps-date { flex: none; font-size: 12.5px; color: var(--muted); }
 .credit .role .eps { white-space: nowrap; }
 .focus .credit-main { color: inherit; text-decoration: none; }
+
+/* New episode / New season: a series that came back from Watched. Same shapes as .pill and .pc-flag, only quieter. */
+.pill.newep { background: transparent; color: var(--gold); box-shadow: inset 0 0 0 1px var(--gold-fill); padding: 0 8px; font-size: 10px; margin-top: 3px; }
+.pill.newep .newep-d { text-transform: none; letter-spacing: 0; }
+.pc-flag.newep { background: rgb(15 17 22 / .78); color: var(--gold-fill); box-shadow: inset 0 0 0 1px var(--gold-fill); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
