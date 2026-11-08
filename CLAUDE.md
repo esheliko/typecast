@@ -6,11 +6,11 @@
 >    when you have no local main). Never start from a stale or feature-branch checkout: other sessions push to main all day.
 > 2. Make the change on `main`. No feature branches, no PRs, unless the owner explicitly asks for one in that message.
 > 3. Run `npm run lint`, `npm run typecheck` and `npm run build`.
-> 4. Commit and `git push origin main`. Vercel (project `typecast`, production branch `main`) deploys production from that push.
-> 5. **Done once pushed.** Do NOT wait for the Vercel deployment; the push is the deliverable. Only check production if the task needs it
->    (e.g. verifying behaviour against the live site). Vercel may buffer deployments when its rate limit is hit, so there may be no deployment
->    for your exact commit: a deployment for a LATER commit on `main` that contains yours counts. Check with the Vercel API
->    (`/v6/deployments?projectId=prj_htusg5FPMRrzdb13rRG8flOxXBdU`) and compare commit SHAs (`git merge-base --is-ancestor <yours> <deployed>`).
+> 4. Commit and `git push origin main`. A push does NOT deploy by itself any more: the Deploy Manager (`DEPLOYING.md`, issue #1)
+>    batches pushes and deploys `main` roughly 5-15 min after pushes quiet down (Vercel Hobby deployment limit).
+> 5. **Done once pushed.** Do NOT deploy, redeploy or touch Vercel deployments yourself, and do not wait for one. Only check production if the
+>    task needs it: read issue #1 (live commit vs pending) or compare `git merge-base --is-ancestor <yours> <live>`.
+>    Real hotfix only: put `[deploy-now]` in the commit message.
 > If you were handed a different branch, still do the above. If main moved while you worked, rebase or merge onto it, keeping both sides' work.
 > `.claude/hooks/session-start.sh` checks this at the start of every session.
 

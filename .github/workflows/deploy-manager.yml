@@ -1,0 +1,30 @@
+name: Deploy Manager
+# Pushes no longer deploy by themselves (vercel.json). This workflow batches pushes into one Vercel deployment
+# and paces them against the plan's deployment limit. Needs repo secret VERCEL_TOKEN (see DEPLOYING.md).
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+concurrency:
+  group: deploy-manager
+  cancel-in-progress: true # newest run wins; any run re-derives all state from Vercel + git
+permissions:
+  contents: read
+  issues: write
+jobs:
+  manage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 28
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Tick
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+          STATUS_ISSUE: '1'
+        run: |
+          if [ -z "$VERCEL_TOKEN" ]; then echo "::warning::VERCEL_TOKEN secret missing: Deploy Manager (Actions) is idle; the Claude supervisor is the fallback"; exit 0; fi
+          node scripts/deploy-manager.mjs tick --wait
