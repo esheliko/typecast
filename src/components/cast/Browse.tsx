@@ -68,13 +68,13 @@ export default function Browse({ filters, filtered, list: initialList, salt: ser
   // Suggested directions, read off the watched history. Fetched after the grid, kept for the session.
   const [nudges, setNudges] = useState<Nudge[]>([]);
   useEffect(() => {
-    if (filtered || list !== "foryou") return;
+    if (list !== "foryou") return;
     try { const c = sessionStorage.getItem("tc:nudges"); if (c) { setNudges(JSON.parse(c)); return; } } catch { /* ignore */ }
     fetch("/api/nudges").then((r) => r.json()).then((j) => {
       const items = (j.items ?? []) as Nudge[]; setNudges(items);
       try { sessionStorage.setItem("tc:nudges", JSON.stringify(items)); } catch { /* ignore */ }
     }).catch(() => {});
-  }, [filtered, list]);
+  }, [list]);
   const seq = useRef(0);
   const { marked, skipped } = useLib();
   const [seen] = useState(() => marked());
@@ -170,7 +170,12 @@ export default function Browse({ filters, filtered, list: initialList, salt: ser
     for (const [k, v] of Object.entries(p)) { if (v) u.searchParams.set(k, v); else u.searchParams.delete(k); }
     window.history.replaceState(window.history.state, "", u);
   }
-  function chooseList(l: BrowseList) { setList(l); setUrl({ list: l }); }
+  function chooseList(l: BrowseList) {
+    setList(l);
+    // Picking a list while filters are set drops the filters and shows that list.
+    if (filtered) { const q = new URLSearchParams({ list: l }); if (type !== "all") q.set("type", type); startRoute(() => router.replace(`/?${q}`, { scroll: false })); return; }
+    setUrl({ list: l });
+  }
   function chooseType(t: BrowseType) {
     if (t === type) return;
     // With filters set the server runs the search again. Genre ids differ between films and series, so they are translated.
@@ -200,12 +205,12 @@ export default function Browse({ filters, filtered, list: initialList, salt: ser
 
   return (
     <section aria-label="Browse">
-      {!filtered && (
+      {(
         <div className="chips scroll" role="group" aria-label="List">
-          {LISTS.map((l) => <button key={l.k} type="button" className="chip" aria-pressed={list === l.k} onClick={() => chooseList(l.k)}>{type === "tv" && l.tv ? l.tv : type === "all" && l.tv ? `${l.label} / ${l.tv}` : l.label}</button>)}
+          {LISTS.map((l) => <button key={l.k} type="button" className="chip" aria-pressed={!filtered && list === l.k} onClick={() => chooseList(l.k)}>{type === "tv" && l.tv ? l.tv : type === "all" && l.tv ? `${l.label} / ${l.tv}` : l.label}</button>)}
         </div>
       )}
-      {!filtered && list === "foryou" && nudges.length > 0 && (
+      {list === "foryou" && nudges.length > 0 && (
         <p className="nudge small muted" aria-label="Other directions">
           Try:{" "}
           {nudges.map((d) => (
