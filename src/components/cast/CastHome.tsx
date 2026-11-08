@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import Search from "../Search";
+import { KindFilter } from "../KindSeg";
 import Browse, { Poster, type BrowseProps } from "./Browse";
 import Connect, { type Mode } from "./Connect";
 import type { BrowseItem, Item, PersonLite } from "@/lib/types";
@@ -47,7 +48,7 @@ export default function CastHome({ view: initialView, browse, connect, watching 
               <details className="cw">
                 <summary>Continue watching{watching.length > 0 && <span className="cw-n">{watching.length}</span>}</summary>
                 {watching.length > 0
-                  ? <ul className="strip">{watching.map((w) => <li key={w.key}><Poster it={w} sub={w.sub} /></li>)}</ul>
+                  ? <KindFilter items={watching} style={{ marginTop: 8 }}>{(shown) => <ul className="strip">{shown.map((w) => <li key={w.key}><Poster it={w} sub={w.sub} /></li>)}</ul>}</KindFilter>
                   : <p className="strip-empty">Mark a title as watching and it will show up here.</p>}
               </details>
             )}

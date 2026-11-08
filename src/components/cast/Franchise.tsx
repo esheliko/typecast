@@ -7,6 +7,8 @@ import { lockScroll } from "@/lib/scroll-lock";
 import { keepHistory, useBackClose } from "@/lib/back-layer";
 import { useLib } from "./LibState";
 import QuickMark from "./QuickMark";
+import { KindSeg } from "../KindSeg";
+import { mixed, ofKind, type Kind } from "@/lib/kind";
 import { img, typeLabel } from "@/lib/img";
 import type { Item } from "@/lib/types";
 
@@ -31,9 +33,14 @@ export function FranchiseList({ groups: raw, onNavigate, include }: { groups: Gr
     const items = [...g.items]; items.splice(at < 0 ? items.length : at, 0, include);
     return { ...g, items };
   }) : raw;
+  const [kind, setKind] = useState<Kind>("all");
+  const every = groups.flatMap((g) => g.items);
+  const shown = groups.map((g) => ({ ...g, items: ofKind(g.items, kind) })).filter((g) => g.items.length);
   return (
     <div className="fr">
-      {groups.map((g) => {
+      {(kind !== "all" || mixed(every)) && <div className="kind-bar"><KindSeg value={kind} onChange={setKind} /></div>}
+      {!shown.length && <p className="small muted">No {kind === "tv" ? "series" : "films"} here.</p>}
+      {shown.map((g) => {
         const open = g.items.filter((i) => !get(i.key));
         return (
           <section key={g.label} aria-label={g.label}>

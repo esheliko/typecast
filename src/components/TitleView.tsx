@@ -11,8 +11,7 @@ import StatusControls from "@/components/StatusControls";
 import RelatedButton from "@/components/cast/RelatedButton";
 import { GlimpseButton } from "@/components/Glimpse";
 import { titleSpec } from "@/lib/glimpse";
-import MarkRow from "@/components/cast/MarkRow";
-import { LinkedRows } from "@/components/cast/CreditList";
+import { LinkedRows, RelatedRows } from "@/components/cast/CreditList";
 import { FromProvider } from "@/components/Modal";
 import { Where } from "@/components/Where";
 import { fillCrew, missingCrew } from "@/lib/crew-fill";
@@ -151,9 +150,7 @@ async function Related({ t, origin }: { t: Title; origin?: Item | null }) {
     <>
       <details className="cw" style={{ marginTop: 22 }}>
         <summary>Related<span className="cw-n">{list.length}</span></summary>
-        <div className="card"><ul className="rows">
-          {list.map((r) => <li key={r.key}><MarkRow it={r} sub={r.rel} small /></li>)}
-        </ul></div>
+        <RelatedRows items={list} />
       </details>
     </>
   );

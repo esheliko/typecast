@@ -2,6 +2,7 @@
 import { useRef, useState } from "react";
 import { TitleRow } from "../ui";
 import MarkRow from "./MarkRow";
+import { KindFilter } from "../KindSeg";
 import { useLib } from "./LibState";
 import { useRetained } from "@/lib/useRetained";
 import type { Item, Status } from "@/lib/types";
@@ -79,7 +80,7 @@ export default function PersonCredits({ known, mineKeys }: { known: CreditItem[]
 /** Suggestion rows that stay put when you mark one (the server list drops marked titles; the row stays so you can undo it in place). */
 export function SuggestionRows({ items }: { items: (Item & { why: string })[] }) {
   const [list] = useRetained(items);
-  return <div className="card"><ul className="rows">{list.map((k) => <li key={k.key}><TitleRow it={k} sub={k.why} small /></li>)}</ul></div>;
+  return <KindFilter items={list}>{(shown) => <div className="card"><ul className="rows">{shown.map((k) => <li key={k.key}><TitleRow it={k} sub={k.why} small /></li>)}</ul></div>}</KindFilter>;
 }
 
 /** "You know them from" line. Titles you unmark stay named until the page reloads, so the rows below do not shift. */
@@ -92,5 +93,15 @@ export function SeenLine({ hits }: { hits: { key: string; title: string; year?: 
 /** Library titles that share cast with the open title. Same rule: rows stay put when unmarked. */
 export function LinkedRows({ items }: { items: (Item & { sub: string })[] }) {
   const [list] = useRetained(items);
-  return <div className="card"><ul className="rows">{list.map((k) => <li key={k.key}><MarkRow it={k} sub={k.sub} small /></li>)}</ul></div>;
+  return <KindFilter items={list}>{(shown) => <div className="card"><ul className="rows">{shown.map((k) => <li key={k.key}><MarkRow it={k} sub={k.sub} small /></li>)}</ul></div>}</KindFilter>;
+}
+
+/** The title's Related list. */
+export function RelatedRows({ items }: { items: (Item & { rel?: string })[] }) {
+  return <KindFilter items={items}>{(shown) => <div className="card"><ul className="rows">{shown.map((r) => <li key={r.key}><MarkRow it={r} sub={r.rel} small /></li>)}</ul></div>}</KindFilter>;
+}
+
+/** A cast member's best-known other credits, inside their row on a title. */
+export function TopCredits({ items, actor }: { items: (Item & { role?: string })[]; actor: string }) {
+  return <KindFilter items={items} style={{ margin: "4px 0" }}>{(shown) => shown.map((k) => <MarkRow key={k.key} it={k} sub={k.role} actor={actor} small />)}</KindFilter>;
 }

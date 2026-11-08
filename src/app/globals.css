@@ -619,3 +619,7 @@ a.srow { color: inherit; text-decoration: none; }
 input, textarea { scroll-margin-top: calc(var(--top-h, 56px) + 12px); }
 .chips.lib-chips { margin-top: 0; }
 .chips.lib-chips .chip { padding: 5px 12px; font-size: 13px; }
+
+/* Films / Series switch above any title list */
+.kind-bar { display: flex; margin: 0 0 8px; }
+.kind-seg button { padding: 4px 11px; font-size: 13px; }

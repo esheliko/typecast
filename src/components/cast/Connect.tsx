@@ -5,6 +5,7 @@ import { Avatar, Thumb } from "../ui";
 import QuickMark from "./QuickMark";
 import RelatedButton from "./RelatedButton";
 import { TitleLink } from "../Modal";
+import { KindFilter } from "../KindSeg";
 import { typeLabel } from "@/lib/img";
 import type { Item, PeopleLink, PersonLite, Regular, SearchHit, TitlesLink } from "@/lib/types";
 
@@ -62,8 +63,8 @@ function PeopleResult({ r }: { r: PeopleLink }) {
   if (r.shared.length) return (
     <>
       <h2>{r.shared.length} together</h2>
-      <div className="card"><ul className="rows">
-        {r.shared.map((s) => (
+      <KindFilter items={r.shared}>{(shared) => <div className="card"><ul className="rows">
+        {shared.map((s) => (
           <li key={s.key} className="row">
             <TitleLink k={s.key} it={s} className="row-link"><Thumb path={s.poster} />
               <span className="row-main">
@@ -75,7 +76,7 @@ function PeopleResult({ r }: { r: PeopleLink }) {
             <QuickMark it={s} variant="inline" /><RelatedButton it={s} />
           </li>
         ))}
-      </ul></div>
+      </ul></div>}</KindFilter>
     </>
   );
   return (

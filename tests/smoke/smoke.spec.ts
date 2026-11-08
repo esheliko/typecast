@@ -67,10 +67,15 @@ test.describe("signed in", () => {
     await expect(page.getByText("The Matrix").first()).toBeVisible();
     await expect(page.getByText("Breaking Bad").first()).toBeVisible();
     // The server page reads these params and the client view applies them: this is the path that crashed in production.
-    for (const q of ["f=watched", "f=watching", "f=watchlist", "f=partial", "s=title", "s=year", "s=yearOld", "s=rating", "s=watched", "f=watched&s=rating", "s=bogus"]) {
+    for (const q of ["f=watched", "f=watching", "f=watchlist", "f=partial", "s=title", "s=year", "s=yearOld", "s=rating", "s=watched", "f=watched&s=rating", "s=bogus", "k=movie", "k=tv&f=watching", "k=bogus"]) {
       await visit(page, `/library?${q}`, bad);
       await expect(page.getByText("The Matrix").or(page.getByText("Breaking Bad")).first()).toBeVisible();
     }
+    // Films / Series switch: Series hides the films and keeps the shows.
+    await visit(page, "/library", bad);
+    await page.getByRole("group", { name: "Show" }).getByRole("button", { name: "Series" }).click();
+    await expect(page.getByText("Breaking Bad").first()).toBeVisible();
+    await expect(page.locator(".lib-row", { hasText: "The Matrix" })).toHaveCount(0);
   });
 
   test("tabs navigate softly to the Library", async ({ page }) => {

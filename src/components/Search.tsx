@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Avatar } from "./ui";
 import { Poster } from "./cast/Browse";
 import { useLib } from "./cast/LibState";
+import { KindFilter } from "./KindSeg";
 import type { SearchHit } from "@/lib/types";
 
 /** Search box for the cast tab. While it has a query, its results take the place of the page below it. */
@@ -77,7 +78,7 @@ export default function Search({ onActive }: { onActive: (on: boolean) => void }
           {titles.length > 0 && (
             <>
               <h2>Films and series</h2>
-              <ul className="grid">{titles.map((h) => h.kind === "title" && <li key={h.key}><Poster it={h} /></li>)}</ul>
+              <KindFilter items={titles.flatMap((h) => (h.kind === "title" ? [h] : []))}>{(shown) => <ul className="grid">{shown.map((h) => <li key={h.key}><Poster it={h} /></li>)}</ul>}</KindFilter>
             </>
           )}
         </div>

@@ -1,6 +1,5 @@
 import Link from "next/link";
-import MarkRow from "./cast/MarkRow";
-import { SeenLine } from "./cast/CreditList";
+import { SeenLine, TopCredits } from "./cast/CreditList";
 import { Avatar } from "./ui";
 import { GlimpseButton } from "./Glimpse";
 import { castSpec, personSpec } from "@/lib/glimpse";
@@ -20,7 +19,7 @@ export function CreditRow({ c, title, pending }: { c: EnrichedMember; libKeys?: 
         <div className="more">
           <div className="more-top"><Link className="btn sm" href={`/person/${c.id}`}>Full profile →</Link></div>
           {c.top.length === 0 && <span className="muted small">{pending ? "Finding their other credits…" : "No other credits found."}</span>}
-          {c.top.map((k) => <MarkRow key={k.key} it={k} sub={k.role} actor={c.name} small />)}
+          <TopCredits items={c.top} actor={c.name} />
         </div>
       </details>
       <div className="marks">
