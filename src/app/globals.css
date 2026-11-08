@@ -388,7 +388,7 @@ li.row { gap: 10px; }
   .seg button:not([aria-pressed="true"]):hover { color: var(--ink); background: color-mix(in srgb, var(--surface) 55%, transparent); }
   button.srow, a.srow { transition: background-color .15s, box-shadow .15s; }
   .chev { display: inline-block; transition: transform .15s, color .15s; }
-  button.srow:hover, a.srow:hover { background: color-mix(in srgb, var(--ink) 5%, transparent); box-shadow: -8px 0 0 color-mix(in srgb, var(--ink) 5%, transparent), 8px 0 0 color-mix(in srgb, var(--ink) 5%, transparent); }
+  button.srow:hover, a.srow:hover { background: color-mix(in srgb, var(--ink) 5%, transparent); }
   button.srow:hover .chev, a.srow:hover .chev { transform: translateX(2px); color: var(--ink); }
   a.row:hover, li.row:hover, .fr-row:hover, .bridge:hover { background: color-mix(in srgb, var(--ink) 5%, transparent); }
   a.row:hover .row-title, .row-link:hover .row-title, .fr-main:hover .row-title, .bridge-who:hover .nm, .person-chip:hover .nm, .pc:hover .pc-t, .credit-main:hover .nm { color: var(--gold); }
@@ -588,7 +588,8 @@ button.aw-chip:hover { filter: brightness(1.08); }
 .sgroup-h { display: flex; justify-content: space-between; align-items: baseline; }
 .fold > .card { margin-top: 0; }
 /* Compact settings: one line per setting; long ones open a popup sized to its content. */
-.set { padding: 0 16px; }
+.set { padding: 0 16px; overflow: hidden; }
+.set > button.srow, .set > a.srow { width: calc(100% + 32px); margin-inline: -16px; padding-inline: 16px; }
 .set > .srow, .set > form > .srow { padding: 11px 0; min-height: 46px; box-sizing: border-box; }
 .set > .srow:first-child { padding-top: 11px; }
 button.srow { width: 100%; background: none; border-width: 1px 0 0; border-style: solid; border-color: var(--line); color: inherit; font: inherit; font-weight: 500; text-align: left; cursor: pointer; text-decoration: none; }
