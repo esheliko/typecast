@@ -1,5 +1,6 @@
 "use client";
 import { useState, useTransition } from "react";
+import SettingRow from "@/components/SettingRow";
 import { addUser, editUser, removeUser, type ManagedUser } from "@/app/users-actions";
 
 /** Admin only: add, edit (email / new password) and remove accounts. */
@@ -18,9 +19,8 @@ export default function ManageUsers({ users }: { users: ManagedUser[] }) {
     start(async () => { const r = await fn(); if (r.ok) { after?.(); setMsg("Saved."); } else setErr(r.error); });
   }
   return (
-    <details className="fold">
-      <summary>Manage users ({users.length})</summary>
-      <div className="card pad" aria-busy={pending}>
+    <SettingRow label="Manage users" value={users.length}>
+      <div aria-busy={pending}>
         {users.map((u) => (
           <div key={u.id} style={{ padding: "8px 0", borderBottom: "1px solid var(--line)" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
@@ -47,6 +47,6 @@ export default function ManageUsers({ users }: { users: ManagedUser[] }) {
         {err && <p className="err small" role="alert" style={{ margin: "8px 0 0" }}>{err}</p>}
         {msg && !err && <p className="muted small" style={{ margin: "8px 0 0" }}>{msg}</p>}
       </div>
-    </details>
+    </SettingRow>
   );
 }

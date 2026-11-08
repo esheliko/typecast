@@ -566,3 +566,18 @@ button.aw-chip:hover { filter: brightness(1.08); }
 .sgroup { padding-top: 10px; border-top: 1px solid var(--line); }
 .sgroup-h { display: flex; justify-content: space-between; align-items: baseline; }
 .fold > .card { margin-top: 0; }
+/* Compact settings: one line per setting; long ones open a popup sized to its content. */
+.set { padding: 0 16px; }
+.set > .srow, .set > form > .srow { padding: 11px 0; min-height: 46px; box-sizing: border-box; }
+.set > .srow:first-child { padding-top: 11px; }
+button.srow { width: 100%; background: none; border-width: 1px 0 0; border-style: solid; border-color: var(--line); color: inherit; font: inherit; font-weight: 500; text-align: left; cursor: pointer; text-decoration: none; }
+.set > button.srow:first-child, .set > a.srow:first-child { border-top: 0; }
+a.srow { color: inherit; text-decoration: none; }
+.sval { display: flex; align-items: center; gap: 6px; min-width: 0; color: var(--muted); font-weight: 400; font-size: 14px; }
+.sval > :not(.chev) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chev { font-size: 20px; line-height: 1; color: var(--muted); }
+.srow .seg button { padding: 4px 11px; font-size: 13px; }
+.srow select { max-width: 55%; }
+.modal.pop .sheet { height: auto; max-height: 100%; }
+@media (min-width: 720px) { .modal.pop .sheet { height: auto; max-height: min(100%, 780px); } }
+.pop-note { margin: 0 0 10px; }

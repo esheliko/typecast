@@ -2,6 +2,7 @@
 import { useState, useTransition } from "react";
 import { connectLetterboxd, disconnectLetterboxd, syncLetterboxdNow } from "@/app/actions";
 import type { Plain } from "@/lib/list-parse";
+import SettingRow from "./SettingRow";
 import { useImport } from "./ImportState";
 import type { LetterboxdLink } from "@/lib/types";
 
@@ -19,13 +20,11 @@ export default function LetterboxdPanel({ link }: { link: LetterboxdLink | null 
   function disconnect() { setErr(""); setMsg(""); start(async () => { await disconnectLetterboxd(); }); }
 
   const watched = entries?.filter((e) => e.watched).length ?? 0, listed = entries?.filter((e) => e.watchlist).length ?? 0, watchingN = entries?.filter((e) => e.watching).length ?? 0, rated = entries?.filter((e) => e.rating > 0).length ?? 0;
-  const shown = !!link;
   return (
     <>
-      <details className="fold" open={busy || !!entries || review.length > 0 || !!tally || !!reverted || undefined}>
-      <summary>Import a list</summary>
-      <div className="card pad" aria-busy={busy}>
-        <details className="small muted" style={{ margin: "0 0 10px" }}>
+      <SettingRow label="Import a list" value={busy && entries ? `Importing ${done} of ${entries.length}` : review.some((r) => r.problem && !r.gone) ? "Needs review" : tally ? "Done" : undefined}>
+      {(close) => <div aria-busy={busy}>
+        <details className="small muted" style={{ margin: "0 0 10px" }} open>
           <summary style={{ cursor: "pointer" }}>Formats</summary>
           <p style={{ margin: "6px 0 0" }}>Letterboxd .zip or CSV (Settings, Data, Export), or text with a title per line. Checklists work: <b>[x]</b> watched, <b>[ ]</b> to watch, trailing <b>WIP</b> watching. Add a year (2019) or rating (4/5, ★★★★) if you have one. Existing titles are never overwritten.</p>
         </details>
@@ -52,16 +51,15 @@ export default function LetterboxdPanel({ link }: { link: LetterboxdLink | null 
         )}
         {importErr && <p className="small err" style={{ margin: "10px 0 0" }}>{importErr}</p>}
         {review.length > 0 && !busy && (
-          <button className="btn" type="button" style={{ marginTop: 10 }} onClick={openReview}>
+          <button className="btn" type="button" style={{ marginTop: 10 }} onClick={() => { close(); openReview(); }}>
             Review import{review.some((r) => r.problem && !r.gone) ? ` (${review.filter((r) => r.problem && !r.gone).length} to fix)` : ""}
           </button>
         )}
         {reverted && <p className="small" style={{ margin: "10px 0 0" }}>{reverted}</p>}
-      </div>
-      </details>
-      <details className="fold" open={shown || undefined}>
-      <summary>Letterboxd sync {link && <span className="muted">{link.user}</span>}</summary>
-      <div className="card pad" aria-busy={pending}>
+      </div>}
+      </SettingRow>
+      <SettingRow label="Letterboxd sync" value={link ? link.user : "Off"}>
+      <div aria-busy={pending}>
         {link ? (
           <>
             <p className="small muted" style={{ margin: "0 0 10px" }}>{link.syncedAt ? <>Checked <span suppressHydrationWarning>{new Date(link.syncedAt).toLocaleString()}</span></> : "Not checked yet"}</p>
@@ -84,7 +82,7 @@ export default function LetterboxdPanel({ link }: { link: LetterboxdLink | null 
         {link && err && !link.error && <p className="small err" style={{ margin: "10px 0 0" }}>{err}</p>}
         {!link && <p className="small muted" style={{ margin: "8px 0 0" }}>Adds new diary entries as watched when you open the app. Needs a public profile.</p>}
       </div>
-      </details>
+      </SettingRow>
     </>
   );
 }

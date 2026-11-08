@@ -2,6 +2,7 @@
 import { useEffect, useState, useTransition } from "react";
 import { saveProfile } from "@/app/actions";
 import { PRIORITY_LABEL, type Priority, type Profile } from "@/lib/types";
+import SettingRow from "@/components/SettingRow";
 import { PRIO_KEY } from "@/components/cast/LibState";
 
 const COUNTRIES: [string, string][] = [["US", "United States"], ["GB", "United Kingdom"], ["CA", "Canada"], ["AU", "Australia"], ["NZ", "New Zealand"], ["IE", "Ireland"], ["DE", "Germany"], ["AT", "Austria"], ["CH", "Switzerland"], ["FR", "France"], ["BE", "Belgium"], ["NL", "Netherlands"], ["LU", "Luxembourg"], ["ES", "Spain"], ["PT", "Portugal"], ["IT", "Italy"], ["SE", "Sweden"], ["NO", "Norway"], ["DK", "Denmark"], ["FI", "Finland"], ["IS", "Iceland"], ["PL", "Poland"], ["CZ", "Czechia"], ["SK", "Slovakia"], ["HU", "Hungary"], ["RO", "Romania"], ["BG", "Bulgaria"], ["GR", "Greece"], ["HR", "Croatia"], ["SI", "Slovenia"], ["RS", "Serbia"], ["UA", "Ukraine"], ["LT", "Lithuania"], ["LV", "Latvia"], ["EE", "Estonia"], ["TR", "Turkey"], ["IL", "Israel"], ["AE", "United Arab Emirates"], ["SA", "Saudi Arabia"], ["EG", "Egypt"], ["ZA", "South Africa"], ["IN", "India"], ["JP", "Japan"], ["KR", "South Korea"], ["SG", "Singapore"], ["HK", "Hong Kong"], ["TW", "Taiwan"], ["TH", "Thailand"], ["PH", "Philippines"], ["ID", "Indonesia"], ["MX", "Mexico"], ["BR", "Brazil"], ["AR", "Argentina"], ["CL", "Chile"], ["CO", "Colombia"]];
@@ -61,8 +62,10 @@ export default function ProfileForm({ initial }: { initial: Profile }) {
     toggle({ id, name: v, pri: 1000, ids: [id] }); setQ("");
   }
   const show = [...merged, ...extra].filter((p) => (term ? p.name.toLowerCase().includes(term) : p.ids.some((i) => services.includes(i)) || p.pri < 25 || PINNED.has(p.name.toLowerCase()))).sort((a, b) => a.pri - b.pri).slice(0, 80);
+  const chosen = services.map((i) => names[i]).filter(Boolean);
+  const summary = chosen.length ? chosen.slice(0, 2).join(", ") + (chosen.length > 2 ? ` +${chosen.length - 2}` : "") : "None";
   return (
-    <div className="card pad" aria-busy={pending}>
+    <div className="card set" aria-busy={pending}>
       <div className="srow">
         <label htmlFor="cc">Country</label>
         <select id="cc" value={country} onChange={(e) => pickCountry(e.target.value)}>{COUNTRIES.map(([c, n]) => <option key={c} value={c}>{n}</option>)}</select>
@@ -73,9 +76,8 @@ export default function ProfileForm({ initial }: { initial: Profile }) {
           {(Object.keys(PRIORITY_LABEL) as Priority[]).map((p) => <button key={p} type="button" aria-pressed={prio === p} onClick={() => pickPrio(p)}>{PRIORITY_LABEL[p]}</button>)}
         </div>
       </div>
-      <div className="sgroup">
-        <div className="sgroup-h"><label className="l" htmlFor="svq">Your services</label>{pending && <span className="small muted">Saving…</span>}</div>
-        <input id="svq" type="search" placeholder="Search or add a service" value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.key === "Enter" && show.length === 0 && addCustom(q)} style={{ width: "100%", marginBottom: 8 }} />
+      <SettingRow label="Your services" value={summary}>
+        <input id="svq" type="search" aria-label="Search or add a service" placeholder="Search or add a service" value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.key === "Enter" && show.length === 0 && addCustom(q)} style={{ width: "100%", marginBottom: 8 }} />
         <div className="chips">
           {error ? <span className="err small">{error}</span> : list === null ? <span className="small muted"><span className="spin" />Loading</span>
             : <>
@@ -83,7 +85,8 @@ export default function ProfileForm({ initial }: { initial: Profile }) {
               {term && !show.some((p) => p.name.toLowerCase() === term) && <button type="button" className="chip" onClick={() => addCustom(q)}>+ Add “{q.trim()}”</button>}
             </>}
         </div>
-      </div>
+        {pending && <p className="small muted" style={{ margin: "8px 0 0" }}>Saving…</p>}
+      </SettingRow>
     </div>
   );
 }
