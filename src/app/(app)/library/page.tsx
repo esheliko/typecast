@@ -3,8 +3,7 @@ import { Suspense } from "react";
 import LibraryView from "@/components/LibraryView";
 import { TitleRow } from "@/components/ui";
 import { getLibrary } from "@/lib/library";
-import FinishSets, { type SetHint } from "@/components/cast/FinishSets";
-import { getFranchise, getTitle } from "@/lib/tmdb";
+import { getTitle } from "@/lib/tmdb";
 import type { LibItem, Related, Status } from "@/lib/types";
 
 export const metadata = { title: "Library" };
@@ -33,21 +32,6 @@ async function Suggestions({ lib }: { lib: LibItem[] }) {
   );
 }
 
-/** Franchises with some titles marked and some not, found from the last few things you watched. */
-async function Unfinished({ lib }: { lib: LibItem[] }) {
-  const seeds = lib.filter((l) => l.status === "watched" || l.status === "partial").slice(0, 8);
-  const found = await Promise.all(seeds.map((s) => getFranchise(s.type, s.id).then((g) => ({ s, g })).catch(() => null)));
-  const have = new Set(lib.map((l) => l.key));
-  const hints = new Map<string, SetHint>();
-  for (const f of found) for (const g of f?.g ?? []) {
-    const keys = g.items.map((i) => i.key).filter((k) => !have.has(k));
-    if (!f || !keys.length || hints.has(g.label)) continue;
-    hints.set(g.label, { seed: { key: f.s.key, type: f.s.type, id: f.s.id, title: f.s.title, year: f.s.year, poster: f.s.poster }, label: g.label, keys });
-  }
-  const list = [...hints.values()].sort((a, b) => b.keys.length - a.keys.length).slice(0, 4);
-  return list.length ? <FinishSets hints={list} /> : null;
-}
-
 export default async function Library({ searchParams }: { searchParams: Promise<{ f?: string }> }) {
   const { f } = await searchParams;
   const lib = await getLibrary();
@@ -60,7 +44,7 @@ export default async function Library({ searchParams }: { searchParams: Promise<
           <p className="muted">Find a title on the Browse tab and mark it Watching, To watch or Watched. Suggestions and connections between your titles appear here as your library grows.</p>
           <Link className="btn gold" href="/">Find a title</Link>
         </div>
-      ) : <LibraryView items={lib} initial={filter} between={<Suspense fallback={null}><Unfinished lib={lib} /></Suspense>} />}
+      ) : <LibraryView items={lib} initial={filter} />}
       {lib.length > 0 && <Suspense fallback={null}><Suggestions lib={lib} /></Suspense>}
     </div>
   );

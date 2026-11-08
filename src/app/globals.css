@@ -347,9 +347,6 @@ li.row { gap: 10px; }
 .pc-art .rel-b svg { width: 15px; height: 15px; }
 .pc-art .rel-b.has { color: var(--gold-fill); }
 @media (hover: hover) { .pc-art .rel-b { opacity: 0; } .pc:hover .rel-b, .pc-art .rel-b:focus-visible { opacity: 1; } }
-.chips.fin { margin-top: 10px; align-items: center; }
-.chips.fin .chip.sm { margin-left: 0; }
-.fin-l { flex: none; font: 600 12px var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
 
 .cw { margin: 0 0 8px; }
 .cw > summary { cursor: pointer; list-style: none; display: flex; align-items: center; gap: 8px; padding: 6px 0; font: 600 15px/1.2 var(--display); text-transform: uppercase; }
