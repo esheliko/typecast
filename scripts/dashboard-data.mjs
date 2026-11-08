@@ -24,7 +24,7 @@ const st = JSON.parse((body.match(/<!--state ([\s\S]*?) state-->/) ?? [, '{}'])[
 const line = (body.match(/\*\*(.+?)\*\* — (.*)/) ?? []);
 const cell = (k) => (body.match(new RegExp(`\\| ${k} \\| (.*) \\|`)) ?? [])[1] ?? '';
 const ready = deps.find((d) => d.readyState === 'READY' && d.target === 'production');
-const pend = []; for (const m of body.matchAll(/^- `([0-9a-f]{7})` (.*) · (\S+) ago$/gm)) pend.push({ sha: m[1], subject: m[2], age: m[3] });
+const pend = []; for (const m of body.matchAll(/^- `([0-9a-f]{7})` (.*) · (\S+) ago$/gm)) { let committed = ''; try { committed = sh('git', ['log', '-1', '--format=%cI', m[1]]).trim(); } catch {} pend.push({ sha: m[1], subject: m[2], age: m[3], committed }); }
 const writeJ = (n, v) => writeFileSync(`${out}/${n}.json`, JSON.stringify(v));
 writeJ('status', [{ state: line[1] ?? 'UNKNOWN', why: line[2] ?? '', live_sha: ready?.meta?.githubCommitSha?.slice(0, 7) ?? '', live_age_min: ready ? Math.round((now - ready.created) / 60000) : null, pending_commits: pend.length, deploys_24h: used24, last_tick: st.lastWrite ? new Date(st.lastWrite).toISOString() : '', refreshed: new Date(now).toISOString(), ticks: st.ticks ?? 0 }]);
 writeJ('hourly', hours);

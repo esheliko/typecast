@@ -41,6 +41,7 @@ in roughly 5-15 min; check issue #1 if you need to know.
 ## Visual board (Claude artifact "Typecast deploy board")
 https://claude.ai/artifact/UbFWzbLxByvYjzki19uuMv. Live commit, the 24h count and the hourly chart are live queries on the Vercel connector
 (dataset `deployments`, a loader pages back 48h; each viewer must have approved Vercel for team `eshelikos-projects`). The manager state is still read
-from JSON files uploaded to the artifact (no GitHub connector exists): `status`, `recent`, `events` (`hourly.json`/`pending.json` are no longer used). Refresh: `node scripts/dashboard-data.mjs <dir>`, then upload each of status/hourly/recent/events .json with the Artifact tool
+from JSON files uploaded to the artifact (no GitHub connector exists): `status`, `recent`, `events` and `pending` (waiting commits with messages and push times; `hourly.json` is no longer used).
+The board also lists each production deployment's newest commit message, live from Vercel. Refresh: `node scripts/dashboard-data.mjs <dir>`, then upload each of status/hourly/recent/events .json with the Artifact tool
 (`asset: true`, same url) and `update` the matching `datasets/<id>` document's `source.url`, `source.name` and `updated`. The hourly supervisor does this.
 - 2026-11-08: first push-triggered Actions tick confirmed (board tick #3 with no Claude run). Anything under `scripts/` is now deploy-neutral too.
