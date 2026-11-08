@@ -61,7 +61,7 @@ export default function ProfileForm({ initial }: { initial: Profile }) {
     const id = -(1000 + Math.abs([...v].reduce((h, c) => (h * 31 + c.charCodeAt(0)) | 0, 7)) % 1e6);
     toggle({ id, name: v, pri: 1000, ids: [id] }); setQ("");
   }
-  const show = [...merged, ...extra].filter((p) => (term ? p.name.toLowerCase().includes(term) : p.ids.some((i) => services.includes(i)) || p.pri < 25 || PINNED.has(p.name.toLowerCase()))).sort((a, b) => a.pri - b.pri).slice(0, 80);
+  const show = [...merged, ...extra].filter((p) => (term ? p.name.toLowerCase().includes(term) : p.ids.some((i) => services.includes(i)) || p.pri < 25 || PINNED.has(p.name.toLowerCase()))).sort((a, b) => Number(b.ids.some((i) => services.includes(i))) - Number(a.ids.some((i) => services.includes(i))) || a.pri - b.pri).slice(0, 80);
   const chosen = services.map((i) => names[i]).filter(Boolean);
   const summary = chosen.length ? chosen.slice(0, 2).join(", ") + (chosen.length > 2 ? ` +${chosen.length - 2}` : "") : "None";
   return (

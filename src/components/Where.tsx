@@ -9,7 +9,8 @@ export function Where({ t, profile }: { t: Title; profile: Profile }) {
   const mine = new Set(profile.services);
   const stream: Provider[] = [...(p?.flatrate ?? []), ...(p?.free ?? []), ...(p?.ads ?? [])];
   const hit = [...new Set(stream.filter((x) => mine.has(x.id)).map((x) => x.name))];
-  const logos = stream.filter((x, i) => stream.findIndex((y) => y.id === x.id) === i);
+  const logos = stream.filter((x, i) => stream.findIndex((y) => y.id === x.id) === i)
+    .sort((a, b) => Number(mine.has(b.id)) - Number(mine.has(a.id)));
   const label = hit.length ? "On your services" : stream.length ? "Other services" : p && (p.rent || p.buy) ? "Rent or buy only" : "Not available";
   const extra = [p?.rent?.length ? "Rent" : "", p?.buy?.length ? "Buy" : ""].filter(Boolean).join(" · ");
   return (
