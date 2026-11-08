@@ -37,7 +37,7 @@ export interface Prev { status: Status; rating: number; watched_at: string | nul
 /** A line that could not be matched on TMDB (`error` is set when the lookup itself failed rather than finding nothing). */
 export interface Unmatched { label: string; status: Status; rating: number; error?: string }
 /** A line matched with low confidence. Nothing is saved until the user approves `guess` or picks one of `alts` in the review. */
-export interface Unsure { label: string; status: Status; rating: number; why: string; /** The guess looks unrelated to what was typed (excluded from "add all"). */ weak?: boolean; guess: BrowseItem; alts: BrowseItem[] }
+export interface Unsure { label: string; status: Status; rating: number; why: string; /** The guess looks unrelated to what was typed (excluded from "add all"). */ weak?: boolean; /** Not a clear favourite: excluded from "add all". */ risky?: boolean; guess: BrowseItem; alts: BrowseItem[] }
 /** A line that matched a title but could not be saved. Shown in the review so the user can retry or pick another title. */
 export interface Failed { label: string; type: MediaType; id: number; title: string; year: string; poster: string | null; rating: number; status: Status; error: string }
 
@@ -88,23 +88,16 @@ function score(titles: (string | undefined)[], name: string): number {
 }
 /** How well known a result is. Vote count is steadier than TMDB's popularity, which swings with what was released lately. */
 const fame = (h: any) => (h?.vote_count ?? 0) as number;
-type Found = { hit: any; s: number; rival: any | null; near: any | null };
-/**
- * The best result for a name with its score (ties go to the better known), or null when none is close enough.
- * `rival` is the strongest other result of the same score (the name is ambiguous); `near` is a much better known title that is only a typo away.
- */
+type Found = { all: { hit: any; s: number }[] };
+/** Every result close enough to the name, with its score (3 same title, 2 same before a subtitle, 1 a typo away). */
 function best(res: any[], name: string, titles: (r: any) => (string | undefined)[], ok: (r: any) => boolean = () => true): Found | null {
-  const scored: { hit: any; s: number }[] = [];
+  const all: { hit: any; s: number }[] = [];
   for (const r of res) {
     if (!ok(r)) continue;
     const s = score(titles(r), name);
-    if (s) scored.push({ hit: r, s });
+    if (s) all.push({ hit: r, s });
   }
-  scored.sort((a, b) => b.s - a.s || fame(b.hit) - fame(a.hit));
-  const top = scored[0];
-  if (!top) return null;
-  const near = top.s > 1 ? scored.find((x) => x.s === 1 && fame(x.hit) >= 5 * Math.max(fame(top.hit), 20))?.hit ?? null : null;
-  return { ...top, rival: scored.find((x) => x !== top && x.s === top.s)?.hit ?? null, near };
+  return all.length ? { all } : null;
 }
 const movieTitles = (r: any) => [r.title, r.original_title];
 const tvTitles = (r: any) => [r.name, r.original_name];
@@ -114,21 +107,22 @@ async function findMovie(name: string, year: number | null): Promise<Found | nul
   const search = async (query: string, extra: Record<string, string>) => ((await tmdb("/search/movie", { query, include_adult: "false", ...extra }, DAY_MS)).results ?? []) as any[];
   if (year) {
     const a = await search(name, { year: String(year) });
-    const hit = best(a, name, movieTitles) ?? (a[0] ? { hit: a[0], s: 0, rival: null, near: null } : null);
+    // With a year, TMDB's first result for that year is accepted even when the title is not close.
+    const hit = best(a, name, movieTitles) ?? (a[0] ? { all: [{ hit: a[0], s: 2 }] } : null);
     if (hit) return hit;
   }
   let b = await search(name, {});
   const close = (r: any) => !year || Math.abs(yearOf(r) - year) <= 1;
   // TMDB's search often misses "Dead pool 2" or "Madagascar 3": search the base name and pick the numbered film from the results.
   const base = baseOf(name);
-  if (base && best(b, name, movieTitles, close)?.s !== 3) b = [...b, ...(await search(base, {}))];
+  if (base && !best(b, name, movieTitles, close)?.all.some((x) => x.s === 3)) b = [...b, ...(await search(base, {}))];
   return best(b, name, movieTitles, close);
 }
 
 /** TV fallback for free-text lists, which can hold series too. Same forgiving match; a year can also settle for the first result. */
 async function findTv(name: string, year: number | null): Promise<Found | null> {
   const res = ((await tmdb("/search/tv", { query: name, include_adult: "false", ...(year ? { first_air_date_year: String(year) } : {}) }, DAY_MS)).results ?? []) as any[];
-  return best(res, name, tvTitles) ?? (year && res[0] ? { hit: res[0], s: 0, rival: null, near: null } : null);
+  return best(res, name, tvTitles) ?? (year && res[0] ? { all: [{ hit: res[0], s: 2 }] } : null);
 }
 
 const fields = (d: any) => ({ title: (d.title ?? d.name ?? "") as string, year: ((d.release_date ?? d.first_air_date ?? "") as string).slice(0, 4), poster: (d.poster_path ?? null) as string | null });
@@ -173,43 +167,49 @@ export async function resolveEntries(entries: LbEntry[]): Promise<{ rows: Resolv
     try {
       const q = searchName(e.name);
       const [mv, tvh] = await Promise.all([findMovie(q, e.year), e.tv ? findTv(q, e.year) : null]);
-      // A title can be both a film and a series ("Fargo", "Lost"): an exact match wins, then WIP (a series), then the better known one.
-      const ex = (f: Found | null) => f?.s === 3;
-      const useTv = !!tvh && (!mv || (ex(tvh) !== ex(mv) ? ex(tvh) : e.watching || fame(tvh.hit) > fame(mv.hit)));
-      const pick = useTv ? tvh : mv, other = useTv ? mv : tvh, type: MediaType = useTv ? "tv" : "movie";
-      const cand = (h: any) => (h ? { id: h.id as number, title: (h.title ?? h.name ?? "") as string, year: ((h.release_date ?? h.first_air_date ?? "") as string).slice(0, 4) } : null);
-      trace.push({ input: label, asTv: !!e.tv, watched: e.watched, watching: !!e.watching, watchlist: e.watchlist, movie: cand(mv?.hit), tv: cand(tvh?.hit), picked: pick ? type : null });
+      // Every film and series of that name, ranked by how well the title matches and how well known it is (vote count).
+      // A line marked as watching is a series, so films are left out when a series matches.
+      type C = { hit: any; s: number; type: MediaType; w: number };
+      const weight = (s: number) => (s === 3 ? 1 : s === 2 ? 0.5 : 0.1);
+      let pool: C[] = [...(mv?.all ?? []).map((x) => ({ ...x, type: "movie" as MediaType })), ...(tvh?.all ?? []).map((x) => ({ ...x, type: "tv" as MediaType }))].map((x) => ({ ...x, w: (fame(x.hit) + 5) * weight(x.s) }));
+      if (e.watching && pool.some((c) => c.type === "tv" && c.s >= 2)) pool = pool.filter((c) => c.type === "tv");
+      pool.sort((a, b) => b.w - a.w);
+      const top = pool[0] as C | undefined, second = pool[1] as C | undefined;
+      const dateOf = (h: any) => (h?.release_date ?? h?.first_air_date ?? "") as string;
+      const cand = (c?: C) => (c ? { id: c.hit.id as number, title: (c.hit.title ?? c.hit.name ?? "") as string, year: dateOf(c.hit).slice(0, 4) } : null);
+      trace.push({ input: label, asTv: !!e.tv, watched: e.watched, watching: !!e.watching, watchlist: e.watchlist, movie: cand(pool.find((c) => c.type === "movie")), tv: cand(pool.find((c) => c.type === "tv")), picked: top?.type ?? null });
 
-      // How sure are we? Sure = the same title, and nothing else of that name is about as well known (the other kind, or another film or series).
+      // Sure = the same title, and nothing else of that name (the other kind, a remake, a typo of a famous title) comes close in how well known it is.
       let why = "";
-      if (pick) {
-        const date = (pick.hit.release_date ?? pick.hit.first_air_date ?? "") as string;
-        const exact = pick.s === 3 || (pick.s === 2 && (!!e.year || !pick.rival));
-        const otherClash = !!other && ex(other) && pick.s === 3 && !(e.year || (useTv && e.watching) || fame(pick.hit) >= 4 * fame(other.hit));
-        const rivalClash = !!pick.rival && !e.year && fame(pick.rival) * 2.5 >= fame(pick.hit);
-        if (pick.near) why = "Spelled a little differently from a much better known title.";
-        else if (!exact) why = pick.s === 2 ? "The title only partly matches." : "The spelling is a little different.";
-        else if (e.watching && type === "movie") why = "Marked as watching, which fits a series better.";
-        else if (otherClash) why = useTv ? "There is a film with the same name." : "There is a series with the same name.";
-        else if (rivalClash) why = "Several titles share this name.";
-        else if (!e.year && date > new Date().toISOString().slice(0, 10)) why = "This one is not out yet.";
+      if (top) {
+        const exact = top.s === 3 || (top.s === 2 && (!!e.year || (fame(top.hit) >= 100 && !pool.some((c) => c !== top && c.s >= 2))));
+        const dominant = !second || !!e.year || top.w >= 3 * second.w;
+        if (top.s === 1) why = pool.some((c) => c.s >= 2) ? "Spelled a little differently from a better known title." : "The spelling is a little different.";
+        else if (!exact) why = "The title only partly matches.";
+        else if (!dominant) why = second!.type !== top.type && second!.s === 3 ? (top.type === "tv" ? "There is a film with the same name." : "There is a series with the same name.") : "Several titles share this name.";
+        else if (e.watching && top.type === "movie") why = "Marked as watching, which fits a series better.";
+        else if (!e.year && dateOf(top.hit) > new Date().toISOString().slice(0, 10)) why = "This one is not out yet.";
       }
-      if (pick && !why) { rows.push({ type, id: pick.hit.id, ...fields(pick.hit), watched: e.watched, watching: !!e.watching, rating: e.rating, date: e.date, label }); return; }
+      if (top && !why) { rows.push({ type: top.type, id: top.hit.id, ...fields(top.hit), watched: e.watched, watching: !!e.watching, rating: e.rating, date: e.date, label }); return; }
 
       // Not sure, or not found by the strict match: ask the same search the "Find it" box uses, so its first result is never missed.
       let found = await search(q, "title").catch(() => []);
-      if (!pick && !found.length) found = await looseSearch(q);
+      const obscure = !!top && top.s < 3 && fame(top.hit) < 100 && !e.year;
+      if ((!top && !found.length) || obscure) { const loose = await looseSearch(q); found = obscure ? [...loose, ...found] : loose; }
       const hits = found.filter((h): h is Extract<typeof h, { kind: "title" }> => h.kind === "title").map((h) => { const { kind, ...rest } = h; void kind; return { ...rest, rating: 0 } as BrowseItem; });
-      // A series that is marked as watching: prefer the first series the search finds over a film of that name.
-      const seriesFirst = e.watching && type === "movie" ? hits.find((h) => h.type === "tv") : undefined;
-      const first: BrowseItem | null = seriesFirst ?? (pick?.near ? asItem(type, pick.near) : pick ? asItem(type, pick.hit) : hits[0] ?? null);
+      // A series that is marked as watching and has no series match: prefer the first series the search finds over a film.
+      const seriesFirst = e.watching && (!top || top.type === "movie") ? hits.find((h) => h.type === "tv") : undefined;
+      // A partial match nobody has voted on (a concert film, a podcast) loses to whatever the search ranks first.
+      const first: BrowseItem | null = seriesFirst ?? (top && !(obscure && hits[0]) ? asItem(top.type, top.hit) : hits[0] ?? null);
       if (!first) { unmatched.push({ label, status, rating: e.rating }); return; }
       const alts: BrowseItem[] = [];
-      for (const c of [pick && first.key !== `${type}:${pick.hit.id}` ? asItem(type, pick.hit) : null, other ? asItem(useTv ? "movie" : "tv", other.hit) : null, pick?.rival ? asItem(type, pick.rival) : null, ...hits]) {
-        if (c && c.key !== first.key && !alts.some((a) => a.key === c.key)) alts.push(c);
+      for (const c of [...pool.filter((c) => c.s === 3 || fame(c.hit) >= 20).map((c) => asItem(c.type, c.hit)), ...hits]) {
+        if (c.key !== first.key && !alts.some((a) => a.key === c.key)) alts.push(c);
       }
-      const weak = !pick && sim(q, first.title) < 0.5;
-      unsure.push({ label, status, rating: e.rating, why: weak ? "Nothing close; this is only the nearest search result." : why || "Best guess from search.", ...(weak ? { weak } : {}), guess: first, alts: alts.slice(0, 4) });
+      const weak = !top && sim(q, first.title) < 0.5;
+      // Only a clear favourite may be added in bulk; a toss-up between several titles is for the user to settle.
+      const risky = !top || obscure || top.s < 3 || !!seriesFirst || (!!second && top.w < 2 * second.w);
+      unsure.push({ label, status, rating: e.rating, why: weak ? "Nothing close; this is only the nearest search result." : why || "Best guess from search.", ...(weak ? { weak } : {}), ...(risky ? { risky } : {}), guess: first, alts: alts.slice(0, 4) });
     } catch (err) {
       unmatched.push({ label, status, rating: e.rating, error: "Could not look this up on TMDB." });
       trace.push({ input: label, asTv: !!e.tv, watched: e.watched, watching: !!e.watching, watchlist: e.watchlist, movie: null, tv: null, picked: null, error: String((err as Error)?.message ?? err).slice(0, 200) });

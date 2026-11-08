@@ -12,7 +12,7 @@ import type { BrowseItem, SearchHit, Status } from "@/lib/types";
 
 /** What the import (or a fix made in the review) did to one title, kept so the whole import can be reverted. */
 export type Rec = Pick<Applied, "type" | "id" | "isNew" | "prev">;
-export type ReviewRow = { id: string; label: string; item: BrowseItem | null; status: Status; rating: number; isNew: boolean; gone?: boolean; err?: string; recs: Rec[]; /** Why this line was not imported (set for lines that were not found or could not be saved). */ problem?: string; /** A low-confidence match, not saved yet: `item` is the best guess and `alts` other likely titles. */ unsure?: { why: string; weak?: boolean; alts: BrowseItem[] } };
+export type ReviewRow = { id: string; label: string; item: BrowseItem | null; status: Status; rating: number; isNew: boolean; gone?: boolean; err?: string; recs: Rec[]; /** Why this line was not imported (set for lines that were not found or could not be saved). */ problem?: string; /** A low-confidence match, not saved yet: `item` is the best guess and `alts` other likely titles. */ unsure?: { why: string; weak?: boolean; risky?: boolean; alts: BrowseItem[] } };
 /** Lines that are not in the library yet (not found, failed, or waiting for the user to confirm a guess). */
 export const unsaved = (r: ReviewRow) => !!r.problem || !!r.unsure;
 /** Review order: broken lines first, then the ones to confirm, then the rest. */
@@ -20,7 +20,7 @@ export const rank = (r: ReviewRow) => (r.problem ? 0 : r.unsure ? 1 : 2);
 
 let n = 0;
 export const toRows = (items: Applied[], missing: Unmatched[], failed: Failed[] = [], unsure: Unsure[] = []): ReviewRow[] => [
-  ...unsure.map((u): ReviewRow => ({ id: `r${n++}`, label: u.label, item: u.guess, status: u.status, rating: u.rating, isNew: true, recs: [], unsure: { why: u.why, weak: u.weak, alts: u.alts } })),
+  ...unsure.map((u): ReviewRow => ({ id: `r${n++}`, label: u.label, item: u.guess, status: u.status, rating: u.rating, isNew: true, recs: [], unsure: { why: u.why, weak: u.weak, risky: u.risky, alts: u.alts } })),
   ...missing.map((m): ReviewRow => ({ id: `r${n++}`, label: m.label, item: null, status: m.status, rating: m.rating, isNew: true, recs: [], problem: m.error ?? "Not found on TMDB." })),
   ...failed.map((f): ReviewRow => ({ id: `r${n++}`, label: f.label, item: { key: `${f.type}:${f.id}`, type: f.type, id: f.id, title: f.title, year: f.year, poster: f.poster, rating: 0 }, status: f.status, rating: f.rating, isNew: false, recs: [], problem: `Matched, but it could not be saved (${f.error}).` })),
   ...items.map((a): ReviewRow => ({ id: `r${n++}`, label: a.label, item: { key: `${a.type}:${a.id}`, type: a.type, id: a.id, title: a.title, year: a.year, poster: a.poster, rating: 0 }, status: a.status, rating: a.rating, isNew: a.isNew, recs: [{ type: a.type, id: a.id, isNew: a.isNew, prev: a.prev }] })),
@@ -101,7 +101,7 @@ export default function ImportReviewDialog({ rows, onChange, onClose, onRevert }
   /** Accept every suggestion in one go, one title at a time so a failure only leaves that line for the user. */
   async function approveAll() {
     setBulk(true);
-    for (const r of toCheck) {
+    for (const r of likely) {
       setBusy(r.id);
       try { const rec = await addImported(r.item!, r.status, r.rating); patch(r.id, { problem: undefined, unsure: undefined, isNew: rec.isNew, err: undefined, recs: [...r.recs, { type: r.item!.type, id: r.item!.id, ...rec }] }); }
       catch { patch(r.id, { err: "That did not save. Try again." }); }
@@ -116,7 +116,7 @@ export default function ImportReviewDialog({ rows, onChange, onClose, onRevert }
 
   const live = rows.filter((r) => !r.gone);
   const problems = live.filter((r) => r.problem).length;
-  const toCheck = live.filter((r) => r.unsure && r.item && !r.unsure.weak);
+  const toCheck = live.filter((r) => r.unsure && r.item), likely = toCheck.filter((r) => !r.unsure!.weak && !r.unsure!.risky);
   const removes = live.filter((r) => r.item && r.isNew && !unsaved(r)).length, restores = rows.flatMap((r) => r.recs).filter((x) => !x.isNew && x.prev).length;
 
   if (typeof document === "undefined") return null;
@@ -148,7 +148,8 @@ export default function ImportReviewDialog({ rows, onChange, onClose, onRevert }
           {toCheck.length > 0 && (
             <div className="card pad" style={{ padding: 10, margin: "0 0 10px" }}>
               <p style={{ margin: 0 }}><b>{toCheck.length} not sure.</b> <span className="muted">Nothing is added until you confirm. Say yes to the guess, tap another title, or search.</span></p>
-              <button className="btn sm" type="button" style={{ marginTop: 8 }} disabled={bulk || !!busy} onClick={approveAll}>{bulk ? "Adding…" : toCheck.length === 1 ? "Add the guess" : `Add all ${toCheck.length} guesses`}</button>
+              {likely.length > 0 && <button className="btn sm" type="button" style={{ marginTop: 8 }} disabled={bulk || !!busy} onClick={approveAll}>{bulk ? "Adding…" : `Add the ${likely.length} clear favourite${likely.length === 1 ? "" : "s"}`}</button>}
+              {likely.length < toCheck.length && <p className="small muted" style={{ margin: "8px 0 0" }}>{likely.length ? "The rest are toss-ups between several titles" : "These are toss-ups between several titles"}, so each needs your pick.</p>}
             </div>
           )}
           <p className="small muted" style={{ margin: "0 0 10px" }}>Check each title against what you wrote. Change the marking, remove it, or pick the right title. Changes save at once.</p>
