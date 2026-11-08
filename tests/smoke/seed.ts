@@ -1,4 +1,6 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+
+type SB = SupabaseClient;
 
 /** Titles the smoke user is given. Real TMDB ids, so title pages and suggestions have something to show. One row per status/priority/type. */
 export const SEED = [
@@ -11,6 +13,33 @@ export const SEED = [
   { tmdb_type: "tv", tmdb_id: 1399, title: "Game of Thrones", year: "2011", poster_path: null, status: "watched", priority: "someday", rating: 4 },
   { tmdb_type: "tv", tmdb_id: 66732, title: "Stranger Things", year: "2016", poster_path: null, status: "watchlist", priority: "someday", rating: 0 },
 ] as const;
+
+/**
+ * Titles the behaviour tests create themselves (mark from the popup, import a list). They are not part of SEED, so every test
+ * starts from "not in the library". Each test removes what it made; setup and teardown also clear these ids as a backstop
+ * after a crashed run. Nothing outside SEED and SCRATCH is ever read for deletion or deleted.
+ */
+export const SCRATCH = [
+  { tmdb_type: "movie", tmdb_id: 27205, title: "Inception" },
+  { tmdb_type: "movie", tmdb_id: 129, title: "Spirited Away" },
+] as const;
+
+/** Deletes the smoke user's rows for the given titles (and only those). */
+export async function deleteRows(sb: SB, userId: string, rows: readonly { tmdb_type: string; tmdb_id: number }[]) {
+  for (const t of ["movie", "tv"] as const) {
+    const ids = rows.filter((r) => r.tmdb_type === t).map((r) => r.tmdb_id);
+    if (!ids.length) continue;
+    const { error } = await sb.from("library_items").delete().eq("user_id", userId).eq("tmdb_type", t).in("tmdb_id", ids);
+    if (error) throw new Error(`Smoke cleanup failed: ${error.message}`);
+  }
+}
+
+/** The smoke user's saved row for one title, or null. */
+export async function rowOf(sb: SB, userId: string, type: string, id: number) {
+  const { data, error } = await sb.from("library_items").select("*").eq("user_id", userId).eq("tmdb_type", type).eq("tmdb_id", id).maybeSingle();
+  if (error) throw new Error(error.message);
+  return data as { status: string; priority: string; rating: number } | null;
+}
 
 export function configured() {
   return Boolean(process.env.SMOKE_EMAIL && process.env.SMOKE_PASSWORD && process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
