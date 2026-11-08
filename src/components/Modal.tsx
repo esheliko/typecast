@@ -42,15 +42,24 @@ export function ModalLoading() {
 const BG = "tc:bg";
 const safe = <T,>(f: () => T, d: T): T => { try { return f(); } catch { return d; } };
 
-/** Remembers the last page that was not a title, so a refresh on a popup can put the popup back over that page. */
+/** Set by RestorePopup: the title URL to open as a popup once the page underneath is on screen (see BgTracker). */
+let restoreTo: string | null = null;
+
+/**
+ * Remembers the last page that was not a title, so a refresh on a popup can put the popup back over that page.
+ * It also finishes that restore: it lives in the layout, so it survives the navigation RestorePopup starts, and opens the popup
+ * once the page underneath has landed. (Two router calls in one tick do not work: the second supersedes the first.)
+ */
 export function BgTracker() {
   const path = usePathname();
   const sp = useSearchParams();
+  const router = useRouter();
   useEffect(() => {
     if (path.startsWith("/title")) return;
+    if (restoreTo) { const to = restoreTo; restoreTo = null; router.push(to, { scroll: false }); return; }
     const q = sp.toString();
     safe(() => sessionStorage.setItem(BG, path + (q ? `?${q}` : "")), undefined);
-  }, [path, sp]);
+  }, [path, sp, router]);
   return null;
 }
 
@@ -66,9 +75,11 @@ export function RestorePopup({ children }: { children: React.ReactNode }) {
     const u = new URL(window.location.href);
     if (u.searchParams.has("full")) { setShow(true); return; }
     const bg = safe(() => sessionStorage.getItem(BG), null);
-    const here = u.pathname + u.search;
+    restoreTo = u.pathname + u.search;
     router.replace(bg && !bg.startsWith("/title") ? bg : "/", { scroll: false });
-    router.push(here, { scroll: false });
+    // If the page underneath never lands (this component is still mounted), show the title page itself rather than "Loading details" forever.
+    const t = setTimeout(() => { restoreTo = null; setShow(true); }, 4000);
+    return () => clearTimeout(t);
   }, [router]);
   return show ? <>{children}</> : <p className="muted" style={{ margin: "28px 0" }}><span className="spin" />Loading details</p>;
 }
