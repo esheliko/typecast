@@ -22,7 +22,7 @@ export function Avatar({ photo, name }: { photo: string | null; name: string }) 
 
 export function TitleRow({ it, lib, sub, small }: { it: Item; lib?: LibItem | null; sub?: string; small?: boolean }) {
   return (
-    <div className="row">
+    <div className="row mark-row">
       <TitleLink className="row-link" k={it.key} it={it}>
         <Thumb path={it.poster} />
         <span className="row-main">

@@ -468,6 +468,8 @@ button:not([disabled]):active, a.row:active, a.tab:active, .person-chip:active, 
   .lib-row .gl-b, .mark-row .gl-b { right: 44px; }
   .lib-row .pill-flip svg, .mark-row .pill-flip svg { display: inline; }
   .mark-row .qm.inline { margin-left: 56px; }
+  /* TitleRow keeps its status pill inside the title link: pin it to the right end of the controls line. */
+  .mark-row .row-link .pill { position: absolute; right: 16px; bottom: 18px; }
 }
 
 /* Skeletons: placeholders shaped like the content, so a page change shows its layout at once instead of a spinner. */
