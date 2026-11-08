@@ -62,9 +62,13 @@ async function findTv(name: string, year: number | null): Promise<any | null> {
 
 const fields = (d: any) => ({ title: (d.title ?? d.name ?? "") as string, year: ((d.release_date ?? d.first_air_date ?? "") as string).slice(0, 4), poster: (d.poster_path ?? null) as string | null });
 
+/** How one imported line was matched: the line as parsed, the movie and TV candidates TMDB gave, and which one was stored. Written to `import_log`. */
+export interface TraceRow { input: string; asTv: boolean; watched: boolean; watching: boolean; watchlist: boolean; movie: Cand | null; tv: Cand | null; picked: MediaType | null; error?: string }
+type Cand = { id: number; title: string; year: string };
+
 /** Match export entries to TMDB. `unmatched` lists names that could not be found. */
-export async function resolveEntries(entries: LbEntry[]): Promise<{ rows: Resolved[]; unmatched: Unmatched[] }> {
-  const rows: Resolved[] = [], unmatched: Unmatched[] = [];
+export async function resolveEntries(entries: LbEntry[]): Promise<{ rows: Resolved[]; unmatched: Unmatched[]; trace: TraceRow[] }> {
+  const rows: Resolved[] = [], unmatched: Unmatched[] = [], trace: TraceRow[] = [];
   await Promise.all(entries.map(async (e) => {
     const label = e.year ? `${e.name} (${e.year})` : e.name;
     try {
@@ -73,11 +77,16 @@ export async function resolveEntries(entries: LbEntry[]): Promise<{ rows: Resolv
       // A title can be both a film and a series ("Fargo", "Lost"): an exact match wins, then WIP (a series) , then the more popular one.
       const useTv = !!tvh && (!mv || (ex(tvh) !== ex(mv) ? ex(tvh) : e.watching || (tvh.popularity ?? 0) > (mv.popularity ?? 0)));
       const hit = useTv ? tvh : mv, type: MediaType = useTv ? "tv" : "movie";
+      const cand = (h: any) => (h ? { id: h.id as number, title: (h.title ?? h.name ?? "") as string, year: ((h.release_date ?? h.first_air_date ?? "") as string).slice(0, 4) } : null);
+      trace.push({ input: label, asTv: !!e.tv, watched: e.watched, watching: !!e.watching, watchlist: e.watchlist, movie: cand(mv), tv: cand(tvh), picked: hit ? type : null });
       if (!hit) { unmatched.push({ label, status: e.watched ? "watched" : e.watching ? "watching" : "watchlist", rating: e.rating }); return; }
       rows.push({ type, id: hit.id, ...fields(hit), watched: e.watched, watching: !!e.watching, rating: e.rating, date: e.date, label });
-    } catch { unmatched.push({ label, status: e.watched ? "watched" : e.watching ? "watching" : "watchlist", rating: e.rating }); }
+    } catch (err) {
+      unmatched.push({ label, status: e.watched ? "watched" : e.watching ? "watching" : "watchlist", rating: e.rating });
+      trace.push({ input: label, asTv: !!e.tv, watched: e.watched, watching: !!e.watching, watchlist: e.watchlist, movie: null, tv: null, picked: null, error: String((err as Error)?.message ?? err).slice(0, 200) });
+    }
   }));
-  return { rows, unmatched };
+  return { rows, unmatched, trace };
 }
 
 /**

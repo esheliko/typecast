@@ -105,8 +105,17 @@ export async function importLetterboxd(entries: LbEntry[], last: boolean): Promi
     name: e.name, tv: !!e.tv, watching: !!e.watching, year: Number.isInteger(e.year) ? e.year : null, watched: !!e.watched, watchlist: !!e.watchlist,
     rating: Number.isInteger(e.rating) ? Math.max(0, Math.min(5, e.rating)) : 0, date: typeof e.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(e.date) ? e.date : null,
   })).filter((e) => e.watched || e.watchlist || e.watching);
-  const { rows, unmatched } = await resolveEntries(clean);
-  const res = await applyResolved(sb, user.id, rows);
+  const { rows, unmatched, trace } = await resolveEntries(clean);
+  let res: Awaited<ReturnType<typeof applyResolved>> = { added: 0, updated: 0, items: [] }, failure: string | null = null;
+  try { res = await applyResolved(sb, user.id, rows); } catch (e) { failure = e instanceof Error ? e.message : String(e); }
+  // Audit trail: one line in the Vercel runtime logs and one row in `import_log` (table migration 0007). Logging never breaks an import.
+  const summary = { received: entries.length, kept: clean.length, added: res.added, updated: res.updated, items: res.items, unmatched, failure };
+  console.log("[import]", JSON.stringify({ user: user.id, ...summary, trace }));
+  try {
+    const { error } = await sb.from("import_log").insert({ user_id: user.id, received: entries.length, kept: clean.length, added: res.added, updated: res.updated, unmatched, failure, trace: { lines: trace, applied: res.items } });
+    if (error) console.error("[import] log insert failed:", error.message);
+  } catch (e) { console.error("[import] log insert failed:", e); }
+  if (failure) throw new Error(failure);
   if (last) done();
   return { ...res, unmatched };
 }
