@@ -33,9 +33,9 @@ export const CFG = {
   // By spendable budget (limit - reserve - used24): how long main must be quiet, and the longest we make a push wait.
   tiers: [
     { minSpendable: 41, quietMin: 3, maxWaitMin: 10 },
-    { minSpendable: 16, quietMin: 6, maxWaitMin: 25 },
-    { minSpendable: 1, quietMin: 10, maxWaitMin: 60 },
+    { minSpendable: 1, quietMin: 4, maxWaitMin: 15 }, // Vercel accepted deployments at 150+ in 24h, so a high count is no reason to hold long
   ],
+
   loopMaxMin: 14, // --wait: longest we sleep inside one run
   pollMaxMin: 9, // longest we watch a build
   sleepSec: 30,
@@ -45,6 +45,7 @@ export const CFG = {
   urgentTag: '[deploy-now]',
   // The CI gate: the head commit's `verify` check (.github/workflows/ci.yml) must have passed before it is deployed.
   ciCheck: 'verify',
+  ciCancelledGraceMin: 3, // a cancelled verify older than this, with no newer run, no longer blocks
   ciMaxWaitMin: 25, // CI still running this long after the newest commit => deploy anyway (a stuck CI must not freeze deployments)
 };
 
@@ -191,12 +192,18 @@ export function decide(ctx) {
 
 // ---------------------------------------------------------------- the CI gate
 /** Pure: what the check runs of one commit say. 'pass' | 'fail' | 'pending' | 'none' (no such check: CI never ran, do not block). */
-export function ciVerdict(runs) {
+export function ciVerdict(runs, now = Date.now()) {
   const mine = (runs ?? []).filter((r) => r.name === CFG.ciCheck).sort((a, b) => Date.parse(b.started_at ?? 0) - Date.parse(a.started_at ?? 0));
   if (!mine.length) return 'none';
   const r = mine[0];
   // A cancelled run was superseded (a newer push or a manual run in the same group), it says nothing about the code: wait for the next one.
-  if (r.status !== 'completed' || r.conclusion === 'cancelled') return 'pending';
+  // But a cancelled run that finished a few minutes ago with nothing running after it is not coming back (2026-11-08: the head's
+  // only verify run was cancelled and the gate held the deploy for 25 min): treat it as "CI never ran" rather than wait.
+  if (r.status === 'completed' && r.conclusion === 'cancelled') {
+    const done = Date.parse(r.completed_at ?? r.started_at ?? 0);
+    return now - done > CFG.ciCancelledGraceMin * 60e3 ? 'none' : 'pending';
+  }
+  if (r.status !== 'completed') return 'pending';
   return ['success', 'neutral', 'skipped'].includes(r.conclusion) ? 'pass' : 'fail';
 }
 

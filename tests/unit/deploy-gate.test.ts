@@ -13,7 +13,14 @@ test("success, neutral and skipped pass; anything else fails", () => {
   for (const c of ["success", "neutral", "skipped"]) assert.equal(ciVerdict([run({ conclusion: c })]), "pass", c);
   for (const c of ["failure", "timed_out", "action_required"]) assert.equal(ciVerdict([run({ conclusion: c })]), "fail", c);
 });
-test("a cancelled (superseded) run is pending, not a failure", () => assert.equal(ciVerdict([run({ conclusion: "cancelled" })]), "pending"));
+test("a just-cancelled (superseded) run is pending, not a failure", () => {
+  const now = Date.parse("2026-01-01T00:01:00Z");
+  assert.equal(ciVerdict([run({ conclusion: "cancelled", completed_at: "2026-01-01T00:00:30Z" })], now), "pending");
+});
+test("a cancelled run with nothing after it for minutes no longer blocks", () => {
+  const now = Date.parse("2026-01-01T00:20:00Z");
+  assert.equal(ciVerdict([run({ conclusion: "cancelled", completed_at: "2026-01-01T00:00:30Z" })], now), "none");
+});
 test("a running check is pending", () => assert.equal(ciVerdict([run({ status: "in_progress", conclusion: null })]), "pending"));
 test("the newest run wins (a re-run fixes an earlier failure)", () => {
   assert.equal(ciVerdict([run({ conclusion: "failure" }), run({ started_at: "2026-01-01T01:00:00Z" })]), "pass");
