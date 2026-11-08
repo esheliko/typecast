@@ -2,7 +2,7 @@
 import type { MediaType } from "./types";
 
 /** One film from a Letterboxd export, merged across watched/ratings/diary/watchlist. */
-export interface LbEntry { name: string; year: number | null; watched: boolean; watchlist: boolean; rating: number; date: string | null; tv?: boolean }
+export interface LbEntry { name: string; year: number | null; watched: boolean; watchlist: boolean; rating: number; date: string | null; tv?: boolean; watching?: boolean }
 
 export function parseCsv(text: string): Record<string, string>[] {
   const s = text.replace(/^﻿/, "");

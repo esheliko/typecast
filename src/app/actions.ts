@@ -102,9 +102,9 @@ export async function saveDetails(order: DetailId[]) {
 export async function importLetterboxd(entries: LbEntry[], last: boolean): Promise<{ added: number; updated: number; unmatched: string[] }> {
   const { sb, user } = await requireUser();
   const clean = entries.slice(0, 25).filter((e) => typeof e?.name === "string" && e.name && e.name.length < 300).map((e): LbEntry => ({
-    name: e.name, tv: !!e.tv, year: Number.isInteger(e.year) ? e.year : null, watched: !!e.watched, watchlist: !!e.watchlist,
+    name: e.name, tv: !!e.tv, watching: !!e.watching, year: Number.isInteger(e.year) ? e.year : null, watched: !!e.watched, watchlist: !!e.watchlist,
     rating: Number.isInteger(e.rating) ? Math.max(0, Math.min(5, e.rating)) : 0, date: typeof e.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(e.date) ? e.date : null,
-  })).filter((e) => e.watched || e.watchlist);
+  })).filter((e) => e.watched || e.watchlist || e.watching);
   const { rows, unmatched } = await resolveEntries(clean);
   const res = await applyResolved(sb, user.id, rows);
   if (last) done();

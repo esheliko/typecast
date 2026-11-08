@@ -29,10 +29,10 @@ export async function fetchFeed(user: string): Promise<FeedEntry[]> {
 }
 
 /** A film or series ready to store, with what the user did with it. */
-export interface Resolved { type: MediaType; id: number; title: string; year: string; poster: string | null; watched: boolean; rating: number; date: string | null }
+export interface Resolved { type: MediaType; id: number; title: string; year: string; poster: string | null; watched: boolean; watching?: boolean; rating: number; date: string | null }
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-const norm = (s: string) => s.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]/g, "");
+const norm = (s: string) => s.toLowerCase().normalize("NFKD").replace(/[^\p{L}\p{N}]/gu, "");
 const yearOf = (r: any) => parseInt((r.release_date ?? "").slice(0, 4), 10);
 
 /** Find the TMDB film for a Letterboxd name and year (exports carry no TMDB id). Exact title in the right year first, then within a year. */
@@ -65,10 +65,13 @@ export async function resolveEntries(entries: LbEntry[]): Promise<{ rows: Resolv
   await Promise.all(entries.map(async (e) => {
     const label = e.year ? `${e.name} (${e.year})` : e.name;
     try {
-      let hit = await findMovie(e.name, e.year), type: MediaType = "movie";
-      if (!hit && e.tv) { hit = await findTv(e.name, e.year); type = "tv"; }
+      const [mv, tvh] = await Promise.all([findMovie(e.name, e.year), e.tv ? findTv(e.name, e.year) : null]);
+      const want = norm(e.name), ex = (h: any) => !!h && [h.title, h.original_title, h.name, h.original_name].some((n) => norm(n ?? "") === want);
+      // A title can be both a film and a series ("Fargo", "Lost"): an exact match wins, then WIP (a series) , then the more popular one.
+      const useTv = !!tvh && (!mv || (ex(tvh) !== ex(mv) ? ex(tvh) : e.watching || (tvh.popularity ?? 0) > (mv.popularity ?? 0)));
+      const hit = useTv ? tvh : mv, type: MediaType = useTv ? "tv" : "movie";
       if (!hit) { unmatched.push(label); return; }
-      rows.push({ type, id: hit.id, ...fields(hit), watched: e.watched, rating: e.rating, date: e.date });
+      rows.push({ type, id: hit.id, ...fields(hit), watched: e.watched, watching: !!e.watching, rating: e.rating, date: e.date });
     } catch { unmatched.push(label); }
   }));
   return { rows, unmatched };
@@ -84,7 +87,7 @@ export async function applyResolved(sb: Sb, userId: string, input: Resolved[]): 
   for (const r of input) {
     const k = `${r.type}:${r.id}`, o = merged.get(k);
     if (!o) merged.set(k, { ...r });
-    else { o.watched ||= r.watched; o.rating = r.rating || o.rating; if (r.date && (!o.date || r.date > o.date)) o.date = r.date; }
+    else { o.watched ||= r.watched; o.watching = !o.watched && (o.watching || r.watching); o.rating = r.rating || o.rating; if (r.date && (!o.date || r.date > o.date)) o.date = r.date; }
   }
   const rows = [...merged.values()];
   if (!rows.length) return { added: 0, updated: 0 };
@@ -95,7 +98,7 @@ export async function applyResolved(sb: Sb, userId: string, input: Resolved[]): 
   const at = (d: string | null) => (d ? new Date(`${d}T12:00:00Z`).toISOString() : now);
   const fresh = rows.filter((r) => !have.has(`${r.type}:${r.id}`)).map((r) => ({
     user_id: userId, tmdb_type: r.type, tmdb_id: r.id, title: r.title, year: r.year, poster_path: r.poster,
-    status: r.watched ? "watched" : "watchlist", rating: r.watched ? r.rating : 0,
+    status: r.watched ? "watched" : r.watching ? "watching" : "watchlist", rating: r.watched ? r.rating : 0,
     ...(r.watched ? { watched_at: at(r.date), added_at: at(r.date) } : {}), updated_at: now,
   }));
   if (fresh.length) {
@@ -103,11 +106,12 @@ export async function applyResolved(sb: Sb, userId: string, input: Resolved[]): 
     if (e) throw new Error(e.message);
   }
   let updated = 0;
-  await Promise.all(rows.filter((r) => r.watched && have.has(`${r.type}:${r.id}`)).map(async (r) => {
+  await Promise.all(rows.filter((r) => (r.watched || r.watching) && have.has(`${r.type}:${r.id}`)).map(async (r) => {
     const cur = have.get(`${r.type}:${r.id}`)!;
     const patch: Record<string, unknown> = {};
-    if (cur.status !== "watched") Object.assign(patch, { status: "watched", watched_at: at(r.date), checked_at: null });
-    if (cur.rating === 0 && r.rating > 0) patch.rating = r.rating;
+    if (!r.watched) { if (cur.status === "watchlist") patch.status = "watching"; }
+    else if (cur.status !== "watched") Object.assign(patch, { status: "watched", watched_at: at(r.date), checked_at: null });
+    if (r.watched && cur.rating === 0 && r.rating > 0) patch.rating = r.rating;
     if (!Object.keys(patch).length) return;
     const { error: e } = await sb.from("library_items").update({ ...patch, updated_at: now }).eq("user_id", userId).eq("tmdb_type", r.type).eq("tmdb_id", r.id);
     if (e) throw new Error(e.message);

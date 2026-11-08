@@ -3,7 +3,7 @@ import { buildEntries, parseCsv, stars, type LbEntry } from "./letterboxd-parse"
 
 export type Plain = "watched" | "watchlist";
 
-const CHECKED = /^\s*(?:[-*+•]\s*)?(?:\[\s*[xX✓✔]\s*\]|\(\s*[xX✓✔]\s*\)|[☑☒✅✔✓■])\s*/;
+const CHECKED = /^\s*(?:[-*+•]\s*)?(?:\[\s*[xXvV✓✔]\s*\]|\(\s*[xXvV✓✔]\s*\)|[☑☒✅✔✓■])\s*/;
 const UNCHECKED = /^\s*(?:[-*+•]\s*)?(?:\[\s*\]|\(\s*\)|[☐□▢⬜])\s*/;
 const BULLET = /^\s*(?:[-*+•–—]\s+|\d+[.)]\s+)/;
 const TODO_HEAD = /^(to ?watch|watch ?list|want to watch|wish ?list|to ?do|queue|up next|unwatched|plan to watch|watch later)(\s+list)?$/i;
@@ -31,6 +31,8 @@ function parseLine(raw: string, mode: Plain): { entry: LbEntry } | { mode: Plain
   const struck = s.match(/^~~(.+)~~$/);
   if (struck) { s = struck[1]; watched = true; }
   s = s.replace(/\*\*|__/g, "").trim();
+  const wip = /(?:^|\s)(?:WIP|watching)\s*$/i.test(s);
+  if (wip) s = s.replace(/[\s\-–—:|,(]*(?:WIP|watching)\)?\s*$/i, "").trim();
   let rating = 0;
   const grab = (re: RegExp, f: (m: RegExpMatchArray) => number) => { const m = s.match(re); if (m) { rating = f(m); s = s.slice(0, m.index).trim(); } };
   grab(/\s*[-–—:|,]?\s*([★⭐]+)\s*$/, (m) => Math.min(5, [...m[1]].length));
@@ -39,10 +41,11 @@ function parseLine(raw: string, mode: Plain): { entry: LbEntry } | { mode: Plain
   let year: number | null = null;
   const y = s.match(/\s*[(\[]((?:18|19|20)\d\d)[)\]]\s*$/) ?? s.match(/\s*(?:,|\s[-–—])\s*((?:18|19|20)\d\d)\s*$/);
   if (y) { year = parseInt(y[1], 10); s = s.slice(0, y.index).trim(); }
-  s = s.replace(/^["“'‘]+|["”'’]+$/g, "").trim();
+  if (!y) { const t = s.match(/^(.*\S\s+\S.*?)\s+((?:19|20)\d\d)$/); if (t) { s = t[1]; year = parseInt(t[2], 10); } }
+  s = s.replace(/\s*\([^()]*\)\s*$/, "").replace(/^["“'‘]+|["”'’]+$/g, "").trim();
   if (!/[\p{L}\p{N}]/u.test(s) || s.length < 1) return null;
-  const isWatched = watched ?? mode === "watched";
-  return { entry: { name: s, year, watched: isWatched, watchlist: !isWatched, rating: isWatched ? rating : 0, date: null, tv: true } };
+  const isWatched = !wip && (watched ?? mode === "watched");
+  return { entry: { name: s, year, watched: isWatched, watchlist: !isWatched && !wip, watching: wip, rating: isWatched ? rating : 0, date: null, tv: true } };
 }
 
 /** Free text: one title per line. A checkbox ([x], [ ], ☑, ☐, ✅ ...) or a "Watched"/"To watch" heading decides watched vs to-watch; otherwise `plain` does. */
@@ -55,7 +58,8 @@ export function parseText(text: string, plain: Plain): LbEntry[] {
     if ("mode" in r) { mode = r.mode; continue; }
     const e = r.entry, k = `${e.name.toLowerCase()}|${e.year ?? ""}`, o = out.get(k);
     if (!o) out.set(k, e);
-    else if (e.watched) { o.watched = true; o.watchlist = false; o.rating = e.rating || o.rating; }
+    else if (e.watching) { if (!o.watched) { o.watching = true; o.watchlist = false; } }
+    else if (e.watched) { o.watched = true; o.watchlist = false; o.watching = false; o.rating = e.rating || o.rating; }
   }
   return [...out.values()];
 }

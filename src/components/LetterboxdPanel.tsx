@@ -62,14 +62,14 @@ export default function LetterboxdPanel({ link }: { link: LetterboxdLink | null 
   function syncNow() { setErr(""); setMsg(""); start(async () => { const r = await syncLetterboxdNow(); if (r.ok) setMsg(r.added + r.updated ? `${r.added} added, ${r.updated} updated.` : "Up to date."); else setErr(r.error); }); }
   function disconnect() { setErr(""); setMsg(""); start(async () => { await disconnectLetterboxd(); }); }
 
-  const watched = entries?.filter((e) => e.watched).length ?? 0, listed = entries?.filter((e) => e.watchlist).length ?? 0, rated = entries?.filter((e) => e.rating > 0).length ?? 0;
+  const watched = entries?.filter((e) => e.watched).length ?? 0, listed = entries?.filter((e) => e.watchlist).length ?? 0, watchingN = entries?.filter((e) => e.watching).length ?? 0, rated = entries?.filter((e) => e.rating > 0).length ?? 0;
   const shown = open || !!link;
   return (
     <>
       <h2>Import watch history</h2>
       <div className="card pad" aria-busy={busy}>
         <label className="l" htmlFor="lbf">Import a list or a Letterboxd export</label>
-        <p className="small muted" style={{ margin: "0 0 10px" }}>Choose a file or paste text, then press Import. Works with a Letterboxd .zip or CSV, a plain list with a title per line, or a checklist from your notes app (Apple Notes, Google Keep, Samsung Notes): <b>[x]</b> or a ticked box is watched, <b>[ ]</b> or an empty box is to watch. Add a year like (2019) to be exact, and a rating like 4/5 or ★★★★ if you have one. Series work too. Nothing is sent until you press Import.</p>
+        <p className="small muted" style={{ margin: "0 0 10px" }}>Choose a file or paste text, then press Import. Works with a Letterboxd .zip or CSV, a plain list with a title per line, or a checklist from your notes app (Apple Notes, Google Keep, Samsung Notes): <b>[x]</b>, <b>[v]</b> or a ticked box is watched, <b>[ ]</b> or an empty box is to watch, and a trailing <b>WIP</b> marks a title you are watching now. Add a year like (2019) to be exact, and a rating like 4/5 or ★★★★ if you have one. Series work too. Nothing is sent until you press Import.</p>
         <input id="lbf" key={fileKey} type="file" accept=".zip,.csv,.txt,.md,.text,application/zip,text/csv,text/plain" multiple disabled={busy} onChange={(e) => pick(e.target.files)} />
         <textarea aria-label="Or paste your list here" placeholder={"Or paste your list here, one title per line:\n[x] Inception (2010)\n[ ] Dune Part Two\nSeverance"} rows={5} disabled={busy} value={pasted} onChange={(e) => { setPasted(e.target.value); setTally(null); setImportErr(""); }} style={{ width: "100%", marginTop: 10 }} />
         <label className="small muted" htmlFor="plain" style={{ display: "block", margin: "10px 0 0" }}>Lines with no checkbox are </label>
@@ -81,7 +81,7 @@ export default function LetterboxdPanel({ link }: { link: LetterboxdLink | null 
         {!entries && picked && !readErr && !busy && <p className="small err" style={{ margin: "10px 0 0" }}>Nothing found in that file. Use a Letterboxd .zip or CSV, or a text list with one title per line.</p>}
         {entries && !busy && (
           <>
-            <p className="small" style={{ margin: "10px 0" }}>Found {watched} watched ({rated} rated) and {listed} to watch.</p>
+            <p className="small" style={{ margin: "10px 0" }}>Found {watched} watched ({rated} rated), {watchingN} watching and {listed} to watch.</p>
             <button className="btn gold" type="button" onClick={run}>Import</button>
           </>
         )}
