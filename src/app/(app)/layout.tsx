@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { cookies } from "next/headers";
 import { BgTracker } from "@/components/Modal";
 import Tabs from "@/components/Tabs";
 import { GlimpseProvider } from "@/components/Glimpse";
@@ -9,10 +10,13 @@ import { ImportProvider } from "@/components/ImportState";
 import { LibProvider } from "@/components/cast/LibState";
 import { getLibrary } from "@/lib/library";
 import { packMark } from "@/lib/marks";
+import { WatchProvider } from "@/components/Watching";
+import { parseWatch, WATCH_COOKIE } from "@/lib/watching";
 
 export default async function AppLayout({ children, modal }: { children: React.ReactNode; modal: React.ReactNode }) {
   // Marks are decoration: if the database blips, the shell and the page's own error handling should still work.
-  const lib = await getLibrary().catch(() => []);
+  const [lib, jar] = await Promise.all([getLibrary().catch(() => []), cookies()]);
+  const watch = parseWatch(jar.get(WATCH_COOKIE)?.value);
   // GlimpseProvider wraps LibProvider: the franchise sheet (rendered by LibProvider) has glimpse buttons too.
   // One set of marks for every page and for the title popup, so a title marked anywhere is marked everywhere at once.
   const marks = Object.fromEntries(lib.map((l) => [l.key, packMark({ status: l.status, priority: l.priority, rich: l.rating > 0 || !!l.note.trim() })]));
@@ -20,6 +24,7 @@ export default async function AppLayout({ children, modal }: { children: React.R
     <GlimpseProvider>
       <LibProvider packed={marks}>
       <ImportProvider>
+      <WatchProvider initial={watch}>
       <Suspense fallback={null}><BgTracker /></Suspense>
       <ScrollKeeper />
       <Suspense fallback={null}><Recheck /></Suspense>
@@ -31,6 +36,7 @@ export default async function AppLayout({ children, modal }: { children: React.R
       <main className="wrap">{children}</main>
       <Tabs where="bottom" />
       {modal}
+      </WatchProvider>
       </ImportProvider>
       </LibProvider>
     </GlimpseProvider>

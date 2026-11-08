@@ -14,6 +14,7 @@ import { titleSpec } from "@/lib/glimpse";
 import { LinkedRows, RelatedRows } from "@/components/cast/CreditList";
 import { FromProvider } from "@/components/Modal";
 import { Where } from "@/components/Where";
+import { WatchButton } from "@/components/Watching";
 import { fillCrew, missingCrew } from "@/lib/crew-fill";
 import { bylineLabel, DETAIL_IDS, DETAIL_LABEL, detailLabel, isCrewId, MAIN_CAST, type CrewBy, type CrewId, type DetailId } from "@/lib/details";
 import { enrich } from "@/lib/enrich";
@@ -198,6 +199,7 @@ export default async function TitleView({ t, origin }: { t: Title; origin?: Item
         </div>
       </div>
       <StatusControls item={t} lib={mine} />
+      <WatchButton it={{ key: t.key, type: t.type, id: t.id, title: t.title, year: t.year, poster: t.poster }} runtime={t.runtime} progress={mine?.progress ?? null} />
       {t.type === "tv" && t.seasons.length > 0 && (
         <details className="sh-ep">
           <summary>Episode cast</summary>

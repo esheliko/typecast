@@ -157,6 +157,30 @@ test.describe("signed in", () => {
     await healthy(page, bad);
   });
 
+  // Watching now: start on a title, the Ask sheet opens with the episode's faces, the bar stays on other pages, and it ends cleanly.
+  // Does not ask the AI (CI has no gateway credits to spend); /api/ask GET is TMDB + library only.
+  test("Watching now bar and Ask sheet", async ({ page }) => {
+    const bad = watch(page);
+    await visit(page, "/title/tv/1396?full=1", bad);
+    await page.getByRole("button", { name: "I'm watching this now" }).click();
+    const sheet = page.getByRole("dialog", { name: /Ask about Breaking Bad/ });
+    await expect(sheet).toBeVisible();
+    await expect(sheet.getByText("Bryan Cranston")).toBeVisible({ timeout: 20_000 });
+    await sheet.getByRole("button", { name: "Next episode" }).click();
+    await expect(sheet.getByText("E2", { exact: true })).toBeVisible();
+    await sheet.getByRole("button", { name: "Close" }).click();
+    await visit(page, "/library", bad);
+    const bar = page.getByRole("region", { name: "Watching now" });
+    await expect(bar).toContainText("S1 E2");
+    await bar.getByRole("button").click();
+    await sheet.getByRole("button", { name: "End this watch" }).click();
+    await sheet.getByRole("button", { name: "Stop watching" }).click();
+    await expect(bar).toHaveCount(0);
+    expect((await page.request.get("/api/ask")).status()).toBe(404);
+    await healthy(page, bad);
+  });
+
+
   test("person page (full page)", async ({ page }) => {
     const bad = watch(page);
     await visit(page, "/person/6384?full=1", bad);
