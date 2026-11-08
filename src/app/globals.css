@@ -428,7 +428,7 @@ label, select, input[type=checkbox], input[type=radio] { cursor: pointer; }
 button:not([disabled]):active, a.row:active, a.tab:active, .person-chip:active, .pc-link:active, summary:active { opacity: .7; }
 .sh-where img, .prov img, .avatar, .thumb, .sh-poster, .pill, .banner, .hero, .empty, .toast { transition: filter .15s, transform .15s, box-shadow .15s, border-color .15s; }
 
-/* Glimpse: eye button beside any title or person, and the image panel it opens */
+/* Glimpse: photo-stack button beside any title or person, and the image panel it opens */
 .gl-b { flex: none; width: 32px; height: 32px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; color: var(--muted); }
 .gl-b svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .gl-b:hover, .gl-b:focus-visible { color: var(--gold); }

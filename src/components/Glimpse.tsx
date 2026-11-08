@@ -99,13 +99,13 @@ export function GlimpseProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-/** The eye button. Opens the image panel for whatever it sits beside. Never place it inside a link or summary. */
+/** The photo-stack button (two frames, a sun and a hill, so it never reads as search). Opens the image panel for whatever it sits beside. Never place it inside a link or summary. */
 export function GlimpseButton({ spec, label }: { spec: GlimpseSpec; label?: string }) {
   const open = useGlimpse();
   const text = label ?? `See images of ${spec.heading}`;
   return (
     <button type="button" className="gl-b" onClick={() => open(spec)} aria-label={text} title={text}>
-      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="M15.5 15.5L21 21" /></svg>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5h11a2.5 2.5 0 0 1 2.5 2.5v10" /><rect x="3" y="7.5" width="14" height="12" rx="2.5" /><circle cx="8" cy="12" r="1.3" /><path d="M3.5 18l4.5-4 3 2.5 2-1.5 4 3" /></svg>
     </button>
   );
 }
