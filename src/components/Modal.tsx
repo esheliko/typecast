@@ -122,6 +122,17 @@ export function Modal({ children }: { children: React.ReactNode }) {
     return () => { unlock(); if (was && document.contains(was)) was.focus({ preventScroll: true }); };
   }, []);
   useEffect(() => { box.current?.querySelector(".sheet")?.scrollTo({ top: 0 }); }, [path]);
+  // Publish the popup bar's real height as --bar-h so sticky rows inside (an open cast member) pin exactly below it.
+  useEffect(() => {
+    const sheet = box.current?.querySelector<HTMLElement>(".sheet");
+    const bar = sheet?.querySelector<HTMLElement>(".sheet-bar");
+    if (!sheet || !bar) return;
+    const set = () => sheet.style.setProperty("--bar-h", `${bar.getBoundingClientRect().height - 1}px`);
+    set();
+    const ro = new ResizeObserver(set);
+    ro.observe(bar);
+    return () => ro.disconnect();
+  }, []);
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
       const el = box.current; if (!el) return;
