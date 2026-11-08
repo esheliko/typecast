@@ -4,6 +4,9 @@ import { useBackClose } from "@/lib/back-layer";
 import { createPortal } from "react-dom";
 import { addImported, setStatus } from "@/app/actions";
 import { img } from "@/lib/img";
+import { titleSpec } from "@/lib/glimpse";
+import { useGlimpse } from "./Glimpse";
+import { TitleLink } from "./Modal";
 import type { Applied, Failed, Unmatched, Unsure } from "@/lib/letterboxd";
 import type { BrowseItem, SearchHit, Status } from "@/lib/types";
 
@@ -51,6 +54,8 @@ export default function ImportReviewDialog({ rows, onChange, onClose, onRevert }
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
       const el = box.current; if (!el) return;
+      // A title popup or image panel opened from a row is on top: leave its keys alone.
+      if (document.activeElement !== el && !el.contains(document.activeElement)) return;
       if (e.key === "Escape" && !(e.target as HTMLElement).closest("input,textarea,select")) { e.preventDefault(); if (!reverting) onClose(); }
       if (e.key === "Tab") {
         const f = [...el.querySelectorAll<HTMLElement>(FOCUSABLE)].filter((x) => x.offsetParent !== null);
@@ -107,7 +112,7 @@ export default function ImportReviewDialog({ rows, onChange, onClose, onRevert }
 
   if (typeof document === "undefined") return null;
   return createPortal(
-    <div ref={box} className="modal" role="dialog" aria-modal="true" aria-label="Review import" tabIndex={-1} onClick={(e) => { if (e.target === e.currentTarget && !reverting) onClose(); }}>
+    <div ref={box} className="modal" style={{ zIndex: 39 }} role="dialog" aria-modal="true" aria-label="Review import" tabIndex={-1} onClick={(e) => { if (e.target === e.currentTarget && !reverting) onClose(); }}>
       <div className="sheet">
         <div className="sheet-bar">
           <b>Review import</b>
@@ -135,6 +140,7 @@ export default function ImportReviewDialog({ rows, onChange, onClose, onRevert }
                     {r.unsure && <div className="small" style={{ color: "var(--gold, #d4a017)" }}><b>{r.unsure.weak ? "Couldn't match this." : "Not sure."}</b> {r.unsure.why} {r.unsure.weak ? "Is this it, or search?" : "Is this it?"}</div>}
                     {!r.isNew && !unsaved(r) && <div className="small muted">Already in your library.</div>}
                   </div>
+                  {r.item && <Peek it={r.item} />}
                 </div>
                 <div className="chips" style={{ marginTop: 8, alignItems: "center" }}>
                   {r.item ? (
@@ -154,12 +160,13 @@ export default function ImportReviewDialog({ rows, onChange, onClose, onRevert }
                     <div className="small muted">Or did you mean:</div>
                     <ul style={{ listStyle: "none", margin: "4px 0 0", padding: 0, display: "grid", gap: 2 }}>
                       {r.unsure.alts.map((a) => (
-                        <li key={a.key}>
-                          <button type="button" disabled={busy === r.id || bulk} onClick={() => swap(r, a)} style={{ display: "flex", gap: 10, alignItems: "center", width: "100%", textAlign: "start", background: "none", border: 0, padding: 6, cursor: "pointer", color: "inherit", font: "inherit" }}>
+                        <li key={a.key} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <button type="button" disabled={busy === r.id || bulk} onClick={() => swap(r, a)} style={{ display: "flex", gap: 10, alignItems: "center", flex: 1, minWidth: 0, textAlign: "start", background: "none", border: 0, padding: 6, cursor: "pointer", color: "inherit", font: "inherit" }}>
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             {a.poster ? <img className="thumb" src={img(a.poster, "w92")} alt="" loading="lazy" /> : <div className="thumb" />}
                             <span>{a.title}{a.year ? ` (${a.year})` : ""}<span className="small muted">{a.type === "tv" ? " · TV" : " · Film"}</span></span>
                           </button>
+                          <Peek it={a} />
                         </li>
                       ))}
                     </ul>
@@ -194,6 +201,17 @@ export default function ImportReviewDialog({ rows, onChange, onClose, onRevert }
   );
 }
 
+/** Two ways to check which title this is: its full popup (cast, plot, where to watch) or a quick look at images from it. */
+function Peek({ it }: { it: BrowseItem }) {
+  const glimpse = useGlimpse();
+  return (
+    <span style={{ display: "inline-flex", gap: 6, flexShrink: 0 }}>
+      <TitleLink k={it.key} it={it} className="btn sm" aria-label={`Open ${it.title}`}>Details</TitleLink>
+      <button type="button" className="btn sm" aria-label={`Images of ${it.title}`} onClick={() => glimpse(titleSpec(it))}>Images</button>
+    </span>
+  );
+}
+
 /** Title search shown under a row. The results sit in the flow of the popup, so they are always next to the box and scroll with it. */
 function Picker({ start, onPick }: { start: string; onPick: (it: BrowseItem) => void }) {
   const [q, setQ] = useState(start.replace(/\s*\([^)]*\)\s*$/, ""));
@@ -221,12 +239,13 @@ function Picker({ start, onPick }: { start: string; onPick: (it: BrowseItem) => 
         <ul style={{ listStyle: "none", margin: "6px 0 0", padding: 0, display: "grid", gap: 2, maxHeight: 320, overflowY: "auto", border: "1px solid var(--line)", borderRadius: 12 }}>
           {hits.length === 0 && <li className="small muted" style={{ padding: 10 }}>No results.</li>}
           {hits.map((h) => (
-            <li key={h.key}>
-              <button type="button" onClick={() => onPick(h)} style={{ display: "flex", gap: 10, alignItems: "center", width: "100%", textAlign: "start", background: "none", border: 0, padding: 8, cursor: "pointer", color: "inherit", font: "inherit" }}>
+            <li key={h.key} style={{ display: "flex", alignItems: "center", gap: 6, paddingInlineEnd: 6 }}>
+              <button type="button" onClick={() => onPick(h)} style={{ display: "flex", gap: 10, alignItems: "center", flex: 1, minWidth: 0, textAlign: "start", background: "none", border: 0, padding: 8, cursor: "pointer", color: "inherit", font: "inherit" }}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 {h.poster ? <img className="thumb" src={img(h.poster, "w92")} alt="" loading="lazy" /> : <div className="thumb" />}
                 <span>{h.title}{h.year ? ` (${h.year})` : ""}<span className="small muted">{h.type === "tv" ? " · TV" : " · Film"}</span></span>
               </button>
+              <Peek it={h} />
             </li>
           ))}
         </ul>
