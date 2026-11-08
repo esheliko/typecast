@@ -14,7 +14,7 @@ import type { Item } from "@/lib/types";
 export interface Group { label: string; items: Item[]; by?: string }
 
 /** Ways to find related titles, each showing one signal on its own. Recommended is selected first. */
-const MODES = [["creator", "Creator"], ["names", "Similar names"], ["recommended", "Recommended"], ["themes", "Themes"]] as const;
+const MODES = [["franchise", "Same franchise"], ["creator", "Creator"], ["names", "Similar names"], ["recommended", "Recommended"], ["themes", "Themes"]] as const;
 const FIRST: Mode = "recommended";
 type Mode = (typeof MODES)[number][0];
 
@@ -76,11 +76,11 @@ export function FranchiseSheet({ it, load, loadSimilar, onClose }: { it: Item; l
   const [all, setAll] = useState<Group[] | null>(null); // every loose group, fetched up front
   useEffect(() => {
     let on = true;
+    load(it).then((g) => on && setGroups(g)); // collection / shared universe
     if (loadSimilar) loadSimilar(it).then((s) => on && setAll(s));
-    else load(it).then((g) => on && setGroups(g)); // no picker: plain franchise list
     return () => { on = false; };
   }, [it, load, loadSimilar]);
-  const shown = loadSimilar ? all && all.filter((g) => g.by === mode) : groups;
+  const shown = !loadSimilar || mode === "franchise" ? groups : all && all.filter((g) => g.by === mode);
   useEffect(() => {
     close.current?.focus();
     const key = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
@@ -105,8 +105,8 @@ export function FranchiseSheet({ it, load, loadSimilar, onClose }: { it: Item; l
           </div>
         )}
         {!shown ? <p className="muted"><span className="spin" />Finding related titles</p>
-          : shown.length === 0 ? <p className="muted">{loadSimilar ? "Nothing found this way. Try another view." : "Nothing related found."}</p>
-          : <FranchiseList groups={shown} include={!loadSimilar ? it : undefined} onNavigate={() => { keepHistory(); onClose(); }} />}
+          : shown.length === 0 ? <p className="muted">{!loadSimilar ? "Nothing related found." : mode === "franchise" ? "No franchise or collection found for this title. Try another view." : "Nothing found this way. Try another view."}</p>
+          : <FranchiseList groups={shown} include={!loadSimilar || mode === "franchise" ? it : undefined} onNavigate={() => { keepHistory(); onClose(); }} />}
       </div>
     </div>
   );
