@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Barlow_Condensed, IBM_Plex_Mono, Instrument_Sans } from "next/font/google";
 import SwRegister from "@/components/SwRegister";
-import UpdateWatcher from "@/components/UpdateWatcher";
 import "./globals.css";
 
 // Self-hosted at build time: no request to Google Fonts before the page can paint, and the fallback is size-matched so text does not jump.
@@ -31,7 +30,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         {children}
         <SwRegister />
-        <UpdateWatcher />
       </body>
     </html>
   );
