@@ -42,7 +42,7 @@ test.describe("behaviour (signed in)", () => {
       await page.goto("/library?f=watched");
       await expect(inRow(page, inception.title)).toBeVisible({ timeout: 20_000 });
 
-      await page.goto(`/title/movie/${inception.tmdb_id}`);
+      await page.goto(`/title/movie/${inception.tmdb_id}?full=1`);
       await expect(group).toBeVisible({ timeout: 30_000 });
       await expect(group.getByRole("button", { name: "Watched", exact: true })).toHaveAttribute("aria-pressed", "true");
       await group.getByRole("button", { name: "To watch", exact: true }).click();
@@ -56,7 +56,7 @@ test.describe("behaviour (signed in)", () => {
       await expect(inRow(page, "Fight Club")).toBeVisible({ timeout: 20_000 });
       await expect(inRow(page, inception.title)).toHaveCount(0);
 
-      await page.goto(`/title/movie/${inception.tmdb_id}`);
+      await page.goto(`/title/movie/${inception.tmdb_id}?full=1`);
       await expect(group).toBeVisible({ timeout: 30_000 });
       // Tapping the lit mark removes it, with the same toast and Undo as the quick marks; Undo brings it back.
       await group.getByRole("button", { name: "To watch", exact: true }).click();
@@ -217,6 +217,7 @@ test.describe("behaviour (signed in)", () => {
     try {
       const country = before?.country === "GB" ? "DE" : "GB";
       await page.goto("/setup");
+      await expect(page.locator("#cc")).toHaveCount(1); // settles after any popup restore
       await page.locator("#cc").selectOption(country);
       await expect.poll(async () => (await profile())?.country, { timeout: 15_000 }).toBe(country);
 
@@ -230,6 +231,7 @@ test.describe("behaviour (signed in)", () => {
       await expect.poll(async () => Object.values(((await profile())?.service_names ?? {}) as Record<string, string>), { timeout: 15_000 }).toContain(name);
 
       await page.reload();
+      await expect(page.locator("#cc")).toHaveCount(1);
       await expect(page.locator("#cc")).toHaveValue(country);
       await expect(page.getByRole("button", { name: /^Your services/ })).toContainText(name.slice(0, 12));
       await page.getByRole("button", { name: /^Your services/ }).click();
