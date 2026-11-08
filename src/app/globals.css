@@ -162,6 +162,14 @@ label.l { display: block; font: 500 12px var(--mono); letter-spacing: .08em; tex
 details.credit > summary { list-style: none; cursor: pointer; }
 details.credit > summary::-webkit-details-marker { display: none; }
 details.credit .more { margin-top: 8px; }
+/* Open filmography: keep the person's row and the "Full profile" button pinned under the sticky header while the credits scroll.
+   Both stick inside their <li>, so they release once the next person starts. */
+.credit { --stick: var(--top-h, 56px); --sum-h: 32px; }
+.sheet .credit { --stick: 62px; }
+.cast-main .credit { --sum-h: 44px; }
+details.credit[open] > summary { position: sticky; top: var(--stick); z-index: 6; background: var(--bg); }
+details.credit[open] .more { position: static; }
+.more-top { position: sticky; top: calc(var(--stick) + var(--sum-h) + 8px); z-index: 5; margin: -8px -12px 4px; padding: 8px 12px 6px; background: var(--bg); border-radius: 10px 10px 0 0; }
 .login { max-width: 420px; margin: 0 auto; padding-top: calc(15vh + env(safe-area-inset-top, 0px)); }
 .login .logo { font-size: 34px; margin-bottom: 22px; }
 .login form { display: flex; flex-direction: column; gap: 12px; }
