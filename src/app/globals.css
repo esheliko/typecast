@@ -519,8 +519,8 @@ button.aw-chip:hover { filter: brightness(1.08); }
 }
 
 /* Library: one suggested next watch above the chips */
-.upnext { margin-top: 14px; padding: 10px 12px 6px; border-color: var(--gold-fill); }
-.upnext-h { display: flex; align-items: center; margin-bottom: 2px; }
+.upnext { margin-top: 14px; padding: 10px 0 0; border-color: var(--gold-fill); }
+.upnext-h { display: flex; align-items: center; padding: 0 12px 2px; }
 .upnext-k { font: 700 13px/1 var(--display); text-transform: uppercase; letter-spacing: .08em; color: var(--gold-fill); }
 .upnext .chip.sm { margin-left: auto; }
 .nudge { margin: 8px 0 0; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }

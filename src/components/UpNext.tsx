@@ -16,25 +16,32 @@ function candidates(items: LibItem[]): { it: LibItem; why: string }[] {
   return out;
 }
 
-/** One suggested next watch from the library, shown above the list. "Another" steps through the rest. */
+const SHOWN = 4;
+
+/** A few things to watch next from the library, shown above the list. "More" moves on to the next few. */
 export default function UpNext({ items }: { items: LibItem[] }) {
   const list = useMemo(() => candidates(items), [items]);
-  const [i, setI] = useState(0);
+  const [page, setPage] = useState(0);
   if (!list.length) return null;
-  const { it, why } = list[i % list.length];
+  const pages = Math.ceil(list.length / SHOWN);
+  const start = (page % pages) * SHOWN;
+  const view = list.slice(start, start + SHOWN);
   return (
-    <section className="card upnext" aria-label="Up next">
-      <div className="upnext-h"><span className="upnext-k">Up next</span>
-        {list.length > 1 && <button type="button" className="chip sm" onClick={() => setI((n) => n + 1)}>Another</button>}
+    <section className="card upnext" aria-label="Watch next">
+      <div className="upnext-h"><span className="upnext-k">Watch next</span>
+        {pages > 1 && <button type="button" className="chip sm" onClick={() => setPage((n) => n + 1)}>More</button>}
       </div>
-      <TitleLink className="row-link" k={it.key} it={it}>
-        <Thumb path={it.poster} />
-        <span className="row-main">
-          <span className="row-title">{it.title}</span>
-          <span className="row-sub">{it.year} · {typeLabel(it.type)}</span>
-          <span className="row-sub">{why}</span>
-        </span>
-      </TitleLink>
+      <ul className="rows">
+        {view.map(({ it, why }) => (
+          <li key={it.key} className="row"><TitleLink className="row-link" k={it.key} it={it}>
+            <Thumb path={it.poster} />
+            <span className="row-main">
+              <span className="row-title" style={{ fontSize: 17 }}>{it.title}</span>
+              <span className="row-sub">{it.year} · {typeLabel(it.type)} · {why}</span>
+            </span>
+          </TitleLink></li>
+        ))}
+      </ul>
     </section>
   );
 }
