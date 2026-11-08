@@ -179,6 +179,8 @@ export default function Browse({ filters, filtered, list: initialList, salt: ser
   useEffect(() => {
     if (!pages[key] && !(filtered && first)) load(1);
     else { seq.current++; setState("idle"); }
+    // Deliberately keyed on `key` only: load/pages/first change on every fetch and must not retrigger this.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
 
   function setUrl(p: Record<string, string | null>) {
