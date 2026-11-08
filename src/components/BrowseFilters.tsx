@@ -1,22 +1,18 @@
 "use client";
-import { useRouter } from "next/navigation";
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useState } from "react";
 import TagPicker from "./TagPicker";
-import { DECADES, RATINGS, toParams, type BrowseQuery, type Tag } from "@/lib/browse";
+import { DECADES, RATINGS, type BrowseQuery, type Tag } from "@/lib/browse";
+
+const EMPTY: BrowseQuery = { type: "all", genres: [], from: "", to: "", people: [], companies: [], keywords: [], sort: "popular", minRating: 0, mine: false };
 
 /** Detailed filter panel for the Browse view. The URL is the source of truth, so every view is shareable and Back works. Films / Series is chosen in the Browse bar. */
-export default function BrowseFilters({ q, genres, canFilterMine, active }: { q: BrowseQuery; genres: Tag[]; canFilterMine: boolean; active: boolean }) {
-  const router = useRouter();
-  const [pending, start] = useTransition();
+export default function BrowseFilters({ q, genres, canFilterMine, active, pending, onChange }: { q: BrowseQuery; genres: Tag[]; canFilterMine: boolean; active: boolean; pending: boolean; onChange: (next: BrowseQuery) => void }) {
   const [from, setFrom] = useState(q.from);
   const [to, setTo] = useState(q.to);
   const [gOpen, setGOpen] = useState(q.genres.length > 0);
   useEffect(() => { setFrom(q.from); setTo(q.to); }, [q.from, q.to]);
 
-  const go = (next: Partial<BrowseQuery>) => {
-    const s = toParams({ ...q, ...next }).toString();
-    start(() => router.replace(s ? `/?${s}` : "/", { scroll: false }));
-  };
+  const go = (next: Partial<BrowseQuery>) => onChange({ ...q, ...next });
 
   // Years commit once they are a full 4 digits (or cleared).
   useEffect(() => {
@@ -68,7 +64,7 @@ export default function BrowseFilters({ q, genres, canFilterMine, active }: { q:
 
       <div className="chips" style={{ marginTop: 14 }}>
         {canFilterMine && <button type="button" className="chip" aria-pressed={q.mine} onClick={() => go({ mine: !q.mine })}>On my streaming services</button>}
-        {active && <button type="button" className="chip" onClick={() => start(() => router.replace(q.type === "all" ? "/" : `/?type=${q.type}`, { scroll: false }))}>Clear all</button>}
+        {active && <button type="button" className="chip" onClick={() => onChange({ ...EMPTY, type: q.type })}>Clear all</button>}
       </div>
     </section>
   );

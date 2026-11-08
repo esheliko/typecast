@@ -1,6 +1,6 @@
 "use client";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useLayoutEffect, useOptimistic, useRef, useState, useTransition } from "react";
 import BrowseFilters from "../BrowseFilters";
 import { TitleLink } from "../Modal";
 import { GlimpseButton } from "../Glimpse";
@@ -56,6 +56,12 @@ export default function Browse({ filters, filtered, list: initialList, salt: ser
   // The "For you" seed. Kept in state (and in a snapshot while a title is open) so coming back never reshuffles the grid.
   const [salt, setSalt] = useState(serverSalt);
   const [routing, startRoute] = useTransition();
+  // What the controls show: updated the instant you tap, then settled by the server's props when the transition ends.
+  const [shownFilters, setShownFilters] = useOptimistic(filters);
+  const navigate = (next: BrowseQuery) => {
+    const s = toParams(next).toString();
+    startRoute(() => { setShownFilters(next); router.replace(s ? `/?${s}` : "/", { scroll: false }); });
+  };
   const [type, setType] = useState<BrowseType>(filters.type);
   const [list, setList] = useState<BrowseList>(initialList);
   const [hide, setHideState] = useState(true);
@@ -179,7 +185,7 @@ export default function Browse({ filters, filtered, list: initialList, salt: ser
   function chooseType(t: BrowseType) {
     if (t === type) return;
     // With filters set the server runs the search again. Genre ids differ between films and series, so they are translated.
-    if (filtered) { const s = toParams({ ...filters, type: t, genres: convertGenres(filters.genres, type, t) }).toString(); startRoute(() => router.replace(s ? `/?${s}` : "/", { scroll: false })); return; }
+    if (filtered) { navigate({ ...filters, type: t, genres: convertGenres(filters.genres, type, t) }); return; }
     setType(t); setUrl({ type: t === "all" ? null : t });
   }
 
@@ -201,7 +207,8 @@ export default function Browse({ filters, filtered, list: initialList, salt: ser
     if (!el || !el.offsetParent || !data?.more || state !== "idle" || autoRuns.current >= 8) return;
     if (el.getBoundingClientRect().top < window.innerHeight + 600) { autoRuns.current++; load(data.page + 1); }
   }, [data, state, shown.length, load]);
-  const n = countFilters(filters);
+  const n = countFilters(shownFilters);
+  const vType = filtered ? shownFilters.type : type;
 
   return (
     <section aria-label="Browse">
@@ -220,7 +227,7 @@ export default function Browse({ filters, filtered, list: initialList, salt: ser
       )}
       <div className="bz-bar">
         <div className="seg" role="group" aria-label="Type">
-          {(["all", "movie", "tv"] as BrowseType[]).map((t) => <button key={t} type="button" aria-pressed={type === t} onClick={() => chooseType(t)}>{t === "all" ? "Both" : t === "movie" ? "Films" : "Series"}</button>)}
+          {(["all", "movie", "tv"] as BrowseType[]).map((t) => <button key={t} type="button" aria-pressed={vType === t} onClick={() => chooseType(t)}>{t === "all" ? "Both" : t === "movie" ? "Films" : "Series"}</button>)}
         </div>
         <button type="button" className="chip sm filt" aria-expanded={panel} aria-pressed={n > 0} onClick={() => setPanel(!panel)}>
           <svg className="pill-i" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M4 5h16l-6 8v6l-4-2v-4z" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" /></svg>
@@ -228,13 +235,13 @@ export default function Browse({ filters, filtered, list: initialList, salt: ser
         </button>
         <label className="pillsel" title="Sort order">
           <svg className="pill-i" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M8 4v16m0 0-3-3m3 3 3-3M16 20V4m0 0-3 3m3-3 3 3" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
-          <select aria-label="Sort by" value={filters.sort} onChange={(e) => { const s = toParams({ ...filters, type, sort: e.target.value as Sort }).toString(); startRoute(() => router.replace(s ? `/?${s}` : "/", { scroll: false })); }}>
+          <select aria-label="Sort by" value={shownFilters.sort} onChange={(e) => navigate({ ...filters, type, sort: e.target.value as Sort })}>
             {SORTS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
         </label>
         <button type="button" className="chip sm" aria-pressed={hide} onClick={() => setHide(!hide)} title="Hide titles you have already marked or skipped, and make ones you keep scrolling past turn up less often">Hide marked{hide && hiddenCount > 0 ? ` · ${hiddenCount}` : ""}</button>
       </div>
-      {panel && <BrowseFilters q={{ ...filters, type }} genres={genres[type]} canFilterMine={canFilterMine} active={filtered} />}
+      {panel && <BrowseFilters q={{ ...shownFilters, type: vType }} genres={genres[vType]} canFilterMine={canFilterMine} active={filtered} pending={routing} onChange={navigate} />}
       {filtered && <h2>{routing ? <span><span className="spin" />Updating</span> : "Filtered results"}</h2>}
       {data?.notice && <p className="small muted" style={{ margin: "8px 0 0" }}>{data.notice}</p>}
 
