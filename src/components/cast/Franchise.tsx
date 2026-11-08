@@ -10,7 +10,11 @@ import { img, typeLabel } from "@/lib/img";
 import type { Item } from "@/lib/types";
 
 /** Titles that belong together (a collection, a shared universe), in release order. */
-export interface Group { label: string; items: Item[] }
+export interface Group { label: string; items: Item[]; by?: string }
+
+/** Ways to find related titles. "Default" is the franchise, or loosely similar titles when there is none; the rest show one signal on its own. */
+const MODES = [["default", "Default"], ["creator", "Creator"], ["names", "Similar names"], ["recommended", "Recommended"], ["themes", "Themes"]] as const;
+type Mode = (typeof MODES)[number][0];
 
 /**
  * The checklist for one group. Each row has the usual one-tap marks, and the group header
@@ -67,15 +71,22 @@ export function FranchiseSheet({ it, load, loadSimilar, onClose }: { it: Item; l
   const close = useRef<HTMLButtonElement>(null);
   useBackClose(true, onClose);
   const [loose, setLoose] = useState(false);
+  const [mode, setMode] = useState<Mode>("default");
+  const [all, setAll] = useState<Group[] | null>(null); // every loose group, fetched the first time a non-default view is picked
   useEffect(() => {
     let on = true;
     load(it).then(async (g) => {
       if (g.length || !loadSimilar) return on && setGroups(g);
       const s = await loadSimilar(it);
-      if (on) { setLoose(s.length > 0); setGroups(s); }
+      if (on) { setLoose(s.length > 0); setGroups(s); setAll(s); }
     });
     return () => { on = false; };
   }, [it, load, loadSimilar]);
+  useEffect(() => {
+    if (mode === "default" || all || !loadSimilar) return;
+    let on = true; loadSimilar(it).then((s) => on && setAll(s)); return () => { on = false; };
+  }, [mode, all, it, loadSimilar]);
+  const shown = mode === "default" ? groups : all && all.filter((g) => g.by === mode);
   useEffect(() => {
     close.current?.focus();
     const key = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
@@ -88,13 +99,20 @@ export function FranchiseSheet({ it, load, loadSimilar, onClose }: { it: Item; l
       <div className="fsheet" role="dialog" aria-modal="true" aria-label={`Related to ${it.title}`} onClick={(e) => e.stopPropagation()}>
         <div className="fsheet-top">
           <div style={{ minWidth: 0 }}>
-            <div className="small muted">{loose ? `No franchise found for ${it.title}. Here are titles with similar names or themes.` : `You marked ${it.title}. Which of these have you seen?`}</div>
+            <div className="small muted">{mode !== "default" ? `Related to ${it.title}, by ${MODES.find((m) => m[0] === mode)![1].toLowerCase()}.` : loose ? `No franchise found for ${it.title}. Here are titles with similar names or themes.` : `You marked ${it.title}. Which of these have you seen?`}</div>
           </div>
           <button ref={close} type="button" className="btn sm gold" onClick={onClose}>Done</button>
         </div>
-        {!groups ? <p className="muted"><span className="spin" />Finding related titles</p>
-          : groups.length === 0 ? <p className="muted">Nothing related found.</p>
-          : <FranchiseList groups={groups} include={loose ? undefined : it} onNavigate={() => { keepHistory(); onClose(); }} />}
+        {loadSimilar && (
+          <div className="chips" role="group" aria-label="Find related titles by" style={{ display: "flex", flexWrap: "wrap", gap: 6, margin: "8px 0" }}>
+            {MODES.map(([m, label]) => (
+              <button key={m} type="button" className={`btn sm${mode === m ? " gold" : ""}`} aria-pressed={mode === m} onClick={() => setMode(m)}>{label}</button>
+            ))}
+          </div>
+        )}
+        {!shown ? <p className="muted"><span className="spin" />Finding related titles</p>
+          : shown.length === 0 ? <p className="muted">{mode === "default" ? "Nothing related found." : "Nothing found this way. Try another view."}</p>
+          : <FranchiseList groups={shown} include={mode === "default" && !loose ? it : undefined} onNavigate={() => { keepHistory(); onClose(); }} />}
       </div>
     </div>
   );

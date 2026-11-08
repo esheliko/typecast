@@ -164,7 +164,7 @@ export async function getCollection(id: number): Promise<Related[]> {
 }
 
 /** A set of titles that belong together, in release order. */
-export interface FranchiseGroup { label: string; items: Item[] }
+export interface FranchiseGroup { label: string; items: Item[]; /** Which way of finding related titles produced it (see the picker in the related popup). */ by?: "creator" | "names" | "recommended" | "themes" }
 
 const UNIVERSE_KW = /universe|franchise|cinematic|saga|\bmcu\b|dceu|verse$/i;
 const niceName = (s: string) => s.replace(/\s*\(.*?\)\s*/g, " ").trim().replace(/\b[a-z]/g, (c) => c.toUpperCase());
@@ -300,7 +300,7 @@ export const getSimilar = cache(async (type: MediaType, id: number): Promise<Fra
     const rows = lists.flat().filter((r: any) => (r.vote_count ?? 0) >= 5).sort((a: any, b: any) => (when(a)).localeCompare(when(b)));
     const same: Item[] = [];
     for (const r of rows) same.push(...keep([r], r.media_type));
-    if (same.length) out.push({ label: "Same creator", items: same.slice(0, 20) });
+    if (same.length) out.push({ label: "Same creator", by: "creator", items: same.slice(0, 20) });
   }
   // Similar names: the title before any subtitle, then its first two words.
   const head = title.split(/\s*[:\u2013\u2014-]\s*/)[0].trim();
@@ -310,17 +310,17 @@ export const getSimilar = cache(async (type: MediaType, id: number): Promise<Fra
     tmdb(`/search/${t}`, { query: q, include_adult: "false" }, 24 * HOUR).then((r) => (r.results ?? []).slice(0, 10).map((x: any) => ({ x, t }))).catch(() => [])))).catch(() => []);
   const nm: Item[] = [];
   for (const { x, t } of named.flat() as { x: any; t: MediaType }[]) nm.push(...keep([x], t));
-  if (nm.length) out.push({ label: "Similar names", items: nm.slice(0, 16) });
+  if (nm.length) out.push({ label: "Similar names", by: "names", items: nm.slice(0, 16) });
   const rec = keep(d.recommendations?.results ?? [], type);
-  if (rec.length) out.push({ label: "Recommended", items: rec.slice(0, 20) });
+  if (rec.length) out.push({ label: "Recommended", by: "recommended", items: rec.slice(0, 20) });
   const sim = keep(d.similar?.results ?? [], type);
-  if (sim.length) out.push({ label: "Similar titles", items: sim.slice(0, 20) });
+  if (sim.length) out.push({ label: "Similar titles", by: "recommended", items: sim.slice(0, 20) });
   const kws: any[] = (type === "movie" ? d.keywords?.keywords : d.keywords?.results) ?? [];
   if (kws.length) {
     const date = type === "movie" ? "primary_release_date" : "first_air_date";
     const r = await tmdb(`/discover/${type}`, { with_keywords: kws.slice(0, 3).map((k) => k.id).join("|"), sort_by: "popularity.desc", include_adult: "false", "vote_count.gte": "100", [`${date}.lte`]: today() }, 24 * HOUR).catch(() => ({ results: [] }));
     const kw = keep(r.results ?? [], type);
-    if (kw.length) out.push({ label: "Shared themes", items: kw.slice(0, 20) });
+    if (kw.length) out.push({ label: "Shared themes", by: "themes", items: kw.slice(0, 20) });
   }
   return out;
 });
