@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { useBackClose } from "@/lib/back-layer";
+import { lockScroll } from "@/lib/scroll-lock";
 import { createPortal } from "react-dom";
 import { addImported, setStatus } from "@/app/actions";
 import { img } from "@/lib/img";
@@ -51,9 +52,8 @@ export default function ImportReviewDialog({ rows, onChange, onClose, onRevert }
   useEffect(() => {
     const was = document.activeElement as HTMLElement | null;
     box.current?.focus({ preventScroll: true });
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = prev; if (was && document.contains(was)) was.focus({ preventScroll: true }); };
+    const unlock = lockScroll();
+    return () => { unlock(); if (was && document.contains(was)) was.focus({ preventScroll: true }); };
   }, []);
   useEffect(() => {
     const key = (e: KeyboardEvent) => {

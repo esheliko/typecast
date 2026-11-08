@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { createPortal } from "react-dom";
 
 import { useBackClose } from "@/lib/back-layer";
+import { lockScroll } from "@/lib/scroll-lock";
 
 const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),textarea:not([disabled]),select:not([disabled]),[tabindex]:not([tabindex="-1"])';
 
@@ -27,9 +28,8 @@ function Popup({ title, onClose, children }: { title: string; onClose: () => voi
   useEffect(() => {
     const was = document.activeElement as HTMLElement | null;
     box.current?.focus({ preventScroll: true });
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = prev; if (was && document.contains(was)) was.focus({ preventScroll: true }); };
+    const unlock = lockScroll();
+    return () => { unlock(); if (was && document.contains(was)) was.focus({ preventScroll: true }); };
   }, []);
   useEffect(() => {
     const key = (e: KeyboardEvent) => {

@@ -3,6 +3,7 @@ import { TitleLink } from "../Modal";
 import { GlimpseButton } from "../Glimpse";
 import { titleSpec } from "@/lib/glimpse";
 import { useEffect, useRef, useState } from "react";
+import { lockScroll } from "@/lib/scroll-lock";
 import { keepHistory, useBackClose } from "@/lib/back-layer";
 import { useLib } from "./LibState";
 import QuickMark from "./QuickMark";
@@ -90,9 +91,9 @@ export function FranchiseSheet({ it, load, loadSimilar, onClose }: { it: Item; l
   useEffect(() => {
     close.current?.focus();
     const key = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    const prev = document.body.style.overflow; document.body.style.overflow = "hidden";
+    const unlock = lockScroll();
     window.addEventListener("keydown", key);
-    return () => { window.removeEventListener("keydown", key); document.body.style.overflow = prev; };
+    return () => { window.removeEventListener("keydown", key); unlock(); };
   }, [onClose]);
   return (
     <div className="fsheet-wrap" onClick={onClose}>

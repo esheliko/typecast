@@ -1,4 +1,5 @@
 "use client";
+import { lockScroll } from "@/lib/scroll-lock";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ComponentProps } from "react";
@@ -106,9 +107,8 @@ export function Modal({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const was = document.activeElement as HTMLElement | null;
     box.current?.focus({ preventScroll: true });
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = prev; if (was && document.contains(was)) was.focus({ preventScroll: true }); };
+    const unlock = lockScroll();
+    return () => { unlock(); if (was && document.contains(was)) was.focus({ preventScroll: true }); };
   }, []);
   useEffect(() => { box.current?.querySelector(".sheet")?.scrollTo({ top: 0 }); }, [path]);
   useEffect(() => {
