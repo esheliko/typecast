@@ -43,7 +43,7 @@ export default function CastHome({ view: initialView, browse, connect, watching 
           </div>
           {/* Both views stay mounted so switching back keeps your place, filters and picks. */}
           <div hidden={view !== "browse"}>
-            {!browse.filtered && (
+            {(
               <details className="cw">
                 <summary>Continue watching{watching.length > 0 && <span className="cw-n">{watching.length}</span>}</summary>
                 {watching.length > 0
