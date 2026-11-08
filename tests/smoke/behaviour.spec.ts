@@ -210,4 +210,33 @@ test.describe("behaviour (signed in)", () => {
     expect(matrix?.status).toBe("watched");
     expect(matrix?.rating).toBe(5);
   });
+  test("Restore backup: restoring your own export reports everything unchanged; junk is rejected", async ({ page }) => {
+    const exported = await (await page.request.get("/api/export")).text();
+    const total = (JSON.parse(exported).library as unknown[]).length;
+    await page.goto("/setup");
+    await page.getByRole("button", { name: /^Restore backup/ }).click();
+    const dialog = page.getByRole("dialog", { name: "Restore backup" });
+    await dialog.getByLabel("Backup file").setInputFiles({ name: "typecast-backup.json", mimeType: "application/json", buffer: Buffer.from(exported) });
+    await expect(dialog.getByText(`${total} titles in typecast-backup.json`)).toBeVisible({ timeout: 30_000 });
+    await expect(dialog.getByText("0 new, will be added")).toBeVisible();
+    await expect(dialog.getByText(/^0 would change/)).toBeVisible();
+    await expect(dialog.getByText(`${total} unchanged`)).toBeVisible();
+    await expect(dialog.getByRole("button", { name: "Nothing to restore" })).toBeDisabled();
+    await dialog.getByLabel("Backup file").setInputFiles({ name: "x.json", mimeType: "application/json", buffer: Buffer.from('{"library":[{"type":"movie"}]}') });
+    await expect(dialog.getByRole("alert")).toContainText("Title 1");
+  });
+
+  test("Change password: wrong current password and mismatched new ones are refused", async ({ page }) => {
+    await page.goto("/setup");
+    await page.getByRole("button", { name: /^Change password/ }).click();
+    const dialog = page.getByRole("dialog", { name: "Change password" });
+    await dialog.getByLabel("Current password").fill("definitely-not-the-password");
+    await dialog.getByLabel("New password", { exact: true }).fill("another-long-one-1");
+    await dialog.getByLabel("Repeat new password").fill("another-long-one-2");
+    await dialog.getByRole("button", { name: "Change password" }).click();
+    await expect(dialog.getByRole("alert")).toContainText("don't match");
+    await dialog.getByLabel("Repeat new password").fill("another-long-one-1");
+    await dialog.getByRole("button", { name: "Change password" }).click();
+    await expect(dialog.getByRole("alert")).toContainText("current password is wrong", { timeout: 30_000 });
+  });
 });
