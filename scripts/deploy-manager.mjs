@@ -195,7 +195,8 @@ export function ciVerdict(runs) {
   const mine = (runs ?? []).filter((r) => r.name === CFG.ciCheck).sort((a, b) => Date.parse(b.started_at ?? 0) - Date.parse(a.started_at ?? 0));
   if (!mine.length) return 'none';
   const r = mine[0];
-  if (r.status !== 'completed') return 'pending';
+  // A cancelled run was superseded (a newer push or a manual run in the same group), it says nothing about the code: wait for the next one.
+  if (r.status !== 'completed' || r.conclusion === 'cancelled') return 'pending';
   return ['success', 'neutral', 'skipped'].includes(r.conclusion) ? 'pass' : 'fail';
 }
 
