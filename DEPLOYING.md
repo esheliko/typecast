@@ -39,7 +39,8 @@ in roughly 5-15 min; check issue #1 if you need to know.
   was accepted ~2h after the last one), so the 24h count is a pacing signal, not an exact quota. Only a real 402 is a hard stop.
 
 ## Visual board (Claude artifact "Typecast deploy board")
-https://claude.ai/artifact/UbFWzbLxByvYjzki19uuMv. It reads five JSON files uploaded to the artifact (no GitHub/Vercel connector exists, so it
-cannot query live). Refresh: `node scripts/dashboard-data.mjs <dir>`, then upload each of status/hourly/recent/events .json with the Artifact tool
+https://claude.ai/artifact/UbFWzbLxByvYjzki19uuMv. Live commit, the 24h count and the hourly chart are live queries on the Vercel connector
+(dataset `deployments`, a loader pages back 48h; each viewer must have approved Vercel for team `eshelikos-projects`). The manager state is still read
+from JSON files uploaded to the artifact (no GitHub connector exists): `status`, `recent`, `events` (`hourly.json`/`pending.json` are no longer used). Refresh: `node scripts/dashboard-data.mjs <dir>`, then upload each of status/hourly/recent/events .json with the Artifact tool
 (`asset: true`, same url) and `update` the matching `datasets/<id>` document's `source.url`, `source.name` and `updated`. The hourly supervisor does this.
 - 2026-11-08: first push-triggered Actions tick confirmed (board tick #3 with no Claude run). Anything under `scripts/` is now deploy-neutral too.
