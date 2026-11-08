@@ -114,3 +114,13 @@ test("a series back from Watched with a new episode leads, flagged and named, ev
   assert.equal(out[0].why, "S3 E1 aired 2 Nov");
   assert.equal(out.find((p) => p.key === fresh.key)?.fresh, undefined);
 });
+
+test("an in-progress series says when its next episode airs, within a week", async () => {
+  const { rankUpNext } = await import("../../src/lib/upnext");
+  const now = Date.parse("2026-11-08T12:00:00Z");
+  const s = lib({ key: "tv:9", type: "tv", id: 9, status: "watching", progress: { s: 2, e: 3 }, updated: now - 86400000 });
+  const soon = rankUpNext([s], { now, facts: new Map([[s.key, facts({ nextAir: "2026-11-12" })]]), hasServices: false }, new Set(), 5);
+  assert.match(soon[0].why, /new ep Thursday$/);
+  const later = rankUpNext([s], { now, facts: new Map([[s.key, facts({ nextAir: "2026-11-30" })]]), hasServices: false }, new Set(), 5);
+  assert.doesNotMatch(later[0].why, /new ep/);
+});

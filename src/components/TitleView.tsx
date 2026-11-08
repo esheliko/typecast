@@ -7,7 +7,7 @@ import { CreditRow, CrewRow } from "@/components/CreditRow";
 import Episodes from "@/components/Episodes";
 import Appearances, { EpisodeJump } from "@/components/Appearances";
 import { Avatar } from "@/components/ui";
-import { epCode, epsLabel, fmtDate, showLine, untilLabel } from "@/lib/episodes";
+import { epCode, epsLabel, fmtDate, isRunning, showLine, untilLabel } from "@/lib/episodes";
 import DetailOrder from "@/components/DetailOrder";
 import NoteBox from "@/components/NoteBox";
 import NewEpPill from "@/components/NewEp";
@@ -272,7 +272,8 @@ export default async function TitleView({ t, origin, focus }: { t: Title; origin
       <Details t={t} lib={lib} order={profile.details} />
       <Unchosen t={t} lib={lib} order={profile.details} />
       {t.type === "tv" && t.seasons.length > 0 && (
-        <Episodes item={{ id: t.id, title: t.title, year: t.year, poster: t.poster }} seasons={t.seasons} progress={mine?.progress ?? null} status={mine?.status ?? null} today={today()} />
+        <Episodes item={{ id: t.id, title: t.title, year: t.year, poster: t.poster }} seasons={t.seasons} progress={mine?.progress ?? null} status={mine?.status ?? null} today={today()}
+          ended={!!t.show && !isRunning(t.show.status)} latest={t.show?.latest ?? null} next={t.show?.next ?? null} />
       )}
       <Suspense fallback={null}><AwardsSection t={t} /></Suspense>
       <Suspense fallback={null}><Franchise t={t} /></Suspense>

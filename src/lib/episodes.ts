@@ -98,3 +98,40 @@ export function nextAfter<T extends EpisodeLite>(list: T[], p: { s: number; e: n
 
 /** Is episode `x` at or before the user's progress? */
 export const upTo = (x: { s: number; e: number }, p: { s: number; e: number } | null) => !!p && (x.s < p.s || (x.s === p.s && x.e <= p.e));
+
+const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+/**
+ * When an upcoming episode airs, to follow "New episode": "today", "tomorrow", "Thursday" (within the week), "on 12 Nov".
+ * "" when it is past or the date is unknown.
+ */
+export function airsLabel(iso: string, today: string): string {
+  const n = daysUntil(iso, today);
+  if (!(n >= 0)) return "";
+  if (n === 0) return "today";
+  if (n === 1) return "tomorrow";
+  if (n < 7) return WEEKDAYS[new Date(iso.slice(0, 10) + "T00:00:00Z").getUTCDay()];
+  const d = fmtDate(iso);
+  return `on ${today.slice(0, 4) === iso.slice(0, 4) ? d.slice(0, -5) : d}`;
+}
+
+/** The episode just before `x` (the last of the previous season for an E1), or null before the first. Specials (0) are skipped. */
+export function prevEpisode(x: { s: number; e: number }, seasons: { n: number; eps: number }[]): { s: number; e: number } | null {
+  if (x.e > 1) return { s: x.s, e: x.e - 1 };
+  const before = seasons.filter((n) => n.n > 0 && n.n < x.s && n.eps > 0).sort((a, b) => b.n - a.n)[0];
+  return before ? { s: before.n, e: before.eps } : null;
+}
+
+/**
+ * Where you saw someone in a series you have in your library, from the episodes they were in: `{ ep }` names it
+ * ("S4 E13 “Face Off”", or "3 episodes"), `{}` when it cannot be told, and null when your progress has not reached any of
+ * their episodes yet (so the series is not where you know them from). A series marked Watched counts every episode.
+ */
+export function seenIn(eps: EpisodeLite[], l: { status: string; progress: { s: number; e: number } | null }): { ep?: string } | null {
+  if (!eps.length) return {};
+  const seen = l.status === "watched" && !l.progress ? eps : l.progress ? eps.filter((x) => upTo(x, l.progress)) : null;
+  if (!seen) return {};
+  if (!seen.length) return l.status === "watched" ? {} : null;
+  const one = seen[0];
+  return { ep: seen.length === 1 ? `${epCode(one.s, one.e)}${one.name ? ` “${one.name}”` : ""}` : plural(seen.length, "episode") };
+}

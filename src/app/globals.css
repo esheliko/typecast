@@ -742,7 +742,6 @@ body:has(.wbar) .toast-slot { bottom: calc(146px + env(safe-area-inset-bottom, 0
 .ep-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .ep-name { font-weight: 600; overflow-wrap: anywhere; }
 .ep-sub { font-size: 12.5px; color: var(--muted); }
-.ep-check { flex: none; color: var(--good); font-weight: 700; }
 .ep.ep-seen .ep-name { color: var(--muted); }
 .ep.ep-soon .ep-n, .ep.ep-soon .ep-name { opacity: .6; }
 .ep.ep-open { background: color-mix(in srgb, var(--chip) 45%, transparent); }
@@ -795,3 +794,11 @@ body:has(.wbar) .toast-slot { bottom: calc(146px + env(safe-area-inset-bottom, 0
 .ask-st { font-size: 11px; font-weight: 600; }
 .ask-st.seen { color: var(--good); } .ask-st.list { color: var(--gold); }
 .ask-links { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 8px; font-size: 13px; }
+.ep { position: relative; }
+.ep-row { padding-right: 56px; }
+.ep-tick { position: absolute; right: 12px; top: 10px; width: 32px; height: 32px; border-radius: 50%; border: 2px solid var(--line); color: transparent; font-weight: 700; display: grid; place-items: center; background: transparent; cursor: pointer; }
+.ep-tick:hover { border-color: var(--good); color: color-mix(in srgb, var(--good) 45%, transparent); }
+.ep-tick[aria-pressed="true"] { background: var(--good); border-color: var(--good); color: var(--surface); }
+.ep-tick:disabled { opacity: .6; }
+.ep-note { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 14px; border-top: 1px solid var(--line); background: color-mix(in srgb, var(--gold-fill) 10%, transparent); }
+.linkish { font: inherit; color: var(--gold); text-decoration: underline; padding: 0; cursor: pointer; }

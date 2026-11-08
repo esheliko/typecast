@@ -17,7 +17,7 @@ export interface Item { key: string; type: MediaType; id: number; title: string;
 export interface BrowseItem extends Item { rating: number }
 export interface Related extends Item { rel: string }
 /** `eps` / `since`: for a series, how many episodes they were in and the date of their first one. */
-export interface Credit extends Item { role: string; votes: number; rating: number; date: string; eps?: number; since?: string }
+export interface Credit extends Item { role: string; votes: number; rating: number; date: string; eps?: number; since?: string; /** TMDB credit ids (series, one per part), to look up which episodes. */ cids?: string[] }
 /** `eps` and `credits` only for a series: episodes they appeared in, and TMDB credit ids (one per role) for looking up which. */
 export interface CastMember { id: number; name: string; photo: string | null; role: string; eps?: number; credits?: string[] }
 /** One episode, as listed in a season. */
@@ -61,7 +61,8 @@ export interface Profile { country: string; services: number[]; serviceNames: Re
 export interface LetterboxdLink { user: string; syncedAt: number | null; error: string | null }
 
 export interface EnrichedMember extends CastMember {
-  hits: { key: string; title: string; year: string }[];
+  /** Titles you watched them in. `ep` names where in a series you saw them: "S4 E13 “Face Off”" or "3 episodes". */
+  hits: { key: string; title: string; year: string; ep?: string }[];
   also: string[];
   top: Credit[];
 }

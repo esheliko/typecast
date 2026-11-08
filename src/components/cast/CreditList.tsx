@@ -85,10 +85,11 @@ export function SuggestionRows({ items }: { items: (Item & { why: string })[] })
 }
 
 /** "You know them from" line. Titles you unmark stay named until the page reloads, so the rows below do not shift. */
-export function SeenLine({ hits }: { hits: { key: string; title: string; year?: string | number }[] }) {
+export function SeenLine({ hits }: { hits: { key: string; title: string; year?: string | number; ep?: string }[] }) {
   const [list] = useRetained(hits);
   if (!list.length) return null;
-  return <div className="seen">You know them from: {list.slice(0, 4).map((h) => (h.year ? `${h.title} (${h.year})` : h.title)).join(", ")}</div>;
+  // A series names the episode you saw them in: "Breaking Bad (S4 E13 “Face Off”)".
+  return <div className="seen">You know them from: {list.slice(0, 4).map((h) => (h.ep ? `${h.title} (${h.ep})` : h.year ? `${h.title} (${h.year})` : h.title)).join(", ")}</div>;
 }
 
 /** Library titles that share cast with the open title. Same rule: rows stay put when unmarked. */

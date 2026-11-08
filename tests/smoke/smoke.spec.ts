@@ -274,6 +274,12 @@ test.describe("signed in", () => {
     await eps.getByRole("button", { name: /Face Off/ }).click();
     await expect(eps.getByText("Directed by Vince Gilligan").first()).toBeVisible({ timeout: 20_000 });
     await expect(eps.getByText("Guest stars").first()).toBeVisible();
+    // One-tap ticks move progress; Undo puts it back (the seeded row stays as it was).
+    await eps.getByRole("button", { name: /^S3( ✓)?$/ }).click();
+    await eps.getByRole("button", { name: "Mark watched up to S3 E2" }).click();
+    await expect(eps.getByText("Up to S3 E2")).toBeVisible({ timeout: 20_000 });
+    await eps.getByRole("button", { name: "Undo" }).click();
+    await expect(eps.getByText("Up to S3 E2")).toHaveCount(0, { timeout: 20_000 });
     for (const p of ["/api/season?tv=1396&s=1", "/api/appearances?tv=1396&c=5276f5c9760ee34ca70c6628&n=3"]) {
       const r = await page.request.get(p);
       expect(r.status(), p).toBe(200);

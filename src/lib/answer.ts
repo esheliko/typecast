@@ -21,7 +21,7 @@ export type AnswerCard =
 export interface Answer { text: string; cards?: AnswerCard[]; links?: { label: string; url: string }[]; about?: number[]; next?: string[] }
 
 /** A face in the Ask sheet: who they are, who they play, and the titles the user has watched them in. */
-export interface WatchFace { id: number; name: string; photo: string | null; role: string; guest?: boolean; hits: { key: string; title: string; year: string }[] }
+export interface WatchFace { id: number; name: string; photo: string | null; role: string; guest?: boolean; hits: { key: string; title: string; year: string; ep?: string }[] }
 
 /** Everyone on screen: for a series, this episode's cast and guest stars first, then the regulars. */
 async function onScreen(w: Watch, t: Title): Promise<(CastMember & { guest?: boolean })[]> {
@@ -146,8 +146,8 @@ async function castKnown(ctx: Ctx): Promise<Answer> {
   const known = rich.filter((p) => p.hits.length);
   if (!known.length) return { text: "You haven't watched anything else with this cast yet (from your library). Tap a face to see what each of them is best known for." };
   return {
-    text: `You know ${plural(known.length, "of the cast", "of the cast")} from your library:\n` + known.slice(0, 10).map((p) => `- **${p.name}**${p.role ? ` (${p.role})` : ""}: ${and(p.hits.slice(0, 3).map((h) => `${h.title}${yr(h)}`))}${p.hits.length > 3 ? ` +${p.hits.length - 3}` : ""}`).join("\n"),
-    cards: known.slice(0, 8).map((p) => ({ kind: "person" as const, id: p.id, name: p.name, photo: p.photo, sub: p.hits[0] ? `seen in ${p.hits[0].title}` : p.role })),
+    text: `You know ${plural(known.length, "of the cast", "of the cast")} from your library:\n` + known.slice(0, 10).map((p) => `- **${p.name}**${p.role ? ` (${p.role})` : ""}: ${and(p.hits.slice(0, 3).map((h) => `${h.title}${h.ep ? ` (${h.ep})` : yr(h)}`))}${p.hits.length > 3 ? ` +${p.hits.length - 3}` : ""}`).join("\n"),
+    cards: known.slice(0, 8).map((p) => ({ kind: "person" as const, id: p.id, name: p.name, photo: p.photo, sub: p.hits[0] ? `seen in ${p.hits[0].title}${p.hits[0].ep ? ` (${p.hits[0].ep})` : ""}` : p.role })),
   };
 }
 

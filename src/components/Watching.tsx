@@ -11,7 +11,7 @@ import type { Answer, AnswerCard } from "@/lib/answer";
 
 /** `assistant` is a plain-text AI answer (benched, ASK_AI=1); `answer` is the built-in, no-AI answer with cards and links. */
 type Msg = { role: "user"; content: string } | { role: "assistant"; content: string } | { role: "answer"; a: Answer };
-type Face = { id: number; name: string; photo: string | null; role: string; guest?: boolean; hits: { key: string; title: string; year: string }[] };
+type Face = { id: number; name: string; photo: string | null; role: string; guest?: boolean; hits: { key: string; title: string; year: string; ep?: string }[] };
 
 interface Ctx {
   watch: Watch | null;
@@ -310,7 +310,7 @@ function AskSheet({ w, first, onChange, onClose, onStop }: { w: Watch; first?: s
                 {f.photo ? <img src={img(f.photo, "w185")} alt="" loading="lazy" /> : <span className="ask-noph" aria-hidden="true">{f.name[0]}</span>}
                 <b>{f.name}</b>
                 {f.role && <span className="small muted">{f.role}</span>}
-                {f.hits.length > 0 ? <span className="ask-seen">Seen in {f.hits[0].title}{f.hits.length > 1 ? ` +${f.hits.length - 1}` : ""}</span> : f.guest ? <span className="small muted">Guest</span> : null}
+                {f.hits.length > 0 ? <span className="ask-seen">Seen in {f.hits[0].title}{f.hits[0].ep ? ` (${f.hits[0].ep})` : ""}{f.hits.length > 1 ? ` +${f.hits.length - 1}` : ""}</span> : f.guest ? <span className="small muted">Guest</span> : null}
               </button>
             ))}
           </div>

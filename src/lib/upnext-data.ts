@@ -22,7 +22,7 @@ async function factsFor(items: Item[], profile: Profile, into: Map<string, Facts
     if (!b) return;
     const here = b.prov[profile.country] ?? [];
     const onMine = [...new Set(here.filter((id) => mine.has(id)).map((id) => b.names.get(id) ?? profile.serviceNames[String(id)] ?? "your services"))];
-    into.set(it.key, { genres: b.genres, vote: b.vote, votes: b.votes, runtime: b.runtime, released: b.released, lastAired: b.lastAired, onMine, streamable: here.length > 0, recs: b.recs });
+    into.set(it.key, { genres: b.genres, vote: b.vote, votes: b.votes, runtime: b.runtime, released: b.released, lastAired: b.lastAired, nextAir: b.nextAir, onMine, streamable: here.length > 0, recs: b.recs });
   });
 }
 

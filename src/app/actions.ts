@@ -110,20 +110,26 @@ export async function setProgress(type: MediaType, id: number, season: number, e
 }
 
 /**
- * "Watched up to here" on an episode: saves the progress and makes sure the series is in the library. A series that was only
- * on the watchlist (or not there at all) becomes Watching; Watching, Partly watched and Watched stay as they are.
+ * "Watched up to here" on an episode (or its tick): saves the progress and makes sure the series is in the library. A series
+ * that was only on the watchlist (or not there at all) becomes Watching; Watching, Partly watched and Watched stay as they are.
+ * `episode` 0 clears the progress (unticking the very first episode). Progress past a "New episode" settles that badge.
  */
 export async function setWatchedUpTo(item: { id: number; title: string; year: string; poster: string | null }, season: number, episode: number): Promise<Status> {
-  if (!(season >= 0) || !(episode >= 1)) throw new Error("Bad episode");
+  if (!(season >= 0) || !(episode >= 0) || !Number.isInteger(season) || !Number.isInteger(episode)) throw new Error("Bad episode");
+  const clear = episode === 0;
   const { sb, user } = await requireUser();
   const { data } = await sb.from("library_items").select("status").eq("user_id", user.id).match(where("tv", item.id)).maybeSingle();
   const keep = data?.status === "watching" || data?.status === "partial" || data?.status === "watched";
   const status: Status = keep ? (data!.status as Status) : "watching";
   const { error } = await sb.from("library_items").upsert(
-    { user_id: user.id, ...where("tv", item.id), title: item.title, year: item.year, poster_path: item.poster, status, progress_season: season, progress_episode: episode, updated_at: new Date().toISOString() },
+    { user_id: user.id, ...where("tv", item.id), title: item.title, year: item.year, poster_path: item.poster, status, progress_season: clear ? null : season, progress_episode: clear ? null : episode, updated_at: new Date().toISOString() },
     { onConflict: "user_id,tmdb_type,tmdb_id" },
   );
   if (error) throw dbError(error);
+  if (!clear) {
+    const { data: ne } = await sb.from("library_items").select("new_episode_s,new_episode_e").eq("user_id", user.id).match(where("tv", item.id)).maybeSingle();
+    if (ne?.new_episode_s && progressPassed({ s: season, e: episode }, { s: ne.new_episode_s, e: ne.new_episode_e ?? 1 })) await clearNewEp(sb, user.id, "tv", item.id);
+  }
   done();
   return status;
 }

@@ -234,6 +234,7 @@ export async function getPickBasics(type: MediaType, id: number) {
     genres: ((d.genres ?? []) as any[]).map((g) => g.id as number), vote: d.vote_average ?? 0, votes: d.vote_count ?? 0,
     runtime: ((type === "movie" ? d.runtime : d.episode_run_time?.[0] || (d.last_episode_to_air?.runtime <= 90 ? d.last_episode_to_air.runtime : null)) || null) as number | null,
     released: (d.release_date ?? d.first_air_date ?? "") as string, lastAired: (d.last_episode_to_air?.air_date ?? null) as string | null,
+    nextAir: (d.next_episode_to_air?.air_date ?? null) as string | null,
     prov, names,
     recs: ((d.recommendations?.results ?? []) as any[]).slice(0, 12).map((r) => ({
       ...item(type, r), vote: r.vote_average ?? 0, votes: r.vote_count ?? 0, genres: (r.genre_ids ?? []) as number[], released: (r.release_date ?? r.first_air_date ?? "") as string,
@@ -433,10 +434,12 @@ async function personRaw(id: number) {
     if (BAD_ROLE.test(r.character ?? "")) continue;
     if ((r.genre_ids ?? []).some((g: number) => g === 10767 || g === 10763 || g === 10764)) continue;
     add(r, r.character ?? "");
-    const last = known[known.length - 1];
-    if (r.media_type === "tv" && last?.key === `tv:${r.id}`) {
-      if (r.episode_count) last.eps = r.episode_count;
-      if (r.first_credit_air_date) last.since = r.first_credit_air_date;
+    // A series can hold several parts by the same person (one credit each): add up their episodes and keep every credit id.
+    const own = r.media_type === "tv" ? known.find((k) => k.key === `tv:${r.id}`) : undefined;
+    if (own) {
+      if (r.episode_count) own.eps = (own.eps ?? 0) + r.episode_count;
+      if (r.first_credit_air_date && (!own.since || r.first_credit_air_date < own.since)) own.since = r.first_credit_air_date;
+      if (r.credit_id) own.cids = [...(own.cids ?? []), r.credit_id];
     }
   }
   const dept: string = d.known_for_department ?? "";
@@ -489,6 +492,14 @@ export async function getSeason(tv: number, s: number): Promise<{ name: string; 
         .map((g: any): CastMember => ({ id: g.id, name: g.name, photo: g.profile_path ?? null, role: g.character ?? "", ...(g.credit_id ? { credits: [g.credit_id] } : {}) })),
     })),
   };
+}
+
+/** The episodes an actor's parts in a series (their credit ids) list, in order. Guest parts list every one; regulars often only a few. */
+export async function getCreditEpisodes(creditIds: string[]): Promise<EpisodeLite[]> {
+  const ds = await Promise.all(creditIds.slice(0, 4).map((id) => tmdb(`/credit/${id}`, {}, 24 * HOUR)));
+  const all = new Map<string, EpisodeLite>();
+  for (const d of ds) for (const x of (d.media?.episodes ?? []) as any[]) { const e = epLite(x); if (e.s > 0) all.set(`${e.s}:${e.e}`, e); }
+  return [...all.values()].sort((a, b) => a.s - b.s || a.e - b.e);
 }
 
 /**

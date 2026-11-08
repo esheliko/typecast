@@ -3,9 +3,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { setWatchedUpTo } from "@/app/actions";
 import { CreditRow } from "./CreditRow";
-import { aired, epCode, fmtDate, nextAfter, plural, untilLabel, upTo } from "@/lib/episodes";
+import { aired, airsLabel, epCode, fmtDate, nextAfter, plural, prevEpisode, untilLabel, upTo } from "@/lib/episodes";
+import { useLib } from "./cast/LibState";
 import { img } from "@/lib/img";
-import type { EnrichedMember, Episode, Status } from "@/lib/types";
+import type { EnrichedMember, Episode, EpisodeLite, Status } from "@/lib/types";
 
 interface Season { name: string; air: string; episodes: Episode[] }
 interface EpCast { guests: EnrichedMember[]; cast: EnrichedMember[] }
@@ -35,14 +36,19 @@ function startSeason(seasons: { n: number; eps: number }[], p: P): number {
 
 /**
  * Every season and episode of a series: names, air dates, runtimes, ratings, and per episode its plot, director, writers and
- * guest stars (with where you know them from). Your progress is marked, and "Watched up to here" moves it (adding the series as
- * Watching if needed). Other parts of the page (cast rows, the next-episode line) open an episode here via a "tc:episode" event.
+ * guest stars (with where you know them from). Your progress is a checklist: tap an episode's tick to mark it and everything
+ * before it watched (adding the series as Watching if needed), tap your last ticked one to step back, Undo reverts the last
+ * change. Finishing an ended series offers to mark it Watched. Other parts of the page (cast rows, the next-episode line)
+ * open an episode here via a "tc:episode" event.
  */
-export default function Episodes({ item, seasons, progress, status, today }: {
+export default function Episodes({ item, seasons, progress, status, today, ended, latest, next: upcoming }: {
   item: { id: number; title: string; year: string; poster: string | null };
   seasons: { n: number; eps: number }[]; progress: P; status: Status | null; today: string;
+  /** Whether the series has ended, its newest aired episode and the next scheduled one (for "finished" / "caught up"). */
+  ended: boolean; latest: EpisodeLite | null; next: EpisodeLite | null;
 }) {
   const router = useRouter();
+  const lib = useLib();
   const [p, setP] = useState<P>(progress);
   const [st, setSt] = useState(status);
   const [s, setS] = useState(() => startSeason(seasons, progress));
@@ -50,6 +56,8 @@ export default function Episodes({ item, seasons, progress, status, today }: {
   const [err, setErr] = useState("");
   const [open, setOpen] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
+  const [undo, setUndo] = useState<{ to: P } | null>(null);
+  const [fail, setFail] = useState("");
   const root = useRef<HTMLElement>(null);
   const want = useRef<number | null>(null);
 
@@ -79,13 +87,25 @@ export default function Episodes({ item, seasons, progress, status, today }: {
     return () => window.removeEventListener("tc:episode", on);
   }, [jump]);
 
-  async function markUpTo(x: Episode) {
+  /** Moves your progress to `to` (null clears it), on screen at once; puts it back if the save fails. */
+  async function moveTo(to: P, offerUndo = true) {
     const before = p, beforeSt = st;
-    setSaving(true); setP({ s: x.s, e: x.e });
-    try { setSt(await setWatchedUpTo(item, x.s, x.e)); router.refresh(); }
-    catch { setP(before); setSt(beforeSt); }
+    setSaving(true); setFail(""); setP(to);
+    try {
+      setSt(await setWatchedUpTo(item, to?.s ?? 1, to?.e ?? 0));
+      setUndo(offerUndo ? { to: before } : null);
+      router.refresh();
+    } catch { setP(before); setSt(beforeSt); setFail("Could not save. Check your connection and try again."); }
     setSaving(false);
   }
+  const markUpTo = (x: { s: number; e: number }) => moveTo({ s: x.s, e: x.e });
+  /** The tick on a watched episode: you stopped just before it. */
+  const untick = (x: { s: number; e: number }) => moveTo(prevEpisode(x, seasons));
+
+  const finished = ended && !!latest && upTo(latest, p);
+  const caughtUp = !!p && !!latest && !ended && upTo(latest, p);
+  const markSeries = () => lib.mark({ key: `tv:${item.id}`, type: "tv", id: item.id, title: item.title, year: item.year, poster: item.poster }, "watched");
+  const seriesWatched = (lib.get(`tv:${item.id}`)?.status ?? st) === "watched";
 
   const eps = data?.episodes ?? [];
   // "Up next" is the episode right after your progress: the next one in its season, or the first of the next season once that one is done.
@@ -94,6 +114,7 @@ export default function Episodes({ item, seasons, progress, status, today }: {
   const next = !p || !eps.length ? null : s === p.s ? nextAfter(eps, p) : done && s === nextSeason ? eps[0] : null;
   const seasonInfo = seasons.find((x) => x.n === s);
   const airedCount = eps.filter((x) => aired(x, today)).length;
+  const lastAiredHere = [...eps].reverse().find((x) => aired(x, today)) ?? null;
   const list = seasons;
 
   return (
@@ -114,7 +135,21 @@ export default function Episodes({ item, seasons, progress, status, today }: {
           <span className="small muted">
             {[seasonInfo?.eps ? plural(seasonInfo.eps, "episode") : "", data?.air ? fmtDate(data.air).slice(-4) : "", data && airedCount < eps.length ? `${airedCount} aired so far` : ""].filter(Boolean).join(" · ")}
           </span>
+          {lastAiredHere && !upTo(lastAiredHere, p) && (
+            <button type="button" className="btn sm" disabled={saving} onClick={() => markUpTo(lastAiredHere)}>{airedCount < eps.length ? "Tick all aired" : "Tick whole season"}</button>
+          )}
         </div>
+        {(undo || fail) && (
+          <div className="ep-note small" role="status">
+            {fail ? <span className="err">{fail}</span> : <>{p ? `Up to ${epCode(p.s, p.e)}` : "No episodes ticked"} <button type="button" className="linkish" disabled={saving} onClick={() => moveTo(undo!.to, false)}>Undo</button></>}
+          </div>
+        )}
+        {finished && !seriesWatched && (
+          <div className="ep-note small">That was the last episode. <button type="button" className="btn sm gold" onClick={markSeries}>Mark {item.title} Watched</button></div>
+        )}
+        {caughtUp && (
+          <div className="ep-note small">You are caught up.{upcoming?.air && airsLabel(upcoming.air, today) ? ` New episode ${airsLabel(upcoming.air, today)} (${epCode(upcoming.s, upcoming.e)}).` : ""}</div>
+        )}
         {err && <p className="err small" style={{ padding: "0 14px 12px" }}>{err}</p>}
         {!data && !err && <p className="muted small" style={{ padding: "0 14px 12px" }}><span className="spin" />Loading episodes</p>}
         {data && eps.length === 0 && <p className="muted small" style={{ padding: "0 14px 12px" }}>No episodes listed yet.</p>}
@@ -132,8 +167,13 @@ export default function Episodes({ item, seasons, progress, status, today }: {
                   </span>
                   {isNext && <span className="pill watching">Up next</span>}
                   {!isNext && x.finale && <span className="pill">Finale</span>}
-                  {seen && <span className="ep-check" aria-label="Watched">✓</span>}
                 </button>
+                {out && (
+                  <button type="button" className="ep-tick" aria-pressed={seen} disabled={saving}
+                    aria-label={seen ? `Watched ${epCode(x.s, x.e)}. Tap to untick` : `Mark watched up to ${epCode(x.s, x.e)}`}
+                    title={seen ? "Watched (tap if you stopped before this one)" : "Watched up to here"}
+                    onClick={() => (seen ? untick(x) : markUpTo(x))}>✓</button>
+                )}
                 {isOpen && <EpisodePanel tv={item.id} x={x} mine={!!p && p.s === x.s && p.e === x.e} canMark={out} saving={saving} onMark={() => markUpTo(x)} status={st} />}
               </li>
             );

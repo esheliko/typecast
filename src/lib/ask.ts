@@ -21,7 +21,7 @@ const yearOf = (l: { year: string }) => (l.year ? ` (${l.year})` : "");
 function context(w: Watch, t: Title, faces: WatchFace[], lib: LibItem[], spoilers: boolean): string {
   const crew = Object.entries(t.crewBy).filter(([, v]) => v.length).map(([k, v]) => `${k}: ${v.slice(0, 4).map((p) => p.name).join(", ")}`).join("; ");
   const cast = faces.map((f) => `- ${f.name}${f.role ? ` as ${f.role}` : ""}${f.guest ? " (guest this episode)" : ""} [person id ${f.id}]` +
-    (f.hits.length ? ` — the user has watched them in: ${f.hits.map((h) => h.title + yearOf(h)).join(", ")}` : "")).join("\n");
+    (f.hits.length ? ` — the user has watched them in: ${f.hits.map((h) => h.title + yearOf(h) + (h.ep ? `, ${h.ep}` : "")).join(", ")}` : "")).join("\n");
   const seen = lib.filter((l) => l.status !== "watchlist" && l.key !== t.key).slice(0, 400)
     .map((l) => `${l.title}${yearOf(l)}${l.status === "watched" ? "" : ` [${l.status}]`}${l.rating ? ` ★${l.rating}` : ""}`).join("; ");
   return [

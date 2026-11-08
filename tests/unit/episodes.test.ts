@@ -48,3 +48,30 @@ test("progress helpers", () => {
   assert.equal(upTo(ep(2, 2), { s: 2, e: 1 }), false);
   assert.equal(upTo(ep(1, 1), null), false);
 });
+test("previous episode steps back across seasons", async () => {
+  const { prevEpisode } = await import("../../src/lib/episodes");
+  const seasons = [{ n: 1, eps: 7 }, { n: 2, eps: 13 }];
+  assert.deepEqual(prevEpisode({ s: 2, e: 5 }, seasons), { s: 2, e: 4 });
+  assert.deepEqual(prevEpisode({ s: 2, e: 1 }, seasons), { s: 1, e: 7 });
+  assert.equal(prevEpisode({ s: 1, e: 1 }, seasons), null);
+});
+test("airing labels", async () => {
+  const { airsLabel } = await import("../../src/lib/episodes");
+  const today = "2026-11-08"; // a Sunday
+  assert.equal(airsLabel("2026-11-08", today), "today");
+  assert.equal(airsLabel("2026-11-09", today), "tomorrow");
+  assert.equal(airsLabel("2026-11-12", today), "Thursday");
+  assert.equal(airsLabel("2026-11-20", today), "on 20 Nov");
+  assert.equal(airsLabel("2027-01-07", today), "on 7 Jan 2027");
+  assert.equal(airsLabel("2026-11-01", today), "");
+});
+test("seen in: which of their episodes you have reached", async () => {
+  const { seenIn } = await import("../../src/lib/episodes");
+  const eps = [{ ...ep(4, 13, "2011-10-09"), name: "Face Off" }, ep(5, 10), ep(5, 11)];
+  assert.deepEqual(seenIn(eps, { status: "watching", progress: { s: 4, e: 13 } }), { ep: "S4 E13 “Face Off”" });
+  assert.deepEqual(seenIn(eps, { status: "watching", progress: { s: 5, e: 12 } }), { ep: "3 episodes" });
+  assert.equal(seenIn(eps, { status: "watching", progress: { s: 2, e: 4 } }), null);
+  assert.deepEqual(seenIn(eps, { status: "watched", progress: null }), { ep: "3 episodes" });
+  assert.deepEqual(seenIn(eps, { status: "partial", progress: null }), {});
+  assert.deepEqual(seenIn([], { status: "watching", progress: { s: 1, e: 1 } }), {});
+});

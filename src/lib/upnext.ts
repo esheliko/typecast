@@ -1,4 +1,5 @@
 import { newEpDetail } from "./new-episode";
+import { airsLabel, daysUntil } from "./episodes";
 import type { Item, LibItem } from "./types";
 
 /**
@@ -27,6 +28,8 @@ export interface Facts {
   released: string;
   /** Series: the newest episode already aired, YYYY-MM-DD. */
   lastAired: string | null;
+  /** Series: when the next episode airs, YYYY-MM-DD, if scheduled. Optional so older callers need not set it. */
+  nextAir?: string | null;
   /** Names of your streaming services it is on (subscription, free or with ads) in your country. */
   onMine: string[];
   /** Whether it can be streamed anywhere at all in your country. */
@@ -109,6 +112,13 @@ function inProgress(l: LibItem, ctx: Ctx): Pick {
   }
   // A series with an episode newer than your last touch is worth picking back up even if it sat for a while.
   const newer = l.type === "tv" && !!f?.lastAired && f.lastAired > iso(l.updated);
+  // "· new ep Thursday" when the next episode airs within a week.
+  const soon = l.type === "tv" && f?.nextAir && daysUntil(f.nextAir, iso(ctx.now)) <= 6 ? airsLabel(f.nextAir, iso(ctx.now)) : "";
+  const plus = (p: Pick): Pick => (soon && p.kind !== "stale" ? { ...p, why: `${p.why} · new ep ${soon}` } : p);
+  return plus(pickInProgress(l, ctx, age, where, base, newer));
+}
+
+function pickInProgress(l: LibItem, ctx: Ctx, age: number, where: string | null, base: Omit<Pick, "why" | "kind" | "score">, newer: boolean): Pick {
   if (age <= FRESH_DAYS) return { ...base, kind: "continue", score: 20 - age / 7, why: where ? `Continue from ${where}` : l.status === "watching" ? "You're watching this" : "Pick up where you left off" };
   if (newer) return { ...base, kind: "new-eps", score: 12, why: where ? `New episodes · you're at ${where}` : "New episodes since you last watched" };
   if (age <= STALE_DAYS) return { ...base, kind: "continue", score: 9 - (age - FRESH_DAYS) / 10, why: where ? `Pick up at ${where}` : "Still on it?" };
