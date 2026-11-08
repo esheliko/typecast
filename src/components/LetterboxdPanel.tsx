@@ -10,7 +10,6 @@ const BATCH = 25;
 
 /** Two independent, opt-in tools: a one-time import of a Letterboxd export, and a connection that pulls new diary entries. */
 export default function LetterboxdPanel({ link }: { link: LetterboxdLink | null }) {
-  const [open, setOpen] = useState(false);
   const [raw, setRaw] = useState<{ name: string; text: string }[] | null>(null);
   const [pasted, setPasted] = useState("");
   const [plain, setPlain] = useState<Plain>("watched");
@@ -65,12 +64,13 @@ export default function LetterboxdPanel({ link }: { link: LetterboxdLink | null 
   function disconnect() { setErr(""); setMsg(""); start(async () => { await disconnectLetterboxd(); }); }
 
   const watched = entries?.filter((e) => e.watched).length ?? 0, listed = entries?.filter((e) => e.watchlist).length ?? 0, watchingN = entries?.filter((e) => e.watching).length ?? 0, rated = entries?.filter((e) => e.rating > 0).length ?? 0;
-  const shown = open || !!link;
+  const shown = !!link;
   return (
     <>
-      <h2>Import</h2>
+      <details className="fold" open={busy || !!entries || review.length > 0 || !!tally || undefined}>
+      <summary>Import a list or Letterboxd export</summary>
       <div className="card pad" aria-busy={busy}>
-        <label className="l" htmlFor="lbf">Import a list or a Letterboxd export</label>
+        <label className="l" htmlFor="lbf" style={{ display: "none" }}>Import a list or a Letterboxd export</label>
         <p className="small muted" style={{ margin: "0 0 10px" }}>Choose a file or paste a list, then press Import. Nothing is sent until you do.</p>
         <details className="small muted" style={{ margin: "0 0 12px" }}>
           <summary style={{ cursor: "pointer" }}>Supported formats and rules</summary>
@@ -78,12 +78,14 @@ export default function LetterboxdPanel({ link }: { link: LetterboxdLink | null 
           <p style={{ margin: "8px 0 0" }}>Titles you already have are never overwritten: an existing title is only marked watched if it was not, and given a rating only if it had none. Half stars are rounded up to whole stars. For Letterboxd, open Settings, then Data, then Export your data.</p>
         </details>
         <input id="lbf" key={fileKey} type="file" accept=".zip,.csv,.txt,.md,.text,application/zip,text/csv,text/plain" multiple disabled={busy} onChange={(e) => pick(e.target.files)} />
-        <textarea aria-label="Or paste your list here" placeholder={"Or paste your list here, one title per line:\n[x] Inception (2010)\n[ ] Dune Part Two\nSeverance"} rows={5} disabled={busy} value={pasted} onChange={(e) => { setPasted(e.target.value); setTally(null); setImportErr(""); }} style={{ width: "100%", marginTop: 10 }} />
-        <label className="small muted" htmlFor="plain" style={{ display: "block", margin: "10px 0 0" }}>Lines with no checkbox are </label>
-        <select id="plain" value={plain} disabled={busy} onChange={(e) => setPlain(e.target.value as Plain)} style={{ marginTop: 4 }}>
-          <option value="watched">already watched</option>
-          <option value="watchlist">to watch</option>
-        </select>
+        <textarea aria-label="Or paste your list here" placeholder={"Or paste your list here, one title per line:\n[x] Inception (2010)\n[ ] Dune Part Two\nSeverance"} rows={3} disabled={busy} value={pasted} onChange={(e) => { setPasted(e.target.value); setTally(null); setImportErr(""); }} style={{ width: "100%", marginTop: 8 }} />
+        <div className="small muted" style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8 }}>
+          <label htmlFor="plain">Lines with no checkbox are</label>
+          <select id="plain" value={plain} disabled={busy} onChange={(e) => setPlain(e.target.value as Plain)}>
+            <option value="watched">already watched</option>
+            <option value="watchlist">to watch</option>
+          </select>
+        </div>
         {readErr && <p className="small err" style={{ margin: "10px 0 0" }}>{readErr}</p>}
         {!entries && picked && !readErr && !busy && <p className="small err" style={{ margin: "10px 0 0" }}>Nothing found in that file. Use a Letterboxd .zip or CSV, or a text list with one title per line.</p>}
         {entries && !busy && (
@@ -99,16 +101,10 @@ export default function LetterboxdPanel({ link }: { link: LetterboxdLink | null 
         {importErr && <p className="small err" style={{ margin: "10px 0 0" }}>{importErr}</p>}
         {review.length > 0 && !busy && <ImportReview rows={review} onChange={setReview} />}
       </div>
-      <h2>Letterboxd sync</h2>
-      <div className="card pad" style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <b>Letterboxd</b>
-          <div className="small muted">{link ? `Connected as ${link.user}` : "Optional. Keep new films in sync from your diary."}</div>
-        </div>
-        {!link && <button className="btn sm" type="button" aria-expanded={shown} disabled={busy} onClick={() => setOpen(!open)}>{open ? "Hide" : "Add"}</button>}
-      </div>
-      {shown && <div className="sp" />}
-      {shown && <div className="card pad" aria-busy={pending}>
+      </details>
+      <details className="fold" open={shown || undefined}>
+      <summary>Letterboxd sync <span className="muted">{link ? `Connected as ${link.user}` : "Optional"}</span></summary>
+      <div className="card pad" aria-busy={pending}>
         {link ? (
           <>
             <p className="small" style={{ margin: "0 0 10px" }}>Connected to <b>{link.user}</b>. {link.syncedAt ? <>Last checked <span suppressHydrationWarning>{new Date(link.syncedAt).toLocaleString()}</span>.</> : "Not checked yet."}</p>
@@ -131,7 +127,8 @@ export default function LetterboxdPanel({ link }: { link: LetterboxdLink | null 
         {!link && err && <p className="small err" style={{ margin: "10px 0 0" }}>{err}</p>}
         {link && err && !link.error && <p className="small err" style={{ margin: "10px 0 0" }}>{err}</p>}
         <p className="small muted" style={{ margin: "10px 0 0" }}>Needs a public profile. Only diary entries come through (about the latest 50). Syncing is one way and disconnecting keeps what was imported.</p>
-      </div>}
+      </div>
+      </details>
     </>
   );
 }

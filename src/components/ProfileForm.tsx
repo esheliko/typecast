@@ -63,32 +63,32 @@ export default function ProfileForm({ initial }: { initial: Profile }) {
   }
   const show = [...merged, ...extra].filter((p) => (term ? p.name.toLowerCase().includes(term) : p.ids.some((i) => services.includes(i)) || p.pri < 25 || PINNED.has(p.name.toLowerCase()))).sort((a, b) => a.pri - b.pri).slice(0, 80);
   return (
-    <>
     <div className="card pad" aria-busy={pending}>
-      <label className="l" htmlFor="cc">Country</label>
-      <select id="cc" value={country} onChange={(e) => pickCountry(e.target.value)}>{COUNTRIES.map(([c, n]) => <option key={c} value={c}>{n}</option>)}</select>
-      <div className="sp" />
+      <div className="two-col">
+        <div>
+          <label className="l" htmlFor="cc">Country</label>
+          <select id="cc" value={country} onChange={(e) => pickCountry(e.target.value)}>{COUNTRIES.map(([c, n]) => <option key={c} value={c}>{n}</option>)}</select>
+        </div>
+        <div>
+          <span className="l" id="dp">To watch button adds as</span>
+          <div className="chips" role="group" aria-labelledby="dp">
+            {(Object.keys(PRIORITY_LABEL) as Priority[]).map((p) => <button key={p} className="chip" aria-pressed={prio === p} onClick={() => pickPrio(p)}>{PRIORITY_LABEL[p]}</button>)}
+          </div>
+        </div>
+      </div>
+      <p className="small muted" style={{ margin: "6px 0 10px" }}>The button choice is saved on this device; after you tap it, a message offers to switch that title to the other one.</p>
       <label className="l" htmlFor="svq">Your streaming services</label>
-      <input id="svq" type="search" placeholder="Filter services" value={q} onChange={(e) => setQ(e.target.value)} style={{ width: "100%", marginBottom: 10 }} />
+      <input id="svq" type="search" placeholder="Filter services" value={q} onChange={(e) => setQ(e.target.value)} style={{ width: "100%", marginBottom: 8 }} />
       <div className="chips">
         {error ? <span className="err small">{error}</span> : list === null ? <span className="small muted"><span className="spin" />Loading services</span>
           : show.length === 0 ? <span className="small muted">No services match.</span>
           : show.map((p) => <button key={p.ids[0]} className="chip" aria-pressed={p.ids.some((i) => services.includes(i))} onClick={() => toggle(p)}>{p.name}</button>)}
       </div>
-      <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+      <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
         <input type="text" placeholder="Add a service not listed" aria-label="Add a service not listed" value={custom} onChange={(e) => setCustom(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addCustom()} style={{ flex: 1 }} />
         <button className="btn" type="button" onClick={addCustom}>Add</button>
       </div>
-      <p className="small muted" style={{ margin: "10px 0 0" }}>{pending ? "Saving…" : "Changes save automatically."}</p>
+      <p className="small muted" style={{ margin: "6px 0 0" }}>{pending ? "Saving…" : "Changes save automatically."}</p>
     </div>
-    <h2>Quick add</h2>
-    <div className="card pad">
-      <span className="l" id="dp">The To watch button on posters adds titles as</span>
-      <div className="chips" role="group" aria-labelledby="dp" style={{ marginBottom: 8 }}>
-        {(Object.keys(PRIORITY_LABEL) as Priority[]).map((p) => <button key={p} className="chip" aria-pressed={prio === p} onClick={() => pickPrio(p)}>{PRIORITY_LABEL[p]}</button>)}
-      </div>
-      <p className="small muted" style={{ margin: 0 }}>Saved on this device. After you tap it, a message offers to switch that title to the other one.</p>
-    </div>
-    </>
   );
 }

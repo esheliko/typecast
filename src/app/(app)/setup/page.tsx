@@ -14,20 +14,24 @@ export default async function Setup() {
     <div className="page">
       <h2>Streaming</h2>
       <ProfileForm initial={profile} />
-      <h2>Title details</h2>
-      <DetailOrder initial={profile.details} always />
+      <details className="fold">
+        <summary>Title details <span className="muted">what shows on every title, and in what order</span></summary>
+        <DetailOrder initial={profile.details} always />
+      </details>
       <LetterboxdPanel link={profile.letterboxd} />
       <h2>Account</h2>
       <div className="card pad">
-        <p className="small muted" style={{ margin: "0 0 12px" }}>Signed in as {data?.claims?.email as string | undefined}. Your library is stored on the server and follows you across devices.</p>
+        <p className="small muted" style={{ margin: "0 0 10px" }}>Signed in as {data?.claims?.email as string | undefined}. Your library is stored on the server and follows you across devices.</p>
         <div className="chips">
           <a className="btn" href="/api/export" download>Export backup</a>
           <form action={signOut}><button className="btn" type="submit">Sign out</button></form>
         </div>
+        <details className="small muted" style={{ marginTop: 10 }}>
+          <summary style={{ cursor: "pointer" }}>Install on your device</summary>
+          <div style={{ marginTop: 6 }}><InstallButton /></div>
+        </details>
       </div>
-      <h2>Install</h2>
-      <div className="card pad small muted"><InstallButton /></div>
-      <p className="foot">This product uses the TMDB API but is not endorsed or certified by TMDB. Streaming availability data is provided by JustWatch.</p>
+      <p className="foot" style={{ marginTop: 20 }}>This product uses the TMDB API but is not endorsed or certified by TMDB. Streaming availability data is provided by JustWatch.</p>
     </div>
   );
 }

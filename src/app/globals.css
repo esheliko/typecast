@@ -532,3 +532,13 @@ button.aw-chip:hover { filter: brightness(1.08); }
 .nudge-b { background: none; border: 0; padding: 2px 0; color: inherit; font: inherit; text-decoration: underline dotted; text-underline-offset: 3px; cursor: pointer; }
 
 .imdb-link { display: inline-block; vertical-align: middle; font: 700 11px/1 var(--sans, system-ui); letter-spacing: .04em; text-transform: none; padding: 4px 7px; border-radius: 5px; background: #f5c518; color: #000; text-decoration: none; white-space: nowrap; }
+
+/* Setup page: compact collapsible sections and a two-column settings row. */
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: start; }
+@media (max-width: 520px) { .two-col { grid-template-columns: 1fr; gap: 8px; } }
+.fold { margin: 10px 0 0; }
+.fold > summary { list-style: none; cursor: pointer; display: flex; align-items: baseline; gap: 8px; padding: 10px 2px; font: 600 13px var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.fold > summary::-webkit-details-marker { display: none; }
+.fold > summary::before { content: "▸"; transition: transform .15s; }
+.fold[open] > summary::before { transform: rotate(90deg); }
+.fold > summary .muted { font: 400 12px var(--sans, inherit); letter-spacing: 0; text-transform: none; }
