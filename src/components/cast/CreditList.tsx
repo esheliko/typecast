@@ -32,7 +32,7 @@ function sorted(list: CreditItem[], sort: Sort, rel: Map<string, number>): Credi
 /**
  * The person's filmography: "In your library" first, then "Known for". Which section a title is in is decided when the page
  * opens, so unmarking something does not send it to the other section. Each section is sorted by release date (newest first)
- * unless you pick another order. "Known for" is the 30 best-known titles, then sorted.
+ * unless you pick another order. "Known for" is the 30 best-known titles (or all, via "Show all"), then sorted.
  */
 export default function PersonCredits({ known, mineKeys }: { known: CreditItem[]; mineKeys: string[] }) {
   const { get } = useLib();
@@ -46,7 +46,9 @@ export default function PersonCredits({ known, mineKeys }: { known: CreditItem[]
     return [k.key, m ? STATUS_W[m.status] * 10 + (m.priority === "must" ? 5 : 0) : 0];
   }));
   const mine = sorted(known.filter((k) => split.current!.has(k.key)), sort, rel.current);
-  const rest = sorted(known.filter((k) => !split.current!.has(k.key)).slice(0, 30), sort, rel.current);
+  const restAll = known.filter((k) => !split.current!.has(k.key));
+  const [all, setAll] = useState(false);
+  const rest = sorted(all ? restAll : restAll.slice(0, 30), sort, rel.current);
   const [mineStable, resetMine] = useRetained(mine);
   const [restStable, resetRest] = useRetained(rest);
   const rows = (list: CreditItem[]) => <div className="card"><ul className="rows">{list.map((k) => <li key={k.key}><TitleRow it={k} sub={k.role} small /></li>)}</ul></div>;
@@ -61,6 +63,7 @@ export default function PersonCredits({ known, mineKeys }: { known: CreditItem[]
       {mineStable.length > 0 && <><h2>In your library</h2>{rows(mineStable)}</>}
       <h2>Known for</h2>
       {rows(restStable)}
+      {!all && restAll.length > 30 && <button type="button" className="btn sm" style={{ marginTop: 12 }} onClick={() => setAll(true)}>Show all {restAll.length} titles</button>}
     </>
   );
 }

@@ -332,7 +332,7 @@ async function personRaw(id: number) {
 
 export async function getPerson(id: number): Promise<Person> {
   const { d, known } = await personRaw(id);
-  return { id: d.id, name: d.name, photo: d.profile_path ?? null, dept: d.known_for_department ?? "", bio: (d.biography ?? "").slice(0, 360), known: known.slice(0, 60), imdbId: d.external_ids?.imdb_id || d.imdb_id || null };
+  return { id: d.id, name: d.name, photo: d.profile_path ?? null, dept: d.known_for_department ?? "", bio: (d.biography ?? "").slice(0, 360), known: known.slice(0, 200), imdbId: d.external_ids?.imdb_id || d.imdb_id || null };
 }
 
 /** Every acting (or directing) credit for a person, most-voted first. Same request as getPerson, so it shares its cache. */
