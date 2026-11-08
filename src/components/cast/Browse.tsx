@@ -73,13 +73,22 @@ export default function Browse({ filters, filtered, list: initialList, salt: ser
   const [error, setError] = useState("");
   // Suggested directions, read off the watched history. Fetched after the grid, kept for the session.
   const [nudges, setNudges] = useState<Nudge[]>([]);
+  const [nudgeRound, setNudgeRound] = useState(0);
+  const [nudgeBusy, setNudgeBusy] = useState(false);
+  const loadNudges = (round: number) => {
+    setNudgeBusy(true);
+    fetch(`/api/nudges?r=${round}`).then((r) => r.json()).then((j) => {
+      const items = (j.items ?? []) as Nudge[];
+      if (items.length) { setNudges(items); setNudgeRound(round); try { sessionStorage.setItem("tc:nudges", JSON.stringify({ round, items })); } catch { /* ignore */ } }
+    }).catch(() => {}).finally(() => setNudgeBusy(false));
+  };
   useEffect(() => {
     if (list !== "foryou") return;
-    try { const c = sessionStorage.getItem("tc:nudges"); if (c) { setNudges(JSON.parse(c)); return; } } catch { /* ignore */ }
-    fetch("/api/nudges").then((r) => r.json()).then((j) => {
-      const items = (j.items ?? []) as Nudge[]; setNudges(items);
-      try { sessionStorage.setItem("tc:nudges", JSON.stringify(items)); } catch { /* ignore */ }
-    }).catch(() => {});
+    try {
+      const c = JSON.parse(sessionStorage.getItem("tc:nudges") || "null");
+      if (c && Array.isArray(c.items)) { setNudges(c.items); setNudgeRound(c.round ?? 0); return; }
+    } catch { /* ignore */ }
+    loadNudges(0);
   }, [list]);
   const seq = useRef(0);
   const { marked, skipped } = useLib();
@@ -170,7 +179,7 @@ export default function Browse({ filters, filtered, list: initialList, salt: ser
   useEffect(() => {
     if (!pages[key] && !(filtered && first)) load(1);
     else { seq.current++; setState("idle"); }
-  }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [key]);
 
   function setUrl(p: Record<string, string | null>) {
     const u = new URL(window.location.href);
@@ -224,6 +233,9 @@ export default function Browse({ filters, filtered, list: initialList, salt: ser
           {nudges.map((d) => (
             <button key={d.id} type="button" className="nudge-b" title={d.why} onClick={() => { keepClosed.current = true; const s = toParams({ ...filters, type, ...d.patch }).toString(); startRoute(() => router.replace(`/?${s}`, { scroll: false })); }}>{d.label}</button>
           ))}
+          <button type="button" className="nudge-b" aria-label="Show other suggestions" title="Show other suggestions" disabled={nudgeBusy} onClick={() => loadNudges(nudgeRound + 1)} style={{ opacity: nudgeBusy ? 0.5 : 1 }}>
+            <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" style={{ verticalAlign: "-2px" }}><path d="M20 12a8 8 0 1 1-2.5-5.8M20 4v5h-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+          </button>
         </p>
       )}
       <div className="bz-bar">

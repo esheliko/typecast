@@ -50,9 +50,9 @@ const patchOf = (f: Facet): Partial<BrowseQuery> => {
 /**
  * Directions worth trying, read off the watched history: the people, studios, themes and genres that keep turning up
  * in what you watched (so "more of this"), plus decades and genres your history barely touches (so "something different").
- * Every suggestion is a Browse filter set, so a tap just applies it.
+ * Every suggestion is a Browse filter set, so a tap just applies it. `round` rotates through the wider pool, so the refresh button shows new ones.
  */
-export async function nudges(lib: LibItem[]): Promise<Nudge[]> {
+export async function nudges(lib: LibItem[], round = 0): Promise<Nudge[]> {
   const seeds = lib.map((l) => ({ l, w: weight(l) })).filter((x) => x.w > 0).sort((a, b) => b.w - a.w || b.l.added - a.l.added).slice(0, MAX_SEEDS);
   if (seeds.length < 4) return [];
   const per = await Promise.all(seeds.map((s) => facetsOf(s.l)));
@@ -76,11 +76,18 @@ export async function nudges(lib: LibItem[]): Promise<Nudge[]> {
   const used = new Set<string>();
   for (const f of [...tally.values()].filter((f) => f.n >= 2).sort((a, b) => b.score - a.score)) {
     const sig = f.titles.join("|");
-    if ((perKind[f.kind] ?? 0) >= 2 || used.has(sig)) continue; // same set of titles = same finding (e.g. an actor who is also the director)
+    if ((perKind[f.kind] ?? 0) >= 4 || used.has(sig)) continue; // same set of titles = same finding (e.g. an actor who is also the director)
     used.add(sig); perKind[f.kind] = (perKind[f.kind] ?? 0) + 1; picked.push(f);
-    if (picked.length >= 4) break;
+    if (picked.length >= 12) break;
   }
-  const out: Nudge[] = picked.map((f) => ({
+  // Interleave kinds so any window of four stays varied, then rotate by round.
+  const byKind = new Map<string, Facet[]>();
+  for (const f of picked) byKind.set(f.kind, [...(byKind.get(f.kind) ?? []), f]);
+  const mixed: Facet[] = [];
+  for (let i = 0; mixed.length < picked.length; i++) for (const l of byKind.values()) if (l[i]) mixed.push(l[i]);
+  const start = mixed.length > 4 ? (round * 4) % mixed.length : 0;
+  const window = mixed.length > 4 ? Array.from({ length: 4 }, (_, i) => mixed[(start + i) % mixed.length]) : mixed;
+  const out: Nudge[] = window.map((f) => ({
     id: `${f.kind}:${f.id}`, label: f.name,
     why: `${f.n} of your watched titles${f.kind === "genre" ? " are " + f.name : f.kind === "theme" ? " share this theme" : " involve " + f.name} (${f.titles.slice(0, 3).join(", ")}${f.n > 3 ? "…" : ""})`,
     patch: patchOf(f),
@@ -89,14 +96,16 @@ export async function nudges(lib: LibItem[]): Promise<Nudge[]> {
   // "Something different": decades and genres the history leaves out. Aimed at well-rated titles so the detour is worth it.
   const years = lib.map((l) => parseInt(l.year, 10)).filter((y) => y > 1800);
   if (years.length >= 8) {
-    const gaps = DECADES.map((d) => ({ d, share: years.filter((y) => y >= (d.from ? +d.from : 0) && y <= +d.to).length / years.length })).filter((x) => x.share < 0.1).sort((a, b) => a.share - b.share).slice(0, 2);
-    for (const { d, share } of gaps) out.push({ id: `decade:${d.label}`, label: d.label, why: `Only ${Math.round(share * 100)}% of your library is from the ${d.label}`, patch: { from: d.from, to: d.to, minRating: 7 } });
+    const gaps = DECADES.map((d) => ({ d, share: years.filter((y) => y >= (d.from ? +d.from : 0) && y <= +d.to).length / years.length })).filter((x) => x.share < 0.1).sort((a, b) => a.share - b.share);
+    const dStart = gaps.length > 2 ? (round * 2) % gaps.length : 0;
+    const shownGaps = gaps.length > 2 ? [gaps[dStart], gaps[(dStart + 1) % gaps.length]] : gaps;
+    for (const { d, share } of shownGaps) out.push({ id: `decade:${d.label}`, label: d.label, why: `Only ${Math.round(share * 100)}% of your library is from the ${d.label}`, patch: { from: d.from, to: d.to, minRating: 7 } });
   }
   const have = new Set(per.flat().filter((f) => f.kind === "genre").map((f) => f.id));
   const movieGenres = await genreList("movie").catch(() => []);
   const unseen = movieGenres.filter((g) => !have.has(g.id) && !["TV Movie", "Documentary"].includes(g.name));
   if (unseen.length) {
-    const g = unseen[(seeds.length * 7 + (lib.length % 5)) % unseen.length];
+    const g = unseen[(seeds.length * 7 + (lib.length % 5) + round * 3) % unseen.length];
     out.push({ id: `gap-genre:${g.id}`, label: g.name, why: `You haven't watched any ${g.name} lately`, patch: { type: "movie", genres: [g.id], minRating: 7 } });
   }
   return out;
