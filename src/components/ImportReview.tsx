@@ -131,6 +131,7 @@ export default function ImportReviewDialog({ rows, onChange, onClose, onRevert }
           </span>
         </div>
         <div className="sheet-body" style={{ paddingTop: 12 }}>
+          {removes === 0 && restores === 0 && !confirm && <p className="small muted" style={{ margin: "0 0 10px" }}>Nothing to revert yet: this import has not added or changed any title. Titles under &ldquo;Not sure&rdquo; are only added once you confirm them, and titles already in your library are left as they were.</p>}
           {(confirm || revertErr) && (
             <div className="card pad" style={{ padding: 10, margin: "0 0 10px" }} aria-busy={reverting}>
               {confirm && <>
