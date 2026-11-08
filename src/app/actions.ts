@@ -5,7 +5,7 @@ import { requireUser, supabaseServer } from "@/lib/supabase/server";
 import { normalizeDetails, type DetailId } from "@/lib/details";
 import type { MediaType, Priority, Status } from "@/lib/types";
 import type { LbEntry } from "@/lib/letterboxd-parse";
-import { applyResolved, cleanUsername, fetchFeed, LbError, resolveEntries, type Applied, type Failed, type Unmatched, syncLetterboxd } from "@/lib/letterboxd";
+import { applyResolved, cleanUsername, fetchFeed, LbError, resolveEntries, type Applied, type Failed, type Prev, type Unmatched, syncLetterboxd } from "@/lib/letterboxd";
 
 const STATUSES = ["watching", "partial", "watchlist", "watched"];
 const where = (type: MediaType, id: number) => ({ tmdb_type: type, tmdb_id: id });
@@ -121,11 +121,32 @@ export async function importLetterboxd(entries: LbEntry[], last: boolean): Promi
 }
 
 /**
+ * Add or change one title while fixing an import (retry, or a different match picked). Returns what was there before, so the
+ * review's "Revert import" can undo it: `isNew` titles are removed on revert, others go back to `prev`.
+ */
+export async function addImported(item: { type: MediaType; id: number; title: string; year: string; poster: string | null }, status: Status, rating: number): Promise<{ isNew: boolean; prev?: Prev }> {
+  if (!STATUSES.includes(status) || (item.type !== "movie" && item.type !== "tv") || !Number.isInteger(item.id)) throw new Error("Bad title");
+  const { sb, user } = await requireUser();
+  const { data, error: e0 } = await sb.from("library_items").select("status,rating,watched_at,checked_at").eq("user_id", user.id).match(where(item.type, item.id)).maybeSingle();
+  if (e0) throw new Error(e0.message);
+  const now = new Date().toISOString();
+  const watched = status === "watched" && (!data || data.status !== "watched");
+  const { error } = await sb.from("library_items").upsert(
+    { user_id: user.id, ...where(item.type, item.id), title: item.title || "Untitled", year: item.year ?? "", poster_path: item.poster, status,
+      ...(watched ? { watched_at: now, checked_at: null } : {}), ...(status === "watched" && rating > 0 && (!data || data.rating === 0) ? { rating: Math.min(5, Math.round(rating)) } : {}), updated_at: now },
+    { onConflict: "user_id,tmdb_type,tmdb_id" },
+  );
+  if (error) throw new Error(error.message);
+  done();
+  return data ? { isNew: false, prev: { status: data.status, rating: data.rating, watched_at: data.watched_at ?? null, checked_at: data.checked_at ?? null } } : { isNew: true };
+}
+
+/**
  * Undo an import that stopped part way: titles it added are removed and titles it changed go back to how they were.
  * Takes what the import returned. Only rows owned by the signed-in user can be touched (RLS), and titles the import
  * merely found already in the library are left alone.
  */
-export async function rollbackImport(items: Applied[]): Promise<void> {
+export async function rollbackImport(items: Pick<Applied, "type" | "id" | "isNew" | "prev">[]): Promise<void> {
   const { sb, user } = await requireUser();
   const bad = (e: { message: string } | null) => { if (e) throw new Error(e.message); };
   const list = items.slice(0, 5000).filter((a) => (a.type === "movie" || a.type === "tv") && Number.isInteger(a.id));

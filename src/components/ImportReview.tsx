@@ -1,90 +1,160 @@
 "use client";
-import { useEffect, useState } from "react";
-import { setRating, setStatus } from "@/app/actions";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { addImported, setStatus } from "@/app/actions";
 import { img } from "@/lib/img";
 import type { Applied, Failed, Unmatched } from "@/lib/letterboxd";
 import type { BrowseItem, SearchHit, Status } from "@/lib/types";
 
-export type ReviewRow = { id: string; label: string; item: BrowseItem | null; status: Status; rating: number; isNew: boolean; gone?: boolean; err?: string; /** Why this line was not imported (set for lines that were not found or could not be saved). */ problem?: string };
+/** What the import (or a fix made in the review) did to one title, kept so the whole import can be reverted. */
+export type Rec = Pick<Applied, "type" | "id" | "isNew" | "prev">;
+export type ReviewRow = { id: string; label: string; item: BrowseItem | null; status: Status; rating: number; isNew: boolean; gone?: boolean; err?: string; recs: Rec[]; /** Why this line was not imported (set for lines that were not found or could not be saved). */ problem?: string };
 
 let n = 0;
 export const toRows = (items: Applied[], missing: Unmatched[], failed: Failed[] = []): ReviewRow[] => [
-  ...missing.map((m): ReviewRow => ({ id: `r${n++}`, label: m.label, item: null, status: m.status, rating: m.rating, isNew: true, problem: m.error ?? "Not found on TMDB." })),
-  ...failed.map((f): ReviewRow => ({ id: `r${n++}`, label: f.label, item: { key: `${f.type}:${f.id}`, type: f.type, id: f.id, title: f.title, year: f.year, poster: f.poster, rating: 0 }, status: f.status, rating: f.rating, isNew: false, problem: `Matched, but it could not be saved (${f.error}).` })),
-  ...items.map((a): ReviewRow => ({ id: `r${n++}`, label: a.label, item: { key: `${a.type}:${a.id}`, type: a.type, id: a.id, title: a.title, year: a.year, poster: a.poster, rating: 0 }, status: a.status, rating: a.rating, isNew: a.isNew })),
+  ...missing.map((m): ReviewRow => ({ id: `r${n++}`, label: m.label, item: null, status: m.status, rating: m.rating, isNew: true, recs: [], problem: m.error ?? "Not found on TMDB." })),
+  ...failed.map((f): ReviewRow => ({ id: `r${n++}`, label: f.label, item: { key: `${f.type}:${f.id}`, type: f.type, id: f.id, title: f.title, year: f.year, poster: f.poster, rating: 0 }, status: f.status, rating: f.rating, isNew: false, recs: [], problem: `Matched, but it could not be saved (${f.error}).` })),
+  ...items.map((a): ReviewRow => ({ id: `r${n++}`, label: a.label, item: { key: `${a.type}:${a.id}`, type: a.type, id: a.id, title: a.title, year: a.year, poster: a.poster, rating: 0 }, status: a.status, rating: a.rating, isNew: a.isNew, recs: [{ type: a.type, id: a.id, isNew: a.isNew, prev: a.prev }] })),
 ];
 
 const OPTIONS: [Status, string][] = [["watched", "Watched"], ["watching", "Watching"], ["watchlist", "To watch"]];
+const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),textarea:not([disabled]),select:not([disabled]),[tabindex]:not([tabindex="-1"])';
 
-/** After an import: every title that was added, with the original text, so a wrong match or a wrong marking can be fixed. */
-export default function ImportReview({ rows, onChange }: { rows: ReviewRow[]; onChange: (rows: ReviewRow[]) => void }) {
+/**
+ * The import review as a popup (same frame as the title popup): every title the import touched, with the original text, so a wrong
+ * match or marking can be fixed, plus a button that reverses the whole import.
+ */
+export default function ImportReviewDialog({ rows, onChange, onClose, onRevert }: { rows: ReviewRow[]; onChange: (rows: ReviewRow[]) => void; onClose: () => void; onRevert: () => Promise<void> }) {
+  const box = useRef<HTMLDivElement>(null);
   const [fixing, setFixing] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [confirm, setConfirm] = useState(false);
+  const [reverting, setReverting] = useState(false);
+  const [revertErr, setRevertErr] = useState("");
   const patch = (id: string, p: Partial<ReviewRow>) => onChange(rows.map((r) => (r.id === id ? { ...r, ...p } : r)));
+
+  useEffect(() => {
+    const was = document.activeElement as HTMLElement | null;
+    box.current?.focus({ preventScroll: true });
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; if (was && document.contains(was)) was.focus({ preventScroll: true }); };
+  }, []);
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => {
+      const el = box.current; if (!el) return;
+      if (e.key === "Escape" && !(e.target as HTMLElement).closest("input,textarea,select")) { e.preventDefault(); if (!reverting) onClose(); }
+      if (e.key === "Tab") {
+        const f = [...el.querySelectorAll<HTMLElement>(FOCUSABLE)].filter((x) => x.offsetParent !== null);
+        if (!f.length) return;
+        const first = f[0], last = f[f.length - 1], at = document.activeElement;
+        if (e.shiftKey && (at === first || at === el)) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && at === last) { e.preventDefault(); first.focus(); }
+      }
+    };
+    document.addEventListener("keydown", key); return () => document.removeEventListener("keydown", key);
+  }, [onClose, reverting]);
 
   async function guard(r: ReviewRow, f: () => Promise<void>) {
     setBusy(r.id);
     try { await f(); patch(r.id, { err: undefined }); } catch { patch(r.id, { err: "That did not save. Try again." }); }
     setBusy(null);
   }
+  /** Saves the title (first time for lines that were not imported), recording what it replaced so Revert can undo it. */
   const mark = (r: ReviewRow, status: Status) => guard(r, async () => {
-    if (r.item) await setStatus(r.item, status);
-    if (r.item && r.problem && status === "watched" && r.rating > 0) await setRating(r.item.type, r.item.id, r.rating);
-    patch(r.id, { status, ...(r.item ? { problem: undefined, isNew: r.problem ? true : r.isNew } : {}) });
+    if (!r.item) { patch(r.id, { status }); return; }
+    if (r.problem) {
+      const rec = await addImported(r.item, status, r.rating);
+      patch(r.id, { status, problem: undefined, isNew: rec.isNew, recs: [...r.recs, { type: r.item.type, id: r.item.id, ...rec }] });
+    } else { await setStatus(r.item, status); patch(r.id, { status }); }
   });
-  const retry = (r: ReviewRow) => mark(r, r.status);
   const remove = (r: ReviewRow) => guard(r, async () => { if (r.item) await setStatus(r.item, null); patch(r.id, { gone: true }); });
   const swap = (r: ReviewRow, next: BrowseItem) => guard(r, async () => {
-    if (r.item && r.isNew) await setStatus(r.item, null);
-    await setStatus(next, r.status);
-    if (r.status === "watched" && r.rating > 0) await setRating(next.type, next.id, r.rating);
-    patch(r.id, { item: next, isNew: true, gone: false, problem: undefined });
+    if (r.item && r.isNew && !r.problem) await setStatus(r.item, null);
+    const rec = await addImported(next, r.status, r.rating);
+    patch(r.id, { item: next, isNew: rec.isNew, gone: false, problem: undefined, recs: [...r.recs, { type: next.type, id: next.id, ...rec }] });
     setFixing(null);
   });
 
+  async function revert() {
+    setReverting(true); setRevertErr("");
+    try { await onRevert(); } catch { setRevertErr("The revert did not finish. Nothing more was changed. Try again."); setReverting(false); }
+  }
+
   const live = rows.filter((r) => !r.gone);
-  return (
-    <div style={{ marginTop: 14 }}>
-      <b>Review what was imported</b>
-      {live.some((r) => r.problem) && <p className="small err" style={{ margin: "4px 0 0" }}><b>{live.filter((r) => r.problem).length} could not be imported.</b> They are at the top: search for the right title, retry, or skip each one.</p>}
-      <p className="small muted" style={{ margin: "4px 0 10px" }}>Check each title against what you wrote. Change the marking, remove it, or pick the right title. Changes save at once.</p>
-      <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 8 }}>
-        {live.map((r) => (
-          <li key={r.id} className="card pad" style={{ padding: 10 }} aria-busy={busy === r.id}>
-            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              {r.item?.poster ? <img className="thumb" src={img(r.item.poster, "w92")} alt="" loading="lazy" /> : <div className="thumb" />}
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 600 }}>{r.item ? `${r.item.title}${r.item.year ? ` (${r.item.year})` : ""}${r.item.type === "tv" ? " · TV" : ""}` : "Not imported"}</div>
-                <div className="small muted" dir="auto">You wrote: {r.label}</div>
-                {r.problem && <div className="small err">{r.problem} Pick the right title, or skip it.</div>}
-                {!r.isNew && !r.problem && <div className="small muted">Already in your library.</div>}
+  const problems = live.filter((r) => r.problem).length;
+  const removes = live.filter((r) => r.item && r.isNew && !r.problem).length, restores = rows.flatMap((r) => r.recs).filter((x) => !x.isNew && x.prev).length;
+
+  if (typeof document === "undefined") return null;
+  return createPortal(
+    <div ref={box} className="modal" role="dialog" aria-modal="true" aria-label="Review import" tabIndex={-1} onClick={(e) => { if (e.target === e.currentTarget && !reverting) onClose(); }}>
+      <div className="sheet">
+        <div className="sheet-bar">
+          <b>Review import</b>
+          <button type="button" className="back" onClick={onClose} disabled={reverting} aria-label="Close"><span aria-hidden="true">&#215;</span> Close</button>
+        </div>
+        <div className="sheet-body" style={{ paddingTop: 12 }}>
+          {problems > 0 && <p className="small err" style={{ margin: "0 0 4px" }}><b>{problems} could not be imported.</b> They are at the top: search for the right title, retry, or skip each one.</p>}
+          <p className="small muted" style={{ margin: "0 0 10px" }}>Check each title against what you wrote. Change the marking, remove it, or pick the right title. Changes save at once.</p>
+          <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 8 }}>
+            {live.map((r) => (
+              <li key={r.id} className="card pad" style={{ padding: 10 }} aria-busy={busy === r.id}>
+                <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  {r.item?.poster ? <img className="thumb" src={img(r.item.poster, "w92")} alt="" loading="lazy" /> : <div className="thumb" />}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 600 }}>{r.item ? `${r.item.title}${r.item.year ? ` (${r.item.year})` : ""}${r.item.type === "tv" ? " · TV" : ""}` : "Not imported"}</div>
+                    <div className="small muted" dir="auto">You wrote: {r.label}</div>
+                    {r.problem && <div className="small err">{r.problem} Pick the right title, or skip it.</div>}
+                    {!r.isNew && !r.problem && <div className="small muted">Already in your library.</div>}
+                  </div>
+                </div>
+                <div className="chips" style={{ marginTop: 8, alignItems: "center" }}>
+                  {r.item ? (
+                    <select aria-label={`Marking for ${r.label}`} value={r.status} disabled={busy === r.id} onChange={(e) => mark(r, e.target.value as Status)}>
+                      {OPTIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                      {r.status === "partial" && <option value="partial">Partly watched</option>}
+                    </select>
+                  ) : <span className="small muted">Would be {OPTIONS.find((o) => o[0] === r.status)?.[1].toLowerCase()}</span>}
+                  {r.item && r.problem && <button className="btn sm gold" type="button" disabled={busy === r.id} onClick={() => mark(r, r.status)}>Try again</button>}
+                  <button className="btn sm" type="button" aria-expanded={fixing === r.id} onClick={() => setFixing(fixing === r.id ? null : r.id)}>{r.item && !r.problem ? "Wrong title?" : "Find it"}</button>
+                  {r.item && r.isNew && !r.problem && <button className="btn sm" type="button" disabled={busy === r.id} onClick={() => remove(r)}>Remove</button>}
+                  {(!r.item || r.problem) && <button className="btn sm" type="button" onClick={() => patch(r.id, { gone: true })}>Skip</button>}
+                </div>
+                {fixing === r.id && <Picker start={r.label} onPick={(it) => swap(r, it)} />}
+                {r.err && <p className="small err" style={{ margin: "6px 0 0" }}>{r.err}</p>}
+              </li>
+            ))}
+          </ul>
+          <div style={{ marginTop: 18, paddingTop: 14, borderTop: "1px solid var(--line)" }}>
+            {!confirm ? (
+              <>
+                <button className="btn" type="button" disabled={reverting || (removes === 0 && restores === 0)} onClick={() => setConfirm(true)}>Revert whole import</button>
+                <p className="small muted" style={{ margin: "8px 0 0" }}>Removes every title this import added and puts the ones it changed back as they were.</p>
+              </>
+            ) : (
+              <div aria-busy={reverting}>
+                <p style={{ margin: "0 0 10px" }}><b>Revert the whole import?</b> {removes} added title{removes === 1 ? "" : "s"} will be removed{restores ? ` and ${restores} changed title${restores === 1 ? "" : "s"} restored` : ""}. Anything you marked or rated yourself on those titles after importing goes with them.</p>
+                <div className="chips">
+                  <button className="btn gold" type="button" disabled={reverting} onClick={revert}>{reverting ? "Reverting…" : "Yes, revert it"}</button>
+                  <button className="btn" type="button" disabled={reverting} onClick={() => setConfirm(false)}>Cancel</button>
+                </div>
               </div>
-            </div>
-            <div className="chips" style={{ marginTop: 8, alignItems: "center" }}>
-              {r.item ? (
-                <select aria-label={`Marking for ${r.label}`} value={r.status} disabled={busy === r.id} onChange={(e) => mark(r, e.target.value as Status)}>
-                  {OPTIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-                  {r.status === "partial" && <option value="partial">Partly watched</option>}
-                </select>
-              ) : <span className="small muted">Would be {OPTIONS.find((o) => o[0] === r.status)?.[1].toLowerCase()}</span>}
-              {r.item && r.problem && <button className="btn sm gold" type="button" disabled={busy === r.id} onClick={() => retry(r)}>Try again</button>}
-              <button className="btn sm" type="button" onClick={() => setFixing(fixing === r.id ? null : r.id)}>{r.item && !r.problem ? "Wrong title?" : "Find it"}</button>
-              {r.item && r.isNew && <button className="btn sm" type="button" disabled={busy === r.id} onClick={() => remove(r)}>Remove</button>}
-              {(!r.item || r.problem) && <button className="btn sm" type="button" onClick={() => patch(r.id, { gone: true })}>Skip</button>}
-            </div>
-            {fixing === r.id && <Picker start={r.label} onPick={(it) => swap(r, it)} />}
-            {r.err && <p className="small err" style={{ margin: "6px 0 0" }}>{r.err}</p>}
-          </li>
-        ))}
-      </ul>
-    </div>
+            )}
+            {revertErr && <p className="small err" style={{ margin: "8px 0 0" }}>{revertErr}</p>}
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body,
   );
 }
 
+/** Title search shown under a row. The results sit in the flow of the popup, so they are always next to the box and scroll with it. */
 function Picker({ start, onPick }: { start: string; onPick: (it: BrowseItem) => void }) {
   const [q, setQ] = useState(start.replace(/\s*\([^)]*\)\s*$/, ""));
   const [hits, setHits] = useState<BrowseItem[] | null>(null);
+  const [failed, setFailed] = useState(false);
   useEffect(() => {
     const term = q.trim();
     if (term.length < 2) return;
@@ -92,27 +162,31 @@ function Picker({ start, onPick }: { start: string; onPick: (it: BrowseItem) => 
     const t = setTimeout(async () => {
       try {
         const r = await fetch(`/api/search?kind=title&q=${encodeURIComponent(term)}`, { signal: ctl.signal });
+        if (!r.ok) throw new Error(String(r.status));
         const d = (await r.json()) as { hits?: SearchHit[] };
-        setHits((d.hits ?? []).filter((h): h is Extract<SearchHit, { kind: "title" }> => h.kind === "title").slice(0, 8));
-      } catch { /* aborted or offline */ }
+        setHits((d.hits ?? []).filter((h): h is Extract<SearchHit, { kind: "title" }> => h.kind === "title").slice(0, 8)); setFailed(false);
+      } catch (e) { if ((e as Error).name !== "AbortError") setFailed(true); }
     }, 250);
     return () => { clearTimeout(t); ctl.abort(); };
   }, [q]);
   return (
     <div style={{ marginTop: 8 }}>
-      <input type="text" aria-label="Search for the right title" value={q} onChange={(e) => setQ(e.target.value)} dir="auto" style={{ width: "100%" }} autoFocus />
-      {hits && <ul className="pick-list" style={{ listStyle: "none", margin: "6px 0 0", padding: 0 }}>
-        {hits.length === 0 && <li className="small muted" style={{ padding: 8 }}>No results.</li>}
-        {hits.map((h) => (
-          <li key={h.key}>
-            <button type="button" onClick={() => onPick(h)} style={{ display: "flex", gap: 10, alignItems: "center", width: "100%", textAlign: "start", background: "none", border: 0, padding: 4, cursor: "pointer" }}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              {h.poster ? <img className="thumb" src={img(h.poster, "w92")} alt="" loading="lazy" /> : <div className="thumb" />}
-              <span>{h.title}{h.year ? ` (${h.year})` : ""}<span className="small muted">{h.type === "tv" ? " · TV" : " · Film"}</span></span>
-            </button>
-          </li>
-        ))}
-      </ul>}
+      <input type="search" aria-label="Search for the right title" placeholder="Search for the right title" value={q} onChange={(e) => setQ(e.target.value)} dir="auto" style={{ width: "100%" }} autoFocus />
+      {failed && <p className="small err" style={{ margin: "6px 0 0" }}>Search did not work. Check your connection and keep typing to retry.</p>}
+      {hits && !failed && (
+        <ul style={{ listStyle: "none", margin: "6px 0 0", padding: 0, display: "grid", gap: 2, maxHeight: 320, overflowY: "auto", border: "1px solid var(--line)", borderRadius: 12 }}>
+          {hits.length === 0 && <li className="small muted" style={{ padding: 10 }}>No results.</li>}
+          {hits.map((h) => (
+            <li key={h.key}>
+              <button type="button" onClick={() => onPick(h)} style={{ display: "flex", gap: 10, alignItems: "center", width: "100%", textAlign: "start", background: "none", border: 0, padding: 8, cursor: "pointer", color: "inherit", font: "inherit" }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                {h.poster ? <img className="thumb" src={img(h.poster, "w92")} alt="" loading="lazy" /> : <div className="thumb" />}
+                <span>{h.title}{h.year ? ` (${h.year})` : ""}<span className="small muted">{h.type === "tv" ? " · TV" : " · Film"}</span></span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

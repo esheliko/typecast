@@ -3,7 +3,7 @@ import { useMemo, useState, useTransition } from "react";
 import { connectLetterboxd, disconnectLetterboxd, importLetterboxd, rollbackImport, syncLetterboxdNow } from "@/app/actions";
 import { readZip } from "@/lib/letterboxd-parse";
 import { parseAny, type Plain } from "@/lib/list-parse";
-import ImportReview, { toRows, type ReviewRow } from "./ImportReview";
+import ImportReviewDialog, { toRows, type ReviewRow } from "./ImportReview";
 import type { LetterboxdLink } from "@/lib/types";
 import type { Applied } from "@/lib/letterboxd";
 
@@ -25,6 +25,8 @@ export default function LetterboxdPanel({ link }: { link: LetterboxdLink | null 
   const [done, setDone] = useState(0);
   const [tally, setTally] = useState<{ added: number; updated: number; unmatched: number; failed: number } | null>(null);
   const [review, setReview] = useState<ReviewRow[]>([]);
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [reverted, setReverted] = useState("");
   const [importErr, setImportErr] = useState("");
 
   const [name, setName] = useState("");
@@ -47,7 +49,7 @@ export default function LetterboxdPanel({ link }: { link: LetterboxdLink | null 
 
   async function run() {
     if (!entries) return;
-    setBusy(true); setDone(0); setImportErr(""); setTally(null); setStarted(entries); setReview([]);
+    setBusy(true); setDone(0); setImportErr(""); setReverted(""); setTally(null); setStarted(entries); setReview([]); setReviewOpen(false);
     const sum = { added: 0, updated: 0, unmatched: 0, failed: 0 }, all: ReviewRow[] = [], applied: Applied[] = [];
     try {
       for (let i = 0; i < entries.length; i += BATCH) {
@@ -57,6 +59,7 @@ export default function LetterboxdPanel({ link }: { link: LetterboxdLink | null 
         setDone(Math.min(entries.length, i + BATCH)); setTally({ ...sum }); setReview([...all].sort((a, b) => Number(!!b.problem) - Number(!!a.problem)));
       }
       setRaw(null); setPasted(""); setFileKey((k) => k + 1); setPicked(false);
+      if (all.length) setReviewOpen(true);
     } catch {
       // The import itself broke (connection lost, signed out). Keep nothing from it: remove what earlier batches added and restore what they changed.
       setTally(null); setReview([]);
@@ -64,6 +67,15 @@ export default function LetterboxdPanel({ link }: { link: LetterboxdLink | null 
       catch { setImportErr("The import stopped and the undo did not finish, so some titles may have been added. Press Import again: titles already added are skipped, and nothing is added twice."); }
     }
     setStarted(null); setBusy(false);
+  }
+
+  /** Reverse the whole import: remove what it added, restore what it changed (including fixes made in the review). */
+  async function revertAll() {
+    const undo = review.flatMap((r) => r.recs);
+    await rollbackImport(undo);
+    const added = review.filter((r) => r.item && r.isNew && !r.problem && !r.gone).length;
+    setReview([]); setTally(null); setReviewOpen(false);
+    setReverted(`Import reverted: ${added} added title${added === 1 ? "" : "s"} removed${undo.some((x) => !x.isNew && x.prev) ? " and changed titles restored" : ""}. Your library is as it was before.`);
   }
 
   function connect() { setErr(""); setMsg(""); start(async () => { const r = await connectLetterboxd(name); if (r.ok) { setMsg(`Connected. ${r.added} added, ${r.updated} updated.`); setName(""); } else setErr(r.error); }); }
@@ -74,7 +86,7 @@ export default function LetterboxdPanel({ link }: { link: LetterboxdLink | null 
   const shown = !!link;
   return (
     <>
-      <details className="fold" open={busy || !!entries || review.length > 0 || !!tally || undefined}>
+      <details className="fold" open={busy || !!entries || review.length > 0 || !!tally || !!reverted || undefined}>
       <summary>Import a list</summary>
       <div className="card pad" aria-busy={busy}>
         <details className="small muted" style={{ margin: "0 0 10px" }}>
@@ -103,7 +115,13 @@ export default function LetterboxdPanel({ link }: { link: LetterboxdLink | null 
           <p className="small" style={{ margin: "10px 0 0" }}>Done: {tally.added} added, {tally.updated} updated{tally.unmatched ? `, ${tally.unmatched} not found on TMDB` : ""}{tally.failed ? `, ${tally.failed} could not be saved` : ""}.{tally.unmatched + tally.failed > 0 ? " Fix those in the list below." : ""}</p>
         )}
         {importErr && <p className="small err" style={{ margin: "10px 0 0" }}>{importErr}</p>}
-        {review.length > 0 && !busy && <ImportReview rows={review} onChange={setReview} />}
+        {review.length > 0 && !busy && (
+          <button className="btn" type="button" style={{ marginTop: 10 }} onClick={() => setReviewOpen(true)}>
+            Review import{review.some((r) => r.problem && !r.gone) ? ` (${review.filter((r) => r.problem && !r.gone).length} to fix)` : ""}
+          </button>
+        )}
+        {reverted && <p className="small" style={{ margin: "10px 0 0" }}>{reverted}</p>}
+        {reviewOpen && review.length > 0 && !busy && <ImportReviewDialog rows={review} onChange={setReview} onClose={() => setReviewOpen(false)} onRevert={revertAll} />}
       </div>
       </details>
       <details className="fold" open={shown || undefined}>
