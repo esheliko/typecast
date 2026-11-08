@@ -41,8 +41,11 @@ export const CFG = {
   sleepSec: 30,
   errorCooldownMin: 45, // after a 402 (limit) response
   // Commits that only touch these never need a deployment.
-  noDeploy: /^(.*\.md|\.claude\/.*|\.github\/.*|artifact\.html|supabase\/.*|docs\/.*|scripts\/deploy-manager\.mjs|\.gitignore|\.env\.example)$/,
+  noDeploy: /^(.*\.md|\.claude\/.*|\.github\/.*|artifact\.html|supabase\/.*|docs\/.*|scripts\/deploy-manager\.mjs|scripts\/check-client-boundary\.mjs|scripts\/logs\.mjs|tests\/.*|playwright\.config\.ts|\.gitignore|\.env\.example)$/,
   urgentTag: '[deploy-now]',
+  // The CI gate: the head commit's `verify` check (.github/workflows/ci.yml) must have passed before it is deployed.
+  ciCheck: 'verify',
+  ciMaxWaitMin: 25, // CI still running this long after the newest commit => deploy anyway (a stuck CI must not freeze deployments)
 };
 
 const argv = process.argv.slice(2);
@@ -186,6 +189,26 @@ export function decide(ctx) {
   return { ...base, action: 'hold', why: `waiting for a quiet moment (needs ${tier.quietMin}m quiet or ${tier.maxWaitMin}m max wait)`, dueAt, newest, oldest, tier };
 }
 
+// ---------------------------------------------------------------- the CI gate
+/** Pure: what the check runs of one commit say. 'pass' | 'fail' | 'pending' | 'none' (no such check: CI never ran, do not block). */
+export function ciVerdict(runs) {
+  const mine = (runs ?? []).filter((r) => r.name === CFG.ciCheck).sort((a, b) => Date.parse(b.started_at ?? 0) - Date.parse(a.started_at ?? 0));
+  if (!mine.length) return 'none';
+  const r = mine[0];
+  if (r.status !== 'completed') return 'pending';
+  return ['success', 'neutral', 'skipped'].includes(r.conclusion) ? 'pass' : 'fail';
+}
+
+function ciState(sha) {
+  try {
+    const j = JSON.parse(gh(['api', `repos/${CFG.repo}/commits/${sha}/check-runs?per_page=100`]));
+    return ciVerdict(j.check_runs);
+  } catch (e) {
+    log('CI status unavailable, not gating', String(e.message).slice(0, 120));
+    return 'none';
+  }
+}
+
 // ---------------------------------------------------------------- acting
 function createDeployment(sha) {
   return vercel('POST', '/v13/deployments?forceNew=1&skipAutoDetectionConfirmation=1', {
@@ -296,6 +319,25 @@ async function tick() {
       }
     }
 
+    if (d.action === 'deploy' && !DRY && !d.why.includes(CFG.urgentTag)) {
+      const ci = ciState(pending.head);
+      const ageMin = (Date.now() - Math.max(...pending.relevant.map((c) => c.at))) / 60e3;
+      if (ci === 'fail') {
+        event(st, 'ci', `${pending.head.slice(0, 7)} failed CI: not deploying`);
+        if (st.ciAlerted !== pending.head) {
+          st.ciAlerted = pending.head;
+          alertFailure(`CI (\`${CFG.ciCheck}\`) failed for \`${pending.head.slice(0, 7)}\`, so it is **not deployed**. Production keeps the last good version. Fix main (a new commit re-runs the gate) or add \`${CFG.urgentTag}\` to a commit message to override.`);
+        }
+        writeBoard(st, ctx, { ...d, action: 'blocked', why: 'CI failed on the head commit' }, pending, true);
+        return;
+      }
+      if (ci === 'pending' && ageMin < CFG.ciMaxWaitMin) {
+        log(`CI still running for ${pending.head.slice(0, 7)}: holding`);
+        writeBoard(st, ctx, { ...d, action: 'hold', why: 'waiting for CI to pass on the head commit' }, pending, false);
+        return;
+      }
+      if (ci === 'pending') event(st, 'ci', `CI still running after ${Math.round(ageMin)}m: deploying ${pending.head.slice(0, 7)} anyway`);
+    }
     if (d.action === 'deploy' && !DRY) {
       const sha = pending.head;
       const n = pending.relevant.length;

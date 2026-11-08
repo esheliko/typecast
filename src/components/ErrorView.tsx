@@ -18,6 +18,7 @@ export default function ErrorView({ error, reset }: { error: Error & { digest?: 
     <div className="login" role="alert">
       <div className="logo"><span className="mark" aria-hidden="true" />Typecast</div>
       <p className="muted">Something went wrong on our side. Your library is safe. Retrying…</p>
+      {error.digest && <p className="muted" style={{ fontSize: 12, margin: "0 0 12px" }}>Reference <span className="mono">{error.digest}</span> (quote it when reporting this)</p>}
       <button type="button" className="btn gold" onClick={() => { tries.current = 0; reset(); }}>Try again</button>
       <button type="button" className="btn" style={{ marginLeft: 8 }} onClick={() => location.reload()}>Reload</button>
     </div>

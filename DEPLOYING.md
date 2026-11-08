@@ -17,6 +17,18 @@ Vercel Hobby limits deployments, so **a push no longer deploys by itself** (`ver
 - `[deploy-now]` in a commit message deploys immediately (real hotfixes only).
 - A failed head is not retried until a new commit lands. A real 402 from Vercel backs off 45 min.
 
+## CI gate
+`.github/workflows/ci.yml` runs lint (incl. the client/server import check), typecheck, unit tests, build and the smoke test as one check named `verify`.
+The Deploy Manager reads that check on the head commit before deploying: **pass** (or no check at all) deploys, **running** holds (up to 25 min, then
+deploys anyway so a stuck CI cannot freeze releases), **failed** blocks, comments on issue #1 once and keeps the last good version live. A new commit re-runs it.
+`[deploy-now]` skips the gate (real hotfixes only).
+
+## Smoke test setup (one-off)
+The signed-in half of the smoke test needs a dedicated account, never a real one (its email must contain `smoke` or `test`; the test refuses otherwise and only
+deletes the rows it seeded). Create it in Supabase (Auth > Users, or sign up through `/login` if allowed; add it to `ALLOWED_EMAILS` if that is enforced), then add
+GitHub repo secrets: `SMOKE_EMAIL`, `SMOKE_PASSWORD`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `TMDB_TOKEN`.
+Without them CI still runs everything else and the signed-out pages, and prints a warning. Locally: set the same variables, `npm run build && npm run smoke`.
+
 ## For sessions
 Commit, run lint/typecheck/build, push to `main`, done. Do not deploy, redeploy, or touch Vercel deployments. Your change goes live
 in roughly 5-15 min; check issue #1 if you need to know.

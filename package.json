@@ -7,7 +7,10 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src"
+    "lint": "eslint src && node scripts/check-client-boundary.mjs",
+    "check:boundary": "node scripts/check-client-boundary.mjs",
+    "test": "node --import tsx --test \"tests/unit/*.test.ts\"",
+    "smoke": "playwright test"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
@@ -18,11 +21,13 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.7",
+    "@playwright/test": "^1.65.0",
     "@types/node": "^22.10.0",
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
     "eslint": "^9.39.5",
     "eslint-config-next": "^15.5.29",
+    "tsx": "^4.23.15",
     "typescript": "^5.7.0"
   }
 }

@@ -13,6 +13,7 @@ concurrency:
 permissions:
   contents: read
   issues: write
+  checks: read # the CI gate reads the head commit's `verify` check
 jobs:
   manage:
     runs-on: ubuntu-latest

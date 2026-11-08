@@ -31,10 +31,14 @@ Next.js 15 (App Router) + Supabase (email/password auth, RLS) + TMDB. See README
 - Awards come from Wikidata (no key), looked up by the title's IMDb id (`src/lib/awards.ts`, cached a week); failures show nothing. `AwardChips` is the compact header summary, `AwardsSection` the full list (`components/Awards.tsx`).
 - Setup has one Import card: `parseAny` (`src/lib/list-parse.ts`) takes Letterboxd CSV/zip, free text or notes-app checklists (`[x]` watched, `[ ]` to watch); free-text titles fall back from movie to TV when matching on TMDB.
 - Import matching (`resolveEntries` in `src/lib/letterboxd.ts`) returns three buckets: sure (saved), `unsure` (a guess plus alternatives, NOT saved until the user confirms in the review popup) and unmatched. Confidence comes from exact-title score and vote-count rivalry (same name as a film vs a series, remakes, typos of a better-known title); anything TMDB's strict match misses falls back to the same `search()` the review's "Find it" box uses.
+- Client/server boundary: a `"use client"` file exports components (and types) only. A server file must never call a function or read a value imported from one: it builds fine and crashes at request time ("Attempted to call X() from the server"). Shared helpers go in `src/lib`. `npm run lint` enforces this (`scripts/check-client-boundary.mjs`).
+- Verification: `npm run lint` (eslint + boundary check), `npm run typecheck`, `npm test` (unit tests in `tests/unit`, pure `src/lib` code), `npm run smoke` (Playwright, `tests/smoke`: signs in as a dedicated test user, seeds a few rows, loads every page; see DEPLOYING.md). CI (`.github/workflows/ci.yml`, check `verify`) runs all of it and the Deploy Manager only deploys a head commit whose `verify` passed. Add a smoke step for any new page or data-dependent branch, and a unit test for new pure logic.
+- Debugging production: the error screen shows `Reference <digest>`. `node scripts/logs.mjs --digest <digest>` (or no args for recent errors, `--path /library`, `--all`) prints the real server error from the Vercel runtime logs (no token needed in Claude sessions). `src/instrumentation.ts` logs one JSON `request_error` line per failed render/route/action with the same digest, route and a short stack. Runtime logs only keep about an hour, so look soon.
+- Decorative sections (suggestions, awards, marks) must fail soft: catch and render nothing or a small note, never let them take the page down.
 - `artifact.html` is the legacy single-file prototype, not part of the site.
 
 ## Known gaps
-- No automated tests yet.
+- Test coverage is thin: unit tests cover only a few pure `src/lib` modules; the smoke test covers page loads, not behaviour.
 - `npm audit` flags PostCSS bundled inside Next 15; the fix requires Next 16.
 
 ## Workflow

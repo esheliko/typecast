@@ -1,0 +1,47 @@
+name: CI
+# The `verify` check below is what the Deploy Manager waits for: main is only deployed once it passes (DEPLOYING.md).
+# Pushes don't deploy by themselves, so a red `verify` simply means "not deployed, production keeps the last good version".
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  verify:
+    name: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      # Real values when the secrets exist (the smoke test needs them), harmless dummies otherwise (a compile check needs none).
+      TMDB_TOKEN: ${{ secrets.TMDB_TOKEN || 'dummy' }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://example.supabase.co' }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'dummy' }}
+      SMOKE_EMAIL: ${{ secrets.SMOKE_EMAIL }}
+      SMOKE_PASSWORD: ${{ secrets.SMOKE_PASSWORD }}
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci --no-audit --no-fund
+      - name: Lint (includes the client/server import boundary check)
+        run: npm run lint
+      - run: npm run typecheck
+      - name: Unit tests
+        run: npm test
+      - run: npm run build
+      - name: Install browser
+        run: npx playwright install --with-deps chromium
+      - name: Smoke test (signed-out pages always; signed-in pages when SMOKE_* secrets are set)
+        run: |
+          if [ -z "$SMOKE_EMAIL" ] || [ -z "$SMOKE_PASSWORD" ]; then echo "::warning::SMOKE_EMAIL/SMOKE_PASSWORD secrets missing: only signed-out pages are smoke-tested. See DEPLOYING.md > Smoke test."; fi
+          npm run smoke -- --trace off
+      - name: Upload report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with: { name: playwright-report, path: playwright-report, if-no-files-found: ignore }
