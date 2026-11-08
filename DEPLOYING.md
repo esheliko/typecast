@@ -39,11 +39,11 @@ in roughly 5-15 min; check issue #1 if you need to know.
   was accepted ~2h after the last one), so the 24h count is a pacing signal, not an exact quota. Only a real 402 is a hard stop.
 
 ## Visual board (Claude artifact "Typecast deploy board")
-https://claude.ai/artifact/UbFWzbLxByvYjzki19uuMv. Live commit, the 24h count and the hourly chart are live queries on the Vercel connector
-(dataset `deployments`, a loader pages back 48h; each viewer must have approved Vercel for team `eshelikos-projects`). The manager state is still read
-from JSON files uploaded to the artifact (no GitHub connector exists): `status`, `recent`, `events` and `pending` (waiting commits with messages and push times; `hourly.json` is no longer used).
-The board also lists each production deployment's newest commit message, live from Vercel. Refresh: `node scripts/dashboard-data.mjs <dir>`, then upload each of status/hourly/recent/events .json with the Artifact tool
-(`asset: true`, same url) and `update` the matching `datasets/<id>` document's `source.url`, `source.name` and `updated`. The hourly supervisor does this.
+https://claude.ai/artifact/UbFWzbLxByvYjzki19uuMv. Fully live, no uploads: every panel is a live query. Vercel connector (`list_deployments`) gives the live commit,
+the 24h/1h counts, the hourly chart and "Shipped to production"; GitHub connector (`list_commits` on main, `issue_read` on issue #1) gives "Waiting to deploy"
+(commits newer than the live one, minus ones the manager ignores) and the manager status, deployments table and events. The page re-checks every 10 s while open.
+Each viewer must approve both connectors (Vercel for team `eshelikos-projects`; GitHub = a custom connector, `https://api.githubcopilot.com/mcp/`, via an OAuth app).
+The supervisor has nothing to refresh there. `scripts/dashboard-data.mjs` is gone.
 - 2026-11-08: first push-triggered Actions tick confirmed (board tick #3 with no Claude run). Anything under `scripts/` is now deploy-neutral too.
 - 2026-11-08 (17:50 IST): 7 commits waited 40+ min. Two causes: (1) the CI gate treated a cancelled `verify` on the head as "pending" and held up to 25 min,
   though a cancelled run with nothing after it never finishes: now it stops blocking after 3 min; (2) the slow pacing tier (10 min quiet / 60 min max wait)
