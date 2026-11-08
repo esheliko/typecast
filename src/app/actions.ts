@@ -5,7 +5,7 @@ import { requireUser, supabaseServer } from "@/lib/supabase/server";
 import { normalizeDetails, type DetailId } from "@/lib/details";
 import type { MediaType, Priority, Status } from "@/lib/types";
 import type { LbEntry } from "@/lib/letterboxd-parse";
-import { applyResolved, cleanUsername, fetchFeed, LbError, resolveEntries, syncLetterboxd } from "@/lib/letterboxd";
+import { applyResolved, cleanUsername, fetchFeed, LbError, resolveEntries, type Applied, type Unmatched, syncLetterboxd } from "@/lib/letterboxd";
 
 const STATUSES = ["watching", "partial", "watchlist", "watched"];
 const where = (type: MediaType, id: number) => ({ tmdb_type: type, tmdb_id: id });
@@ -99,7 +99,7 @@ export async function saveDetails(order: DetailId[]) {
 }
 
 /** Import one batch (max 25) of films parsed from a Letterboxd export or a text list. Opt-in: only called when the user imports in Setup. */
-export async function importLetterboxd(entries: LbEntry[], last: boolean): Promise<{ added: number; updated: number; unmatched: string[] }> {
+export async function importLetterboxd(entries: LbEntry[], last: boolean): Promise<{ added: number; updated: number; items: Applied[]; unmatched: Unmatched[] }> {
   const { sb, user } = await requireUser();
   const clean = entries.slice(0, 25).filter((e) => typeof e?.name === "string" && e.name && e.name.length < 300).map((e): LbEntry => ({
     name: e.name, tv: !!e.tv, watching: !!e.watching, year: Number.isInteger(e.year) ? e.year : null, watched: !!e.watched, watchlist: !!e.watchlist,

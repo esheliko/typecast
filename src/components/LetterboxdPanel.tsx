@@ -3,6 +3,7 @@ import { useMemo, useState, useTransition } from "react";
 import { connectLetterboxd, disconnectLetterboxd, importLetterboxd, syncLetterboxdNow } from "@/app/actions";
 import { readZip } from "@/lib/letterboxd-parse";
 import { parseAny, type Plain } from "@/lib/list-parse";
+import ImportReview, { toRows, type ReviewRow } from "./ImportReview";
 import type { LetterboxdLink } from "@/lib/types";
 
 const BATCH = 25;
@@ -22,7 +23,8 @@ export default function LetterboxdPanel({ link }: { link: LetterboxdLink | null 
   const [readErr, setReadErr] = useState("");
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(0);
-  const [tally, setTally] = useState<{ added: number; updated: number; unmatched: string[] } | null>(null);
+  const [tally, setTally] = useState<{ added: number; updated: number; unmatched: number } | null>(null);
+  const [review, setReview] = useState<ReviewRow[]>([]);
   const [importErr, setImportErr] = useState("");
 
   const [name, setName] = useState("");
@@ -45,13 +47,13 @@ export default function LetterboxdPanel({ link }: { link: LetterboxdLink | null 
 
   async function run() {
     if (!entries) return;
-    setBusy(true); setDone(0); setImportErr(""); setTally(null); setStarted(entries);
-    const sum = { added: 0, updated: 0, unmatched: [] as string[] };
+    setBusy(true); setDone(0); setImportErr(""); setTally(null); setStarted(entries); setReview([]);
+    const sum = { added: 0, updated: 0, unmatched: 0 }, all: ReviewRow[] = [];
     try {
       for (let i = 0; i < entries.length; i += BATCH) {
         const r = await importLetterboxd(entries.slice(i, i + BATCH), i + BATCH >= entries.length);
-        sum.added += r.added; sum.updated += r.updated; sum.unmatched.push(...r.unmatched);
-        setDone(Math.min(entries.length, i + BATCH)); setTally({ ...sum });
+        sum.added += r.added; sum.updated += r.updated; sum.unmatched += r.unmatched.length; all.push(...toRows(r.items, r.unmatched));
+        setDone(Math.min(entries.length, i + BATCH)); setTally({ ...sum }); setReview([...all]);
       }
       setRaw(null); setPasted(""); setFileKey((k) => k + 1); setPicked(false);
     } catch { setImportErr("The import stopped part way. Choose the file again to resume: films already imported are skipped."); }
@@ -87,14 +89,10 @@ export default function LetterboxdPanel({ link }: { link: LetterboxdLink | null 
         )}
         {busy && entries && <p className="small muted" style={{ margin: "10px 0 0" }}><span className="spin" />Importing {done} of {entries.length}. Keep this page open.</p>}
         {tally && !busy && (
-          <p className="small" style={{ margin: "10px 0 0" }}>Done: {tally.added} added, {tally.updated} updated{tally.unmatched.length ? `, ${tally.unmatched.length} not found on TMDB` : ""}.</p>
+          <p className="small" style={{ margin: "10px 0 0" }}>Done: {tally.added} added, {tally.updated} updated{tally.unmatched ? `, ${tally.unmatched} not found on TMDB` : ""}.</p>
         )}
         {importErr && <p className="small err" style={{ margin: "10px 0 0" }}>{importErr}</p>}
-        {tally && tally.unmatched.length > 0 && !busy && (
-          <details style={{ marginTop: 8 }}><summary className="small muted">Titles that could not be matched</summary>
-            <ul className="small muted" style={{ margin: "6px 0 0", paddingLeft: 18 }}>{tally.unmatched.map((u) => <li key={u}>{u}</li>)}</ul>
-          </details>
-        )}
+        {review.length > 0 && !busy && <ImportReview rows={review} onChange={setReview} />}
         <p className="small muted" style={{ margin: "10px 0 0" }}>Titles you already have are never overwritten: an existing title is only marked watched if it was not, and given a rating only if it had none. Half stars are rounded up to whole stars. For Letterboxd, open Settings, then Data, then Export your data.</p>
       </div>
       <div className="sp" />

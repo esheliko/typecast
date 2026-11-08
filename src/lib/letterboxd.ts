@@ -2,7 +2,7 @@
 import { tmdb } from "./tmdb";
 import { parseFeed, type FeedEntry, type LbEntry } from "./letterboxd-parse";
 import type { supabaseServer } from "./supabase/server";
-import type { MediaType } from "./types";
+import type { MediaType, Status } from "./types";
 
 type Sb = Awaited<ReturnType<typeof supabaseServer>>;
 const DAY_MS = 24 * 3600;
@@ -29,7 +29,10 @@ export async function fetchFeed(user: string): Promise<FeedEntry[]> {
 }
 
 /** A film or series ready to store, with what the user did with it. */
-export interface Resolved { type: MediaType; id: number; title: string; year: string; poster: string | null; watched: boolean; watching?: boolean; rating: number; date: string | null }
+export interface Resolved { type: MediaType; id: number; title: string; year: string; poster: string | null; watched: boolean; watching?: boolean; rating: number; date: string | null; label?: string }
+/** What the import did with one title, for the review list. `isNew` titles were added by this import. */
+export interface Applied { label: string; type: MediaType; id: number; title: string; year: string; poster: string | null; rating: number; status: Status; isNew: boolean }
+export interface Unmatched { label: string; status: Status; rating: number }
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const norm = (s: string) => s.toLowerCase().normalize("NFKD").replace(/[^\p{L}\p{N}]/gu, "");
@@ -60,8 +63,8 @@ async function findTv(name: string, year: number | null): Promise<any | null> {
 const fields = (d: any) => ({ title: (d.title ?? d.name ?? "") as string, year: ((d.release_date ?? d.first_air_date ?? "") as string).slice(0, 4), poster: (d.poster_path ?? null) as string | null });
 
 /** Match export entries to TMDB. `unmatched` lists names that could not be found. */
-export async function resolveEntries(entries: LbEntry[]): Promise<{ rows: Resolved[]; unmatched: string[] }> {
-  const rows: Resolved[] = [], unmatched: string[] = [];
+export async function resolveEntries(entries: LbEntry[]): Promise<{ rows: Resolved[]; unmatched: Unmatched[] }> {
+  const rows: Resolved[] = [], unmatched: Unmatched[] = [];
   await Promise.all(entries.map(async (e) => {
     const label = e.year ? `${e.name} (${e.year})` : e.name;
     try {
@@ -70,9 +73,9 @@ export async function resolveEntries(entries: LbEntry[]): Promise<{ rows: Resolv
       // A title can be both a film and a series ("Fargo", "Lost"): an exact match wins, then WIP (a series) , then the more popular one.
       const useTv = !!tvh && (!mv || (ex(tvh) !== ex(mv) ? ex(tvh) : e.watching || (tvh.popularity ?? 0) > (mv.popularity ?? 0)));
       const hit = useTv ? tvh : mv, type: MediaType = useTv ? "tv" : "movie";
-      if (!hit) { unmatched.push(label); return; }
-      rows.push({ type, id: hit.id, ...fields(hit), watched: e.watched, watching: !!e.watching, rating: e.rating, date: e.date });
-    } catch { unmatched.push(label); }
+      if (!hit) { unmatched.push({ label, status: e.watched ? "watched" : e.watching ? "watching" : "watchlist", rating: e.rating }); return; }
+      rows.push({ type, id: hit.id, ...fields(hit), watched: e.watched, watching: !!e.watching, rating: e.rating, date: e.date, label });
+    } catch { unmatched.push({ label, status: e.watched ? "watched" : e.watching ? "watching" : "watchlist", rating: e.rating }); }
   }));
   return { rows, unmatched };
 }
@@ -82,7 +85,7 @@ export async function resolveEntries(entries: LbEntry[]): Promise<{ rows: Resolv
  * new titles are added; an existing title is only marked watched if it was not, and only given a rating if it had none.
  * A watchlist entry never touches a title that is already in the library.
  */
-export async function applyResolved(sb: Sb, userId: string, input: Resolved[]): Promise<{ added: number; updated: number }> {
+export async function applyResolved(sb: Sb, userId: string, input: Resolved[]): Promise<{ added: number; updated: number; items: Applied[] }> {
   const merged = new Map<string, Resolved>();
   for (const r of input) {
     const k = `${r.type}:${r.id}`, o = merged.get(k);
@@ -90,7 +93,7 @@ export async function applyResolved(sb: Sb, userId: string, input: Resolved[]): 
     else { o.watched ||= r.watched; o.watching = !o.watched && (o.watching || r.watching); o.rating = r.rating || o.rating; if (r.date && (!o.date || r.date > o.date)) o.date = r.date; }
   }
   const rows = [...merged.values()];
-  if (!rows.length) return { added: 0, updated: 0 };
+  if (!rows.length) return { added: 0, updated: 0, items: [] };
   const { data, error } = await sb.from("library_items").select("tmdb_type,tmdb_id,status,rating").eq("user_id", userId).in("tmdb_id", rows.map((r) => r.id));
   if (error) throw new Error(error.message);
   const have = new Map<string, { status: string; rating: number }>((data ?? []).map((d: any) => [`${d.tmdb_type}:${d.tmdb_id}`, d]));
@@ -106,18 +109,25 @@ export async function applyResolved(sb: Sb, userId: string, input: Resolved[]): 
     if (e) throw new Error(e.message);
   }
   let updated = 0;
+  const finalStatus = new Map<string, string>();
   await Promise.all(rows.filter((r) => (r.watched || r.watching) && have.has(`${r.type}:${r.id}`)).map(async (r) => {
     const cur = have.get(`${r.type}:${r.id}`)!;
     const patch: Record<string, unknown> = {};
     if (!r.watched) { if (cur.status === "watchlist") patch.status = "watching"; }
     else if (cur.status !== "watched") Object.assign(patch, { status: "watched", watched_at: at(r.date), checked_at: null });
     if (r.watched && cur.rating === 0 && r.rating > 0) patch.rating = r.rating;
+    if (typeof patch.status === "string") finalStatus.set(`${r.type}:${r.id}`, patch.status);
     if (!Object.keys(patch).length) return;
     const { error: e } = await sb.from("library_items").update({ ...patch, updated_at: now }).eq("user_id", userId).eq("tmdb_type", r.type).eq("tmdb_id", r.id);
     if (e) throw new Error(e.message);
     updated++;
   }));
-  return { added: fresh.length, updated };
+  const items: Applied[] = rows.map((r) => {
+    const k = `${r.type}:${r.id}`, isNew = !have.has(k);
+    return { label: r.label ?? r.title, type: r.type, id: r.id, title: r.title, year: r.year, poster: r.poster, rating: r.rating, isNew,
+      status: (isNew ? (r.watched ? "watched" : r.watching ? "watching" : "watchlist") : finalStatus.get(k) ?? have.get(k)!.status) as Status };
+  });
+  return { added: fresh.length, updated, items };
 }
 
 export interface SyncResult { added: number; updated: number; seen: number; error?: string }
