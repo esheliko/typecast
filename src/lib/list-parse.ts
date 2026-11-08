@@ -13,7 +13,7 @@ const DONE_HEAD = /^(watched|seen|already watched|done|finished|watch history|hi
 const SKIP = /^(movies?|films?|tv|shows?|series|tv shows?)$/i;
 
 /** One line of free text to an entry. `null` for blanks, headings and anything that is not a title. */
-function parseLine(raw: string, mode: Plain): { entry: LbEntry } | { mode: Plain } | null {
+function parseLine(raw: string, mode: Plain): { entries: LbEntry[] } | { mode: Plain } | null {
   let s = raw.trim();
   if (!s || s.length > 200) return null;
   s = s.replace(NUMBER, "");
@@ -48,7 +48,19 @@ function parseLine(raw: string, mode: Plain): { entry: LbEntry } | { mode: Plain
   s = s.replace(/\s*\([^()]*\)\s*$/, "").replace(/^["“'‘]+|["”'’]+$/g, "").trim();
   if (!/[\p{L}\p{N}]/u.test(s) || s.length < 1) return null;
   const isWatched = !wip && (watched ?? mode === "watched");
-  return { entry: { name: s, year, watched: isWatched, watchlist: !isWatched && !wip, watching: wip, rating: isWatched ? rating : 0, date: null, tv: true } };
+  const mk = (name: string): LbEntry => ({ name, year, watched: isWatched, watchlist: !isWatched && !wip, watching: wip, rating: isWatched ? rating : 0, date: null, tv: true });
+  return { entries: sequels(s).map(mk) };
+}
+
+/** "Inside Out 1,2" or "Toy Story 1 & 2" or "Rocky 1-3" is several titles on one line: "Inside Out 1", "Inside Out 2". Anything else stays one title. */
+function sequels(s: string): string[] {
+  const m = s.match(/^(.*[\p{L}\p{N}])\s+(\d{1,2}(?:\s*(?:[,&+/]|\band\b)\s*\d{1,2}|\s*[-–]\s*\d{1,2})+)$/iu);
+  if (!m || !/\p{L}/u.test(m[1])) return [s];
+  const nums = m[2].match(/\d+/g)!.map(Number);
+  const range = /[-–]/.test(m[2]) && nums.length === 2 && nums[1] > nums[0] && nums[1] - nums[0] <= 9;
+  const list = range ? Array.from({ length: nums[1] - nums[0] + 1 }, (_, i) => nums[0] + i) : /[-–]/.test(m[2]) ? null : nums;
+  if (!list || list.length > 10 || new Set(list).size !== list.length) return [s];
+  return list.map((n) => `${m[1]} ${n}`);
 }
 
 /** Free text: one title per line. A checkbox ([x], [ ], ☑, ☐, ✅ ...) or a "Watched"/"To watch" heading decides watched vs to-watch; otherwise `plain` does. */
@@ -59,10 +71,12 @@ export function parseText(text: string, plain: Plain): LbEntry[] {
     const r = parseLine(line, mode);
     if (!r) continue;
     if ("mode" in r) { mode = r.mode; continue; }
-    const e = r.entry, k = `${e.name.toLowerCase()}|${e.year ?? ""}`, o = out.get(k);
-    if (!o) out.set(k, e);
-    else if (e.watching) { if (!o.watched) { o.watching = true; o.watchlist = false; } }
-    else if (e.watched) { o.watched = true; o.watchlist = false; o.watching = false; o.rating = e.rating || o.rating; }
+    for (const e of r.entries) {
+      const k = `${e.name.toLowerCase()}|${e.year ?? ""}`, o = out.get(k);
+      if (!o) out.set(k, e);
+      else if (e.watching) { if (!o.watched) { o.watching = true; o.watchlist = false; } }
+      else if (e.watched) { o.watched = true; o.watchlist = false; o.watching = false; o.rating = e.rating || o.rating; }
+    }
   }
   return [...out.values()];
 }

@@ -36,6 +36,7 @@ const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),textarea
 export default function ImportReviewDialog({ rows, onChange, onClose, onRevert }: { rows: ReviewRow[]; onChange: (update: (rows: ReviewRow[]) => ReviewRow[]) => void; onClose: () => void; onRevert: () => Promise<void> }) {
   const box = useRef<HTMLDivElement>(null);
   const [fixing, setFixing] = useState<string | null>(null);
+  const [adding, setAdding] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [confirm, setConfirm] = useState(false);
   const [bulk, setBulk] = useState(false);
@@ -87,6 +88,14 @@ export default function ImportReviewDialog({ rows, onChange, onClose, onRevert }
     const rec = await addImported(next, r.status, r.rating);
     patch(r.id, { item: next, isNew: rec.isNew, gone: false, problem: undefined, unsure: undefined, recs: [...r.recs, { type: next.type, id: next.id, ...rec }] });
     setFixing(null);
+  });
+
+  /** A line that meant two titles ("Inside Out 1,2"): saves another title under the same line, as its own row. */
+  const addAnother = (r: ReviewRow, next: BrowseItem) => guard(r, async () => {
+    const rec = await addImported(next, r.status, r.rating);
+    const row: ReviewRow = { id: `r${n++}`, label: r.label, item: next, status: r.status, rating: r.rating, isNew: rec.isNew, recs: [{ type: next.type, id: next.id, ...rec }] };
+    onChange((cur) => { const i = cur.findIndex((x) => x.id === r.id); return [...cur.slice(0, i + 1), row, ...cur.slice(i + 1)]; });
+    setAdding(null);
   });
 
   /** Accept every suggestion in one go, one title at a time so a failure only leaves that line for the user. */
@@ -167,6 +176,7 @@ export default function ImportReviewDialog({ rows, onChange, onClose, onRevert }
                   {r.item && r.unsure && <button className="btn sm gold" type="button" disabled={busy === r.id || bulk} onClick={() => mark(r, r.status)}>Yes, add it</button>}
                   {r.item && r.problem && <button className="btn sm gold" type="button" disabled={busy === r.id} onClick={() => mark(r, r.status)}>Try again</button>}
                   <button className="btn sm" type="button" aria-expanded={fixing === r.id} onClick={() => setFixing(fixing === r.id ? null : r.id)}>{r.item && !r.problem && !r.unsure ? "Wrong title?" : r.unsure ? "Search" : "Find it"}</button>
+                  <button className="btn sm" type="button" aria-expanded={adding === r.id} onClick={() => setAdding(adding === r.id ? null : r.id)}>Add another title</button>
                   {r.item && r.isNew && !unsaved(r) && <button className="btn sm" type="button" disabled={busy === r.id} onClick={() => remove(r)}>Remove</button>}
                   {(!r.item || unsaved(r)) && <button className="btn sm" type="button" onClick={() => patch(r.id, { gone: true })}>Skip</button>}
                 </div>
@@ -188,6 +198,7 @@ export default function ImportReviewDialog({ rows, onChange, onClose, onRevert }
                   </div>
                 )}
                 {fixing === r.id && <Picker start={r.label} onPick={(it) => swap(r, it)} />}
+                {adding === r.id && <div><p className="small muted" style={{ margin: "8px 0 0" }}>This line meant more than one title? Pick the other one; it is added as {OPTIONS.find((o) => o[0] === r.status)?.[1].toLowerCase()}.</p><Picker start={r.label} onPick={(it) => addAnother(r, it)} /></div>}
                 {r.err && <p className="small err" style={{ margin: "6px 0 0" }}>{r.err}</p>}
               </li>
             ))}
