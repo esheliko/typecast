@@ -118,8 +118,6 @@ textarea { width: 100%; resize: vertical; min-height: 72px; }
 .sh-ov summary::-webkit-details-marker { display: none; }
 .sh-ov[open] summary { display: none; }
 .sh-ov p { margin: 0; }
-.sh-ep { margin-top: 10px; }
-.sh-ep > summary { cursor: pointer; font: 600 14px var(--display); text-transform: uppercase; letter-spacing: .05em; padding: 6px 0; }
 .sh-compact ~ .status { margin: 10px 0 4px; gap: 6px; }
 .status { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 14px 0 6px; }
 .status .stars { margin-left: auto; letter-spacing: 0; white-space: nowrap; }
@@ -372,7 +370,7 @@ li.row { gap: 10px; }
 .cw-n { font-size: 12px; color: var(--muted); background: var(--chip); border-radius: 999px; padding: 1px 7px; }
 
 /* Hover feedback: everything clickable responds, so the UI never feels dead. */
-.tab, .btn, .chip, .back, .row, .row-link, .person-chip, .views button, .seg button, .toast-undo, .rel-b, .pick .x, .pc-img, .pc-t, .credit .nm, .row-title, .sh-ov summary, .sh-ep > summary, .cw > summary, .bridge-who, .fr-main, details.credit > summary, a { transition: background-color .15s, color .15s, border-color .15s, box-shadow .15s, transform .12s, opacity .15s, filter .15s; }
+.tab, .btn, .chip, .back, .row, .row-link, .person-chip, .views button, .seg button, .toast-undo, .rel-b, .pick .x, .pc-img, .pc-t, .credit .nm, .row-title, .sh-ov summary, .cw > summary, .bridge-who, .fr-main, details.credit > summary, a { transition: background-color .15s, color .15s, border-color .15s, box-shadow .15s, transform .12s, opacity .15s, filter .15s; }
 @media (hover: hover) {
   a:hover { text-decoration: underline; }
   a.tab:hover, a.btn:hover, a.row:hover, a.back:hover, a.person-chip:hover, .row-link:hover, .bridge-who:hover, .fr-main:hover, .pc-link:hover, .bridge-via a:hover { text-decoration: none; }
@@ -397,7 +395,7 @@ li.row { gap: 10px; }
   .pc-img { transition: opacity .15s, filter .15s, transform .15s, box-shadow .15s; }
   .toast-undo:hover { filter: brightness(1.1); }
   .toast-undo.plain:hover { background: rgb(255 255 255 / .12); filter: none; }
-  .sh-ov summary:hover, .sh-ep > summary:hover, .cw > summary:hover, details.credit > summary:hover .nm { color: var(--gold); }
+  .sh-ov summary:hover, .cw > summary:hover, details.credit > summary:hover .nm { color: var(--gold); }
   details.credit > summary:hover, .credit-main:hover { cursor: pointer; }
   .dorder-list li:hover { background: color-mix(in srgb, var(--ink) 5%, transparent); }
   .chip:disabled:hover { background: var(--chip); filter: none; }
@@ -703,3 +701,38 @@ body:has(.wbar) .toast-slot { bottom: calc(146px + env(safe-area-inset-bottom, 0
 .ask-mic.on { background: #e5484d; color: #fff; animation: pulse 1s ease-in-out infinite alternate; }
 .ask-input .btn { flex: none; height: 38px; }
 @media (prefers-reduced-motion: reduce) { .live-dot, .ask-mic.on { animation: none; } }
+/* Series: episodes, appearances, next-episode line */
+.ep-jump { font: inherit; color: inherit; text-align: left; padding: 0; text-decoration: underline dotted; text-underline-offset: 3px; cursor: pointer; }
+.ep-jump:hover { color: var(--gold); }
+.ep-seasons { display: flex; gap: 6px; overflow-x: auto; padding: 2px 0 10px; scrollbar-width: none; }
+.ep-seasons::-webkit-scrollbar { display: none; }
+.ep-seasons .chip { flex: none; }
+.ep-shead { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; padding: 12px 14px 8px; }
+.ep-list { list-style: none; margin: 0; padding: 0; }
+.ep { border-top: 1px solid var(--line); scroll-margin-top: 80px; }
+.ep-row { display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 14px; text-align: left; font: inherit; color: inherit; cursor: pointer; }
+.ep-row:hover .ep-name { color: var(--gold); }
+.ep-n { flex: none; width: 26px; text-align: right; font: 600 15px/1 var(--mono); color: var(--muted); }
+.ep-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.ep-name { font-weight: 600; overflow-wrap: anywhere; }
+.ep-sub { font-size: 12.5px; color: var(--muted); }
+.ep-check { flex: none; color: var(--good); font-weight: 700; }
+.ep.ep-seen .ep-name { color: var(--muted); }
+.ep.ep-soon .ep-n, .ep.ep-soon .ep-name { opacity: .6; }
+.ep.ep-open { background: color-mix(in srgb, var(--chip) 45%, transparent); }
+.ep-panel { padding: 0 14px 14px 52px; }
+.ep-top { display: flex; gap: 12px; align-items: flex-start; }
+.ep-still { width: 160px; max-width: 42%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 8px; flex: none; background: var(--chip); }
+@media (max-width: 520px) { .ep-panel { padding-left: 14px; } .ep-top { flex-direction: column; } .ep-still { width: 100%; max-width: none; } }
+.apps { margin: 10px 0 4px; }
+.apps-head { font: 500 11px/1.7 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.apps-line { font-weight: 600; margin: 2px 0 4px; }
+.apps-eps { list-style: none; margin: 4px 0 0; padding: 0; }
+.apps-ep { display: flex; gap: 10px; align-items: baseline; width: 100%; padding: 5px 0; text-align: left; font: inherit; color: inherit; border-top: 1px dashed var(--line); cursor: pointer; }
+.apps-eps li:first-child .apps-ep { border-top: 0; }
+.apps-ep:hover .apps-name { color: var(--gold); }
+.ep-code { flex: none; font: 500 12px var(--mono); color: var(--muted); min-width: 52px; }
+.apps-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.apps-date { flex: none; font-size: 12.5px; color: var(--muted); }
+.credit .role .eps { white-space: nowrap; }
+.focus .credit-main { color: inherit; text-decoration: none; }

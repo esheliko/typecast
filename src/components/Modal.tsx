@@ -22,9 +22,19 @@ export function FromProvider({ k, name, children }: { k: string; name: string; c
 type Peek = { title: string; year?: string | number; poster?: string | null; src?: string };
 const peeked = new Map<string, Peek>();
 
+/** The person whose credits these links are (a filmography, or an actor's row): the title then opens showing their part in it. */
+const FromPerson = createContext<number | null>(null);
+export function PersonProvider({ id, children }: { id: number; children: React.ReactNode }) {
+  return <FromPerson.Provider value={id}>{children}</FromPerson.Provider>;
+}
+
 export function TitleLink({ k, it, onClick, ...rest }: { k: string; it?: Peek } & Omit<ComponentProps<typeof Link>, "href" | "replace" | "scroll" | "prefetch">) {
   const from = useContext(FromTitle);
-  const url = from && from.key !== k ? `${href(k)}?${new URLSearchParams({ from: from.key, fn: from.name })}` : href(k);
+  const person = useContext(FromPerson);
+  const q = new URLSearchParams(from && from.key !== k ? { from: from.key, fn: from.name } : {});
+  if (person) q.set("p", String(person));
+  const qs = q.toString();
+  const url = qs ? `${href(k)}?${qs}` : href(k);
   // Reuse the poster image already on screen (an exact cache hit) so the popup has art the moment it opens.
   const remember = (el: HTMLElement) => { if (it) peeked.set(k, { title: it.title, year: it.year, poster: it.poster, src: el.querySelector("img")?.currentSrc || undefined }); };
   return <Link href={url} scroll={false} prefetch={false}

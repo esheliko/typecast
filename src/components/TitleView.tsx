@@ -4,7 +4,10 @@ import { notFound } from "next/navigation";
 import { AwardChips, AwardsSection } from "@/components/Awards";
 import CastFilter from "@/components/CastFilter";
 import { CreditRow, CrewRow } from "@/components/CreditRow";
-import EpisodeCast from "@/components/EpisodeCast";
+import Episodes from "@/components/Episodes";
+import Appearances, { EpisodeJump } from "@/components/Appearances";
+import { Avatar } from "@/components/ui";
+import { epCode, epsLabel, fmtDate, showLine, untilLabel } from "@/lib/episodes";
 import DetailOrder from "@/components/DetailOrder";
 import NoteBox from "@/components/NoteBox";
 import StatusControls from "@/components/StatusControls";
@@ -12,7 +15,7 @@ import RelatedButton from "@/components/cast/RelatedButton";
 import { GlimpseButton } from "@/components/Glimpse";
 import { titleSpec } from "@/lib/glimpse";
 import { LinkedRows, RelatedRows } from "@/components/cast/CreditList";
-import { FromProvider } from "@/components/Modal";
+import { FromProvider, PersonLink } from "@/components/Modal";
 import { Where } from "@/components/Where";
 import { WatchButton } from "@/components/Watching";
 import { fillCrew, missingCrew } from "@/lib/crew-fill";
@@ -64,14 +67,24 @@ function CastBlock({ part, t, lib, people, first, last, pending }: CastProps & {
   const links = new Map<string, string[]>();
   for (const c of people) for (const h of c.hits) links.set(h.key, [...(links.get(h.key) ?? []), c.name]);
   const linked = last ? [...links.entries()].sort((a, b) => b[1].length - a[1].length).slice(0, 8) : [];
-  const list = <ul className="credits">{shown.map((c) => <CreditRow key={c.id} c={c} libKeys={libKeys} pending={pending} title={{ title: t.title, year: t.year, type: t.type }} />)}</ul>;
+  const tv = t.show ? { id: t.id, episodes: t.show.episodes } : undefined;
+  const ttl = { title: t.title, year: t.year, type: t.type };
+  // A series' long tail of guest parts is not listed, but the search box finds anyone who appeared.
+  const extras = last && t.extras?.length ? t.extras : [];
+  const list = (
+    <ul className="credits">
+      {shown.map((c) => <CreditRow key={c.id} c={c} libKeys={libKeys} pending={pending} title={ttl} tv={tv} />)}
+      {extras.map((c) => <CreditRow key={c.id} c={{ ...c, hits: [], also: [], top: [] }} title={ttl} tv={tv} light hidden />)}
+    </ul>
+  );
+  const total = people.length + extras.length;
   return (
     <>
       {shown.length > 0 && (
         <>
           <h2>{DETAIL_LABEL[part]}</h2>
           {first && <p className="small" style={{ margin: "-4px 0 10px" }}><Link href={`/?view=connect&t=${t.key}`}>Compare this cast with another title</Link></p>}
-          <div className={`card pad${part === "cast_main" ? " cast-main" : ""}`}>{shown.length > MAIN_CAST ? <CastFilter>{list}</CastFilter> : list}</div>
+          <div className={`card pad${part === "cast_main" ? " cast-main" : ""}`}>{shown.length > MAIN_CAST || extras.length ? <CastFilter total={extras.length ? total : undefined}>{list}</CastFilter> : list}</div>
         </>
       )}
       {pending && last && shown.length > 0 && <p className="muted small" style={{ marginTop: 14 }}><span className="spin" />Finding where you know them from</p>}
@@ -177,8 +190,47 @@ async function FilledCrew({ ids, t }: { ids: CrewId[]; t: Title }) {
   return <CrewSection ids={ids} t={{ ...t, crewBy: await fillCrew(t.type, t.imdbId, t.crewBy) }} />;
 }
 
+const today = () => new Date().toISOString().slice(0, 10);
+
+/** Series facts under the title: seasons, episodes, years, and when the next episode airs (or when the last one did). Tapping it opens that episode. */
+function ShowFacts({ t }: { t: Title }) {
+  const s = t.show!; const now = today();
+  const ep = s.next ?? s.latest;
+  const when = ep?.air ? (s.next ? `${fmtDate(ep.air, true)}${untilLabel(ep.air, now) ? ` (${untilLabel(ep.air, now)})` : ""}` : fmtDate(ep.air)) : "";
+  return (
+    <>
+      <div className="sh-meta">{showLine(s)}</div>
+      {ep && (
+        <div className="sh-meta">
+          <EpisodeJump s={ep.s} e={ep.e}>{s.next ? "Next episode" : "Last episode"}: {epCode(ep.s, ep.e)}{ep.name && !/^Episode \d+$/.test(ep.name) ? ` “${ep.name}”` : ""}{when ? ` · ${when}` : ""}</EpisodeJump>
+        </div>
+      )}
+    </>
+  );
+}
+
+/** Opened from a person (their filmography, or their row in another title's cast): their part in this one, and for a series which episodes. */
+function Focus({ t, id }: { t: Title; id: number }) {
+  const c = t.people.find((x) => x.id === id) ?? t.extras?.find((x) => x.id === id)
+    ?? Object.values(t.crewBy).flat().find((x) => x.id === id);
+  if (!c) return null;
+  const eps = t.show ? epsLabel(c.eps, t.show.episodes) : "";
+  return (
+    <div className="card pad focus" style={{ marginTop: 14 }}>
+      <PersonLink className="credit-main" pid={c.id} it={c}>
+        <Avatar photo={c.photo} name={c.name} />
+        <span style={{ minWidth: 0 }}>
+          <span className="row-title" style={{ fontSize: 17, display: "block" }}>{c.name}</span>
+          <span className="small muted">{[c.role ? `as ${c.role}` : "", eps].filter(Boolean).join(" · ")}</span>
+        </span>
+      </PersonLink>
+      {t.show && c.credits && c.credits.length > 0 && <Appearances tv={t.id} credits={c.credits} eps={c.eps} auto />}
+    </div>
+  );
+}
+
 /** Everything about one title. Shown as the full page, and as the popup over Browse, Library and the rest. */
-export default async function TitleView({ t, origin }: { t: Title; origin?: Item | null }) {
+export default async function TitleView({ t, origin, focus }: { t: Title; origin?: Item | null; focus?: number | null }) {
   const [lib, profile] = await Promise.all([getLibrary(), getProfile()]);
   const mine = lib.find((l) => l.key === t.key) ?? null;
   const meta = [t.year, typeLabel(t.type), t.runtime ? `${t.runtime} min${t.type === "tv" ? " / ep" : ""}` : "", t.genres.slice(0, 3).join(", ")].filter(Boolean).join(" · ");
@@ -191,6 +243,7 @@ export default async function TitleView({ t, origin }: { t: Title; origin?: Item
         <div style={{ minWidth: 0 }}>
           <h1 className="sh-title">{t.title} <RelatedButton it={t} /> <GlimpseButton spec={titleSpec(t)} /> {t.imdbId && <a className="imdb-link" href={`https://www.imdb.com/title/${t.imdbId}/`} target="_blank" rel="noopener noreferrer" aria-label="Open on IMDb" title="Open on IMDb">IMDb ↗</a>}</h1>
           <div className="sh-meta">{meta}</div>
+          {t.show && <ShowFacts t={t} />}
           <Suspense fallback={null}><AwardChips t={t} /></Suspense>
           {gaps
             ? <Suspense fallback={<Bylines t={t} crewBy={t.crewBy} details={profile.details} />}><FilledBylines t={t} details={profile.details} /></Suspense>
@@ -200,16 +253,14 @@ export default async function TitleView({ t, origin }: { t: Title; origin?: Item
       </div>
       <StatusControls item={t} lib={mine} />
       <WatchButton it={{ key: t.key, type: t.type, id: t.id, title: t.title, year: t.year, poster: t.poster }} runtime={t.runtime} progress={mine?.progress ?? null} />
-      {t.type === "tv" && t.seasons.length > 0 && (
-        <details className="sh-ep">
-          <summary>Episode cast</summary>
-          <EpisodeCast tvId={t.id} seasons={t.seasons} initial={mine?.progress ?? { s: t.seasons[0].n, e: 1 }} inLibrary={!!mine} />
-        </details>
-      )}
+      {focus && <Focus t={t} id={focus} />}
       <Where t={t} profile={profile} />
       <DetailOrder initial={profile.details} type={t.type} />
       <Details t={t} lib={lib} order={profile.details} />
       <Unchosen t={t} lib={lib} order={profile.details} />
+      {t.type === "tv" && t.seasons.length > 0 && (
+        <Episodes item={{ id: t.id, title: t.title, year: t.year, poster: t.poster }} seasons={t.seasons} progress={mine?.progress ?? null} status={mine?.status ?? null} today={today()} />
+      )}
       <Suspense fallback={null}><AwardsSection t={t} /></Suspense>
       <Suspense fallback={null}><Franchise t={t} /></Suspense>
       <Suspense fallback={null}><Related t={t} origin={origin} /></Suspense>

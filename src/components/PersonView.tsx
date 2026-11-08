@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import PersonCredits from "@/components/cast/CreditList";
+import { PersonProvider } from "@/components/Modal";
 import { GlimpseButton } from "@/components/Glimpse";
 import { personSpec } from "@/lib/glimpse";
 import { img } from "@/lib/img";
@@ -32,7 +33,7 @@ export default async function PersonView({ p }: { p: Awaited<ReturnType<typeof l
         </div>
       </div>
       {p.bio && <p className="small muted" style={{ margin: "14px 0 0" }}>{p.bio}{p.bio.length >= 360 ? "…" : ""}</p>}
-      <PersonCredits known={p.known} mineKeys={mineKeys} />
+      <PersonProvider id={p.id}><PersonCredits known={p.known} mineKeys={mineKeys} /></PersonProvider>
     </>
   );
 }

@@ -239,6 +239,24 @@ test.describe("signed in", () => {
     await healthy(page, bad);
   });
 
+  test("series: episodes, opening one, and an actor's episodes", async ({ page }) => {
+    const bad = watch(page);
+    // ?p= is how a title opened from a person's credits arrives: it shows their part (and here, their episodes) up top.
+    await visit(page, "/title/tv/1396?full=1&p=17419", bad);
+    await expect(page.getByText(/5 seasons · 62 episodes/)).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText(/Every episode \(62\)/).first()).toBeVisible({ timeout: 20_000 });
+    const eps = page.getByRole("region", { name: "Episodes" });
+    await eps.getByRole("button", { name: /^S4( ✓)?$/ }).click();
+    await eps.getByRole("button", { name: /Face Off/ }).click();
+    await expect(eps.getByText("Directed by Vince Gilligan").first()).toBeVisible({ timeout: 20_000 });
+    await expect(eps.getByText("Guest stars").first()).toBeVisible();
+    for (const p of ["/api/season?tv=1396&s=1", "/api/appearances?tv=1396&c=5276f5c9760ee34ca70c6628&n=3"]) {
+      const r = await page.request.get(p);
+      expect(r.status(), p).toBe(200);
+    }
+    await healthy(page, bad);
+  });
+
   test("API routes answer when signed in", async ({ page }) => {
     for (const p of ["/api/search?q=matrix", "/api/export"]) {
       const r = await page.request.get(p);

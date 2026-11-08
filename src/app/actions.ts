@@ -77,6 +77,25 @@ export async function setProgress(type: MediaType, id: number, season: number, e
   await patch(type, id, { progress_season: season, progress_episode: episode }); done();
 }
 
+/**
+ * "Watched up to here" on an episode: saves the progress and makes sure the series is in the library. A series that was only
+ * on the watchlist (or not there at all) becomes Watching; Watching, Partly watched and Watched stay as they are.
+ */
+export async function setWatchedUpTo(item: { id: number; title: string; year: string; poster: string | null }, season: number, episode: number): Promise<Status> {
+  if (!(season >= 0) || !(episode >= 1)) throw new Error("Bad episode");
+  const { sb, user } = await requireUser();
+  const { data } = await sb.from("library_items").select("status").eq("user_id", user.id).match(where("tv", item.id)).maybeSingle();
+  const keep = data?.status === "watching" || data?.status === "partial" || data?.status === "watched";
+  const status: Status = keep ? (data!.status as Status) : "watching";
+  const { error } = await sb.from("library_items").upsert(
+    { user_id: user.id, ...where("tv", item.id), title: item.title, year: item.year, poster_path: item.poster, status, progress_season: season, progress_episode: episode, updated_at: new Date().toISOString() },
+    { onConflict: "user_id,tmdb_type,tmdb_id" },
+  );
+  if (error) throw new Error(error.message);
+  done();
+  return status;
+}
+
 export async function saveProfile(p: { country: string; services: number[]; serviceNames: Record<string, string> }) {
   const { sb, user } = await requireUser();
   const { error } = await sb.from("profiles").upsert(

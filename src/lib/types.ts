@@ -11,8 +11,17 @@ export const STATUS_LABEL: Record<Status, string> = { watching: "Watching", part
 export interface Item { key: string; type: MediaType; id: number; title: string; year: string; poster: string | null }
 export interface BrowseItem extends Item { rating: number }
 export interface Related extends Item { rel: string }
-export interface Credit extends Item { role: string; votes: number; rating: number; date: string }
-export interface CastMember { id: number; name: string; photo: string | null; role: string }
+/** `eps` / `since`: for a series, how many episodes they were in and the date of their first one. */
+export interface Credit extends Item { role: string; votes: number; rating: number; date: string; eps?: number; since?: string }
+/** `eps` and `credits` only for a series: episodes they appeared in, and TMDB credit ids (one per role) for looking up which. */
+export interface CastMember { id: number; name: string; photo: string | null; role: string; eps?: number; credits?: string[] }
+/** One episode, as listed in a season. */
+export interface EpisodeLite { s: number; e: number; name: string; air: string; runtime: number | null; rating: number; votes: number; finale?: boolean }
+export interface Episode extends EpisodeLite { overview: string; still: string | null; directors: string[]; writers: string[]; guests: CastMember[] }
+/** Facts about a series as a whole. */
+export interface ShowInfo { first: string; last: string; seasons: number; episodes: number; status: string; next: EpisodeLite | null; latest: EpisodeLite | null }
+/** Where one actor turns up in one series: every episode when TMDB lists them, else just the seasons. */
+export interface Appearances { roles: { role: string; eps: number }[]; total: number; episodes: EpisodeLite[]; seasons: number[]; showEpisodes: number }
 export interface Provider { id: number; name: string; logo: string | null }
 export interface ProviderGroup { link?: string; flatrate?: Provider[]; free?: Provider[]; ads?: Provider[]; rent?: Provider[]; buy?: Provider[] }
 
@@ -20,6 +29,8 @@ export interface Title extends Item {
   overview: string; tagline: string; genres: string[]; runtime: number | null; status: string;
   crew: string[]; crewBy: CrewBy; seasons: { n: number; eps: number }[]; people: CastMember[];
   prov: Record<string, ProviderGroup>; collection: number | null; related: Related[]; imdbId: string | null;
+  /** Series only: show-wide facts, and everyone else who appeared (beyond `people`), for searching the cast. */
+  show?: ShowInfo; extras?: CastMember[];
 }
 export interface Person { id: number; name: string; photo: string | null; dept: string; bio: string; known: Credit[]; imdbId: string | null }
 export type BrowseList = "foryou" | "trending" | "popular" | "top" | "new" | "soon";

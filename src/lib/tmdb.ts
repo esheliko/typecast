@@ -1,7 +1,7 @@
 import { cache } from "react";
 import { genresFor, interleave, type BrowseQuery, type Tag } from "./browse";
 import { shapeCrew, type CrewBy } from "./details";
-import type { BrowseItem, BrowseList, BrowseType, CastMember, Credit, Item, MediaType, Person, ProviderGroup, Related, SearchHit, Title } from "./types";
+import type { Appearances, BrowseItem, BrowseList, BrowseType, CastMember, Credit, Episode, EpisodeLite, Item, MediaType, Person, ProviderGroup, Related, SearchHit, ShowInfo, Title } from "./types";
 
 const BASE = process.env.TMDB_BASE_URL ?? "https://api.themoviedb.org/3";
 const HOUR = 3600;
@@ -108,6 +108,32 @@ export async function browse(list: BrowseList, type: BrowseType, page: number): 
   return { items: (d.results ?? []).map((r: any) => browseItem(type, r)), more: page < Math.min(d.total_pages ?? 1, 200) };
 }
 
+/** One cast entry. A series lists every part someone played and how many episodes they were in, most episodes first. */
+function member(type: MediaType, c: any): CastMember {
+  if (type !== "tv") return { id: c.id, name: c.name, photo: c.profile_path ?? null, role: c.character ?? "" };
+  const sorted: any[] = [...(c.roles ?? [])].sort((a, b) => (b.episode_count ?? 0) - (a.episode_count ?? 0));
+  // "Joel Miller" and "Joel Miller (uncredited)" are one part.
+  const names = [...new Set(sorted.map((r) => String(r.character ?? "").replace(/\s*\((uncredited|archive footage)\)\s*$/i, "").trim()).filter(Boolean))];
+  return {
+    id: c.id, name: c.name, photo: c.profile_path ?? null,
+    role: names.slice(0, 2).join(" / ") + (names.length > 2 ? ` +${names.length - 2}` : ""),
+    eps: c.total_episode_count ?? undefined,
+    credits: (c.roles ?? []).map((r: any) => r.credit_id).filter(Boolean).slice(0, 6),
+  };
+}
+
+const epLite = (x: any): EpisodeLite => ({
+  s: x.season_number, e: x.episode_number, name: x.name ?? "", air: x.air_date ?? "", runtime: x.runtime ?? null,
+  rating: Math.round((x.vote_average ?? 0) * 10) / 10, votes: x.vote_count ?? 0, ...(x.episode_type === "finale" ? { finale: true } : {}),
+});
+
+function showInfo(d: any): ShowInfo {
+  return {
+    first: d.first_air_date ?? "", last: d.last_air_date ?? "", seasons: d.number_of_seasons ?? 0, episodes: d.number_of_episodes ?? 0,
+    status: d.status ?? "", next: d.next_episode_to_air ? epLite(d.next_episode_to_air) : null, latest: d.last_episode_to_air ? epLite(d.last_episode_to_air) : null,
+  };
+}
+
 export async function getTitle(type: MediaType, id: number): Promise<Title> {
   const append = `${type === "tv" ? "aggregate_credits" : "credits"},watch/providers,recommendations,external_ids`;
   const d = await tmdb(`/${type}/${id}`, { append_to_response: append });
@@ -120,10 +146,7 @@ export async function getTitle(type: MediaType, id: number): Promise<Title> {
     }
     prov[cc] = g;
   }
-  const people: CastMember[] = cast.slice(0, 24).map((c) => ({
-    id: c.id, name: c.name, photo: c.profile_path ?? null,
-    role: type === "tv" ? c.roles?.[0]?.character ?? "" : c.character ?? "",
-  }));
+  const people: CastMember[] = cast.slice(0, 24).map((c) => member(type, c));
   const crewBy = shapeCrew(type, (type === "tv" ? d.aggregate_credits?.crew : d.credits?.crew) ?? [], d.created_by ?? []);
   return {
     ...item(type, d),
@@ -133,6 +156,7 @@ export async function getTitle(type: MediaType, id: number): Promise<Title> {
     seasons: type === "tv" ? (d.seasons ?? []).filter((s: any) => s.season_number > 0).map((s: any) => ({ n: s.season_number, eps: s.episode_count })) : [],
     imdbId: d.external_ids?.imdb_id || d.imdb_id || null,
     people, prov, collection: d.belongs_to_collection?.id ?? null,
+    ...(type === "tv" ? { show: showInfo(d), extras: cast.slice(24, 400).map((c) => member(type, c)) } : {}),
     related: (d.recommendations?.results ?? []).slice(0, 8).map((r: any): Related => {
       const mine = new Map<number, string>((d.genres ?? []).map((g: any) => [g.id, g.name]));
       const shared = ((r.genre_ids ?? []) as number[]).filter((g) => mine.has(g)).map((g) => mine.get(g)!).slice(0, 3);
@@ -358,6 +382,11 @@ async function personRaw(id: number) {
     if (BAD_ROLE.test(r.character ?? "")) continue;
     if ((r.genre_ids ?? []).some((g: number) => g === 10767 || g === 10763 || g === 10764)) continue;
     add(r, r.character ?? "");
+    const last = known[known.length - 1];
+    if (r.media_type === "tv" && last?.key === `tv:${r.id}`) {
+      if (r.episode_count) last.eps = r.episode_count;
+      if (r.first_credit_air_date) last.since = r.first_credit_air_date;
+    }
   }
   const dept: string = d.known_for_department ?? "";
   if (dept === "Directing") {
@@ -392,8 +421,49 @@ export async function getCast(type: MediaType, id: number, limit = 60): Promise<
 
 export async function getEpisode(tv: number, s: number, e: number) {
   const d = await tmdb(`/tv/${tv}/season/${s}/episode/${e}`, { append_to_response: "credits" }, 24 * HOUR);
-  const map = (a: any[] = []): CastMember[] => a.map((p) => ({ id: p.id, name: p.name, photo: p.profile_path ?? null, role: p.character ?? "" }));
+  const map = (a: any[] = []): CastMember[] => a.map((p) => ({ id: p.id, name: p.name, photo: p.profile_path ?? null, role: p.character ?? "", ...(p.credit_id ? { credits: [p.credit_id] } : {}) }));
   return { name: (d.name ?? "") as string, cast: map(d.credits?.cast).slice(0, 12), guests: map(d.credits?.guest_stars).slice(0, 20) };
+}
+
+/** Every episode of one season with its air date, guest stars and who directed and wrote it. Cached 6 hours (new episodes get dates). */
+export async function getSeason(tv: number, s: number): Promise<{ name: string; air: string; episodes: Episode[] }> {
+  const d = await tmdb(`/tv/${tv}/season/${s}`, {}, 6 * HOUR);
+  const crew = (x: any, jobs: string[]) => [...new Set<string>((x.crew ?? []).filter((c: any) => jobs.includes(c.job)).map((c: any) => c.name))].slice(0, 3);
+  return {
+    name: d.name ?? `Season ${s}`, air: d.air_date ?? "",
+    episodes: (d.episodes ?? []).map((x: any): Episode => ({
+      ...epLite(x), overview: x.overview ?? "", still: x.still_path ?? null,
+      directors: crew(x, ["Director"]), writers: crew(x, ["Writer", "Teleplay", "Story"]),
+      guests: (x.guest_stars ?? []).filter((g: any) => !BAD_ROLE.test(g.character ?? "")).slice(0, 30)
+        .map((g: any): CastMember => ({ id: g.id, name: g.name, photo: g.profile_path ?? null, role: g.character ?? "", ...(g.credit_id ? { credits: [g.credit_id] } : {}) })),
+    })),
+  };
+}
+
+/**
+ * Where one person appears in a series, from their TMDB credit ids (one per part played). Guest parts list each episode;
+ * regulars often list only a few, so when the list falls short of `total` (their episode count) the seasons are the answer.
+ */
+export async function getAppearances(tv: number, ids: string[], total: number): Promise<Appearances> {
+  const [show, ...cs] = await Promise.all([
+    tmdb(`/tv/${tv}`, {}, 24 * HOUR),
+    ...ids.slice(0, 6).map((id) => tmdb(`/credit/${id}`, {}, 24 * HOUR).catch(() => null)),
+  ]);
+  const eps = new Map<string, EpisodeLite>(); const seasons = new Set<number>(); const roles: Appearances["roles"] = [];
+  for (const c of cs) {
+    const m = c?.media; if (!m || m.id !== tv) continue;
+    const listed: any[] = (m.episodes ?? []).filter((x: any) => x.show_id === undefined || x.show_id === tv);
+    if (m.character) roles.push({ role: m.character, eps: listed.length });
+    for (const x of listed) { const e = epLite(x); eps.set(`${e.s}:${e.e}`, e); }
+    for (const x of m.seasons ?? []) if (x.season_number > 0) seasons.add(x.season_number);
+  }
+  for (const e of eps.values()) if (e.s > 0) seasons.add(e.s);
+  const complete = !total || eps.size >= total;
+  return {
+    roles: roles.sort((a, b) => b.eps - a.eps).map((r) => (complete ? r : { ...r, eps: 0 })), total: Math.max(total, eps.size),
+    episodes: complete ? [...eps.values()].sort((a, b) => a.s - b.s || a.e - b.e) : [],
+    seasons: [...seasons].sort((a, b) => a - b), showEpisodes: show.number_of_episodes ?? 0,
+  };
 }
 
 export async function getProviders(cc: string) {

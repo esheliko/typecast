@@ -1,25 +1,35 @@
 import { SeenLine, TopCredits } from "./cast/CreditList";
 import { Avatar } from "./ui";
-import { PersonLink } from "./Modal";
+import { PersonLink, PersonProvider } from "./Modal";
+import Appearances from "./Appearances";
+import { epsLabel } from "@/lib/episodes";
 import { GlimpseButton } from "./Glimpse";
 import { castSpec, personSpec } from "@/lib/glimpse";
 import type { CastMember, EnrichedMember } from "@/lib/types";
 
 /** One cast line. Tap to open their best-known credits (a native <details>, so it needs no JavaScript). */
 /** `pending` means their other credits are still being looked up, so an empty list is not the final answer. */
-export function CreditRow({ c, title, pending }: { c: EnrichedMember; libKeys?: Record<string, string>; title?: { title: string; year?: string | number; type: string }; pending?: boolean }) {
+/** In a series (`tv`), the line shows how many episodes they were in, and the opened row lists which episodes and when. */
+/** `light` rows (the long tail of a series cast, shown when searched) skip the other-credits lookup. */
+export function CreditRow({ c, title, pending, tv, light, hidden }: {
+  c: EnrichedMember; libKeys?: Record<string, string>; title?: { title: string; year?: string | number; type: string }; pending?: boolean;
+  tv?: { id: number; episodes: number }; light?: boolean; hidden?: boolean;
+}) {
+  const eps = tv ? epsLabel(c.eps, tv.episodes) : "";
   return (
-    <li className="credit has-gl" data-q={`${c.name} ${c.role}`.toLowerCase()}>
+    <li className={`credit has-gl${light ? " extra" : ""}`} hidden={hidden} data-q={`${c.name} ${c.role}`.toLowerCase()}>
       <span className="credit-gl"><GlimpseButton spec={castSpec(c.name, c.role, title)} label={title && c.role ? `See ${c.name} as ${c.role}` : `See images of ${c.name}`} /></span>
       <details>
         <summary className="credit-main">
           <Avatar photo={c.photo} name={c.name} />
-          <span className="credit-line"><span className="nm">{c.name}</span><span className="dots" /><span className="role">{c.role}</span></span>
+          <span className="credit-line"><span className="nm">{c.name}</span><span className="dots" /><span className="role">{c.role}{eps && <span className="eps">{c.role ? " · " : ""}{eps}</span>}</span></span>
         </summary>
         <div className="more">
           <div className="more-top"><PersonLink className="btn sm" pid={c.id} it={c}>Full profile →</PersonLink></div>
-          {c.top.length === 0 && <span className="muted small">{pending ? "Finding their other credits…" : "No other credits found."}</span>}
-          <TopCredits items={c.top} actor={c.name} />
+          {tv && c.credits && c.credits.length > 0 && <Appearances tv={tv.id} credits={c.credits} eps={c.eps} />}
+          {!light && c.top.length === 0 && <span className="muted small">{pending ? "Finding their other credits…" : "No other credits found."}</span>}
+          {c.top.length > 0 && tv && <div className="apps-head" style={{ marginTop: 10 }}>Also known for</div>}
+          <PersonProvider id={c.id}><TopCredits items={c.top} actor={c.name} /></PersonProvider>
         </div>
       </details>
       <div className="marks">

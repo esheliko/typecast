@@ -5,9 +5,10 @@ import MarkRow from "./MarkRow";
 import { KindFilter } from "../KindSeg";
 import { useLib } from "./LibState";
 import { useRetained } from "@/lib/useRetained";
+import { creditSub } from "@/lib/episodes";
 import type { Item, Status } from "@/lib/types";
 
-export type CreditItem = Item & { role?: string; votes?: number; rating?: number; date?: string };
+export type CreditItem = Item & { role?: string; votes?: number; rating?: number; date?: string; eps?: number; since?: string };
 
 type Sort = "release" | "rating" | "alpha" | "relevance";
 const SORTS: { value: Sort; label: string }[] = [
@@ -54,7 +55,7 @@ export default function PersonCredits({ known, mineKeys }: { known: CreditItem[]
   const rest = sorted(all ? restAll : restAll.slice(0, 30), sort, rel.current);
   const [mineStable, resetMine] = useRetained(mine);
   const [restStable, resetRest] = useRetained(rest);
-  const rows = (list: CreditItem[]) => <div className="card"><ul className="rows">{list.map((k) => <li key={k.key}><TitleRow it={k} sub={k.role} small /></li>)}</ul></div>;
+  const rows = (list: CreditItem[]) => <div className="card"><ul className="rows">{list.map((k) => <li key={k.key}><TitleRow it={k} sub={creditSub(k.role ?? "", k.eps, k.since, k.date)} small /></li>)}</ul></div>;
   return (
     <>
       <div className="inline" style={{ marginTop: 18, alignItems: "center", gap: 8 }}>
@@ -102,6 +103,6 @@ export function RelatedRows({ items }: { items: (Item & { rel?: string })[] }) {
 }
 
 /** A cast member's best-known other credits, inside their row on a title. */
-export function TopCredits({ items, actor }: { items: (Item & { role?: string })[]; actor: string }) {
-  return <KindFilter items={items} style={{ margin: "4px 0" }}>{(shown) => shown.map((k) => <MarkRow key={k.key} it={k} sub={k.role} actor={actor} small />)}</KindFilter>;
+export function TopCredits({ items, actor }: { items: (Item & { role?: string; eps?: number })[]; actor: string }) {
+  return <KindFilter items={items} style={{ margin: "4px 0" }}>{(shown) => shown.map((k) => <MarkRow key={k.key} it={k} sub={k.role} extra={k.eps ? `${k.eps} ep${k.eps === 1 ? "" : "s"}` : undefined} actor={actor} small />)}</KindFilter>;
 }
