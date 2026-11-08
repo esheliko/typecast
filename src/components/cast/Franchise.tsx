@@ -15,7 +15,7 @@ export interface Group { label: string; items: Item[]; by?: string }
 
 /** Ways to find related titles, each showing one signal on its own. Recommended is selected first. */
 const MODES = [["franchise", "Same franchise"], ["creator", "Creator"], ["names", "Similar names"], ["recommended", "Recommended"], ["themes", "Themes"]] as const;
-const FIRST: Mode = "recommended";
+const FIRST: Mode = "franchise"; // falls back to "recommended" when the title has no franchise
 type Mode = (typeof MODES)[number][0];
 
 /**
@@ -73,10 +73,11 @@ export function FranchiseSheet({ it, load, loadSimilar, onClose }: { it: Item; l
   const close = useRef<HTMLButtonElement>(null);
   useBackClose(true, onClose);
   const [mode, setMode] = useState<Mode>(FIRST);
+  const picked = useRef(false); // true once the user taps a pill, so the empty-franchise fallback never overrides them
   const [all, setAll] = useState<Group[] | null>(null); // every loose group, fetched up front
   useEffect(() => {
     let on = true;
-    load(it).then((g) => on && setGroups(g)); // collection / shared universe
+    load(it).then((g) => { if (!on) return; setGroups(g); if (g.length === 0 && loadSimilar && !picked.current) setMode("recommended"); }); // collection / shared universe
     if (loadSimilar) loadSimilar(it).then((s) => on && setAll(s));
     return () => { on = false; };
   }, [it, load, loadSimilar]);
@@ -100,7 +101,7 @@ export function FranchiseSheet({ it, load, loadSimilar, onClose }: { it: Item; l
         {loadSimilar && (
           <div className="chips" role="group" aria-label="Find related titles by" style={{ display: "flex", flexWrap: "wrap", gap: 6, margin: "8px 0" }}>
             {MODES.map(([m, label]) => (
-              <button key={m} type="button" className={`btn sm${mode === m ? " gold" : ""}`} aria-pressed={mode === m} onClick={() => setMode(m)}>{label}</button>
+              <button key={m} type="button" className={`btn sm${mode === m ? " gold" : ""}`} aria-pressed={mode === m} onClick={() => { picked.current = true; setMode(m); }}>{label}</button>
             ))}
           </div>
         )}
