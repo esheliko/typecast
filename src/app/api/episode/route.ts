@@ -1,7 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { getEpisode, TmdbError } from "@/lib/tmdb";
+import { getEpisode } from "@/lib/tmdb";
 import { enrich } from "@/lib/enrich";
 import { getLibrary } from "@/lib/library";
+import { apiError } from "@/lib/errors";
 
 export async function GET(req: NextRequest) {
   const p = req.nextUrl.searchParams;
@@ -13,5 +14,5 @@ export async function GET(req: NextRequest) {
     const [guests, cast] = await Promise.all([enrich(ep.guests, lib, cur), enrich(ep.cast, lib, cur)]);
     const libKeys = Object.fromEntries(lib.map((l) => [l.key, l.status]));
     return NextResponse.json({ name: ep.name, guests, cast, libKeys });
-  } catch (err) { const st = err instanceof TmdbError ? err.status : 500; return NextResponse.json({ error: (err as Error).message }, { status: st }); }
+  } catch (err) { const r = apiError(err, "api/episode"); return NextResponse.json(r.body, { status: r.status }); }
 }

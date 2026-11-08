@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { search, TmdbError } from "@/lib/tmdb";
+import { search } from "@/lib/tmdb";
+import { apiError } from "@/lib/errors";
 
 export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams.get("q")?.trim() ?? "";
@@ -7,5 +8,5 @@ export async function GET(req: NextRequest) {
   const kind = k === "person" || k === "title" ? k : "all";
   if (q.length < 2) return NextResponse.json({ hits: [] });
   try { return NextResponse.json({ hits: await search(q, kind) }, { headers: { "Cache-Control": "private, max-age=300, stale-while-revalidate=3600" } }); }
-  catch (e) { const s = e instanceof TmdbError ? e.status : 500; return NextResponse.json({ error: (e as Error).message }, { status: s }); }
+  catch (e) { const r = apiError(e, "api/search"); return NextResponse.json(r.body, { status: r.status }); }
 }

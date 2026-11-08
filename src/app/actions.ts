@@ -1,6 +1,7 @@
 "use server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { dbError, userMessage } from "@/lib/errors";
 import { requireUser, supabaseServer } from "@/lib/supabase/server";
 import { normalizeDetails, type DetailId } from "@/lib/details";
 import type { MediaType, Priority, Status } from "@/lib/types";
@@ -41,7 +42,7 @@ async function writeStatus(item: Single, status: Status | null, priority?: Prior
   const { sb, user } = await requireUser();
   if (status === null) {
     const { error } = await sb.from("library_items").delete().eq("user_id", user.id).match(where(item.type, item.id));
-    if (error) throw new Error(error.message);
+    if (error) throw dbError(error);
   } else {
     if (!STATUSES.includes(status)) throw new Error("Bad status");
     if (priority !== undefined && priority !== "someday" && priority !== "must") throw new Error("Bad priority");
@@ -49,7 +50,7 @@ async function writeStatus(item: Single, status: Status | null, priority?: Prior
       { user_id: user.id, ...where(item.type, item.id), title: item.title, year: item.year, poster_path: item.poster, status, ...(priority ? { priority } : {}), ...(status === "watched" ? { watched_at: new Date().toISOString(), checked_at: null } : {}), updated_at: new Date().toISOString() },
       { onConflict: "user_id,tmdb_type,tmdb_id" },
     );
-    if (error) throw new Error(error.message);
+    if (error) throw dbError(error);
     // Marked Watched again (or moved off Watching): the new episode is dealt with.
     if (status !== "watching") await clearNewEp(sb, user.id, item.type, item.id);
   }
@@ -69,7 +70,7 @@ export async function setStatusMany(items: Row[], status: Status) {
     rows.map((r) => ({ user_id: user.id, ...where(r.type, r.id), title: r.title, year: r.year, poster_path: r.poster, status, ...(status === "watched" ? { watched_at: now } : {}), updated_at: now })),
     { onConflict: "user_id,tmdb_type,tmdb_id" },
   );
-  if (error) throw new Error(error.message);
+  if (error) throw dbError(error);
   done();
 }
 
@@ -80,7 +81,7 @@ export async function undoStatusMany(items: Row[], status: Status) {
     const ids = byType(items.slice(0, 100), t);
     if (!ids.length) continue;
     const { error } = await sb.from("library_items").delete().eq("user_id", user.id).eq("tmdb_type", t).in("tmdb_id", ids).eq("status", status).eq("rating", 0);
-    if (error) throw new Error(error.message);
+    if (error) throw dbError(error);
   }
   done();
 }
@@ -88,7 +89,7 @@ export async function undoStatusMany(items: Row[], status: Status) {
 async function patch(type: MediaType, id: number, values: Record<string, unknown>) {
   const { sb, user } = await requireUser();
   const { error } = await sb.from("library_items").update({ ...values, updated_at: new Date().toISOString() }).eq("user_id", user.id).match(where(type, id));
-  if (error) throw new Error(error.message);
+  if (error) throw dbError(error);
 }
 export async function setPriority(type: MediaType, id: number, priority: Priority) {
   if (priority !== "someday" && priority !== "must") throw new Error("Bad priority");
@@ -122,7 +123,7 @@ export async function setWatchedUpTo(item: { id: number; title: string; year: st
     { user_id: user.id, ...where("tv", item.id), title: item.title, year: item.year, poster_path: item.poster, status, progress_season: season, progress_episode: episode, updated_at: new Date().toISOString() },
     { onConflict: "user_id,tmdb_type,tmdb_id" },
   );
-  if (error) throw new Error(error.message);
+  if (error) throw dbError(error);
   done();
   return status;
 }
@@ -133,7 +134,7 @@ export async function saveProfile(p: { country: string; services: number[]; serv
     { user_id: user.id, country: p.country, services: p.services, service_names: p.serviceNames, updated_at: new Date().toISOString() },
     { onConflict: "user_id" },
   );
-  if (error) throw new Error(error.message);
+  if (error) throw dbError(error);
   done();
 }
 
@@ -144,7 +145,7 @@ export async function saveDetails(order: DetailId[]) {
     { user_id: user.id, detail_order: normalizeDetails(order), updated_at: new Date().toISOString() },
     { onConflict: "user_id" },
   );
-  if (error) throw new Error(error.message);
+  if (error) throw dbError(error);
   done();
 }
 
@@ -156,8 +157,8 @@ export async function importLetterboxd(entries: LbEntry[], last: boolean): Promi
     rating: Number.isInteger(e.rating) ? Math.max(0, Math.min(5, e.rating)) : 0, date: typeof e.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(e.date) ? e.date : null,
   })).filter((e) => e.watched || e.watchlist || e.watching);
   const { rows, unmatched, unsure, trace } = await resolveEntries(clean);
-  let res: Awaited<ReturnType<typeof applyResolved>> = { added: 0, updated: 0, items: [], failed: [] }, failure: string | null = null;
-  try { res = await applyResolved(sb, user.id, rows); } catch (e) { failure = e instanceof Error ? e.message : String(e); }
+  let res: Awaited<ReturnType<typeof applyResolved>> = { added: 0, updated: 0, items: [], failed: [] }, failure: string | null = null, userFailure = "";
+  try { res = await applyResolved(sb, user.id, rows); } catch (e) { failure = e instanceof Error ? e.message : String(e); userFailure = userMessage(e, "import"); }
   // Audit trail: one line in the Vercel runtime logs and one row in `import_log` (table migration 0007). Logging never breaks an import.
   const summary = { received: entries.length, kept: clean.length, added: res.added, updated: res.updated, items: res.items, unmatched, unsure, failed: res.failed, failure };
   console.log("[import]", JSON.stringify({ user: user.id, ...summary, trace }));
@@ -165,7 +166,7 @@ export async function importLetterboxd(entries: LbEntry[], last: boolean): Promi
     const { error } = await sb.from("import_log").insert({ user_id: user.id, received: entries.length, kept: clean.length, added: res.added, updated: res.updated, unmatched: [...unmatched, ...unsure.map((u) => ({ label: u.label, unsure: u.guess.title }))], failure, trace: { lines: trace, applied: res.items, failed: res.failed } });
     if (error) console.error("[import] log insert failed:", error.message);
   } catch (e) { console.error("[import] log insert failed:", e); }
-  if (failure) throw new Error(failure);
+  if (failure) throw new Error(userFailure);
   if (last) done();
   return { ...res, unmatched, unsure };
 }
@@ -178,7 +179,7 @@ export async function addImported(item: { type: MediaType; id: number; title: st
   if (!STATUSES.includes(status) || (item.type !== "movie" && item.type !== "tv") || !Number.isInteger(item.id)) throw new Error("Bad title");
   const { sb, user } = await requireUser();
   const { data, error: e0 } = await sb.from("library_items").select("status,rating,watched_at,checked_at").eq("user_id", user.id).match(where(item.type, item.id)).maybeSingle();
-  if (e0) throw new Error(e0.message);
+  if (e0) throw dbError(e0);
   const now = new Date().toISOString();
   const watched = status === "watched" && (!data || data.status !== "watched");
   const { error } = await sb.from("library_items").upsert(
@@ -186,7 +187,7 @@ export async function addImported(item: { type: MediaType; id: number; title: st
       ...(watched ? { watched_at: now, checked_at: null } : {}), ...(status === "watched" && rating > 0 && (!data || data.rating === 0) ? { rating: Math.min(5, Math.round(rating)) } : {}), updated_at: now },
     { onConflict: "user_id,tmdb_type,tmdb_id" },
   );
-  if (error) throw new Error(error.message);
+  if (error) throw dbError(error);
   done();
   return data ? { isNew: false, prev: { status: data.status, rating: data.rating, watched_at: data.watched_at ?? null, checked_at: data.checked_at ?? null } } : { isNew: true };
 }
@@ -198,7 +199,7 @@ export async function addImported(item: { type: MediaType; id: number; title: st
  */
 export async function rollbackImport(items: Pick<Applied, "type" | "id" | "isNew" | "prev">[]): Promise<void> {
   const { sb, user } = await requireUser();
-  const bad = (e: { message: string } | null) => { if (e) throw new Error(e.message); };
+  const bad = (e: { message: string } | null) => { if (e) throw dbError(e, "rollbackImport"); };
   const list = items.slice(0, 5000).filter((a) => (a.type === "movie" || a.type === "tv") && Number.isInteger(a.id));
   for (const t of ["movie", "tv"] as MediaType[]) {
     const ids = list.filter((a) => a.isNew && a.type === t).map((a) => a.id);
@@ -224,7 +225,7 @@ export async function connectLetterboxd(input: string): Promise<LbResult> {
     { user_id: user.id, letterboxd_user: name, letterboxd_cursor: null, letterboxd_synced_at: null, letterboxd_error: null, updated_at: new Date().toISOString() },
     { onConflict: "user_id" },
   );
-  if (error) return { ok: false, error: error.message };
+  if (error) { console.error("[error] saveLetterboxd:", error.message); return { ok: false, error: "Could not save that. Please try again." }; }
   const r = await syncLetterboxd(sb, user.id, true);
   done();
   return r.error ? { ok: false, error: r.error } : { ok: true, added: r.added, updated: r.updated };
@@ -241,7 +242,7 @@ export async function syncLetterboxdNow(): Promise<LbResult> {
 export async function disconnectLetterboxd() {
   const { sb, user } = await requireUser();
   const { error } = await sb.from("profiles").update({ letterboxd_user: null, letterboxd_cursor: null, letterboxd_synced_at: null, letterboxd_error: null }).eq("user_id", user.id);
-  if (error) throw new Error(error.message);
+  if (error) throw dbError(error);
   done();
 }
 

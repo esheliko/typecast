@@ -26,10 +26,11 @@ export async function GET(req: NextRequest) {
     try {
       // Serper returns real Google Images results. POST bodies are not cached by fetch, so cache by hand via a GET-shaped key below.
       const r = await cachedSerper(q, serper);
-      if (!r.ok) return NextResponse.json({ configured: true, images: [], error: `Serper answered ${r.status}${r.msg ? `: ${r.msg}` : ""}` }, { status: 502 });
+      if (!r.ok) { console.error(`[error] glimpse: Serper answered ${r.status}${r.msg ? `: ${r.msg}` : ""}`); return NextResponse.json({ configured: true, images: [], error: "Image search is unavailable right now." }, { status: 502 }); }
       return NextResponse.json({ configured: true, images: r.images }, { headers: { "Cache-Control": "private, max-age=86400" } });
     } catch (e) {
-      return NextResponse.json({ configured: true, images: [], error: (e as Error).message }, { status: 502 });
+      console.error("[error] glimpse:", e);
+      return NextResponse.json({ configured: true, images: [], error: "Image search is unavailable right now." }, { status: 502 });
     }
   }
   const key = process.env.GOOGLE_CSE_KEY, cx = process.env.GOOGLE_CSE_CX;
@@ -40,12 +41,14 @@ export async function GET(req: NextRequest) {
     const r = await fetch(u, { next: { revalidate: 86400 } });
     if (!r.ok) {
       const body = await r.json().catch(() => null) as { error?: { message?: string } } | null;
-      return NextResponse.json({ configured: true, images: [], error: body?.error?.message ?? `Google answered ${r.status}` }, { status: 502 });
+      console.error(`[error] glimpse: Google answered ${r.status}: ${body?.error?.message ?? ""}`);
+      return NextResponse.json({ configured: true, images: [], error: "Image search is unavailable right now." }, { status: 502 });
     }
     const j = await r.json() as { items?: { link: string; title: string; image?: { thumbnailLink?: string; contextLink?: string } }[] };
     const images: GlimpseImage[] = (j.items ?? []).map((i) => ({ thumb: i.image?.thumbnailLink ?? i.link, full: i.link, page: i.image?.contextLink ?? i.link, title: i.title }));
     return NextResponse.json({ configured: true, images });
   } catch (e) {
-    return NextResponse.json({ configured: true, images: [], error: (e as Error).message }, { status: 502 });
+    console.error("[error] glimpse:", e);
+    return NextResponse.json({ configured: true, images: [], error: "Image search is unavailable right now." }, { status: 502 });
   }
 }

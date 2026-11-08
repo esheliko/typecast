@@ -1,3 +1,4 @@
+import { userMessage } from "@/lib/errors";
 import Link from "next/link";
 import { Suspense } from "react";
 import LibraryView from "@/components/LibraryView";
@@ -17,8 +18,7 @@ export const metadata = { title: "Library" };
 async function Suggestions({ lib }: { lib: LibItem[] }) {
   try { return await suggestionsInner(lib); }
   catch (e) {
-    console.error("Library suggestions failed", e);
-    return <p className="muted" style={{ marginTop: 20, fontSize: 12 }}>Suggestions unavailable: {e instanceof Error ? e.message : String(e)}</p>;
+    return <p className="muted" style={{ marginTop: 20, fontSize: 12 }}>Suggestions unavailable: {userMessage(e, "library suggestions")}</p>;
   }
 }
 
@@ -63,8 +63,7 @@ export default async function Library({ searchParams }: { searchParams: Promise<
   let lib: LibItem[];
   try { lib = await getLibrary(); }
   catch (e) {
-    console.error("Library load failed", e);
-    return <div className="page"><p className="muted" style={{ marginTop: 20 }}>Could not load your library: {e instanceof Error ? e.message : String(e)}</p></div>;
+    return <div className="page"><p className="muted" style={{ marginTop: 20 }}>Could not load your library: {userMessage(e, "library load")}</p></div>;
   }
   const filter = (["watching", "partial", "watchlist", "watched"] as string[]).includes(f ?? "") ? (f as Status) : "all";
   return (
