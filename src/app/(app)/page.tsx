@@ -4,6 +4,7 @@ import { isActive, mergeGenres, parseBrowse } from "@/lib/browse";
 import { getLibrary, getProfile } from "@/lib/library";
 import { forYou } from "@/lib/foryou";
 import { browse, discover, genreList, getPerson, getTitle } from "@/lib/tmdb";
+import { newEpDetail } from "@/lib/new-episode";
 import type { BrowseList } from "@/lib/types";
 
 const LISTS: BrowseList[] = ["foryou", "trending", "popular", "top", "new", "soon"];
