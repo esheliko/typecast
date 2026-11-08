@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import LibraryView, { isSort } from "@/components/LibraryView";
+import LibraryView from "@/components/LibraryView";
+import { isSort } from "@/lib/library-sort";
 import { SuggestionRows } from "@/components/cast/CreditList";
 import { getLibrary } from "@/lib/library";
 import { getTitle } from "@/lib/tmdb";

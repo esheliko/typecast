@@ -5,12 +5,10 @@ import UpNext from "./UpNext";
 import { useRef } from "react";
 import { useRetained } from "@/lib/useRetained";
 import { STATUS_LABEL, type LibItem, type Status } from "@/lib/types";
+import { SORTS, type SortKey } from "@/lib/library-sort";
 
 const TABS: [Status | "all", string][] = [["all", "All"], ["watching", STATUS_LABEL.watching], ["partial", "Partly"], ["watchlist", STATUS_LABEL.watchlist], ["watched", STATUS_LABEL.watched]];
 
-const SORTS = [["added", "Recently added"], ["title", "Title A–Z"], ["year", "Year, newest"], ["yearOld", "Year, oldest"], ["rating", "My rating"], ["watched", "Recently watched"]] as const;
-export type SortKey = (typeof SORTS)[number][0];
-export const isSort = (s: string | undefined): s is SortKey => SORTS.some(([k]) => k === s);
 const num = (y: string) => parseInt(y, 10) || 0;
 const SORTERS: Record<SortKey, ((a: LibItem, b: LibItem) => number) | null> = {
   added: null, // the library arrives newest-first
