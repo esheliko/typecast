@@ -70,7 +70,7 @@ export default function ProfileForm({ initial }: { initial: Profile }) {
         <label htmlFor="cc">Country</label>
         <select id="cc" value={country} onChange={(e) => pickCountry(e.target.value)}>{COUNTRIES.map(([c, n]) => <option key={c} value={c}>{n}</option>)}</select>
       </div>
-      <div className="srow">
+      <div className="srow stack">
         <span id="dp">Add “To watch” as</span>
         <div className="seg" role="group" aria-labelledby="dp">
           {(Object.keys(PRIORITY_LABEL) as Priority[]).map((p) => <button key={p} type="button" aria-pressed={prio === p} onClick={() => pickPrio(p)}>{PRIORITY_LABEL[p]}</button>)}

@@ -581,3 +581,12 @@ a.srow { color: inherit; text-decoration: none; }
 .modal.pop .sheet { height: auto; max-height: 100%; }
 @media (min-width: 720px) { .modal.pop .sheet { height: auto; max-height: min(100%, 780px); } }
 .pop-note { margin: 0 0 10px; }
+
+/* Settings: priority toggle never wraps; on narrow screens it sits full-width under its label */
+.srow .seg button { white-space: nowrap; }
+.srow .seg { flex: none; }
+@media (max-width: 480px) {
+  .srow.stack { flex-direction: column; align-items: stretch; gap: 8px; }
+  .srow.stack .seg { display: flex; }
+  .srow.stack .seg button { flex: 1; text-align: center; padding: 7px 11px; }
+}
