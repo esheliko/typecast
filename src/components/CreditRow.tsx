@@ -17,9 +17,9 @@ export function CreditRow({ c, title, pending }: { c: EnrichedMember; libKeys?: 
           <span className="credit-line"><span className="nm">{c.name}</span><span className="dots" /><span className="role">{c.role}</span></span>
         </summary>
         <div className="more">
+          <Link className="btn sm" href={`/person/${c.id}`} style={{ marginBottom: 4 }}>Full profile →</Link>
           {c.top.length === 0 && <span className="muted small">{pending ? "Finding their other credits…" : "No other credits found."}</span>}
           {c.top.map((k) => <MarkRow key={k.key} it={k} sub={k.role} actor={c.name} small />)}
-          <Link className="btn sm" href={`/person/${c.id}`} style={{ marginTop: 8 }}>Full profile</Link>
         </div>
       </details>
       <div className="marks">
