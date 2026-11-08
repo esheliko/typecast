@@ -29,7 +29,7 @@ export default function DetailOrder({ initial, type = "movie", always }: { initi
       {!always && <button type="button" className="chip sm" aria-expanded={open} onClick={() => setOpen(!open)}>{open ? "Done" : "Customize"}</button>}
       {open && (
         <div className="card pad dorder-panel">
-          <p className="muted small" style={{ margin: "0 0 8px" }}>Choose what you want to see about every title, and in what order. Saved to your account.</p>
+          <p className="muted small" style={{ margin: "0 0 8px" }}>Tick what to show on every title and set the order.</p>
           <ol className="dorder-list">
             {order.map((id, i) => (
               <li key={id}>

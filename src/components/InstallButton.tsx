@@ -11,5 +11,5 @@ export default function InstallButton() {
     return () => window.removeEventListener("beforeinstallprompt", h);
   }, []);
   if (evt) return <button className="btn gold" onClick={() => { evt.prompt(); setEvt(null); }}>Install Typecast</button>;
-  return <>On iPhone, open this site in Safari, tap Share, then Add to Home Screen. On Android, use the Chrome menu, then Install app. On desktop Chrome or Edge, use the install icon in the address bar.</>;
+  return <>iPhone: Share, then Add to Home Screen. Android: browser menu, then Install app. Desktop: install icon in the address bar.</>;
 }

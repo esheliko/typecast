@@ -542,3 +542,11 @@ button.aw-chip:hover { filter: brightness(1.08); }
 .fold > summary::before { content: "▸"; transition: transform .15s; }
 .fold[open] > summary::before { transform: rotate(90deg); }
 .fold > summary .muted { font: 400 12px var(--sans, inherit); letter-spacing: 0; text-transform: none; }
+
+/* Settings rows: label left, control right. */
+.srow { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0; border-top: 1px solid var(--line); font-weight: 500; }
+.srow:first-child { border-top: 0; padding-top: 0; }
+.srow select { max-width: 60%; }
+.sgroup { padding-top: 10px; border-top: 1px solid var(--line); }
+.sgroup-h { display: flex; justify-content: space-between; align-items: baseline; }
+.fold > .card { margin-top: 0; }
