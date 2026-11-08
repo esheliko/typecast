@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { getLibrary } from "@/lib/library";
-import { getTitle } from "@/lib/tmdb";
+import { getSeriesTime, getTitle } from "@/lib/tmdb";
 import { pool, regulars } from "@/lib/connect";
-import { formatHours, libraryStats, parseYear, recentWatched, tmdbStats, watchedIn, watchedYears, type StatTitle, type StatYear } from "@/lib/stats";
+import { formatHours, libraryStats, parseYear, recentWatched, tmdbStats, watchedIn, watchedYears, type SeriesTime, type StatTitle, type StatYear } from "@/lib/stats";
 import { BarList, Extreme, PeopleList, Stat, StatCard, YearPicker } from "@/components/Stats";
 import { StatCardsSkeleton } from "@/components/Skeletons";
 import { STATUS_LABEL, type LibItem, type Status } from "@/lib/types";
@@ -12,6 +12,8 @@ export const metadata = { title: "Library stats" };
 
 /** How many of the most recently watched titles are looked up on TMDB. */
 const CAP = 200;
+/** Series timed episode by episode: the most recent of the sample. */
+const SERIES_CAP = 60;
 const plural = (n: number, one: string, many = one + "s") => `${n} ${n === 1 ? one : many}`;
 const date = (ms: number) => new Date(ms).toLocaleDateString("en", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
 
@@ -23,7 +25,11 @@ async function TmdbStatsSection({ scope, year }: { scope: LibItem[]; year: StatY
     const titles = await pool(sample, 12, (l) => getTitle(l.type, l.id));
     const ok = titles.flatMap((t) => (t ? [t] : []));
     if (!ok.length) return <p className="muted small">Genres, runtime and people are unavailable right now.</p>;
-    const rows: StatTitle[] = ok.map((t) => ({ type: t.type, runtime: t.runtime, genres: t.genres, directors: t.crewBy.director.map((p) => ({ id: p.id, name: p.name })) }));
+    // Series are timed episode by episode (several calls each), so only the most recent ones; the rest are said to be left out.
+    const tv = ok.filter((t) => t.type === "tv").slice(0, SERIES_CAP);
+    const times = new Map<string, SeriesTime | null>();
+    (await pool(tv, 6, (t) => getSeriesTime(t.id))).forEach((r, i) => times.set(tv[i].key, r));
+    const rows: StatTitle[] = ok.map((t) => ({ type: t.type, runtime: t.runtime, genres: t.genres, directors: t.crewBy.director.map((p) => ({ id: p.id, name: p.name })), time: times.get(t.key) }));
     const s = tmdbStats(rows);
     const actors = await regulars(sample).catch(() => []);
     const note = [
@@ -34,10 +40,15 @@ async function TmdbStatsSection({ scope, year }: { scope: LibItem[]; year: StatY
       <>
         <h2>Details from TMDB</h2>
         <div className="stat-grid">
-          <Stat value={formatHours(s.minutes)} label="Film time watched"
-            note={s.seriesSkipped ? `Films only: ${plural(s.seriesSkipped, "series", "series")} not timed, TMDB cannot say which episodes you saw.` : undefined} />
+          <Stat value={formatHours(s.minutes)} label="Time watched"
+            note={`${formatHours(s.minutes - s.seriesMinutes)} of films · ${formatHours(s.seriesMinutes)} of series (${plural(s.episodes, "episode")})`} />
         </div>
-        {note && <p className="muted small" style={{ margin: "0 0 10px" }}>{note}{s.filmsNoRuntime ? ` ${plural(s.filmsNoRuntime, "film")} without a runtime left out.` : ""}</p>}
+        {note && <p className="muted small" style={{ margin: "0 0 10px" }}>{note}{[
+          s.filmsNoRuntime ? `${plural(s.filmsNoRuntime, "film")} without a runtime left out.` : "",
+          s.seriesUntimed ? `${plural(s.seriesUntimed, "series", "series")} could not be timed and are left out.` : "",
+          s.guessedEpisodes ? `${plural(s.guessedEpisodes, "episode")} had no listed length and count at the show's usual length.` : "",
+          s.missingEpisodes ? `${plural(s.missingEpisodes, "episode")} with no length at all are left out.` : "",
+        ].filter(Boolean).map((x) => ` ${x}`).join("")}</p>}
         <div className="stat-cards">
           <StatCard title="Top genres"><BarList rows={s.genres} empty="No genres found." /></StatCard>
           <StatCard title="Most-watched directors"><PeopleList people={s.directors} empty="No director has two of your films yet." /></StatCard>

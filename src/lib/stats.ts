@@ -109,11 +109,28 @@ export function libraryStats(lib: LibItem[], year: StatYear, now: number): Libra
 }
 
 /** The slice of a TMDB title that the stats read. */
-export interface StatTitle { type: MediaType; runtime: number | null; genres: string[]; directors: { id: number; name: string }[] }
+export interface StatTitle { type: MediaType; runtime: number | null; genres: string[]; directors: { id: number; name: string }[]; /** Series only: the summed episodes, when they could be looked up. */ time?: SeriesTime | null }
+/** What the aired episodes of one series add up to. `guessed` episodes had no runtime of their own and were given the show's usual length; `missing` had neither and are not in `minutes`. */
+export interface SeriesTime { minutes: number; episodes: number; guessed: number; missing: number }
+
+/** Adds up a series from its episode list: only episodes that have aired by `today` (YYYY-MM-DD), each at its own TMDB runtime. */
+export function sumEpisodes(eps: { air: string | null; runtime: number | null }[], typical: number | null, today: string): SeriesTime {
+  const r: SeriesTime = { minutes: 0, episodes: 0, guessed: 0, missing: 0 };
+  for (const e of eps) {
+    if (!e.air || e.air > today) continue;
+    r.episodes++;
+    if (e.runtime && e.runtime > 0) r.minutes += e.runtime;
+    else if (typical && typical > 0) { r.minutes += typical; r.guessed++; }
+    else r.missing++;
+  }
+  return r;
+}
+
 export interface Director { id: number; name: string; n: number }
 export interface TmdbStats {
-  /** Minutes of film runtime. Series are not timed: TMDB's episode length is a rough guess and we cannot know which episodes were seen. */
-  minutes: number; filmsTimed: number; filmsNoRuntime: number; seriesSkipped: number;
+  /** Minutes watched: film runtimes plus every aired episode of each watched series (`seriesMinutes` is the series share). */
+  minutes: number; seriesMinutes: number; filmsTimed: number; filmsNoRuntime: number;
+  seriesTimed: number; seriesUntimed: number; episodes: number; guessedEpisodes: number; missingEpisodes: number;
   genres: Counted[]; directors: Director[];
 }
 
@@ -123,17 +140,22 @@ export function recentWatched(items: LibItem[], cap: number): LibItem[] {
 }
 
 export function tmdbStats(titles: StatTitle[], top = 8): TmdbStats {
-  let minutes = 0, filmsTimed = 0, filmsNoRuntime = 0, seriesSkipped = 0;
+  let minutes = 0, seriesMinutes = 0, filmsTimed = 0, filmsNoRuntime = 0, seriesTimed = 0, seriesUntimed = 0, episodes = 0, guessedEpisodes = 0, missingEpisodes = 0;
   const genres = new Map<string, number>(), dirs = new Map<number, Director>();
   for (const t of titles) {
-    if (t.type === "tv") seriesSkipped++;
+    if (t.type === "tv") {
+      if (t.time && t.time.episodes > 0) {
+        seriesTimed++; seriesMinutes += t.time.minutes; minutes += t.time.minutes;
+        episodes += t.time.episodes; guessedEpisodes += t.time.guessed; missingEpisodes += t.time.missing;
+      } else seriesUntimed++;
+    }
     else if (t.runtime && t.runtime > 0) { minutes += t.runtime; filmsTimed++; }
     else filmsNoRuntime++;
     for (const g of new Set(t.genres)) genres.set(g, (genres.get(g) ?? 0) + 1);
     if (t.type === "movie") for (const p of t.directors) dirs.set(p.id, { ...p, n: (dirs.get(p.id)?.n ?? 0) + 1 });
   }
   return {
-    minutes, filmsTimed, filmsNoRuntime, seriesSkipped,
+    minutes, seriesMinutes, filmsTimed, filmsNoRuntime, seriesTimed, seriesUntimed, episodes, guessedEpisodes, missingEpisodes,
     genres: [...genres].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, top).map(([label, n]) => ({ label, n })),
     // One film by someone is not "most watched": only directors seen at least twice.
     directors: [...dirs.values()].filter((p) => p.n > 1).sort((a, b) => b.n - a.n || a.name.localeCompare(b.name)).slice(0, top),

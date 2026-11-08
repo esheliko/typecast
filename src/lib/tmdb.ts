@@ -1,5 +1,6 @@
 import { cache } from "react";
 import { genresFor, interleave, type BrowseQuery, type Tag } from "./browse";
+import { sumEpisodes, type SeriesTime } from "./stats";
 import { shapeCrew, type CrewBy } from "./details";
 import type { EpisodeFacts } from "./new-episode";
 import type { Appearances, BrowseItem, BrowseList, BrowseType, CastMember, Credit, Episode, EpisodeLite, Item, MediaType, Person, ProviderGroup, Related, SearchHit, ShowInfo, Title } from "./types";
@@ -164,6 +165,24 @@ export async function getTitle(type: MediaType, id: number): Promise<Title> {
       return { ...item(type, r), rel: shared.length ? `Recommended for fans of this: also ${shared.join(", ")}` : "Recommended for fans of this" };
     }),
   };
+}
+
+/**
+ * How long a series is: every episode that has aired, at the runtime TMDB lists for that episode (one cached call per season).
+ * Episodes with no runtime take the show's usual episode length and are counted as `guessed`.
+ */
+export async function getSeriesTime(id: number): Promise<SeriesTime> {
+  const d = await tmdb(`/tv/${id}`, {}, 6 * HOUR);
+  const last = d.last_episode_to_air?.runtime;
+  const typical: number | null = d.episode_run_time?.[0] || (last > 0 && last <= 90 ? last : null) || null;
+  const seasons: number[] = ((d.seasons ?? []) as any[]).map((x) => x.season_number as number).filter((n) => n > 0);
+  const today = new Date().toISOString().slice(0, 10);
+  const eps: { air: string | null; runtime: number | null }[] = [];
+  for (const n of seasons) {
+    const sd = await tmdb(`/tv/${id}/season/${n}`, {}, 6 * HOUR);
+    for (const e of (sd.episodes ?? []) as any[]) eps.push({ air: e.air_date ?? null, runtime: e.runtime ?? null });
+  }
+  return sumEpisodes(eps, typical, today);
 }
 
 /** Air date (YYYY-MM-DD) of the newest episode that has already aired, or null. Cached 6 hours. */

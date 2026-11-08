@@ -101,7 +101,7 @@ test.describe("signed in", () => {
     await expect(page.getByRole("heading", { name: "Your library" })).toBeVisible();
     // The streamed TMDB part arrives (seeded watched films) with text values, not just bars.
     await expect(page.getByRole("heading", { name: "Top genres" })).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByText("Film time watched")).toBeVisible();
+    await expect(page.getByText("Time watched")).toBeVisible();
     await healthy(page, bad);
     for (const q of ["y=2026", "y=2025", "y=1900", "y=abc"]) {
       await visit(page, `/library/stats?${q}`, bad);

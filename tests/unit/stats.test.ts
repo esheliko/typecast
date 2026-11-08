@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { formatHours, libraryStats, longestStreak, parseYear, recentWatched, tmdbStats, watchedIn, watchedYears, weekIndex } from "../../src/lib/stats";
+import { formatHours, sumEpisodes, libraryStats, longestStreak, parseYear, recentWatched, tmdbStats, watchedIn, watchedYears, weekIndex } from "../../src/lib/stats";
 import type { LibItem } from "../../src/lib/types";
 
 const at = (s: string) => Date.parse(s);
@@ -70,15 +70,28 @@ test("recentWatched: newest first, undated last, capped", () => {
   assert.deepEqual(recentWatched([a, c, b, d], 3).map((x) => x.key), [b.key, d.key, a.key]);
 });
 
-test("tmdbStats: films only are timed; series are counted as skipped; directors need two films", () => {
+test("sumEpisodes: aired only, own runtime first, usual length as a counted fallback", () => {
+  const eps = [
+    { air: "2020-01-01", runtime: 50 }, { air: "2020-01-08", runtime: null }, { air: "2020-01-15", runtime: 0 },
+    { air: "2099-01-01", runtime: 60 }, { air: null, runtime: 60 },
+  ];
+  assert.deepEqual(sumEpisodes(eps, 40, "2026-11-08"), { minutes: 130, episodes: 3, guessed: 2, missing: 0 });
+  assert.deepEqual(sumEpisodes(eps, null, "2026-11-08"), { minutes: 50, episodes: 3, guessed: 0, missing: 2 });
+  assert.deepEqual(sumEpisodes([], 40, "2026-11-08"), { minutes: 0, episodes: 0, guessed: 0, missing: 0 });
+});
+
+test("tmdbStats: films and timed series add up; untimed series are counted; directors need two films", () => {
   const dir = (id: number) => ({ id, name: `D${id}` });
   const r = tmdbStats([
     { type: "movie", runtime: 120, genres: ["Drama", "Crime"], directors: [dir(1)] },
     { type: "movie", runtime: 100, genres: ["Drama"], directors: [dir(1), dir(2)] },
     { type: "movie", runtime: null, genres: ["Drama", "Drama"], directors: [] },
-    { type: "tv", runtime: 45, genres: ["Crime"], directors: [dir(3), dir(3)] },
+    { type: "tv", runtime: 45, genres: ["Crime"], directors: [dir(3), dir(3)], time: { minutes: 600, episodes: 13, guessed: 1, missing: 0 } },
+    { type: "tv", runtime: 45, genres: [], directors: [], time: null },
+    { type: "tv", runtime: 45, genres: [], directors: [] },
   ]);
-  assert.equal(r.minutes, 220); assert.equal(r.filmsTimed, 2); assert.equal(r.filmsNoRuntime, 1); assert.equal(r.seriesSkipped, 1);
+  assert.equal(r.minutes, 820); assert.equal(r.seriesMinutes, 600); assert.equal(r.filmsTimed, 2); assert.equal(r.filmsNoRuntime, 1);
+  assert.equal(r.seriesTimed, 1); assert.equal(r.seriesUntimed, 2); assert.equal(r.episodes, 13); assert.equal(r.guessedEpisodes, 1);
   assert.deepEqual(r.genres, [{ label: "Drama", n: 3 }, { label: "Crime", n: 2 }]);
   assert.deepEqual(r.directors, [{ id: 1, name: "D1", n: 2 }]);
 });
