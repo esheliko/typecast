@@ -1,10 +1,11 @@
 "use client";
 import { useMemo, useState, useTransition } from "react";
-import { connectLetterboxd, disconnectLetterboxd, importLetterboxd, syncLetterboxdNow } from "@/app/actions";
+import { connectLetterboxd, disconnectLetterboxd, importLetterboxd, rollbackImport, syncLetterboxdNow } from "@/app/actions";
 import { readZip } from "@/lib/letterboxd-parse";
 import { parseAny, type Plain } from "@/lib/list-parse";
 import ImportReview, { toRows, type ReviewRow } from "./ImportReview";
 import type { LetterboxdLink } from "@/lib/types";
+import type { Applied } from "@/lib/letterboxd";
 
 const BATCH = 25;
 
@@ -22,7 +23,7 @@ export default function LetterboxdPanel({ link }: { link: LetterboxdLink | null 
   const [readErr, setReadErr] = useState("");
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(0);
-  const [tally, setTally] = useState<{ added: number; updated: number; unmatched: number } | null>(null);
+  const [tally, setTally] = useState<{ added: number; updated: number; unmatched: number; failed: number } | null>(null);
   const [review, setReview] = useState<ReviewRow[]>([]);
   const [importErr, setImportErr] = useState("");
 
@@ -47,15 +48,21 @@ export default function LetterboxdPanel({ link }: { link: LetterboxdLink | null 
   async function run() {
     if (!entries) return;
     setBusy(true); setDone(0); setImportErr(""); setTally(null); setStarted(entries); setReview([]);
-    const sum = { added: 0, updated: 0, unmatched: 0 }, all: ReviewRow[] = [];
+    const sum = { added: 0, updated: 0, unmatched: 0, failed: 0 }, all: ReviewRow[] = [], applied: Applied[] = [];
     try {
       for (let i = 0; i < entries.length; i += BATCH) {
         const r = await importLetterboxd(entries.slice(i, i + BATCH), i + BATCH >= entries.length);
-        sum.added += r.added; sum.updated += r.updated; sum.unmatched += r.unmatched.length; all.push(...toRows(r.items, r.unmatched));
-        setDone(Math.min(entries.length, i + BATCH)); setTally({ ...sum }); setReview([...all]);
+        applied.push(...r.items);
+        sum.added += r.added; sum.updated += r.updated; sum.unmatched += r.unmatched.length; sum.failed += r.failed.length; all.push(...toRows(r.items, r.unmatched, r.failed));
+        setDone(Math.min(entries.length, i + BATCH)); setTally({ ...sum }); setReview([...all].sort((a, b) => Number(!!b.problem) - Number(!!a.problem)));
       }
       setRaw(null); setPasted(""); setFileKey((k) => k + 1); setPicked(false);
-    } catch { setImportErr("The import stopped part way. Choose the file again to resume: films already imported are skipped."); }
+    } catch {
+      // The import itself broke (connection lost, signed out). Keep nothing from it: remove what earlier batches added and restore what they changed.
+      setTally(null); setReview([]);
+      try { await rollbackImport(applied); setImportErr("The import stopped, so nothing from it was kept. Your library is as it was. Your list is still here: press Import to try again."); }
+      catch { setImportErr("The import stopped and the undo did not finish, so some titles may have been added. Press Import again: titles already added are skipped, and nothing is added twice."); }
+    }
     setStarted(null); setBusy(false);
   }
 
@@ -96,7 +103,7 @@ export default function LetterboxdPanel({ link }: { link: LetterboxdLink | null 
         )}
         {busy && entries && <p className="small muted" style={{ margin: "10px 0 0" }}><span className="spin" />Importing {done} of {entries.length}. Keep this page open.</p>}
         {tally && !busy && (
-          <p className="small" style={{ margin: "10px 0 0" }}>Done: {tally.added} added, {tally.updated} updated{tally.unmatched ? `, ${tally.unmatched} not found on TMDB` : ""}.</p>
+          <p className="small" style={{ margin: "10px 0 0" }}>Done: {tally.added} added, {tally.updated} updated{tally.unmatched ? `, ${tally.unmatched} not found on TMDB` : ""}{tally.failed ? `, ${tally.failed} could not be saved` : ""}.{tally.unmatched + tally.failed > 0 ? " Fix those in the list below." : ""}</p>
         )}
         {importErr && <p className="small err" style={{ margin: "10px 0 0" }}>{importErr}</p>}
         {review.length > 0 && !busy && <ImportReview rows={review} onChange={setReview} />}

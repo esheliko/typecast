@@ -2,14 +2,15 @@
 import { useEffect, useState } from "react";
 import { setRating, setStatus } from "@/app/actions";
 import { img } from "@/lib/img";
-import type { Applied, Unmatched } from "@/lib/letterboxd";
+import type { Applied, Failed, Unmatched } from "@/lib/letterboxd";
 import type { BrowseItem, SearchHit, Status } from "@/lib/types";
 
-export type ReviewRow = { id: string; label: string; item: BrowseItem | null; status: Status; rating: number; isNew: boolean; gone?: boolean; err?: string };
+export type ReviewRow = { id: string; label: string; item: BrowseItem | null; status: Status; rating: number; isNew: boolean; gone?: boolean; err?: string; /** Why this line was not imported (set for lines that were not found or could not be saved). */ problem?: string };
 
 let n = 0;
-export const toRows = (items: Applied[], missing: Unmatched[]): ReviewRow[] => [
-  ...missing.map((m): ReviewRow => ({ id: `r${n++}`, label: m.label, item: null, status: m.status, rating: m.rating, isNew: true })),
+export const toRows = (items: Applied[], missing: Unmatched[], failed: Failed[] = []): ReviewRow[] => [
+  ...missing.map((m): ReviewRow => ({ id: `r${n++}`, label: m.label, item: null, status: m.status, rating: m.rating, isNew: true, problem: m.error ?? "Not found on TMDB." })),
+  ...failed.map((f): ReviewRow => ({ id: `r${n++}`, label: f.label, item: { key: `${f.type}:${f.id}`, type: f.type, id: f.id, title: f.title, year: f.year, poster: f.poster, rating: 0 }, status: f.status, rating: f.rating, isNew: false, problem: `Matched, but it could not be saved (${f.error}).` })),
   ...items.map((a): ReviewRow => ({ id: `r${n++}`, label: a.label, item: { key: `${a.type}:${a.id}`, type: a.type, id: a.id, title: a.title, year: a.year, poster: a.poster, rating: 0 }, status: a.status, rating: a.rating, isNew: a.isNew })),
 ];
 
@@ -28,14 +29,16 @@ export default function ImportReview({ rows, onChange }: { rows: ReviewRow[]; on
   }
   const mark = (r: ReviewRow, status: Status) => guard(r, async () => {
     if (r.item) await setStatus(r.item, status);
-    patch(r.id, { status });
+    if (r.item && r.problem && status === "watched" && r.rating > 0) await setRating(r.item.type, r.item.id, r.rating);
+    patch(r.id, { status, ...(r.item ? { problem: undefined, isNew: r.problem ? true : r.isNew } : {}) });
   });
+  const retry = (r: ReviewRow) => mark(r, r.status);
   const remove = (r: ReviewRow) => guard(r, async () => { if (r.item) await setStatus(r.item, null); patch(r.id, { gone: true }); });
   const swap = (r: ReviewRow, next: BrowseItem) => guard(r, async () => {
     if (r.item && r.isNew) await setStatus(r.item, null);
     await setStatus(next, r.status);
     if (r.status === "watched" && r.rating > 0) await setRating(next.type, next.id, r.rating);
-    patch(r.id, { item: next, isNew: true, gone: false });
+    patch(r.id, { item: next, isNew: true, gone: false, problem: undefined });
     setFixing(null);
   });
 
@@ -43,6 +46,7 @@ export default function ImportReview({ rows, onChange }: { rows: ReviewRow[]; on
   return (
     <div style={{ marginTop: 14 }}>
       <b>Review what was imported</b>
+      {live.some((r) => r.problem) && <p className="small err" style={{ margin: "4px 0 0" }}><b>{live.filter((r) => r.problem).length} could not be imported.</b> They are at the top: search for the right title, retry, or skip each one.</p>}
       <p className="small muted" style={{ margin: "4px 0 10px" }}>Check each title against what you wrote. Change the marking, remove it, or pick the right title. Changes save at once.</p>
       <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 8 }}>
         {live.map((r) => (
@@ -51,9 +55,10 @@ export default function ImportReview({ rows, onChange }: { rows: ReviewRow[]; on
               {/* eslint-disable-next-line @next/next/no-img-element */}
               {r.item?.poster ? <img className="thumb" src={img(r.item.poster, "w92")} alt="" loading="lazy" /> : <div className="thumb" />}
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 600 }}>{r.item ? `${r.item.title}${r.item.year ? ` (${r.item.year})` : ""}${r.item.type === "tv" ? " · TV" : ""}` : "Not found"}</div>
+                <div style={{ fontWeight: 600 }}>{r.item ? `${r.item.title}${r.item.year ? ` (${r.item.year})` : ""}${r.item.type === "tv" ? " · TV" : ""}` : "Not imported"}</div>
                 <div className="small muted" dir="auto">You wrote: {r.label}</div>
-                {!r.isNew && <div className="small muted">Already in your library.</div>}
+                {r.problem && <div className="small err">{r.problem} Pick the right title, or skip it.</div>}
+                {!r.isNew && !r.problem && <div className="small muted">Already in your library.</div>}
               </div>
             </div>
             <div className="chips" style={{ marginTop: 8, alignItems: "center" }}>
@@ -62,10 +67,11 @@ export default function ImportReview({ rows, onChange }: { rows: ReviewRow[]; on
                   {OPTIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                   {r.status === "partial" && <option value="partial">Partly watched</option>}
                 </select>
-              ) : <span className="small muted">Was going to be {OPTIONS.find((o) => o[0] === r.status)?.[1].toLowerCase()}</span>}
-              <button className="btn sm" type="button" onClick={() => setFixing(fixing === r.id ? null : r.id)}>{r.item ? "Wrong title?" : "Find it"}</button>
+              ) : <span className="small muted">Would be {OPTIONS.find((o) => o[0] === r.status)?.[1].toLowerCase()}</span>}
+              {r.item && r.problem && <button className="btn sm gold" type="button" disabled={busy === r.id} onClick={() => retry(r)}>Try again</button>}
+              <button className="btn sm" type="button" onClick={() => setFixing(fixing === r.id ? null : r.id)}>{r.item && !r.problem ? "Wrong title?" : "Find it"}</button>
               {r.item && r.isNew && <button className="btn sm" type="button" disabled={busy === r.id} onClick={() => remove(r)}>Remove</button>}
-              {!r.item && <button className="btn sm" type="button" onClick={() => patch(r.id, { gone: true })}>Skip</button>}
+              {(!r.item || r.problem) && <button className="btn sm" type="button" onClick={() => patch(r.id, { gone: true })}>Skip</button>}
             </div>
             {fixing === r.id && <Picker start={r.label} onPick={(it) => swap(r, it)} />}
             {r.err && <p className="small err" style={{ margin: "6px 0 0" }}>{r.err}</p>}

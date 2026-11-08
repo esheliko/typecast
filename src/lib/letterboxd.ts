@@ -31,8 +31,13 @@ export async function fetchFeed(user: string): Promise<FeedEntry[]> {
 /** A film or series ready to store, with what the user did with it. */
 export interface Resolved { type: MediaType; id: number; title: string; year: string; poster: string | null; watched: boolean; watching?: boolean; rating: number; date: string | null; label?: string }
 /** What the import did with one title, for the review list. `isNew` titles were added by this import. */
-export interface Applied { label: string; type: MediaType; id: number; title: string; year: string; poster: string | null; rating: number; status: Status; isNew: boolean }
-export interface Unmatched { label: string; status: Status; rating: number }
+export interface Applied { label: string; type: MediaType; id: number; title: string; year: string; poster: string | null; rating: number; status: Status; isNew: boolean; prev?: Prev }
+/** What an existing title looked like before the import changed it, so a failed import can put it back. */
+export interface Prev { status: Status; rating: number; watched_at: string | null; checked_at: string | null }
+/** A line that could not be matched on TMDB (`error` is set when the lookup itself failed rather than finding nothing). */
+export interface Unmatched { label: string; status: Status; rating: number; error?: string }
+/** A line that matched a title but could not be saved. Shown in the review so the user can retry or pick another title. */
+export interface Failed { label: string; type: MediaType; id: number; title: string; year: string; poster: string | null; rating: number; status: Status; error: string }
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const norm = (s: string) => s.toLowerCase().normalize("NFKD").replace(/[^\p{L}\p{N}]/gu, "");
@@ -82,7 +87,7 @@ export async function resolveEntries(entries: LbEntry[]): Promise<{ rows: Resolv
       if (!hit) { unmatched.push({ label, status: e.watched ? "watched" : e.watching ? "watching" : "watchlist", rating: e.rating }); return; }
       rows.push({ type, id: hit.id, ...fields(hit), watched: e.watched, watching: !!e.watching, rating: e.rating, date: e.date, label });
     } catch (err) {
-      unmatched.push({ label, status: e.watched ? "watched" : e.watching ? "watching" : "watchlist", rating: e.rating });
+      unmatched.push({ label, status: e.watched ? "watched" : e.watching ? "watching" : "watchlist", rating: e.rating, error: "Could not look this up on TMDB." });
       trace.push({ input: label, asTv: !!e.tv, watched: e.watched, watching: !!e.watching, watchlist: e.watchlist, movie: null, tv: null, picked: null, error: String((err as Error)?.message ?? err).slice(0, 200) });
     }
   }));
@@ -94,7 +99,7 @@ export async function resolveEntries(entries: LbEntry[]): Promise<{ rows: Resolv
  * new titles are added; an existing title is only marked watched if it was not, and only given a rating if it had none.
  * A watchlist entry never touches a title that is already in the library.
  */
-export async function applyResolved(sb: Sb, userId: string, input: Resolved[]): Promise<{ added: number; updated: number; items: Applied[] }> {
+export async function applyResolved(sb: Sb, userId: string, input: Resolved[]): Promise<{ added: number; updated: number; items: Applied[]; failed: Failed[] }> {
   const merged = new Map<string, Resolved>();
   for (const r of input) {
     const k = `${r.type}:${r.id}`, o = merged.get(k);
@@ -102,41 +107,57 @@ export async function applyResolved(sb: Sb, userId: string, input: Resolved[]): 
     else { o.watched ||= r.watched; o.watching = !o.watched && (o.watching || r.watching); o.rating = r.rating || o.rating; if (r.date && (!o.date || r.date > o.date)) o.date = r.date; }
   }
   const rows = [...merged.values()];
-  if (!rows.length) return { added: 0, updated: 0, items: [] };
-  const { data, error } = await sb.from("library_items").select("tmdb_type,tmdb_id,status,rating").eq("user_id", userId).in("tmdb_id", rows.map((r) => r.id));
+  if (!rows.length) return { added: 0, updated: 0, items: [], failed: [] };
+  // Reading what exists is the only step that can stop the whole batch, and it happens before anything is written.
+  const { data, error } = await sb.from("library_items").select("tmdb_type,tmdb_id,status,rating,watched_at,checked_at").eq("user_id", userId).in("tmdb_id", rows.map((r) => r.id));
   if (error) throw new Error(error.message);
-  const have = new Map<string, { status: string; rating: number }>((data ?? []).map((d: any) => [`${d.tmdb_type}:${d.tmdb_id}`, d]));
+  const have = new Map<string, Prev>((data ?? []).map((d: any) => [`${d.tmdb_type}:${d.tmdb_id}`, d]));
   const now = new Date().toISOString();
   const at = (d: string | null) => (d ? new Date(`${d}T12:00:00Z`).toISOString() : now);
-  const fresh = rows.filter((r) => !have.has(`${r.type}:${r.id}`)).map((r) => ({
-    user_id: userId, tmdb_type: r.type, tmdb_id: r.id, title: r.title, year: r.year, poster_path: r.poster,
+  const key = (r: Resolved) => `${r.type}:${r.id}`;
+  const failedBy = new Map<string, string>();
+  // Every row carries every column. A bulk upsert sends a column that only some rows have as null for the rest, which broke NOT NULL columns.
+  const fresh = rows.filter((r) => !have.has(key(r))).map((r) => ({ r, row: {
+    user_id: userId, tmdb_type: r.type, tmdb_id: r.id, title: r.title || "Untitled", year: r.year ?? "", poster_path: r.poster,
     status: r.watched ? "watched" : r.watching ? "watching" : "watchlist", rating: r.watched ? r.rating : 0,
-    ...(r.watched ? { watched_at: at(r.date), added_at: at(r.date) } : {}), updated_at: now,
-  }));
+    watched_at: r.watched ? at(r.date) : null, added_at: r.watched ? at(r.date) : now, updated_at: now,
+  } }));
+  const OPTS = { onConflict: "user_id,tmdb_type,tmdb_id", ignoreDuplicates: true } as const;
   if (fresh.length) {
-    const { error: e } = await sb.from("library_items").upsert(fresh, { onConflict: "user_id,tmdb_type,tmdb_id", ignoreDuplicates: true });
-    if (e) throw new Error(e.message);
+    const { error: e } = await sb.from("library_items").upsert(fresh.map((f) => f.row), OPTS);
+    if (e) {
+      // A bulk insert is all or nothing. Retry one title at a time so a single bad row cannot take the others down with it.
+      for (const f of fresh) {
+        const { error: e1 } = await sb.from("library_items").upsert([f.row], OPTS);
+        if (e1) failedBy.set(key(f.r), e1.message);
+      }
+    }
   }
   let updated = 0;
-  const finalStatus = new Map<string, string>();
-  await Promise.all(rows.filter((r) => (r.watched || r.watching) && have.has(`${r.type}:${r.id}`)).map(async (r) => {
-    const cur = have.get(`${r.type}:${r.id}`)!;
+  const finalStatus = new Map<string, string>(), changed = new Set<string>();
+  await Promise.all(rows.filter((r) => (r.watched || r.watching) && have.has(key(r))).map(async (r) => {
+    const cur = have.get(key(r))!;
     const patch: Record<string, unknown> = {};
     if (!r.watched) { if (cur.status === "watchlist") patch.status = "watching"; }
     else if (cur.status !== "watched") Object.assign(patch, { status: "watched", watched_at: at(r.date), checked_at: null });
     if (r.watched && cur.rating === 0 && r.rating > 0) patch.rating = r.rating;
-    if (typeof patch.status === "string") finalStatus.set(`${r.type}:${r.id}`, patch.status);
     if (!Object.keys(patch).length) return;
     const { error: e } = await sb.from("library_items").update({ ...patch, updated_at: now }).eq("user_id", userId).eq("tmdb_type", r.type).eq("tmdb_id", r.id);
-    if (e) throw new Error(e.message);
+    if (e) { failedBy.set(key(r), e.message); return; }
+    if (typeof patch.status === "string") finalStatus.set(key(r), patch.status);
+    changed.add(key(r));
     updated++;
   }));
-  const items: Applied[] = rows.map((r) => {
-    const k = `${r.type}:${r.id}`, isNew = !have.has(k);
-    return { label: r.label ?? r.title, type: r.type, id: r.id, title: r.title, year: r.year, poster: r.poster, rating: r.rating, isNew,
-      status: (isNew ? (r.watched ? "watched" : r.watching ? "watching" : "watchlist") : finalStatus.get(k) ?? have.get(k)!.status) as Status };
-  });
-  return { added: fresh.length, updated, items };
+  const items: Applied[] = [], failed: Failed[] = [];
+  for (const r of rows) {
+    const k = key(r), isNew = !have.has(k), base = { label: r.label ?? r.title, type: r.type, id: r.id, title: r.title, year: r.year, poster: r.poster, rating: r.rating };
+    const wanted = (r.watched ? "watched" : r.watching ? "watching" : "watchlist") as Status;
+    if (failedBy.has(k)) { failed.push({ ...base, status: wanted, error: failedBy.get(k)!.slice(0, 200) }); continue; }
+    const prev = have.get(k);
+    items.push({ ...base, isNew, status: (isNew ? wanted : finalStatus.get(k) ?? prev!.status) as Status,
+      ...(changed.has(k) ? { prev: { status: prev!.status, rating: prev!.rating, watched_at: prev!.watched_at ?? null, checked_at: prev!.checked_at ?? null } } : {}) });
+  }
+  return { added: fresh.filter((f) => !failedBy.has(key(f.r))).length, updated, items, failed };
 }
 
 export interface SyncResult { added: number; updated: number; seen: number; error?: string }
@@ -164,6 +185,7 @@ export async function syncLetterboxd(sb: Sb, userId: string, force = false): Pro
       catch { failed = true; }
     }));
     const res = await applyResolved(sb, userId, rows);
+    if (res.failed.length) failed = true; // do not move the cursor past entries that were not saved: the next sync tries them again
     const newest = fresh.reduce((m, e) => Math.max(m, e.pub), cursor ?? 0);
     await save({ letterboxd_synced_at: new Date().toISOString(), letterboxd_error: null, ...(failed || !newest ? {} : { letterboxd_cursor: new Date(newest).toISOString() }) });
     return { ...res, seen: fresh.length };
