@@ -40,7 +40,7 @@ export function TitleSkeleton({ title, poster, sub }: { title?: string; poster?:
           {title ? <h1 className="sh-title">{title} <span className="rel-b ghost" aria-hidden="true" /></h1> : bar("70%", 32)}
           {sub ? <div className="sh-meta">{sub}</div> : bar("40%", 13, { marginTop: 8 })}
         </div>
-        <div className="sh-ov" style={{ lineHeight: 1.4 }}>{bar("95%", 14)}{bar("70%", 14, { marginTop: 6 })}</div>
+        <div className="sh-ov" style={{ lineHeight: 1.4 }}>{bar("95%", 14)}{bar("70%", 14, { marginTop: 11 })}</div>
       </div>
       <section className="mark-card" style={{ minHeight: 98 }}>
         <div className="chips">{[0, 1].map((i) => <div key={i} className="sk-b pill" style={{ width: 120, height: 34 }} />)}</div>

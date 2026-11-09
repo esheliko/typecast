@@ -112,6 +112,9 @@ textarea { width: 100%; resize: vertical; min-height: 72px; }
 .sh-meta { font: 400 13px var(--mono); color: var(--muted); margin: 8px 0 0; }
 /* The poster floats, so every line of text beside it is narrow and every line below its bottom edge uses the full width. */
 .sh-compact { display: flow-root; }
+/* The 32px buttons beside the title must not stretch its line: the skeleton, the first paint and the hydrated page then all have the same height. */
+.sh-title .rel-b, .sh-title .gl-b { vertical-align: middle; margin-block: -6px; }
+.sh-title .imdb-link { vertical-align: middle; }
 .sh-compact .sh-poster { float: left; width: 84px; margin: 0 12px 6px 0; }
 .sh-compact .sh-title { font-size: 26px; }
 .sh-compact .sh-meta { margin-top: 4px; font-size: 12px; }
