@@ -72,3 +72,6 @@ The supervisor has nothing to refresh there. `scripts/dashboard-data.mjs` is gon
   exactly ONE Owner (best match with the failing tests, else the first push after the last green commit) and rule 6 says the Owner fixes it even if a neighbour caused it.
   Delivery: GitHub Actions cannot reach Claude, so a Claude session runs `node scripts/ci-watch.mjs` under the Monitor tool and messages the Owner (send_message) the moment a
   new red appears (a reminder every 45 min while red). If no watcher session is alive, the rule, the start hook and issue #2 are the only nudges: re-arm the watcher.
+- 2026-11-09 (owner request): every session starts a background CI wait after each push. `scripts/ci-status.mjs --wait --for <sha>` blocks until the first finished verdict on that
+  commit or any later main commit (cancelled runs are skipped), then prints the verdict and a `>>>` line saying whether this session is the Owner. Background Bash tasks wake the
+  session that started them when they end, so the session is told even after it stopped talking. The rule is CLAUDE.md 6 and the start hook repeats it.

@@ -5,6 +5,8 @@
 //
 //   (default)  print the verdict of the `verify` check on origin/main's head (or --sha): pass | fail | pending | none.
 //              On fail it names the failing tests and the suspect commits/sessions since the last green commit.
+//   --for SHA  (with --wait) wait for the first FINISHED verdict on SHA or any later main commit: the verdict that covers your push. This is what a
+//              session runs in the background after pushing; it ends with a line telling the session whether it is the Owner.
 //   --wait     poll until the head has a finished (not cancelled) verdict, following main if it moves; give up after 20 min.
 //              Sessions run this after pushing (CLAUDE.md): exit code 1 = red, 0 = green/none, 2 = still running.
 //   --issue N  also write the result into GitHub issue N (the "CI status" board the Deploy Manager keeps).
@@ -18,6 +20,7 @@ const argv = process.argv.slice(2);
 const WAIT = argv.includes('--wait');
 const arg = (f) => { const i = argv.indexOf(f); return i >= 0 ? argv[i + 1] : null; };
 const ISSUE = arg('--issue');
+const FOR = arg('--for');
 const git = (...a) => execFileSync('git', a, { encoding: 'utf8', maxBuffer: 64e6 }).trim();
 const gh = (path) => JSON.parse(execFileSync('gh', ['api', path], { encoding: 'utf8', maxBuffer: 64e6 }));
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -94,17 +97,39 @@ function commitsSince(base, head) {
   });
 }
 
+/** The first main commit at or after `sha` that has a finished, non-cancelled verdict (cancelled runs were superseded by a later push). */
+function coveringVerdict(sha) {
+  git('fetch', '-q', 'origin', 'main');
+  try { git('merge-base', '--is-ancestor', sha, 'origin/main'); } catch { return { missing: true }; }
+  const chain = [sha, ...git('rev-list', '--reverse', `${sha}..origin/main`).split('\n').filter(Boolean)];
+  for (const c of chain) {
+    const v = verdict(checkOf(c));
+    if (v === 'pass' || v === 'fail') return { sha: c, v };
+  }
+  return null;
+}
+
 async function main() {
   git('fetch', '-q', 'origin', 'main');
   let head = arg('--sha') ?? git('rev-parse', 'origin/main');
   const t0 = Date.now();
-  const deadline = t0 + 20 * 60e3;
-  let v = verdict(checkOf(head));
-  while (WAIT && (v === 'pending' || v === 'none') && Date.now() < deadline) {
-    await sleep(30e3);
-    if (!arg('--sha')) { git('fetch', '-q', 'origin', 'main'); head = git('rev-parse', 'origin/main'); }
+  const deadline = t0 + (FOR ? 25 : 20) * 60e3;
+  let v;
+  if (FOR) {
+    const mine = git('rev-parse', FOR);
+    let cov = coveringVerdict(mine);
+    while (WAIT && !cov?.missing && !cov && Date.now() < deadline) { await sleep(30e3); cov = coveringVerdict(mine); }
+    if (cov?.missing) { console.log(`Your commit ${mine.slice(0, 7)} is not on origin/main yet: push it first.`); process.exit(3); }
+    if (!cov) { console.log(`CI has not finished for ${mine.slice(0, 7)} within ${(deadline - t0) / 60e3} min: read issue #2 or re-run this.`); process.exit(2); }
+    head = cov.sha; v = cov.v;
+  } else {
     v = verdict(checkOf(head));
-    if (v === 'none' && Date.now() - t0 > 3 * 60e3) break; // no check appeared within 3 min: CI is not running for this commit
+    while (WAIT && (v === 'pending' || v === 'none') && Date.now() < deadline) {
+      await sleep(30e3);
+      if (!arg('--sha')) { git('fetch', '-q', 'origin', 'main'); head = git('rev-parse', 'origin/main'); }
+      v = verdict(checkOf(head));
+      if (v === 'none' && Date.now() - t0 > 3 * 60e3) break; // no check appeared within 3 min: CI is not running for this commit
+    }
   }
   const run = checkOf(head);
   const lines = [`CI \`${CHECK}\` on main @ \`${head.slice(0, 7)}\`: **${v}**`];
@@ -125,6 +150,13 @@ async function main() {
     if (owner) lines.push(`Why: ${owner.why}. The owner fixes this even if a neighbour's change is the real cause: someone has to, and main stays red until they do.`);
     lines.push('', '### Everyone who pushed since the last green commit', ...[...new Set(commits.map((c) => c.session ?? 'unknown'))].map((s) => `- \`${s}\``));
     lines.push(`\n::owner=${owner?.session ?? ''}`);
+    if (FOR) {
+      const mySession = (git('log', '-1', '--format=%(trailers:key=Claude-Session,valueonly,separator=%x2c)', git('rev-parse', FOR)).split(',')[0] ?? '').trim().replace(/^.*\//, '');
+      const inRange = commits.some((c) => c.session && c.session === mySession);
+      if (owner && mySession && owner.session === mySession) lines.push('', '>>> YOU ARE THE OWNER OF THIS RED. Fix it now (CLAUDE.md rule 6): even if a neighbour caused it. Push the fix, then run this command again.');
+      else if (inRange) lines.push('', `>>> You pushed in the red range but the Owner is ${owner?.session ?? 'unknown'}. Within 10 minutes check whether your change can affect the failing tests and report what you found.`);
+      else lines.push('', '>>> Your push is not in the red range: not yours. Say so in your final message.');
+    }
     lines.push('', 'A session listed above whose change plausibly broke one of these tests must fix it now (see CLAUDE.md, "CI is red"). Fix the cause, not the test, unless the test is stale.');
   }
   const md = lines.join('\n');

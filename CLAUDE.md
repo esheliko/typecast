@@ -11,13 +11,14 @@
 > 5. **Done once pushed.** Do NOT deploy, redeploy or touch Vercel deployments yourself, and do not wait for one. Only check production if the
 >    task needs it: read issue #1 (live commit vs pending) or compare `git merge-base --is-ancestor <yours> <live>`.
 >    Real hotfix only: put `[deploy-now]` in the commit message.
-> 6. **CI must stay green: check your own push.** After pushing, run `node scripts/ci-status.mjs --wait` (about 10 min; run it with `run_in_background` if you
->    have other work, but read the result before you finish). If `verify` is red it prints one **Owner** session. **If your session id is the Owner you fix it
->    now, even if you believe a neighbour's change is the real cause** ("it is unrelated" is not an answer: main stays red until someone fixes it, and the Owner
->    is that someone). Fix the cause; change a test only when it is stale and say so; never skip, delete or loosen a test to get green; then wait again until
->    green. If you are in the "everyone who pushed since green" list but not the Owner, check within 10 min whether your change can affect the failing test and
->    say what you found. A session the owner or the CI watcher messages as Owner fixes it before anything else; a session that starts while `main` is red
->    (the start hook prints it, issue #2) fixes what is plausibly its own area first.
+> 6. **CI must stay green: every push starts a background CI wait, always.** Right after `git push`, run this with the Bash tool and `run_in_background: true`:
+>    `node scripts/ci-status.mjs --wait --for $(git rev-parse HEAD)`. It ends when CI has finished for your push (about 10-25 min) and a background command that
+>    ends wakes you even after you have stopped talking, so you may tell the owner what you did and stop; when it wakes you, **read its output and act**. Never
+>    skip it, never kill it, never say "CI not checked". If `verify` is red it prints one **Owner** session and a `>>>` line telling you your role. **If you are the
+>    Owner you fix it now, even if you believe a neighbour's change is the real cause** ("it is unrelated" is not an answer: main stays red until someone fixes it).
+>    Fix the cause; change a test only when it is stale and say so; never skip, delete or loosen a test to get green; push; start the background wait again; repeat
+>    until green. If you pushed in the red range but are not the Owner, check within 10 min whether your change can affect the failing test and report what you
+>    found. A session that starts while `main` is red (the start hook prints it, issue #2) fixes what is plausibly its own area first.
 > If you were handed a different branch, still do the above. If main moved while you worked, rebase or merge onto it, keeping both sides' work.
 > `.claude/hooks/session-start.sh` checks this at the start of every session.
 
