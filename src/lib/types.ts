@@ -38,6 +38,8 @@ export interface Title extends Item {
   show?: ShowInfo; extras?: CastMember[];
   /** Films only: the release date (YYYY-MM-DD), "" when TMDB has none. */
   release?: string;
+  /** Films only: the theatrical/digital release date per country code, where TMDB has one. */
+  releaseBy?: Record<string, string>;
 }
 export interface Person { id: number; name: string; photo: string | null; dept: string; bio: string; known: Credit[]; imdbId: string | null }
 export type BrowseList = "foryou" | "trending" | "popular" | "top" | "new" | "soon";

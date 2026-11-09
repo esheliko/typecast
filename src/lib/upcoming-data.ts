@@ -1,4 +1,5 @@
 import { getUpcomingFacts } from "./tmdb";
+import { releaseFor } from "./release-dates";
 import { buildEntry, candidates, dayOf, byDate, type UpEntry, type UpFacts } from "./upcoming";
 import type { LibItem, Profile } from "./types";
 
@@ -27,7 +28,7 @@ export async function loadUpcoming(lib: LibItem[], profile: Profile, now = Date.
     // The user's own services come first; otherwise any flat-rate service in their country.
     const here = f.prov[profile.country] ?? [];
     const svc = (here.find((p) => mine.has(p.id)) ?? here[0])?.name ?? null;
-    const facts: UpFacts = { date: f.date, s: f.s, e: f.e, epName: f.epName, svc };
+    const facts: UpFacts = { date: releaseFor(f.byCountry, profile.country, f.date), s: f.s, e: f.e, epName: f.epName, svc };
     const e = buildEntry(l, facts, today);
     if (e) out.push(e);
   }
@@ -36,3 +37,13 @@ export async function loadUpcoming(lib: LibItem[], profile: Profile, now = Date.
 
 /** Whether the library holds anything worth asking TMDB about, so the page can show a placeholder only when something may appear. */
 export const hasUpcomingCandidates = (lib: LibItem[], now = Date.now()) => candidates(lib, dayOf(now), 1).length > 0;
+
+/**
+ * The one upcoming date of a single title for the user's country, for "Add to calendar". Null when TMDB has no future date.
+ * Asks TMDB itself: the browser only says which title.
+ */
+export async function upcomingFor(type: "movie" | "tv", id: number, country: string, now = Date.now()): Promise<UpEntry | null> {
+  const f = await getUpcomingFacts(type, id);
+  const l = { key: `${type}:${id}`, type, id, title: f.title, year: "", poster: null, status: "watchlist", priority: "someday" } as LibItem;
+  return buildEntry(l, { date: releaseFor(f.byCountry, country, f.date), s: f.s, e: f.e, epName: f.epName }, dayOf(now));
+}

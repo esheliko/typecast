@@ -7,6 +7,7 @@ import { CreditRow, CrewRow } from "@/components/CreditRow";
 import Episodes from "@/components/Episodes";
 import Appearances, { EpisodeJump } from "@/components/Appearances";
 import { Avatar } from "@/components/ui";
+import { releaseFor } from "@/lib/release-dates";
 import { epCode, epsLabel, fmtDate, isRunning, showLine, untilLabel } from "@/lib/episodes";
 import DetailOrder from "@/components/DetailOrder";
 import NoteBox from "@/components/NoteBox";
@@ -195,6 +196,11 @@ async function FilledCrew({ ids, t }: { ids: CrewId[]; t: Title }) {
 const today = () => new Date().toISOString().slice(0, 10);
 
 /** Series facts under the title: seasons, episodes, years, and when the next episode airs (or when the last one did). Tapping it opens that episode. */
+/** "Add to calendar": a plain link to a one-event .ics (a normal navigation, so iOS and Android hand it to the calendar). */
+function CalLink({ k }: { k: string }) {
+  return <a className="cal-link" href={`/api/event?key=${encodeURIComponent(k)}`} aria-label="Add to calendar" title="Download a calendar event">+ Calendar</a>;
+}
+
 function ShowFacts({ t }: { t: Title }) {
   const s = t.show!; const now = today();
   const ep = s.next ?? s.latest;
@@ -205,6 +211,7 @@ function ShowFacts({ t }: { t: Title }) {
       {ep && (
         <div className="sh-meta">
           <EpisodeJump s={ep.s} e={ep.e}>{s.next ? "Next episode" : "Last episode"}: {epCode(ep.s, ep.e)}{ep.name && !/^Episode \d+$/.test(ep.name) ? ` “${ep.name}”` : ""}{when ? ` · ${when}` : ""}</EpisodeJump>
+          {s.next?.air && untilLabel(s.next.air, now) && <> <CalLink k={t.key} /></>}
         </div>
       )}
     </>
@@ -212,10 +219,10 @@ function ShowFacts({ t }: { t: Title }) {
 }
 
 /** An unreleased film: "Releases Fri 18 Dec 2026 (in 40 days)". Nothing once it is out or when TMDB has no date. */
-function ReleaseLine({ date }: { date: string }) {
+function ReleaseLine({ date, k }: { date: string; k: string }) {
   const until = untilLabel(date, today());
   if (!until) return null;
-  return <div className="sh-meta">Releases {fmtDate(date, true)} ({until})</div>;
+  return <div className="sh-meta">Releases {fmtDate(date, true)} ({until}) <CalLink k={k} /></div>;
 }
 
 /** Opened from a person (their filmography, or their row in another title's cast): their part in this one, and for a series which episodes. */
@@ -253,7 +260,7 @@ export default async function TitleView({ t, origin, focus }: { t: Title; origin
           <h1 className="sh-title">{t.title} <RelatedButton it={t} /> <GlimpseButton spec={titleSpec(t)} /> {t.imdbId && <a className="imdb-link" href={`https://www.imdb.com/title/${t.imdbId}/`} target="_blank" rel="noopener noreferrer" aria-label="Open on IMDb" title="Open on IMDb">IMDb ↗</a>}</h1>
           <div className="sh-meta">{meta}</div>
           {t.show && <ShowFacts t={t} />}
-          {t.release && <ReleaseLine date={t.release} />}
+          {t.release && <ReleaseLine date={releaseFor(t.releaseBy, profile.country, t.release)} k={t.key} />}
           {mine?.newEp && <div style={{ margin: "4px 0 2px" }}><NewEpPill k={t.key} detail={newEpDetail(mine.newEp)} /></div>}
           <Suspense fallback={null}><AwardChips t={t} /></Suspense>
           {gaps

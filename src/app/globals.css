@@ -812,3 +812,9 @@ body:has(.wbar) .toast-slot { bottom: calc(146px + env(safe-area-inset-bottom, 0
 .ep-tick:disabled { opacity: .6; }
 .ep-note { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 14px; border-top: 1px solid var(--line); background: color-mix(in srgb, var(--gold-fill) 10%, transparent); }
 .linkish { font: inherit; color: var(--gold); text-decoration: underline; padding: 0; cursor: pointer; }
+
+/* Add to calendar (title popup) and the badge on Library rows: small, quiet, the same outlined shape as the New episode pill. */
+.cal-link { display: inline-block; margin-left: 4px; padding: 0 8px; border-radius: 999px; font: 500 10px/1.8 var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); text-decoration: none; box-shadow: inset 0 0 0 1px var(--line); white-space: nowrap; vertical-align: 1px; }
+.cal-link:hover { color: var(--ink); }
+.pill.when { background: transparent; color: var(--muted); box-shadow: inset 0 0 0 1px var(--line); padding: 0 8px; font-size: 10px; margin-top: 3px; }
+.pill.when.soon { color: var(--gold); box-shadow: inset 0 0 0 1px var(--gold-fill); }

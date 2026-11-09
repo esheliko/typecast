@@ -1,4 +1,5 @@
 import { daysUntil, epCode, untilLabel } from "./episodes";
+import { eventUid, type IcsEvent } from "./ical";
 import type { Item, LibItem } from "./types";
 
 /**
@@ -30,6 +31,8 @@ export interface UpEntry extends Item {
   note: string | null;
   must: boolean;
   svc: string | null;
+  /** Episode title, when TMDB has a real one. */
+  epName?: string;
   /** The day is not reliable (a film far in the future): show the month only. */
   approx: boolean;
 }
@@ -74,6 +77,7 @@ export function buildEntry(l: LibItem, f: UpFacts | null | undefined, today: str
     date, kind: film ? "film" : "episode", code,
     note: film ? (must ? "Must watch" : null) : f.s != null && f.e != null ? episodeNote(f.s, f.e) : null,
     must, svc: f.svc ?? null, approx: film && n > APPROX_DAYS,
+    ...(!film && f.epName && !/^Episode \d+$/.test(f.epName) ? { epName: f.epName } : {}),
   };
 }
 
@@ -122,4 +126,50 @@ export const isSoon = (e: Pick<UpEntry, "date" | "approx">, today: string) => !e
 /** The line under the title: "S5 E1 · New season", "Film · Must watch". */
 export function subLine(e: UpEntry): string {
   return [e.code ?? "Film", e.note].filter(Boolean).join(" · ");
+}
+
+const WEEKDAYS_SHORT = DAYS;
+/** "today", "tomorrow", "Fri" (within the week). */
+function soonWord(date: string, n: number): string {
+  if (n <= 0) return "today";
+  if (n === 1) return "tomorrow";
+  return WEEKDAYS_SHORT[new Date(date.slice(0, 10) + "T00:00:00Z").getUTCDay()];
+}
+
+/**
+ * The small badge on a Library row: "Out Fri", "Out 18 Dec", "S5 in 12 days", "S5 E3 Thu". Null when the date is past or unknown.
+ * A far-off film shows its month only ("Out Dec 2027"), like the Upcoming list.
+ */
+export function rowBadge(e: Pick<UpEntry, "date" | "kind" | "code" | "approx">, today: string): { text: string; soon: boolean } | null {
+  const n = daysUntil(e.date, today);
+  if (!(n >= 0)) return null;
+  const soon = !e.approx && n <= 1;
+  if (e.kind === "film") {
+    if (e.approx) return { text: `Out ${dateLabel(e, today)}`, soon };
+    if (n < 7) return { text: `Out ${soonWord(e.date, n)}`, soon };
+    const y = Number(e.date.slice(0, 4)), m = Number(e.date.slice(5, 7)) - 1, d = Number(e.date.slice(8, 10));
+    return { text: `Out ${d} ${MONTHS[m]}${y !== THIS_YEAR(today) ? ` ${y}` : ""}`, soon };
+  }
+  // "S5 E1" is a season start and reads "S5"; any other episode keeps its number.
+  const code = e.code && / E1$/.test(e.code) ? e.code.replace(/ E1$/, "") : e.code ?? "Next";
+  return { text: `${code} ${n < 7 ? soonWord(e.date, n) : untilLabel(e.date, today)}`, soon };
+}
+
+/** The device's own calendar day, YYYY-MM-DD (the server's day can be a day off in another time zone). */
+export function localDay(d = new Date()): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+/** The calendar event for one upcoming title. All-day, with a UID that is the same every time for the same film or episode. */
+export function eventFor(e: Pick<UpEntry, "type" | "id" | "title" | "date" | "kind" | "code" | "epName" | "approx" | "svc">, origin?: string): IcsEvent {
+  const film = e.kind === "film";
+  const s = e.code ? Number(/^S(\d+)/.exec(e.code)?.[1]) : undefined, ep = e.code ? Number(/E(\d+)$/.exec(e.code)?.[1]) : undefined;
+  const bits = [film ? "Film release" : `${e.code ?? "New episode"}${e.epName ? ` “${e.epName}”` : ""}`, e.svc ? `on ${e.svc}` : "", e.approx ? "(date may change)" : ""].filter(Boolean);
+  return {
+    uid: eventUid(e.type, e.id, s, ep),
+    summary: film ? `${e.title} (release)` : `${e.title} ${e.code ?? ""}`.trim(),
+    date: e.date,
+    description: bits.join(" "),
+    ...(origin ? { url: `${origin}/title/${e.type}/${e.id}` } : {}),
+  };
 }

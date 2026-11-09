@@ -83,6 +83,20 @@ test.describe("signed in", () => {
         await expect(row.locator(".pill")).not.toBeEmpty();
         await expect(row).not.toContainText(/NaN|undefined|Invalid/);
       }
+      // The same data puts a small badge ("Out Fri", "S5 in 12 days") on those titles' Library rows, and each has a one-event calendar file.
+      const badges = page.getByTestId("when-badge");
+      await expect(badges.first()).toBeVisible();
+      for (const b of await badges.all()) await expect(b).not.toContainText(/NaN|undefined|Invalid/);
+      const href = await rows.first().getAttribute("href");
+      const m = /\/title\/(movie|tv)\/(\d+)/.exec(href ?? "");
+      if (m) {
+        const r = await page.request.get(`/api/event?key=${m[1]}:${m[2]}`);
+        expect(r.status()).toBe(200);
+        expect(r.headers()["content-type"]).toContain("text/calendar");
+        const body = await r.text();
+        expect(body).toMatch(/^BEGIN:VCALENDAR\r\n/);
+        expect(body).toMatch(/DTSTART;VALUE=DATE:\d{8}\r\n/);
+      }
       await upcoming.getByRole("button", { name: /Upcoming/ }).click(); // leave it collapsed for the steps below
     }
     // "On my services" toggle (shown only when the smoke user has services): filters to streamable picks or says nothing qualifies, and undoes cleanly.
@@ -285,6 +299,11 @@ test.describe("signed in", () => {
       expect(r.status(), p).toBe(200);
     }
     await healthy(page, bad);
+  });
+
+  test("Add to calendar: bad keys are refused, a released film has nothing to add", async ({ page }) => {
+    expect((await page.request.get("/api/event?key=bogus")).status()).toBe(400);
+    expect((await page.request.get("/api/event?key=movie:603")).status()).toBe(404); // The Matrix is long out
   });
 
   test("API routes answer when signed in", async ({ page }) => {

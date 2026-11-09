@@ -3,6 +3,7 @@ import { genresFor, interleave, type BrowseQuery, type Tag } from "./browse";
 import { sumEpisodes, type SeriesTime } from "./stats";
 import { shapeCrew, type CrewBy } from "./details";
 import type { EpisodeFacts } from "./new-episode";
+import { releaseByCountry } from "./release-dates";
 import type { Appearances, BrowseItem, BrowseList, BrowseType, CastMember, Credit, Episode, EpisodeLite, Item, MediaType, Person, ProviderGroup, Related, SearchHit, ShowInfo, Title } from "./types";
 
 const BASE = process.env.TMDB_BASE_URL ?? "https://api.themoviedb.org/3";
@@ -140,7 +141,7 @@ function showInfo(d: any): ShowInfo {
 }
 
 export async function getTitle(type: MediaType, id: number): Promise<Title> {
-  const append = `${type === "tv" ? "aggregate_credits" : "credits"},watch/providers,recommendations,external_ids`;
+  const append = `${type === "tv" ? "aggregate_credits" : "credits"},watch/providers,recommendations,external_ids${type === "movie" ? ",release_dates" : ""}`;
   const d = await tmdb(`/${type}/${id}`, { append_to_response: append });
   const cast: any[] = (type === "tv" ? d.aggregate_credits?.cast : d.credits?.cast) ?? [];
   const prov: Record<string, ProviderGroup> = {};
@@ -157,7 +158,7 @@ export async function getTitle(type: MediaType, id: number): Promise<Title> {
     ...item(type, d),
     overview: d.overview ?? "", tagline: d.tagline ?? "", genres: (d.genres ?? []).map((g: any) => g.name),
     runtime: (type === "movie" ? d.runtime : d.episode_run_time?.[0]) ?? null, status: d.status ?? "",
-    ...(type === "movie" ? { release: (d.release_date ?? "") as string } : {}),
+    ...(type === "movie" ? { release: (d.release_date ?? "") as string, releaseBy: releaseByCountry(d.release_dates?.results) } : {}),
     crew: crewBy.director.map((p) => p.name), crewBy,
     seasons: type === "tv" ? (d.seasons ?? []).filter((s: any) => s.season_number > 0).map((s: any) => ({ n: s.season_number, eps: s.episode_count })) : [],
     imdbId: d.external_ids?.imdb_id || d.imdb_id || null,
@@ -208,10 +209,11 @@ export async function getEpisodeFacts(id: number): Promise<EpisodeFacts> {
  * When a title next arrives, for "Upcoming from your list": a film's release date, or a series' next episode (with where it streams).
  * Films are cached 12 hours, series 6 (schedules shift). `date` is "" when TMDB has no future date.
  */
-export async function getUpcomingFacts(type: MediaType, id: number): Promise<{ date: string; s?: number; e?: number; epName?: string; prov: Record<string, { id: number; name: string }[]> }> {
+export async function getUpcomingFacts(type: MediaType, id: number): Promise<{ title: string; date: string; byCountry?: Record<string, string>; s?: number; e?: number; epName?: string; prov: Record<string, { id: number; name: string }[]> }> {
   if (type === "movie") {
-    const d = await tmdb(`/movie/${id}`, {}, 12 * HOUR);
-    return { date: (d.release_date ?? "") as string, prov: {} };
+    // `date` is the primary release date; `byCountry` has the theatrical/digital date for each country (see release-dates.ts).
+    const d = await tmdb(`/movie/${id}`, { append_to_response: "release_dates" }, 12 * HOUR);
+    return { title: d.title ?? "", date: (d.release_date ?? "") as string, byCountry: releaseByCountry(d.release_dates?.results), prov: {} };
   }
   const d = await tmdb(`/tv/${id}`, { append_to_response: "watch/providers" }, 6 * HOUR);
   const n = d.next_episode_to_air;
@@ -219,7 +221,7 @@ export async function getUpcomingFacts(type: MediaType, id: number): Promise<{ d
   for (const [cc, o] of Object.entries<any>(d["watch/providers"]?.results ?? {})) {
     prov[cc] = [...(o.flatrate ?? []), ...(o.free ?? []), ...(o.ads ?? [])].map((p: any) => ({ id: p.provider_id as number, name: p.provider_name as string }));
   }
-  return { date: (n?.air_date ?? "") as string, s: n?.season_number, e: n?.episode_number, epName: n?.name, prov };
+  return { title: d.name ?? "", date: (n?.air_date ?? "") as string, s: n?.season_number, e: n?.episode_number, epName: n?.name, prov };
 }
 
 /** The few facts Watch next ranks by: genres, rating, length, dates, where it streams, and what it recommends. Small and cached 12 hours. */

@@ -4,7 +4,8 @@ import { TitleLink } from "./Modal";
 import { img } from "@/lib/img";
 import { ofKind } from "@/lib/kind";
 import { KindContext } from "@/lib/kind-context";
-import { countdown, dateLabel, groupUpcoming, isSoon, subLine, type UpEntry } from "@/lib/upcoming";
+import { setUpcomingBadges } from "@/lib/upcoming-badges";
+import { countdown, dateLabel, groupUpcoming, isSoon, localDay, subLine, type UpEntry } from "@/lib/upcoming";
 
 const SHOW = 8;
 const KEY = "typecast:upcoming-open";
@@ -21,9 +22,10 @@ export default function Upcoming({ entries: all, today: serverToday }: { entries
   const [today, setToday] = useState(serverToday);
   useEffect(() => {
     try { setOpen(localStorage.getItem(KEY) === "1"); } catch { /* storage unavailable */ }
-    const d = new Date();
-    setToday(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`);
+    setToday(localDay());
   }, []);
+  // Library rows show a small "Out Fri" / "S5 in 12 days" badge from the same data (all kinds, whatever the switch shows).
+  useEffect(() => { setUpcomingBadges(all); return () => setUpcomingBadges([]); }, [all]);
   const live = entries.filter((e) => e.date >= today);
   if (!live.length) return null;
   const toggle = () => setOpen((o) => { try { localStorage.setItem(KEY, o ? "0" : "1"); } catch { /* ignore */ } return !o; });
