@@ -64,15 +64,16 @@ function PeopleResult({ r }: { r: PeopleLink }) {
       <h2>{r.shared.length} together</h2>
       <KindFilter items={r.shared}>{(shared) => <div className="card"><ul className="rows">
         {shared.map((s) => (
-          <li key={s.key} className="row">
+          <li key={s.key} className="row conn-row">
             <TitleLink k={s.key} it={s} className="row-link"><Thumb path={s.poster} />
               <span className="row-main">
                 <span className="row-title" style={{ fontSize: 17 }}>{s.title}</span>
                 <span className="row-sub">{s.year} · {typeLabel(s.type)}</span>
-                <span className="row-sub"><b>{r.a.name}</b>{s.roles[0] ? ` as ${s.roles[0]}` : ""} · <b>{r.b.name}</b>{s.roles[1] ? ` as ${s.roles[1]}` : ""}</span>
+                <span className="row-sub"><b>{r.a.name}</b>{s.roles[0] ? ` as ${s.roles[0]}` : ""}</span>
+                <span className="row-sub"><b>{r.b.name}</b>{s.roles[1] ? ` as ${s.roles[1]}` : ""}</span>
               </span>
             </TitleLink>
-            <QuickMark it={s} variant="inline" /><RelatedButton it={s} />
+            <span className="conn-marks"><QuickMark it={s} variant="inline" /><RelatedButton it={s} /></span>
           </li>
         ))}
       </ul></div>}</KindFilter>
