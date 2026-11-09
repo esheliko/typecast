@@ -75,3 +75,5 @@ The supervisor has nothing to refresh there. `scripts/dashboard-data.mjs` is gon
 - 2026-11-09 (owner request): every session starts a background CI wait after each push. `scripts/ci-status.mjs --wait --for <sha>` blocks until the first finished verdict on that
   commit or any later main commit (cancelled runs are skipped), then prints the verdict and a `>>>` line saying whether this session is the Owner. Background Bash tasks wake the
   session that started them when they end, so the session is told even after it stopped talking. The rule is CLAUDE.md 6 and the start hook repeats it.
+- 2026-11-09 (19:55 IST): bug found and fixed: the session-start hook exited at its first line since 542cd46 (my edit put the CI block after the first `exit 0`), so new sessions saw
+  no standing rule and no red-CI alert for about six hours. Lesson: after editing the hook, run it and read its output.
