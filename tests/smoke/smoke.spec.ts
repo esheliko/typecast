@@ -2,7 +2,7 @@ import { test, expect, type Page } from "@playwright/test";
 import { configured } from "./seed";
 
 /** Errors that mean a page is broken. Image 404s and the like are not. */
-const BROKEN = /Server Components render|Attempted to call|Hydration failed|Minified React error|Application error|Unhandled/i;
+const BROKEN = /Server Components render|Attempted to call|Hydration failed|Minified React error|Application error|Unhandled|Content Security Policy/i;
 
 function watch(page: Page) {
   const bad: string[] = [];

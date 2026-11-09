@@ -41,6 +41,10 @@ jobs:
         run: |
           if [ -z "$SMOKE_EMAIL" ] || [ -z "$SMOKE_PASSWORD" ]; then echo "::warning::SMOKE_EMAIL/SMOKE_PASSWORD secrets missing: only signed-out pages are smoke-tested. See DEPLOYING.md > Smoke test."; fi
           npm run smoke -- --trace off
+      - name: Upload page screenshots (for a quick human look; 7 days)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with: { name: visual-shots, path: visual-shots, retention-days: 7, if-no-files-found: ignore }
       - name: Upload report on failure
         if: failure()
         uses: actions/upload-artifact@v4
