@@ -193,7 +193,7 @@ export function Modal({ children }: { children: React.ReactNode }) {
             </div>
             <div className="sheet-nav">
               {/* A plain link on purpose: it loads the full page instead of opening another popup. */}
-              <a className="small" href={`${path}?full=1`}>Full page</a>
+              <a className="small" href={`${path}?${new URLSearchParams([...params.entries(), ["full", "1"]])}`}>Full page</a>
               <button type="button" className="back" onClick={close} aria-label="Close"><span aria-hidden="true">&#215;</span> Close</button>
             </div>
           </div>

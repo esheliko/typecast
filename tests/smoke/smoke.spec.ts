@@ -268,11 +268,11 @@ test.describe("signed in", () => {
     await expect(who).toBeVisible({ timeout: 20_000 });
     const href = await who.getAttribute("href");
     await who.click();
-    await expect(page).toHaveURL(new RegExp(`${href}$`));
+    await expect(page).toHaveURL(new RegExp(`${href!.split("?")[0]}(\\?|$)`));
     const person = page.getByRole("dialog", { name: "Person details" });
     await expect(person).toBeVisible({ timeout: 20_000 });
     await expect(page.getByRole("dialog")).toHaveCount(1);
-    await expect(person.getByRole("link", { name: "Full page" })).toHaveAttribute("href", `${href}?full=1`);
+    await expect(person.getByRole("link", { name: "Full page" })).toHaveAttribute("href", new RegExp(`^${href!.split("?")[0]}\\?.*full=1`));
     // Back walks the trail to the title; Forward returns to the person.
     await person.getByRole("button", { name: "Back" }).click();
     await expect(page).toHaveURL(/\/title\/movie\/603/);
