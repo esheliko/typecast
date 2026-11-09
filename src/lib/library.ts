@@ -87,3 +87,13 @@ export const getProfile = cache(async (): Promise<Profile> => {
   return { country: r?.country ?? "US", services: r?.services ?? [], serviceNames: r?.service_names ?? {}, details: normalizeDetails(r?.detail_order),
     letterboxd: r?.letterboxd_user ? { user: r.letterboxd_user, syncedAt: r.letterboxd_synced_at ? Date.parse(r.letterboxd_synced_at) : null, error: r.letterboxd_error ?? null } : null };
 });
+
+/** The signed-in user's calendar feed token. `available` is false while migration 0009 is not applied, and the Settings card stays hidden. */
+export async function getCalendarToken(): Promise<{ available: boolean; token: string | null }> {
+  try {
+    const sb = await supabaseServer();
+    const { data, error } = await sb.from("profiles").select("calendar_token").limit(1);
+    if (error) return { available: false, token: null };
+    return { available: true, token: (data?.[0] as { calendar_token?: string | null } | undefined)?.calendar_token ?? null };
+  } catch { return { available: false, token: null }; }
+}

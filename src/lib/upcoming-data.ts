@@ -15,7 +15,7 @@ async function pool<T, R>(xs: T[], n: number, fn: (x: T) => Promise<R>): Promise
  * What is coming from the user's library: unreleased films and the next episode of series. At most MAX_LOOKUPS titles are asked about,
  * 12 at a time, each cached by TMDB's fetch cache. A title whose lookup fails is simply left out. Sorted by date.
  */
-export async function loadUpcoming(lib: LibItem[], profile: Profile, now = Date.now()): Promise<UpEntry[]> {
+export async function loadUpcoming(lib: LibItem[], profile: Pick<Profile, "country" | "services">, now = Date.now()): Promise<UpEntry[]> {
   const today = dayOf(now);
   const mine = new Set(profile.services);
   const got = await pool(candidates(lib, today), 12, async (l) => {

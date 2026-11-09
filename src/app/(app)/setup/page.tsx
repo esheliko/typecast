@@ -10,13 +10,14 @@ import ManageUsers from "@/components/ManageUsers";
 import { signOut } from "@/app/actions";
 import { listUsers } from "@/app/users-actions";
 import { isAdminEmail } from "@/lib/admin";
-import { getProfile } from "@/lib/library";
+import CalendarFeed from "@/components/CalendarFeed";
+import { getCalendarToken, getProfile } from "@/lib/library";
 import { supabaseServer } from "@/lib/supabase/server";
 
 export const metadata = { title: "Settings" };
 
 export default async function Setup() {
-  const [profile, { data }] = await Promise.all([getProfile(), supabaseServer().then((sb) => sb.auth.getClaims())]);
+  const [profile, { data }, cal] = await Promise.all([getProfile(), supabaseServer().then((sb) => sb.auth.getClaims()), getCalendarToken()]);
   const admin = isAdminEmail(data?.claims?.email as string | undefined);
   const users = admin ? await listUsers().catch(() => null) : null;
   return (
@@ -29,7 +30,7 @@ export default async function Setup() {
         </SettingRow>
       </div>
       <h2>Library</h2>
-      <div className="card set"><LetterboxdPanel link={profile.letterboxd} /></div>
+      <div className="card set"><LetterboxdPanel link={profile.letterboxd} />{cal.available && <CalendarFeed initial={cal.token} />}</div>
       {admin && <><h2>Users</h2>{users ? <div className="card set"><ManageUsers users={users} /></div> : <p className="muted small">Couldn&apos;t load users. Check that SUPABASE_SERVICE_ROLE_KEY is set.</p>}</>}
       <h2>Account</h2>
       <div className="card set">

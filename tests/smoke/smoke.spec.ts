@@ -306,6 +306,10 @@ test.describe("signed in", () => {
     expect((await page.request.get("/api/event?key=movie:603")).status()).toBe(404); // The Matrix is long out
   });
 
+  test("Calendar feed fails closed: an unknown token is a plain 404, with or without the migration", async ({ request }) => {
+    for (const f of [`${"a".repeat(32)}.ics`, "short.ics"]) expect((await request.get(`/cal/${f}`)).status(), f).toBe(404);
+  });
+
   test("API routes answer when signed in", async ({ page }) => {
     for (const p of ["/api/search?q=matrix", "/api/export"]) {
       const r = await page.request.get(p);

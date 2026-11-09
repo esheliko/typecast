@@ -1,7 +1,8 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const OPEN = ["/login", "/offline"];
+// /cal/<token>.ics is the calendar feed: it carries its own secret and the route checks it (a calendar app has no session cookie).
+const OPEN = ["/login", "/offline", "/cal"];
 
 export async function proxy(req: NextRequest) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL, key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
