@@ -98,7 +98,7 @@ export default function Search({ onActive }: { onActive: (on: boolean) => void }
           <div className="recent" onMouseDown={(e) => e.preventDefault()}>
             <span className="row-sub">Recent</span>
             {recent.map((r) => <button key={r} type="button" className="chip" onClick={() => { setQ(r); setExact(false); }}>{r}</button>)}
-            <button type="button" className="chip sm" onClick={() => { writeRecent([]); setRecent([]); }}>Clear</button>
+            <button type="button" className="chip sm" aria-label="Clear recent searches" title="Clear recent searches" onClick={() => { writeRecent([]); setRecent([]); }}>✕</button>
           </div>
         )}
       </form>
