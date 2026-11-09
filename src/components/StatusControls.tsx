@@ -31,42 +31,54 @@ export default function StatusControls({ item, lib }: { item: Item; lib: LibItem
       catch { setErr("Could not save that. Check your connection and try again."); }
     });
   };
-  const sc = (s: Status, cls: string) => (
-    <button key={s} type="button" className={`chip sc mc-opt ${cls}`} aria-pressed={status === s} onClick={() => toggle(s)}>
+  const [open, setOpen] = useState(false);
+  const pick = (s: Status) => { toggle(s); setOpen(false); };
+  const cur: Status | null = status;
+  const curKind = cur === "watchlist" && priority === "must" ? "must" : cur;
+  const opt = (s: Status, cls: string) => (
+    <button key={s} type="button" className={`chip sc mc-opt ${cls}`} aria-pressed={status === s} onClick={() => pick(s)}>
       <StatusIcon kind={s === "watchlist" && priority === "must" && status === s ? "must" : s} size={16} />{STATUS_LABEL[s]}
     </button>
   );
   return (
     <div aria-busy={pending}>
-      <div className="mc-label">Where is it for you?</div>
-      <div className="mc-grid" role="group" aria-label="Status">
-        {sc("watchlist", priority === "must" ? "must" : "watchlist")}
-        {sc("watching", "watching")}
-        {sc("partial", "partial")}
-        {sc("watched", "watched")}
-      </div>
-      {status === "watchlist" && (
-        <div className="mc-row" role="group" aria-label="How much you want to watch it">
-          <span className="mc-label">How much do you want it?</span>
-          <div className="seg">
-            {(Object.keys(PRIORITY_LABEL) as Priority[]).map((p) => (
-              <button key={p} type="button" aria-pressed={priority === p} onClick={() => mark(item, "watchlist", p)}>{PRIORITY_LABEL[p]}</button>
-            ))}
-          </div>
-        </div>
-      )}
-      {status && (
-        <div className="mc-row">
-          <span className="mc-label">Your rating</span>
-          <div className="stars" role="group" aria-label="Your rating" style={{ fontSize: 22 }}>
+      <div className="mc-line">
+        <button type="button" className={`chip sc mc-cur ${cur ?? "none"}${cur === "watchlist" && priority === "must" ? " must" : ""}`} aria-expanded={open} aria-haspopup="true"
+          aria-label={cur ? `${STATUS_LABEL[cur]}. Change` : "Add to my library"} onClick={() => setOpen((o) => !o)}>
+          {curKind ? <StatusIcon kind={curKind} size={16} /> : <span aria-hidden="true">+</span>}
+          <span className="mc-cur-t">{cur ? STATUS_LABEL[cur] : "Add to my library"}</span>
+          <svg className="mc-chev" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" style={{ transform: open ? "rotate(180deg)" : undefined }}><path d="M6 9l6 6 6-6" /></svg>
+        </button>
+        {status && (
+          <div className="stars" role="group" aria-label="Your rating" style={{ fontSize: 20 }}>
             {[1, 2, 3, 4, 5].map((n) => (
               <button key={n} onClick={() => rate(n)} aria-label={`${n} stars`} style={{ color: "var(--gold)" }}>{n <= stars ? "★" : "☆"}</button>
             ))}
           </div>
+        )}
+      </div>
+      {open && (
+        <div className="mc-menu">
+          <div className="mc-grid" role="group" aria-label="Status">
+            {opt("watchlist", priority === "must" ? "must" : "watchlist")}
+            {opt("watching", "watching")}
+            {opt("partial", "partial")}
+            {opt("watched", "watched")}
+          </div>
+          {status === "watchlist" && (
+            <div className="mc-row" role="group" aria-label="How much you want to watch it">
+              <span className="mc-label">How much do you want it?</span>
+              <div className="seg">
+                {(Object.keys(PRIORITY_LABEL) as Priority[]).map((p) => (
+                  <button key={p} type="button" aria-pressed={priority === p} onClick={() => mark(item, "watchlist", p)}>{PRIORITY_LABEL[p]}</button>
+                ))}
+              </div>
+            </div>
+          )}
+          {status && (
+            <button type="button" className="mc-remove" onClick={() => { mark(item, null); setOpen(false); }}>Remove from my library</button>
+          )}
         </div>
-      )}
-      {status && (
-        <button type="button" className="mc-remove" onClick={() => mark(item, null)}>Remove from my library</button>
       )}
       {err && <p className="small err" role="alert" style={{ margin: "6px 0 0" }}>{err}</p>}
     </div>
