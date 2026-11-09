@@ -27,18 +27,19 @@ export function RowsSkeleton({ n = 6 }: { n?: number }) {
 }
 
 export function TitleSkeleton({ title, poster, sub }: { title?: string; poster?: string; sub?: string }) {
+  // Same structure as the real header (TitleView): floated poster, text beside it (a flow-root so the bars sit beside the float), overview below the poster. Keeps the swap from shifting anything.
   return (
     <div aria-busy="true">
-      <div className="sh-top" style={{ marginTop: 10, gap: 12 }}>
+      <div className="sh-top sh-compact" style={{ marginTop: 10 }}>
         {poster
           // eslint-disable-next-line @next/next/no-img-element
-          ? <img className="sh-poster" style={{ width: 84 }} src={poster} alt="" />
-          : <div className="sh-poster sk-b" style={{ width: 84, aspectRatio: "2 / 3" }} />}
-        <div style={{ minWidth: 0, flex: 1 }}>
-          {title ? <h1 className="sh-title" style={{ fontSize: 26 }}>{title}</h1> : bar("70%", 34)}
-          {sub ? <div className="sh-meta" style={{ marginTop: 4, fontSize: 12 }}>{sub}</div> : bar("40%", 13, { marginTop: 12 })}
-          {bar("90%", 12, { marginTop: 14 })}{bar("75%", 12, { marginTop: 6 })}
+          ? <img className="sh-poster" src={poster} alt="" />
+          : <div className="sh-poster sk-b" />}
+        <div style={{ minWidth: 0, display: "flow-root" }}>
+          {title ? <h1 className="sh-title">{title}</h1> : bar("70%", 26)}
+          {sub ? <div className="sh-meta">{sub}</div> : bar("40%", 13, { marginTop: 8 })}
         </div>
+        <div className="sh-ov" style={{ lineHeight: 1.4 }}>{bar("95%", 14)}{bar("70%", 14, { marginTop: 6 })}</div>
       </div>
       <div className="chips" style={{ marginTop: 18 }}>{[0, 1, 2].map((i) => <div key={i} className="sk-b pill" style={{ width: 96, height: 38 }} />)}</div>
       <h2><span className="sk-b" style={{ width: 90, height: 12 }} /></h2>

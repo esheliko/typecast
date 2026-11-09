@@ -2,7 +2,7 @@
 import { lockScroll } from "@/lib/scroll-lock";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { createContext, useCallback, useContext, useEffect, useRef, useState, type ComponentProps } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, useSyncExternalStore, type ComponentProps } from "react";
 import { PersonSkeleton, TitleSkeleton } from "./Skeletons";
 import { href, img, typeLabel } from "@/lib/img";
 
@@ -31,6 +31,7 @@ export function PersonProvider({ id, children }: { id: number; children: React.R
 export function TitleLink({ k, it, onClick, ...rest }: { k: string; it?: Peek } & Omit<ComponentProps<typeof Link>, "href" | "replace" | "scroll" | "prefetch">) {
   const from = useContext(FromTitle);
   const person = useContext(FromPerson);
+  const inModal = useContext(InModal);
   const q = new URLSearchParams(from && from.key !== k ? { from: from.key, fn: from.name } : {});
   if (person) q.set("p", String(person));
   const qs = q.toString();
@@ -38,7 +39,7 @@ export function TitleLink({ k, it, onClick, ...rest }: { k: string; it?: Peek } 
   // Reuse the poster image already on screen (an exact cache hit) so the popup has art the moment it opens.
   const remember = (el: HTMLElement) => { if (it) peeked.set(k, { title: it.title, year: it.year, poster: it.poster, src: el.querySelector("img")?.currentSrc || undefined }); };
   return <Link href={url} scroll={false} prefetch={false}
-    onClick={(e) => { remember(e.currentTarget); onClick?.(e); }} {...rest} />;
+    onClick={(e) => { remember(e.currentTarget); onClick?.(e); if (!inModal && plainClick(e)) setPending({ kind: "title", k }); }} {...rest} />;
 }
 
 /** The popup's loading state: the title and poster you tapped (when known) over placeholders for the rest. */
@@ -53,14 +54,58 @@ export function ModalLoading() {
 type PersonPeek = { name: string; photo?: string | null; src?: string };
 const peekedPeople = new Map<string, PersonPeek>();
 
+/**
+ * Links do not prefetch, so after a tap nothing can render until the server answers. A tap therefore opens a stand-in popup (frame plus
+ * the skeleton from the tapped poster) at once; PendingPopup removes it when the real popup's route lands, and Modal takes over without replaying the entrance.
+ */
+type Pending = { kind: "title" | "person"; k: string } | null;
+let pending: Pending = null;
+let handoff = false;
+const subs = new Set<() => void>();
+const setPending = (p: Pending) => { pending = p; subs.forEach((f) => f()); };
+const plainClick = (e: React.MouseEvent) => !e.defaultPrevented && e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey;
+
+export function PendingPopup() {
+  const path = usePathname();
+  const p = useSyncExternalStore((f) => { subs.add(f); return () => { subs.delete(f); }; }, () => pending, () => null);
+  const popup = isPopupPath(path);
+  useEffect(() => { if (popup && pending) setPending(null); }, [popup, path]);
+  useEffect(() => {
+    if (!p) return;
+    const t = setTimeout(() => setPending(null), 10000);
+    return () => clearTimeout(t);
+  }, [p]);
+  useEffect(() => { if (p && !popup) handoff = true; }, [p, popup]);
+  if (!p || popup) return null;
+  const m = p.kind === "title" ? /^(movie|tv):(\d+)$/.exec(p.k) : null;
+  const tp = m ? peeked.get(p.k) : undefined;
+  const pp = p.kind === "person" ? peekedPeople.get(p.k) : undefined;
+  return (
+    <div className="modal" aria-hidden="true">
+      <div className="sheet" style={{ overflow: "hidden" }}>
+        <div className="sheet-bar">
+          <div className="sheet-nav"><button type="button" className="back strong" disabled tabIndex={-1}><span aria-hidden="true">&#8249;</span></button><button type="button" className="back strong" disabled tabIndex={-1}><span aria-hidden="true">&#8250;</span></button></div>
+          <div className="sheet-nav"><span className="small">Full page</span><button type="button" className="back" disabled tabIndex={-1}><span aria-hidden="true">&#215;</span> Close</button></div>
+        </div>
+        <div className="sheet-body">
+          {p.kind === "title" && m
+            ? <TitleSkeleton title={tp?.title} poster={tp?.src || (tp?.poster ? img(tp.poster, "w185") : undefined)} sub={tp ? [tp.year, typeLabel(m[1])].filter(Boolean).join(" · ") : undefined} />
+            : <PersonSkeleton name={pp?.name} photo={pp?.src || (pp?.photo ? img(pp.photo, "w185") : undefined)} />}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /** A link to a person. Same rules as TitleLink: opens the popup over the current page, never scrolls it, never prefetches. */
 export function PersonLink({ pid, it, onClick, ...rest }: { pid: number | string; it?: { name: string; photo?: string | null } } & Omit<ComponentProps<typeof Link>, "href" | "replace" | "scroll" | "prefetch">) {
   const from = useContext(FromTitle);
+  const inModal = useContext(InModal);
   // Opened from a title: carry it along so the person's images button can start with them in that title.
   const q = from ? `?pf=${encodeURIComponent(from.key)}&pn=${encodeURIComponent(from.name.slice(0, 200))}${from.year ? `&py=${encodeURIComponent(String(from.year))}` : ""}` : "";
   const remember = (el: HTMLElement) => { if (it) peekedPeople.set(String(pid), { name: it.name, photo: it.photo, src: el.querySelector("img")?.currentSrc || undefined }); };
   return <Link href={`/person/${pid}${q}`} scroll={false} prefetch={false}
-    onClick={(e) => { remember(e.currentTarget); onClick?.(e); }} {...rest} />;
+    onClick={(e) => { remember(e.currentTarget); onClick?.(e); if (!inModal && plainClick(e)) setPending({ kind: "person", k: String(pid) }); }} {...rest} />;
 }
 
 /** The popup's loading state for a person. */
@@ -134,6 +179,7 @@ export function Modal({ children }: { children: React.ReactNode }) {
   const from = params.get("from"), fn = params.get("fn");
   const here = path + (sp ? `?${sp}` : "");
   const box = useRef<HTMLDivElement>(null);
+  const [hand] = useState(() => { const h = handoff; handoff = false; return h; });
   const stack = useRef<string[]>([here]);
   const [pos, setPos] = useState({ i: 0, n: 1 });
   // Back / Forward through the popup's own trail; Close jumps all the way back to the page underneath.
@@ -184,7 +230,7 @@ export function Modal({ children }: { children: React.ReactNode }) {
 
   return (
     <InModal.Provider value>
-      <div ref={box} className="modal" role="dialog" aria-modal="true" aria-label={path.startsWith("/person") ? "Person details" : "Title details"} tabIndex={-1} onClick={(e) => { if (e.target === e.currentTarget) close(); }}>
+      <div ref={box} className={hand ? "modal handoff" : "modal"} role="dialog" aria-modal="true" aria-label={path.startsWith("/person") ? "Person details" : "Title details"} tabIndex={-1} onClick={(e) => { if (e.target === e.currentTarget) close(); }}>
         <div className="sheet">
           <div className="sheet-bar">
             <div className="sheet-nav">

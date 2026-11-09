@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { cookies } from "next/headers";
-import { BgTracker } from "@/components/Modal";
+import { BgTracker, PendingPopup } from "@/components/Modal";
 import Tabs from "@/components/Tabs";
 import { GlimpseProvider } from "@/components/Glimpse";
 import RecheckOnce from "@/components/RecheckOnce";
@@ -36,6 +36,7 @@ export default async function AppLayout({ children, modal }: { children: React.R
       <main className="wrap">{children}</main>
       <Tabs where="bottom" />
       {modal}
+      <PendingPopup />
       </WatchProvider>
       </ImportProvider>
       </LibProvider>
