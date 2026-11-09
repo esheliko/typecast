@@ -12,6 +12,7 @@ import type { BrowseItem, SearchHit } from "@/lib/types";
 
 type Coll = { id: number; name: string; pop?: number; votes?: number; items: BrowseItem[] };
 
+const QUERY = "tc:search-query";
 const RECENT = "tc:recent-searches";
 const readRecent = (): string[] => { try { const v = JSON.parse(localStorage.getItem(RECENT) ?? "[]"); return Array.isArray(v) ? v.filter((x) => typeof x === "string").slice(0, 6) : []; } catch { return []; } };
 const writeRecent = (v: string[]) => { try { localStorage.setItem(RECENT, JSON.stringify(v)); } catch { /* private mode: no recents */ } };
@@ -35,6 +36,15 @@ export default function Search({ onActive }: { onActive: (on: boolean) => void }
 
   useEffect(() => { onActive(term.length >= 2); }, [term, onActive]);
   useEffect(() => { setRecent(readRecent()); }, []);
+  // A refresh keeps the typed query (a normal visit starts empty).
+  useEffect(() => {
+    try {
+      const nav = performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined;
+      const saved = sessionStorage.getItem(QUERY);
+      if (nav?.type === "reload" && saved) setQ(saved);
+    } catch { /* storage unavailable */ }
+  }, []);
+  useEffect(() => { try { if (q) sessionStorage.setItem(QUERY, q); else sessionStorage.removeItem(QUERY); } catch { /* storage unavailable */ } }, [q]);
   useEffect(() => {
     if (term.length < 2) { setHits(null); setFix(null); setState("idle"); return; }
     const ctl = new AbortController();
