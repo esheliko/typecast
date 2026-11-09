@@ -331,6 +331,8 @@ test.describe("behaviour (signed in)", () => {
       const { error } = await sb.from("library_items").upsert({ user_id: userId, ...show, year: "2019", poster_path: null, status: "watched", priority: "someday", rating: 0, note: "",
         watched_at: "2015-01-01T00:00:00Z", checked_at: null }, { onConflict: "user_id,tmdb_type,tmdb_id" });
       expect(error?.message).toBeUndefined();
+      // Signing in already ran the once-per-browser-session recheck (before this row existed); forget it, as a new session would.
+      await page.evaluate(() => sessionStorage.removeItem("typecast.rechecked"));
       await page.goto("/library");
       await expect.poll(async () => (await row())?.status, { timeout: 45_000, message: "the new-episode check should move it to Watching" }).toBe("watching");
       if (hasFlag) {
