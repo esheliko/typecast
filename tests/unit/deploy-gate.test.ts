@@ -48,7 +48,7 @@ test("a head commit with no verify check yet is pending only for the first minut
 });
 
 // @ts-expect-error plain .mjs script, no types
-import { parseFailures, rankSuspects } from "../../scripts/ci-status.mjs";
+import { parseFailures, rankSuspects, pickOwner } from "../../scripts/ci-status.mjs";
 test("parseFailures reads Playwright's failure list", () => {
   const txt = "  2 failed\n    tests/smoke/smoke.spec.ts:181:3 › signed in › a note is saved \n    tests/smoke/behaviour.spec.ts:145:3 › behaviour › popup mark ─────────\n  31 passed";
   assert.deepEqual(parseFailures([txt]), ["tests/smoke/smoke.spec.ts › signed in › a note is saved", "tests/smoke/behaviour.spec.ts › behaviour › popup mark"]);
@@ -59,4 +59,11 @@ test("rankSuspects puts the commit touching the failing area first", () => {
     { sha: "b", subject: "Title view: flush pending notes before leaving", session: "s2", files: ["src/components/TitleView.tsx"] },
   ]);
   assert.equal(r[0].sha, "b");
+});
+
+test("pickOwner: best match wins, else the earliest push after green, never nobody when a session is known", () => {
+  const c = (sha: string, session: string | null, score = 0) => ({ sha, session, score, subject: "", files: [] });
+  assert.equal(pickOwner([c("a", "s1", 3), c("b", "s2")], [c("a", "s1"), c("b", "s2")])?.session, "s1");
+  assert.equal(pickOwner([c("n", "s2"), c("o", "s1")], [c("n", "s2"), c("o", "s1")])?.session, "s1"); // newest first: o is the earliest
+  assert.equal(pickOwner([], []), null);
 });

@@ -51,6 +51,19 @@ export function rankSuspects(failures, commits) {
     .sort((a, b) => b.score - a.score);
 }
 
+/**
+ * Pure. Exactly one session owns a red main, so nobody can assume it is someone else's: the best-scoring suspect, else the session of the EARLIEST
+ * commit since the last green one (the first change after green is the likeliest cause, and a deterministic tie-break stops two sessions each
+ * blaming the other). `commits` are newest first (git log order).
+ */
+export function pickOwner(ranked, commits) {
+  const top = ranked.find((c) => c.score > 0 && c.session);
+  if (top) return { session: top.session, why: `best match with the failing tests (\`${top.sha.slice(0, 7)}\`)` };
+  const earliest = [...commits].reverse().find((c) => c.session);
+  if (earliest) return { session: earliest.session, why: `no commit matches the failing tests, so the first push after the last green commit (\`${earliest.sha.slice(0, 7)}\`) owns it` };
+  return null;
+}
+
 function checkOf(sha) {
   const runs = gh(`repos/${REPO}/commits/${sha}/check-runs?per_page=100`).check_runs.filter((r) => r.name === CHECK);
   runs.sort((a, b) => Date.parse(b.started_at ?? 0) - Date.parse(a.started_at ?? 0));
@@ -107,7 +120,11 @@ async function main() {
     if (!failures.length) lines.push('- (could not read test names; open the CI run)');
     lines.push('', '### Most likely responsible (best guess, by overlap with the failing tests)');
     for (const c of ranked.filter((c) => c.score > 0).slice(0, 6)) lines.push(`- \`${c.sha.slice(0, 7)}\` ${c.subject.slice(0, 90)} → session \`${c.session ?? 'unknown'}\` (score ${c.score})`);
+    const owner = pickOwner(ranked, commits);
+    lines.push('', `### Owner: ${owner ? `session \`${owner.session}\`` : 'nobody identified (first session to read this owns it)'}`);
+    if (owner) lines.push(`Why: ${owner.why}. The owner fixes this even if a neighbour's change is the real cause: someone has to, and main stays red until they do.`);
     lines.push('', '### Everyone who pushed since the last green commit', ...[...new Set(commits.map((c) => c.session ?? 'unknown'))].map((s) => `- \`${s}\``));
+    lines.push(`\n::owner=${owner?.session ?? ''}`);
     lines.push('', 'A session listed above whose change plausibly broke one of these tests must fix it now (see CLAUDE.md, "CI is red"). Fix the cause, not the test, unless the test is stale.');
   }
   const md = lines.join('\n');

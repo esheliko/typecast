@@ -12,11 +12,12 @@
 >    task needs it: read issue #1 (live commit vs pending) or compare `git merge-base --is-ancestor <yours> <live>`.
 >    Real hotfix only: put `[deploy-now]` in the commit message.
 > 6. **CI must stay green: check your own push.** After pushing, run `node scripts/ci-status.mjs --wait` (about 10 min; run it with `run_in_background` if you
->    have other work, but read the result before you finish). If `verify` is red: read the failing tests and the "most likely responsible" list. If your
->    commit or session id is listed, or the failing test covers what you changed, **fix it now** in a new commit (fix the cause; change a test only when the
->    test is stale, and say so; never skip, delete or loosen a test to get green) and wait again. If it is clearly not yours, say so in your final message.
->    Red CI that nobody owns is everyone's: a session that starts while `main` is red (the start hook prints it, issue #2 has the details) fixes what is
->    plausibly its own area first, and a session the Deploy Manager or the owner names as responsible fixes it before anything else.
+>    have other work, but read the result before you finish). If `verify` is red it prints one **Owner** session. **If your session id is the Owner you fix it
+>    now, even if you believe a neighbour's change is the real cause** ("it is unrelated" is not an answer: main stays red until someone fixes it, and the Owner
+>    is that someone). Fix the cause; change a test only when it is stale and say so; never skip, delete or loosen a test to get green; then wait again until
+>    green. If you are in the "everyone who pushed since green" list but not the Owner, check within 10 min whether your change can affect the failing test and
+>    say what you found. A session the owner or the CI watcher messages as Owner fixes it before anything else; a session that starts while `main` is red
+>    (the start hook prints it, issue #2) fixes what is plausibly its own area first.
 > If you were handed a different branch, still do the above. If main moved while you worked, rebase or merge onto it, keeping both sides' work.
 > `.claude/hooks/session-start.sh` checks this at the start of every session.
 
