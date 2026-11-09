@@ -34,9 +34,22 @@ jobs:
       - run: npm run typecheck
       - name: Unit tests
         run: npm test
+      - name: Cache Next build
+        uses: actions/cache@v4
+        with:
+          path: .next/cache
+          key: next-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-${{ hashFiles('src/**', 'next.config.ts') }}
+          restore-keys: next-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-
       - run: npm run build
+      - name: Cache Playwright browser
+        id: pw
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: pw-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
       - name: Install browser
-        run: npx playwright install --with-deps chromium
+        run: |
+          if [ "${{ steps.pw.outputs.cache-hit }}" = "true" ]; then npx playwright install-deps chromium; else npx playwright install --with-deps chromium; fi
       - name: Smoke test (signed-out pages always; signed-in pages when SMOKE_* secrets are set)
         run: |
           if [ -z "$SMOKE_EMAIL" ] || [ -z "$SMOKE_PASSWORD" ]; then echo "::warning::SMOKE_EMAIL/SMOKE_PASSWORD secrets missing: only signed-out pages are smoke-tested. See DEPLOYING.md > Smoke test."; fi

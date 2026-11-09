@@ -1,0 +1,5 @@
+# Watch next
+
+> Moved verbatim out of CLAUDE.md so sessions only read it when they touch this feature.
+
+- Watch next (Library, `components/UpNext.tsx`) is ranked by `rankUpNext` (`src/lib/upnext.ts`, pure, unit tested): in-progress titles lead only while fresh (`updated_at` within 21 days; stale ones sink, at most one shown as "still want to finish?", unless new episodes aired), then the watchlist scored by new episodes, your streaming services, recommendations from rated titles, genre taste, TMDB rating, must-watch and recency (unreleased left out), with new picks from outside the library mixed in. `loadUpNext` (`src/lib/upnext-data.ts`) fetches the TMDB facts behind Suspense; the fallback is the same ranking without TMDB. "Not now" hides a card for 30 days on that device; the "On my services" chip (remembered per device) keeps only picks streaming on the services picked in Settings (`onYourServices`; negative service ids are manual labels and are skipped via `realServices`).

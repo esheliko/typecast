@@ -4,7 +4,7 @@ Vercel Hobby limits deployments, so **a push no longer deploys by itself** (`ver
 `scripts/deploy-manager.mjs` is the only thing that deploys. It deploys the head of `main` as ONE deployment per burst of pushes.
 
 ## How it runs
-- **GitHub Actions** (`.github/workflows/deploy-manager.yml`): on every push to `main`, every 5 min, and on demand. Needs the repo
+- **GitHub Actions** (`.github/workflows/deploy-manager.yml`): when CI finishes (`workflow_run`, cancelled CI runs are ignored), every 5 min as a safety net, and on demand (no `push` trigger since 2026-11-09: it only started runs that the next push cancelled). Needs the repo
   secret `VERCEL_TOKEN` (Vercel → Account → Tokens, scope: the `eshelikos-projects` team; GitHub → Settings → Secrets → Actions).
   Without it the workflow idles.
 - **No Claude supervisor any more** (deleted 2026-11-09, see lessons). Actions is the only automatic executor. A Claude session can still run
@@ -77,3 +77,4 @@ The supervisor has nothing to refresh there. `scripts/dashboard-data.mjs` is gon
   session that started them when they end, so the session is told even after it stopped talking. The rule is CLAUDE.md 6 and the start hook repeats it.
 - 2026-11-09 (19:55 IST): bug found and fixed: the session-start hook exited at its first line since 542cd46 (my edit put the CI block after the first `exit 0`), so new sessions saw
   no standing rule and no red-CI alert for about six hours. Lesson: after editing the hook, run it and read its output.
+- 2026-11-09 (evening): efficiency pass. Dropped the `push` trigger and made cancelled CI runs skip the manager (20 of 27 runs since noon were cancelled). CI caches the Playwright browser and `.next/cache`. CLAUDE.md lost ~40% (per-feature notes moved to `docs/features/`). Rule 3 is now lint + typecheck + unit tests, build only for config/route changes; push once per change set.

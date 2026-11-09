@@ -2,8 +2,8 @@ name: Deploy Manager
 # Pushes no longer deploy by themselves (vercel.json). This workflow batches pushes into one Vercel deployment
 # and paces them against the plan's deployment limit. Needs repo secret VERCEL_TOKEN (see DEPLOYING.md).
 on:
-  push:
-    branches: [main]
+  # No `push` trigger: CI starts on every push and its completion starts this workflow (below), so a push-triggered run only
+  # started, waited and was cancelled by the next push (36 of 56 runs in the first day).
   workflow_run: # the moment CI finishes: the gate may now open (the cron below is best effort and was seen 5h late)
     workflows: [CI]
     types: [completed]
@@ -11,7 +11,8 @@ on:
     - cron: '*/5 * * * *'
   workflow_dispatch:
 concurrency:
-  group: deploy-manager
+  # A cancelled CI run (superseded by a newer push) must not start a run that cancels the live one: give it its own group; its job is skipped.
+  group: deploy-manager${{ github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'cancelled' && format('-skip-{0}', github.run_id) || '' }}
   cancel-in-progress: true # newest run wins; any run re-derives all state from Vercel + git
 permissions:
   contents: read
@@ -20,6 +21,7 @@ permissions:
   actions: read # ci-status.mjs lists CI runs to find the last green commit
 jobs:
   manage:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion != 'cancelled'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:

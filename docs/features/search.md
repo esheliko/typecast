@@ -1,0 +1,5 @@
+# Search
+
+> Moved verbatim out of CLAUDE.md so sessions only read it when they touch this feature.
+
+- Search results (`components/Search.tsx`, `/api/search`): `layoutSearch` (`src/lib/search-intent.ts`, pure, unit tested) decides whether a query is about a title, a person, both or neither (name-match tier with a leading "the/a/an" ignored, TMDB popularity/votes with separate cut-offs for people and titles in `CUT`) and returns the Top result (opened by Enter), the other kind, People and titles, with weak matches folded. People under popularity 1 are hidden unless the full name was typed; marked titles lead only among real name matches, and a marked title that matches as well as the best one becomes the Top result. The API asks `spell.ts` for a spelling fix only when the intent is unclear and uses it only if it gives a clear answer (`exact=1` turns it off). Short queries also fetch page 2 of TMDB's movie/TV search (La La Land is on page 2 of "la la"). Recent searches are kept per device (`tc:recent-searches`), saved when a result is opened.
