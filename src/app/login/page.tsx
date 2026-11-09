@@ -4,7 +4,7 @@ export default function Login() {
   return (
     <main className="login">
       <div className="logo"><span className="mark" aria-hidden="true" />Typecast</div>
-      <p className="tagline">Track every film and series you watch, find what to watch next, and never miss a new episode.</p>
+      <p className="tagline">Keep track of every film and series you watch, and never wonder where you know that face from again.</p>
       <LoginForm />
     </main>
   );
