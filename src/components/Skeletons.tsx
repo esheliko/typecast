@@ -29,14 +29,14 @@ export function RowsSkeleton({ n = 6 }: { n?: number }) {
 export function TitleSkeleton({ title, poster, sub }: { title?: string; poster?: string; sub?: string }) {
   return (
     <div aria-busy="true">
-      <div className="sh-top sh-compact" style={{ marginTop: 10 }}>
+      <div className="sh-top" style={{ marginTop: 10, gap: 12 }}>
         {poster
           // eslint-disable-next-line @next/next/no-img-element
-          ? <img className="sh-poster" src={poster} alt="" />
-          : <div className="sh-poster sk-b" style={{ aspectRatio: "2 / 3" }} />}
+          ? <img className="sh-poster" style={{ width: 84 }} src={poster} alt="" />
+          : <div className="sh-poster sk-b" style={{ width: 84, aspectRatio: "2 / 3" }} />}
         <div style={{ minWidth: 0, flex: 1 }}>
-          {title ? <h1 className="sh-title">{title}</h1> : bar("70%", 34)}
-          {sub ? <div className="sh-meta">{sub}</div> : bar("40%", 13, { marginTop: 12 })}
+          {title ? <h1 className="sh-title" style={{ fontSize: 26 }}>{title}</h1> : bar("70%", 34)}
+          {sub ? <div className="sh-meta" style={{ marginTop: 4, fontSize: 12 }}>{sub}</div> : bar("40%", 13, { marginTop: 12 })}
           {bar("90%", 12, { marginTop: 14 })}{bar("75%", 12, { marginTop: 6 })}
         </div>
       </div>
