@@ -62,7 +62,7 @@ h2 { font: 600 13px var(--mono); letter-spacing: .12em; text-transform: uppercas
 @keyframes sp { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .spin { animation-duration: 3s; } }
 
-.search { margin-top: 8px; }
+.search { margin-top: 8px; position: relative; }
 .field { display: flex; gap: 8px; }
 input, select, textarea { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; font-size: 16px; max-width: 100%; }
 .field input { flex: 1; min-width: 0; padding: 13px 16px; border-radius: 12px; }
@@ -275,7 +275,7 @@ a.row { text-decoration: none; color: inherit; }
 .top-text .know { color: var(--good); }
 .top-poster { flex: none; width: 48px; aspect-ratio: 2 / 3; border-radius: 6px; object-fit: cover; background: var(--chip); display: block; }
 .top-main .avatar { width: 52px; height: 52px; }
-.recent { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding-top: 8px; }
+.recent { position: absolute; left: 0; right: 0; top: calc(100% + 6px); z-index: 15; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 10px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,.18); }
 .recent .chip { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 
