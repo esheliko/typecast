@@ -5,6 +5,17 @@ import { configured, deleteRows, rowOf, smokeClient, SCRATCH, SEED } from "./see
  * Behaviour tests: they click through the real app and check what was saved. Every test only touches the titles it names
  * (SCRATCH or a Browse poster it checked was unsaved), verifies through the smoke user's own Supabase session, and cleans up in `finally`.
  */
+/** The title card shows the current mark; the options (Status group) open on tap and close after a pick. Opens them if needed. */
+async function statusMenu(page: Page) {
+  const group = page.getByRole("group", { name: "Status" });
+  if (!(await group.isVisible())) await page.locator(".mc-cur").click();
+  await expect(group).toBeVisible({ timeout: 10_000 });
+  return group;
+}
+async function pick(page: Page, name: string) {
+  await (await statusMenu(page)).getByRole("button", { name, exact: true }).click();
+}
+
 test.describe("behaviour (signed in)", () => {
   test.skip(!configured(), "no SMOKE_EMAIL/SMOKE_PASSWORD: signed-in behaviour not tested");
   test.setTimeout(90_000);
@@ -27,26 +38,27 @@ test.describe("behaviour (signed in)", () => {
     try {
       expect(await status(), "scratch title must start unsaved").toBeNull();
       await page.goto(`/title/movie/${inception.tmdb_id}`);
-      const group = page.getByRole("group", { name: "Status" });
-      await expect(group).toBeVisible({ timeout: 30_000 });
-      await group.getByRole("button", { name: "Watched", exact: true }).click();
+      const card = page.locator(".mc-cur");
+      await expect(card).toBeVisible({ timeout: 30_000 });
+      await pick(page, "Watched");
       await expect.poll(async () => (await status())?.status, { timeout: 15_000 }).toBe("watched");
       await expect(page.getByRole("status").filter({ hasText: `${inception.title}: Watched` })).toBeVisible();
-      await group.getByRole("button", { name: "Partly watched", exact: true }).click();
+      await pick(page, "Partly watched");
       await expect.poll(async () => (await status())?.status, { timeout: 15_000 }).toBe("partial");
-      await group.getByRole("button", { name: "Watching", exact: true }).click();
+      await pick(page, "Watching");
       await expect.poll(async () => (await status())?.status, { timeout: 15_000 }).toBe("watching");
-      await group.getByRole("button", { name: "Watched", exact: true }).click();
+      await pick(page, "Watched");
       await expect.poll(async () => (await status())?.status, { timeout: 15_000 }).toBe("watched");
 
       await page.goto("/library?f=watched");
       await expect(inRow(page, inception.title)).toBeVisible({ timeout: 20_000 });
 
       await page.goto(`/title/movie/${inception.tmdb_id}?full=1`);
-      await expect(group).toBeVisible({ timeout: 30_000 });
-      await expect(group.getByRole("button", { name: "Watched", exact: true })).toHaveAttribute("aria-pressed", "true");
-      await group.getByRole("button", { name: "To watch", exact: true }).click();
+      await expect(card).toBeVisible({ timeout: 30_000 });
+      await expect(card).toContainText("Watched");
+      await pick(page, "To watch");
       await expect.poll(async () => (await status())?.status, { timeout: 15_000 }).toBe("watchlist");
+      await statusMenu(page);
       await page.getByRole("group", { name: "How much you want to watch it" }).getByRole("button", { name: "Must watch" }).click();
       await expect.poll(async () => (await status())?.priority, { timeout: 15_000 }).toBe("must");
 
@@ -57,14 +69,14 @@ test.describe("behaviour (signed in)", () => {
       await expect(inRow(page, inception.title)).toHaveCount(0);
 
       await page.goto(`/title/movie/${inception.tmdb_id}?full=1`);
-      await expect(group).toBeVisible({ timeout: 30_000 });
+      await expect(card).toBeVisible({ timeout: 30_000 });
       // Tapping the lit mark removes it, with the same toast and Undo as the quick marks; Undo brings it back.
-      await group.getByRole("button", { name: "To watch", exact: true }).click();
+      await pick(page, "To watch");
       await expect.poll(status, { timeout: 15_000 }).toBeNull();
       await expect(page.getByRole("status").filter({ hasText: `Removed ${inception.title}` })).toBeVisible();
       await page.getByRole("status").getByRole("button", { name: "Undo" }).click();
       await expect.poll(async () => (await status())?.status, { timeout: 15_000 }).toBe("watchlist");
-      await group.getByRole("button", { name: "To watch", exact: true }).click();
+      await pick(page, "To watch");
       await expect.poll(status, { timeout: 15_000 }).toBeNull();
       await page.goto("/library");
       await expect(inRow(page, "The Matrix")).toBeVisible({ timeout: 20_000 });
@@ -159,13 +171,13 @@ test.describe("behaviour (signed in)", () => {
       expect(await rowOf(sb, userId, target.type, target.id), "poster title must start unsaved").toBeNull();
       made = target;
       await link.click();
-      const group = page.getByRole("group", { name: "Status" });
-      await expect(group).toBeVisible({ timeout: 30_000 });
-      await group.getByRole("button", { name: "To watch", exact: true }).click();
-      await expect(group.getByRole("button", { name: "To watch", exact: true })).toHaveAttribute("aria-pressed", "true");
+      const card = page.locator(".mc-cur");
+      await expect(card).toBeVisible({ timeout: 30_000 });
+      await pick(page, "To watch");
+      await expect(card).toContainText("To watch");
       await expect.poll(async () => (await rowOf(sb, userId, target.type, target.id))?.status, { timeout: 15_000 }).toBe("watchlist");
       await page.keyboard.press("Escape");
-      await expect(group).toHaveCount(0, { timeout: 10_000 });
+      await expect(card).toHaveCount(0, { timeout: 10_000 });
       await expect(poster.getByRole("button", { name: /^To watch: .*Tap to remove$/ })).toHaveAttribute("aria-pressed", "true");
     } finally {
       if (made) await deleteRows(sb, userId, [{ tmdb_type: made.type, tmdb_id: made.id }]);
@@ -344,10 +356,10 @@ test.describe("behaviour (signed in)", () => {
         await expect(badge).toHaveText(/New (episode|season)/);
       }
       await page.goto(`/title/tv/${show.tmdb_id}`);
-      const group = page.getByRole("group", { name: "Status" });
-      await expect(group).toBeVisible({ timeout: 30_000 });
+      const card = page.locator(".mc-cur");
+      await expect(card).toBeVisible({ timeout: 30_000 });
       if (hasFlag) await expect(page.getByTestId("new-ep").first()).toContainText(/aired/);
-      await group.getByRole("button", { name: "Watched", exact: true }).click();
+      await pick(page, "Watched");
       await expect.poll(async () => (await row())?.status, { timeout: 15_000 }).toBe("watched");
       if (hasFlag) {
         await expect.poll(async () => (await row())?.new_episode_at ?? null, { timeout: 15_000 }).toBeNull();
