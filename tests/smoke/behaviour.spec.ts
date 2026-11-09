@@ -147,10 +147,13 @@ test.describe("behaviour (signed in)", () => {
     let made: { type: string; id: number } | null = null;
     try {
       await page.goto("/");
-      const poster = page.locator(".pc:not(.is-watching):not(.is-partial):not(.is-watched):not(.is-watchlist)").first();
-      await expect(poster).toBeVisible({ timeout: 30_000 });
+      const first = page.locator(".pc:not(.is-watching):not(.is-partial):not(.is-watched):not(.is-watchlist)").first();
+      await expect(first).toBeVisible({ timeout: 30_000 });
+      const href = (await first.locator("a.pc-link").getAttribute("href")) ?? "";
+      // Pin the poster by its link: marks now show on it at once, so a "not yet marked" selector would jump to another card.
+      const poster = page.locator(".pc", { has: page.locator(`a.pc-link[href="${href}"]`) }).first();
       const link = poster.locator("a.pc-link");
-      const m = /\/title\/(movie|tv)\/(\d+)/.exec((await link.getAttribute("href")) ?? "");
+      const m = /\/title\/(movie|tv)\/(\d+)/.exec(href);
       expect(m).not.toBeNull();
       const target = { type: m![1], id: Number(m![2]) };
       expect(await rowOf(sb, userId, target.type, target.id), "poster title must start unsaved").toBeNull();
