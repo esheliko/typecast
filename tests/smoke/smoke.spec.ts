@@ -186,8 +186,11 @@ test.describe("signed in", () => {
     await expect(box).toBeEnabled({ timeout: 20_000 });
     await box.fill(note);
     // Leave well inside the 700 ms debounce: the pending save must be flushed, not dropped.
+    // The flush happens as the box unmounts; wait for its save to reach the server before reloading, or the hard load can abort it.
+    const saved = page.waitForResponse((r) => r.request().method() === "POST" && r.request().postData()?.includes(note) === true, { timeout: 20_000 });
     await page.getByRole("link", { name: "Library" }).first().click();
     await expect(page).toHaveURL(/\/library/);
+    expect((await saved).ok()).toBe(true);
     await visit(page, "/title/movie/550?full=1", bad);
     await expect(page.getByLabel("Notes")).toHaveValue(note, { timeout: 20_000 });
     // Leave the seeded row as it was.
