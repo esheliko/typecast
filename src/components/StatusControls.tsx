@@ -43,12 +43,27 @@ export default function StatusControls({ item, lib }: { item: Item; lib: LibItem
   return (
     <div aria-busy={pending}>
       <div className="mc-line">
+        {!cur ? (
+          // Not in the library yet: say what you can do, one tap, on the same line (the menu keeps Watching / Partial).
+          <div className="mc-quick" role="group" aria-label="Add to my library">
+            <button type="button" className="chip sc mc-cur none" onClick={() => pick("watchlist")}>
+              <StatusIcon kind="watchlist" size={16} /><span className="mc-cur-t">Watchlist</span>
+            </button>
+            <button type="button" className="chip sc mc-cur watchedq" onClick={() => pick("watched")}>
+              <StatusIcon kind="watched" size={16} /><span className="mc-cur-t">Watched</span>
+            </button>
+            <button type="button" className="chip sc mc-more" aria-expanded={open} aria-haspopup="true" aria-label="More options: watching, partly watched" onClick={() => setOpen((o) => !o)}>
+              <svg className="mc-chev" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" style={{ margin: 0, transform: open ? "rotate(180deg)" : undefined }}><path d="M6 9l6 6 6-6" /></svg>
+            </button>
+          </div>
+        ) : (
         <button type="button" className={`chip sc mc-cur ${cur ?? "none"}${cur === "watchlist" && priority === "must" ? " must" : ""}`} aria-expanded={open} aria-haspopup="true"
           aria-label={cur ? `${STATUS_LABEL[cur]}. Change` : "Add to my library"} onClick={() => setOpen((o) => !o)}>
           {curKind ? <StatusIcon kind={curKind} size={16} /> : <span aria-hidden="true">+</span>}
           <span className="mc-cur-t">{cur ? STATUS_LABEL[cur] : "Add to my library"}</span>
           <svg className="mc-chev" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" style={{ transform: open ? "rotate(180deg)" : undefined }}><path d="M6 9l6 6 6-6" /></svg>
         </button>
+        )}
         {status && (
           <div className="stars" role="group" aria-label="Your rating" style={{ fontSize: 20 }}>
             {[1, 2, 3, 4, 5].map((n) => (
