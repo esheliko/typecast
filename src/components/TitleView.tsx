@@ -257,7 +257,7 @@ export default async function TitleView({ t, origin, focus }: { t: Title; origin
   const meta = [t.show ? "" : t.year, typeLabel(t.type), t.runtime ? `${t.runtime} min${t.type === "tv" ? " / ep" : ""}` : "", t.genres.slice(0, 3).join(", ")].filter(Boolean).join(" · ");
   const gaps = missingCrew(t.crewBy).length > 0 && !!t.imdbId;
   return (
-    <FromProvider k={t.key} name={t.title}>
+    <FromProvider k={t.key} name={t.title} year={t.show ? undefined : t.year}>
       <div className="sh-top sh-compact" style={{ marginTop: 10 }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         {t.poster && <img className="sh-poster" src={img(t.poster, "w185")} alt="" />}

@@ -8,9 +8,9 @@ import { href, img, typeLabel } from "@/lib/img";
 
 const InModal = createContext(false);
 /** The title whose page this link sits on; passed along so the next popup can say where it was opened from. */
-const FromTitle = createContext<{ key: string; name: string } | null>(null);
-export function FromProvider({ k, name, children }: { k: string; name: string; children: React.ReactNode }) {
-  return <FromTitle.Provider value={{ key: k, name }}>{children}</FromTitle.Provider>;
+const FromTitle = createContext<{ key: string; name: string; year?: string | number } | null>(null);
+export function FromProvider({ k, name, year, children }: { k: string; name: string; year?: string | number; children: React.ReactNode }) {
+  return <FromTitle.Provider value={{ key: k, name, year }}>{children}</FromTitle.Provider>;
 }
 
 /**
@@ -55,8 +55,11 @@ const peekedPeople = new Map<string, PersonPeek>();
 
 /** A link to a person. Same rules as TitleLink: opens the popup over the current page, never scrolls it, never prefetches. */
 export function PersonLink({ pid, it, onClick, ...rest }: { pid: number | string; it?: { name: string; photo?: string | null } } & Omit<ComponentProps<typeof Link>, "href" | "replace" | "scroll" | "prefetch">) {
+  const from = useContext(FromTitle);
+  // Opened from a title: carry it along so the person's images button can start with them in that title.
+  const q = from ? `?pf=${encodeURIComponent(from.key)}&pn=${encodeURIComponent(from.name.slice(0, 200))}${from.year ? `&py=${encodeURIComponent(String(from.year))}` : ""}` : "";
   const remember = (el: HTMLElement) => { if (it) peekedPeople.set(String(pid), { name: it.name, photo: it.photo, src: el.querySelector("img")?.currentSrc || undefined }); };
-  return <Link href={`/person/${pid}`} scroll={false} prefetch={false}
+  return <Link href={`/person/${pid}${q}`} scroll={false} prefetch={false}
     onClick={(e) => { remember(e.currentTarget); onClick?.(e); }} {...rest} />;
 }
 

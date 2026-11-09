@@ -1,6 +1,6 @@
-import PersonView, { loadPerson, type PersonParams } from "@/components/PersonView";
+import PersonView, { fromTitle, loadPerson, type PersonParams } from "@/components/PersonView";
 
-export default async function PersonModal({ params }: { params: PersonParams }) {
-  const p = await loadPerson(params);
-  return <article className="page"><PersonView p={p} /></article>;
+export default async function PersonModal({ params, searchParams }: { params: PersonParams; searchParams: Promise<{ pf?: string; pn?: string; py?: string }> }) {
+  const [p, q] = await Promise.all([loadPerson(params), searchParams]);
+  return <article className="page"><PersonView p={p} from={fromTitle(q)} /></article>;
 }

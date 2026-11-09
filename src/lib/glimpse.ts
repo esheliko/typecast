@@ -28,3 +28,11 @@ export const creditSpec = (actor: string, role: string | undefined, title: { tit
   const q = `${actor} as ${char} ${title.title} ${title.year || ""} ${kind}`.replace(/\s+/g, " ").trim();
   return { heading: `${actor} as ${char} · ${t.heading}`, tabs: [{ label: char, q }, ...t.tabs] };
 };
+/** A person's page opened from a title: images of them in that title first, then plain photos. */
+export const personInTitleSpec = (name: string, dept: string | undefined, title?: { title: string; year?: string | number; type: string }): GlimpseSpec => {
+  const base = personSpec(name, dept);
+  if (!title) return base;
+  const kind = title.type === "tv" ? "TV series" : "film";
+  const q = `${name} ${title.title} ${title.year || ""} ${kind}`.replace(/\s+/g, " ").trim();
+  return { heading: `${name} · ${title.title}`, tabs: [{ label: `In ${title.title}`, q }, ...base.tabs.map((t) => ({ ...t, label: name }))] };
+};
