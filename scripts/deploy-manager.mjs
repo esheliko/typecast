@@ -45,6 +45,7 @@ export const CFG = {
   urgentTag: '[deploy-now]',
   // The CI gate: the head commit's `verify` check (.github/workflows/ci.yml) must have passed before it is deployed.
   ciCheck: 'verify',
+  ciStartGraceMin: 4, // a head commit younger than this with no verify check yet: CI is about to start, hold
   ciCancelledGraceMin: 3, // a cancelled verify older than this, with no newer run, no longer blocks
   ciMaxWaitMin: 25, // CI still running this long after the newest commit => deploy anyway (a stuck CI must not freeze deployments)
 };
@@ -207,9 +208,11 @@ export function decide(ctx) {
 
 // ---------------------------------------------------------------- the CI gate
 /** Pure: what the check runs of one commit say. 'pass' | 'fail' | 'pending' | 'none' (no such check: CI never ran, do not block). */
-export function ciVerdict(runs, now = Date.now()) {
+export function ciVerdict(runs, now = Date.now(), headAt = null) {
   const mine = (runs ?? []).filter((r) => r.name === CFG.ciCheck).sort((a, b) => Date.parse(b.started_at ?? 0) - Date.parse(a.started_at ?? 0));
-  if (!mine.length) return 'none';
+  // A commit pushed seconds ago has no check yet: that is "CI is about to start", not "CI never ran" (2026-11-09: f88ca27 was deployed
+  // ungated in the gap before its verify run appeared).
+  if (!mine.length) return headAt && now - headAt < CFG.ciStartGraceMin * 60e3 ? 'pending' : 'none';
   const r = mine[0];
   // A cancelled run was superseded (a newer push or a manual run in the same group), it says nothing about the code: wait for the next one.
   // But a cancelled run that finished a few minutes ago with nothing running after it is not coming back (2026-11-08: the head's
@@ -222,10 +225,10 @@ export function ciVerdict(runs, now = Date.now()) {
   return ['success', 'neutral', 'skipped'].includes(r.conclusion) ? 'pass' : 'fail';
 }
 
-function ciState(sha) {
+function ciState(sha, headAt = null) {
   try {
     const j = JSON.parse(gh(['api', `repos/${CFG.repo}/commits/${sha}/check-runs?per_page=100`]));
-    return ciVerdict(j.check_runs);
+    return ciVerdict(j.check_runs, Date.now(), headAt);
   } catch (e) {
     log('CI status unavailable, not gating', String(e.message).slice(0, 120));
     return 'none';
@@ -343,13 +346,23 @@ async function tick() {
     }
 
     if (d.action === 'deploy' && !DRY && !d.why.includes(CFG.urgentTag)) {
-      const ci = ciState(pending.head);
+      const ci = ciState(pending.head, pending.commits[0]?.at ?? null);
       const ageMin = (Date.now() - Math.max(...pending.relevant.map((c) => c.at))) / 60e3;
-      if (ci === 'fail') {
-        event(st, 'ci', `${pending.head.slice(0, 7)} failed CI: not deploying`);
+      // Red on the head only blocks when it is NEW: if the live commit was red too, CI has been red for a while and blocking would freeze
+      // every release while changing nothing (2026-11-09: 4 smoke tests red since the previous evening). Deploy, and say so once.
+      const chronic = ci === 'fail' && !!ctx.ready?.sha && ciState(ctx.ready.sha) === 'fail';
+      if (chronic) {
+        event(st, 'ci', `CI is red on the live commit ${ctx.ready.sha.slice(0, 7)} as well: not blocking ${pending.head.slice(0, 7)}`);
+        if (st.redAlerted !== ctx.ready.sha) {
+          st.redAlerted = ctx.ready.sha;
+          alertFailure(`CI (\`${CFG.ciCheck}\`) has been red on \`main\` including the live commit, so it no longer gates deployments (a red head would otherwise freeze every release). Someone should fix the failing tests; once CI is green again the gate is automatic. A *new* failure after a green commit still blocks.`);
+        }
+      }
+      if (ci === 'fail' && !chronic) {
+        event(st, 'ci', `${pending.head.slice(0, 7)} failed CI after a green live commit: not deploying`);
         if (st.ciAlerted !== pending.head) {
           st.ciAlerted = pending.head;
-          alertFailure(`CI (\`${CFG.ciCheck}\`) failed for \`${pending.head.slice(0, 7)}\`, so it is **not deployed**. Production keeps the last good version. Fix main (a new commit re-runs the gate) or add \`${CFG.urgentTag}\` to a commit message to override.`);
+          alertFailure(`CI (\`${CFG.ciCheck}\`) failed for \`${pending.head.slice(0, 7)}\` (the live commit was green), so it is **not deployed**. Production keeps the last good version. Fix main (a new commit re-runs the gate) or add \`${CFG.urgentTag}\` to a commit message to override.`);
         }
         writeBoard(st, ctx, { ...d, action: 'blocked', why: 'CI failed on the head commit' }, pending, true);
         return;

@@ -39,3 +39,10 @@ test("a site file that still differs is relevant, and so is an unknown file", ()
   assert.equal(markRelevant([cm("a", ["src/a.tsx", "README.md"])], ["src/a.tsx", "README.md"])[0].relevant, true);
   assert.equal(markRelevant([cm("a", ["tailwind.config.ts"])], ["tailwind.config.ts"])[0].relevant, true);
 });
+
+test("a head commit with no verify check yet is pending only for the first minutes", () => {
+  const now = Date.parse("2026-01-01T00:10:00Z");
+  assert.equal(ciVerdict([], now, now - 30_000), "pending");
+  assert.equal(ciVerdict([], now, now - 20 * 60_000), "none");
+  assert.equal(ciVerdict([], now), "none");
+});

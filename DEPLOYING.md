@@ -57,3 +57,8 @@ The supervisor has nothing to refresh there. `scripts/dashboard-data.mjs` is gon
 - 2026-11-09 (09:30 IST): `1c3788e` waited 333 min. Cause: while CI was still running the manager held and EXITED, relying on the next 5-min cron tick, and GitHub's
   schedule is unreliable (17 ticks in 11.5h, a 5h gap). Now the run keeps polling while CI runs (up to 24 min), and a `workflow_run` trigger runs the manager as soon
   as CI completes. Never rely on the cron for latency: it is only a safety net.
+- 2026-11-09 (13:45 IST): review of the first day. (1) CI (`verify`) had been red on nearly every run since the previous evening (4 smoke tests), and releases only went out
+  because of a race: a just-pushed head has no `verify` check yet, which the gate read as "CI never ran". Now a head younger than 4 min with no check holds (CI is about to
+  start). (2) A permanently red main must not freeze releases: if the LIVE commit's `verify` is red too, a red head no longer blocks; the manager deploys, says so on the
+  board and comments once. A red head after a green live commit still blocks. (3) The smoke failures themselves belong to the feature sessions: popup mark vs poster,
+  new-episode badge, note saved before leaving, Watching-now bar.
