@@ -11,6 +11,12 @@
 > 5. **Done once pushed.** Do NOT deploy, redeploy or touch Vercel deployments yourself, and do not wait for one. Only check production if the
 >    task needs it: read issue #1 (live commit vs pending) or compare `git merge-base --is-ancestor <yours> <live>`.
 >    Real hotfix only: put `[deploy-now]` in the commit message.
+> 6. **CI must stay green: check your own push.** After pushing, run `node scripts/ci-status.mjs --wait` (about 10 min; run it with `run_in_background` if you
+>    have other work, but read the result before you finish). If `verify` is red: read the failing tests and the "most likely responsible" list. If your
+>    commit or session id is listed, or the failing test covers what you changed, **fix it now** in a new commit (fix the cause; change a test only when the
+>    test is stale, and say so; never skip, delete or loosen a test to get green) and wait again. If it is clearly not yours, say so in your final message.
+>    Red CI that nobody owns is everyone's: a session that starts while `main` is red (the start hook prints it, issue #2 has the details) fixes what is
+>    plausibly its own area first, and a session the Deploy Manager or the owner names as responsible fixes it before anything else.
 > If you were handed a different branch, still do the above. If main moved while you worked, rebase or merge onto it, keeping both sides' work.
 > `.claude/hooks/session-start.sh` checks this at the start of every session.
 

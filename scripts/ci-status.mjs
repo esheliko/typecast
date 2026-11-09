@@ -1,0 +1,124 @@
+#!/usr/bin/env node
+// CI verdict for main + who is responsible when it is red.
+//
+//   node scripts/ci-status.mjs [--wait] [--sha SHA] [--issue N]
+//
+//   (default)  print the verdict of the `verify` check on origin/main's head (or --sha): pass | fail | pending | none.
+//              On fail it names the failing tests and the suspect commits/sessions since the last green commit.
+//   --wait     poll until the head has a finished (not cancelled) verdict, following main if it moves; give up after 20 min.
+//              Sessions run this after pushing (CLAUDE.md): exit code 1 = red, 0 = green/none, 2 = still running.
+//   --issue N  also write the result into GitHub issue N (the "CI status" board the Deploy Manager keeps).
+//
+// Responsibility comes from the `Claude-Session:` trailer every session puts on its commits.
+import { execFileSync } from 'node:child_process';
+
+const REPO = 'esheliko/typecast';
+const CHECK = 'verify';
+const argv = process.argv.slice(2);
+const WAIT = argv.includes('--wait');
+const arg = (f) => { const i = argv.indexOf(f); return i >= 0 ? argv[i + 1] : null; };
+const ISSUE = arg('--issue');
+const git = (...a) => execFileSync('git', a, { encoding: 'utf8', maxBuffer: 64e6 }).trim();
+const gh = (path) => JSON.parse(execFileSync('gh', ['api', path], { encoding: 'utf8', maxBuffer: 64e6 }));
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/** Pure: failing test titles out of the annotation text Playwright's list reporter leaves on the check run. */
+export function parseFailures(texts) {
+  const out = new Set();
+  for (const t of texts) {
+    for (const m of String(t).matchAll(/^\s+(tests\/[^\s:]+\.spec\.ts):(\d+):\d+ › (.+?)\s*$/gm)) out.add(`${m[1]} › ${m[3].replace(/[\s─]+$/, '')}`);
+  }
+  return [...out];
+}
+
+const words = (s) => new Set(String(s).toLowerCase().match(/[a-z]{4,}/g) ?? []);
+const STOP = new Set(['tests', 'smoke', 'spec', 'signed', 'behaviour', 'that', 'this', 'with', 'from', 'then', 'when', 'under', 'page', 'title']);
+
+/** Pure: rank commits by how well they match the failing tests (shared words with the test title, test file touched, test words in changed paths). */
+export function rankSuspects(failures, commits) {
+  const tw = new Set();
+  for (const f of failures) for (const w of words(f)) if (!STOP.has(w)) tw.add(w);
+  return commits
+    .map((c) => {
+      let score = 0;
+      for (const w of words(c.subject)) if (tw.has(w)) score += 2;
+      for (const f of c.files) {
+        if (failures.some((x) => x.startsWith(f))) score += 4;
+        for (const w of words(f)) if (tw.has(w)) score += 1;
+      }
+      return { ...c, score };
+    })
+    .sort((a, b) => b.score - a.score);
+}
+
+function checkOf(sha) {
+  const runs = gh(`repos/${REPO}/commits/${sha}/check-runs?per_page=100`).check_runs.filter((r) => r.name === CHECK);
+  runs.sort((a, b) => Date.parse(b.started_at ?? 0) - Date.parse(a.started_at ?? 0));
+  return runs[0] ?? null;
+}
+function verdict(run) {
+  if (!run) return 'none';
+  if (run.status !== 'completed' || run.conclusion === 'cancelled') return 'pending';
+  return ['success', 'neutral', 'skipped'].includes(run.conclusion) ? 'pass' : 'fail';
+}
+
+function lastGreenBefore(head) {
+  const runs = gh(`repos/${REPO}/actions/workflows/ci.yml/runs?per_page=100&branch=main&event=push&status=success`).workflow_runs;
+  for (const r of runs) {
+    try { git('merge-base', '--is-ancestor', r.head_sha, head); return r.head_sha; } catch { /* not an ancestor */ }
+  }
+  return null;
+}
+
+function commitsSince(base, head) {
+  const range = base ? `${base}..${head}` : `-40 ${head}`;
+  const rows = git('log', '--format=%H%x1f%an%x1f%s%x1f%(trailers:key=Claude-Session,valueonly,separator=%x2c)', ...range.split(' ')).split('\n').filter(Boolean);
+  return rows.map((r) => {
+    const [sha, , subject, trailer] = r.split('\x1f');
+    const session = (trailer ?? '').split(',')[0].trim().replace(/^.*\//, '') || null;
+    const files = git('show', '--name-only', '--format=', '--no-renames', sha).split('\n').filter(Boolean);
+    return { sha, subject, session, files };
+  });
+}
+
+async function main() {
+  git('fetch', '-q', 'origin', 'main');
+  let head = arg('--sha') ?? git('rev-parse', 'origin/main');
+  const t0 = Date.now();
+  const deadline = t0 + 20 * 60e3;
+  let v = verdict(checkOf(head));
+  while (WAIT && (v === 'pending' || v === 'none') && Date.now() < deadline) {
+    await sleep(30e3);
+    if (!arg('--sha')) { git('fetch', '-q', 'origin', 'main'); head = git('rev-parse', 'origin/main'); }
+    v = verdict(checkOf(head));
+    if (v === 'none' && Date.now() - t0 > 3 * 60e3) break; // no check appeared within 3 min: CI is not running for this commit
+  }
+  const run = checkOf(head);
+  const lines = [`CI \`${CHECK}\` on main @ \`${head.slice(0, 7)}\`: **${v}**`];
+  let failures = [];
+  if (v === 'fail') {
+    const ann = gh(`repos/${REPO}/check-runs/${run.id}/annotations?per_page=100`).map((a) => a.message ?? '');
+    failures = parseFailures(ann);
+    const green = lastGreenBefore(head);
+    const commits = commitsSince(green, head);
+    const ranked = rankSuspects(failures, commits);
+    lines.push('', `Last green commit: ${green ? `\`${green.slice(0, 7)}\`` : 'unknown'}; ${commits.length} commit(s) since.`, '', '### Failing tests');
+    for (const f of failures) lines.push(`- ${f}`);
+    if (!failures.length) lines.push('- (could not read test names; open the CI run)');
+    lines.push('', '### Most likely responsible (best guess, by overlap with the failing tests)');
+    for (const c of ranked.filter((c) => c.score > 0).slice(0, 6)) lines.push(`- \`${c.sha.slice(0, 7)}\` ${c.subject.slice(0, 90)} → session \`${c.session ?? 'unknown'}\` (score ${c.score})`);
+    lines.push('', '### Everyone who pushed since the last green commit', ...[...new Set(commits.map((c) => c.session ?? 'unknown'))].map((s) => `- \`${s}\``));
+    lines.push('', 'A session listed above whose change plausibly broke one of these tests must fix it now (see CLAUDE.md, "CI is red"). Fix the cause, not the test, unless the test is stale.');
+  }
+  const md = lines.join('\n');
+  console.log(md);
+  if (ISSUE) {
+    const body = `# CI status for main (auto-updated)\n_Written by \`scripts/ci-status.mjs\` whenever the Deploy Manager sees a finished CI verdict. Do not edit by hand._\n\n${md}\n\n_Updated ${new Date().toISOString()}_`;
+    execFileSync('gh', ['api', '-X', 'PATCH', `repos/${REPO}/issues/${ISSUE}`, '--input', '-'], { input: JSON.stringify({ body }) });
+  }
+  process.exit(v === 'fail' ? 1 : v === 'pending' ? 2 : 0);
+}
+
+if (process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).href) {
+  main().catch((e) => { console.error(e); process.exit(3); });
+}

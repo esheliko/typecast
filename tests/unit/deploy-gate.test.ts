@@ -46,3 +46,17 @@ test("a head commit with no verify check yet is pending only for the first minut
   assert.equal(ciVerdict([], now, now - 20 * 60_000), "none");
   assert.equal(ciVerdict([], now), "none");
 });
+
+// @ts-expect-error plain .mjs script, no types
+import { parseFailures, rankSuspects } from "../../scripts/ci-status.mjs";
+test("parseFailures reads Playwright's failure list", () => {
+  const txt = "  2 failed\n    tests/smoke/smoke.spec.ts:181:3 › signed in › a note is saved \n    tests/smoke/behaviour.spec.ts:145:3 › behaviour › popup mark ─────────\n  31 passed";
+  assert.deepEqual(parseFailures([txt]), ["tests/smoke/smoke.spec.ts › signed in › a note is saved", "tests/smoke/behaviour.spec.ts › behaviour › popup mark"]);
+});
+test("rankSuspects puts the commit touching the failing area first", () => {
+  const r = rankSuspects(["tests/smoke/smoke.spec.ts › signed in › a note typed before leaving the title is saved"], [
+    { sha: "a", subject: "Tidy stats colours", session: "s1", files: ["src/components/Stats.tsx"] },
+    { sha: "b", subject: "Title view: flush pending notes before leaving", session: "s2", files: ["src/components/TitleView.tsx"] },
+  ]);
+  assert.equal(r[0].sha, "b");
+});

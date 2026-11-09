@@ -45,6 +45,7 @@ export const CFG = {
   urgentTag: '[deploy-now]',
   // The CI gate: the head commit's `verify` check (.github/workflows/ci.yml) must have passed before it is deployed.
   ciCheck: 'verify',
+  ciIssue: 2, // issue that scripts/ci-status.mjs keeps up to date: verdict, failing tests, responsible sessions
   ciStartGraceMin: 4, // a head commit younger than this with no verify check yet: CI is about to start, hold
   ciCancelledGraceMin: 3, // a cancelled verify older than this, with no newer run, no longer blocks
   ciMaxWaitMin: 25, // CI still running this long after the newest commit => deploy anyway (a stuck CI must not freeze deployments)
@@ -206,6 +207,29 @@ export function decide(ctx) {
   return { ...base, action: 'hold', why: `waiting for a quiet moment (needs ${tier.quietMin}m quiet or ${tier.maxWaitMin}m max wait)`, dueAt, newest, oldest, tier };
 }
 
+// ---------------------------------------------------------------- who broke CI
+/** Keep the CI status issue current and tell the owner once when main turns red / green again. Best effort: never blocks a deployment. */
+function reportCi(st, head, headAt) {
+  if (DRY || !ISSUE) return;
+  try {
+    const v = ciState(head, headAt);
+    if (v !== 'fail' && v !== 'pass') return;
+    if (st.ciReported === `${head}:${v}`) return;
+    execFileSync('node', ['scripts/ci-status.mjs', '--issue', String(CFG.ciIssue)], { stdio: 'ignore' });
+    st.ciReported = `${head}:${v}`;
+    const wasRed = st.ciRed === true;
+    if (v === 'fail' && !wasRed) {
+      gh(['api', '-X', 'POST', `repos/${CFG.repo}/issues/${CFG.ciIssue}/comments`, '--input', '-'], JSON.stringify({ body: `🔴 **CI is red on main** (\`${head.slice(0, 7)}\`). Failing tests and the sessions most likely responsible are in the issue body above. The responsible session must fix it (CLAUDE.md, "CI is red").` }));
+      event(st, 'ci', `main turned red at ${head.slice(0, 7)}: see issue #${CFG.ciIssue}`);
+    }
+    if (v === 'pass' && wasRed) {
+      gh(['api', '-X', 'POST', `repos/${CFG.repo}/issues/${CFG.ciIssue}/comments`, '--input', '-'], JSON.stringify({ body: `🟢 CI is green on main again (\`${head.slice(0, 7)}\`).` }));
+      event(st, 'ci', `main is green again at ${head.slice(0, 7)}`);
+    }
+    st.ciRed = v === 'fail';
+  } catch (e) { log('ci report failed:', String(e.message).slice(0, 160)); }
+}
+
 // ---------------------------------------------------------------- the CI gate
 /** Pure: what the check runs of one commit say. 'pass' | 'fail' | 'pending' | 'none' (no such check: CI never ran, do not block). */
 export function ciVerdict(runs, now = Date.now(), headAt = null) {
@@ -330,6 +354,7 @@ async function tick() {
     const base = inflight?.sha ?? ready?.sha ?? null;
     const pending = pendingCommits(base);
     const ctx = { now, list, inflight, ready, pending, st };
+    reportCi(st, pending.head, pending.commits[0]?.at ?? null);
     const d = decide(ctx);
     log(`${d.action}: ${d.why} [used ${d.used}/${CFG.dailyLimit}, pending ${pending.relevant.length}]`);
 
@@ -355,7 +380,7 @@ async function tick() {
         event(st, 'ci', `CI is red on the live commit ${ctx.ready.sha.slice(0, 7)} as well: not blocking ${pending.head.slice(0, 7)}`);
         if (st.redAlerted !== ctx.ready.sha) {
           st.redAlerted = ctx.ready.sha;
-          alertFailure(`CI (\`${CFG.ciCheck}\`) has been red on \`main\` including the live commit, so it no longer gates deployments (a red head would otherwise freeze every release). Someone should fix the failing tests; once CI is green again the gate is automatic. A *new* failure after a green commit still blocks.`);
+          alertFailure(`CI (\`${CFG.ciCheck}\`) has been red on \`main\` including the live commit, so it no longer gates deployments (a red head would otherwise freeze every release). The failing tests and the sessions most likely responsible are listed in issue #${CFG.ciIssue}; they must fix it. Once CI is green again the gate is automatic. A *new* failure after a green commit still blocks.`);
         }
       }
       if (ci === 'fail' && !chronic) {

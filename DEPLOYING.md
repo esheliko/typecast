@@ -62,3 +62,9 @@ The supervisor has nothing to refresh there. `scripts/dashboard-data.mjs` is gon
   start). (2) A permanently red main must not freeze releases: if the LIVE commit's `verify` is red too, a red head no longer blocks; the manager deploys, says so on the
   board and comments once. A red head after a green live commit still blocks. (3) The smoke failures themselves belong to the feature sessions: popup mark vs poster,
   new-episode badge, note saved before leaving, Watching-now bar.
+- 2026-11-09 (owner request): failing tests must be fixed by whoever broke them. Mechanism: (1) `scripts/ci-status.mjs` reads the failing tests from the `verify` check, finds
+  the last green commit and ranks the commits since by overlap with the failing tests; the `Claude-Session:` trailer on each commit names the responsible session.
+  (2) The Deploy Manager runs it whenever CI finishes and keeps issue #2 current; it comments once when main turns red and once when it is green again.
+  (3) CLAUDE.md rule 6: every session runs `node scripts/ci-status.mjs --wait` after pushing and fixes its own red; the start hook prints a red main to every new
+  session. (4) Claude sessions can also be messaged directly (send_message) with the failing tests when the owner asks. Why attribution is fuzzy: CI cancels
+  in-progress runs, so in a burst of pushes most commits never get their own verdict (2026-11-08 20:00: ~25 pushes, one verdict).

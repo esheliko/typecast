@@ -17,6 +17,7 @@ permissions:
   contents: read
   issues: write
   checks: read # the CI gate reads the head commit's `verify` check
+  actions: read # ci-status.mjs lists CI runs to find the last green commit
 jobs:
   manage:
     runs-on: ubuntu-latest
