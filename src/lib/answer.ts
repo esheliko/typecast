@@ -9,7 +9,7 @@ import { getAllCredits, getEpisode, getPersonBasics, getSeason, getTitle, getTit
 import { getArticle, getWikiFacts, type Article } from "./wiki";
 import { basedOnPhrase, bestSentences, sentences, SPOILER_SECTIONS } from "./wiki-text";
 import { elapsedMin, type Watch } from "./watching";
-import type { CastMember, Credit, EnrichedMember, Item, LibItem, Profile, Status, Title } from "./types";
+import type { CastMember, Credit, Item, LibItem, Profile, Status, Title } from "./types";
 
 /**
  * Watching now, without AI: answers built from TMDB, Wikidata and Wikipedia plus the user's own library.
@@ -20,9 +20,6 @@ export type AnswerCard =
   | { kind: "person"; id: number; name: string; photo: string | null; sub?: string };
 export interface Answer { text: string; cards?: AnswerCard[]; links?: { label: string; url: string }[]; about?: number[]; next?: string[] }
 
-/** A face in the Ask sheet: who they are, who they play, and the titles the user has watched them in. */
-export interface WatchFace { id: number; name: string; photo: string | null; role: string; guest?: boolean; hits: { key: string; title: string; year: string; ep?: string }[] }
-
 /** Everyone on screen: for a series, this episode's cast and guest stars first, then the regulars. */
 async function onScreen(w: Watch, t: Title): Promise<(CastMember & { guest?: boolean })[]> {
   if (w.type !== "tv" || !w.s || !w.e) return t.people;
@@ -30,14 +27,6 @@ async function onScreen(w: Watch, t: Title): Promise<(CastMember & { guest?: boo
   if (!ep) return t.people;
   const seen = new Set<number>();
   return [...ep.cast, ...ep.guests.map((g) => ({ ...g, guest: true })), ...t.people].filter((p) => !seen.has(p.id) && seen.add(p.id));
-}
-
-/** The faces strip, each with where the user knows them from. */
-export async function watchCast(w: Watch, lib: LibItem[]): Promise<{ title: Title; faces: WatchFace[] }> {
-  const t = await getTitle(w.type, w.id);
-  const people = (await onScreen(w, t)).slice(0, 24);
-  const rich: EnrichedMember[] = await enrich(people, lib, t.key);
-  return { title: t, faces: rich.map((p, i) => ({ id: p.id, name: p.name, photo: p.photo, role: p.role, guest: people[i].guest, hits: p.hits.slice(0, 6) })) };
 }
 
 const SEEN: Status[] = ["watched", "watching", "partial"];

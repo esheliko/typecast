@@ -1,28 +1,26 @@
 "use client";
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
-import { setProgress } from "@/app/actions";
 import { useLib } from "./cast/LibState";
-import { TitleLink } from "./Modal";
+import { PersonLink, TitleLink } from "./Modal";
 import { keepHistory, useBackClose } from "@/lib/back-layer";
 import { img } from "@/lib/img";
-import { quickQuestions, serializeWatch, WATCH_COOKIE, WATCH_MAX_MS, whereLabel, type Watch } from "@/lib/watching";
-import type { Item } from "@/lib/types";
+import { faceNote, filterFaces, groupFaces, roleLabel, type Face } from "@/lib/roster";
+import { factButtons, serializeWatch, WATCH_COOKIE, WATCH_MAX_MS, whereLabel, type Watch } from "@/lib/watching";
+import type { Credit, Item } from "@/lib/types";
 import type { Answer, AnswerCard } from "@/lib/answer";
+import type { PersonBrief, Roster } from "@/lib/roster-data";
 
-/** `assistant` is a plain-text AI answer (benched, ASK_AI=1); `answer` is the built-in, no-AI answer with cards and links. */
-type Msg = { role: "user"; content: string } | { role: "assistant"; content: string } | { role: "answer"; a: Answer };
-type Face = { id: number; name: string; photo: string | null; role: string; guest?: boolean; hits: { key: string; title: string; year: string; ep?: string }[] };
+type Hit = { key: string; title: string; year: string; ep?: string };
 
 interface Ctx {
   watch: Watch | null;
   start: (it: Item, runtime: number | null, ep?: { s: number; e: number } | null) => void;
   stop: () => void;
-  open: (question?: string) => void;
+  open: () => void;
 }
 const WatchCtx = createContext<Ctx | null>(null);
 const useWatch = () => useContext(WatchCtx);
 
-const CHAT_KEY = "typecast.ask";
 const SPOIL_KEY = "typecast.ask.spoilers";
 const safe = <T,>(f: () => T, d: T): T => { try { return f(); } catch { return d; } };
 
@@ -35,25 +33,23 @@ function writeCookie(w: Watch | null) {
 /** Holds the current watch, draws the Watching-now bar above the tabs, and the Ask sheet. Lives in the app layout. */
 export function WatchProvider({ initial, children }: { initial: Watch | null; children: React.ReactNode }) {
   const [watch, setWatch] = useState<Watch | null>(initial);
-  const [sheet, setSheet] = useState<{ q?: string } | null>(null);
+  const [sheet, setSheet] = useState<boolean>(false);
   const save = useCallback((w: Watch | null) => { writeCookie(w); setWatch(w); }, []);
 
   const start = useCallback((it: Item, runtime: number | null, ep?: { s: number; e: number } | null) => {
     const w: Watch = { key: it.key, type: it.type, id: it.id, title: it.title, year: it.year, poster: it.poster, started: Date.now(), runtime };
     if (it.type === "tv") { w.s = ep?.s || 1; w.e = ep?.e || 1; }
-    // A new title starts a new conversation; restarting the same one keeps it.
-    if (safe(() => JSON.parse(localStorage.getItem(CHAT_KEY) ?? "{}").key, null) !== it.key) safe(() => localStorage.removeItem(CHAT_KEY), undefined);
     save(w);
-    setSheet({});
+    setSheet(true);
   }, [save]);
-  const stop = useCallback(() => { save(null); setSheet(null); safe(() => localStorage.removeItem(CHAT_KEY), undefined); }, [save]);
-  const open = useCallback((q?: string) => setSheet({ q }), []);
+  const stop = useCallback(() => { save(null); setSheet(false); }, [save]);
+  const open = useCallback(() => setSheet(true), []);
 
   return (
     <WatchCtx.Provider value={{ watch, start, stop, open }}>
       {children}
-      {watch && <WatchBar w={watch} onOpen={() => setSheet({})} />}
-      {watch && sheet && <AskSheet w={watch} first={sheet.q} onChange={save} onClose={() => setSheet(null)} onStop={stop} />}
+      {watch && <WatchBar w={watch} onOpen={() => setSheet(true)} />}
+      {watch && sheet && <WhoSheet w={watch} onChange={save} onClose={() => setSheet(false)} onStop={stop} />}
     </WatchCtx.Provider>
   );
 }
@@ -77,7 +73,7 @@ function WatchBar({ w, onOpen }: { w: Watch; onOpen: () => void }) {
           <b>{w.title}</b>
           <span className="small muted">{whereLabel(w, now)}</span>
         </span>
-        <span className="btn sm gold wbar-ask">Ask</span>
+        <span className="btn sm gold wbar-ask">Who&rsquo;s that?</span>
       </button>
     </div>
   );
@@ -91,19 +87,19 @@ export function WatchButton({ it, runtime, progress }: { it: Item; runtime: numb
   return (
     <div className="wbtn-row">
       {mine ? (
-        <button type="button" className="btn gold" onClick={() => c.open()}><span className="live-dot" aria-hidden="true" />Watching now · Ask anything</button>
+        <button type="button" className="btn gold" onClick={() => c.open()}><span className="live-dot" aria-hidden="true" />Watching now · Who&rsquo;s that?</button>
       ) : (
         <button type="button" className="btn" onClick={() => c.start(it, runtime, progress)}>
           <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z" fill="currentColor" /></svg>
-          {c.watch ? "Watch this now instead" : "I'm watching this now"}
+          {c.watch ? "Watch this now instead" : "I’m watching this now"}
         </button>
       )}
-      {!mine && <span className="small muted">Ask about the cast, plot or where you know them from.</span>}
+      {!mine && <span className="small muted">Recognise a face? Find out who it is and where you know them from.</span>}
     </div>
   );
 }
 
-/** Tiny, safe renderer for the assistant's light markdown: **bold**, bullet lines, paragraphs. */
+/** Tiny, safe renderer for an answer's light markdown: **bold**, bullet lines, quotes, paragraphs. */
 function Rich({ text }: { text: string }) {
   const inline = (s: string) => s.split(/(\*\*[^*]+\*\*|\*[^*\s][^*]*\*)/g).map((p, i) =>
     p.startsWith("**") && p.endsWith("**") && p.length > 4 ? <b key={i}>{p.slice(2, -2)}</b> : p.startsWith("*") && p.endsWith("*") && p.length > 2 ? <i key={i}>{p.slice(1, -1)}</i> : p);
@@ -122,8 +118,8 @@ function Rich({ text }: { text: string }) {
   return <>{blocks}</>;
 }
 
-/** One built-in answer: text, then a row of tappable titles and people, then links out. */
-function AnswerView({ a, onAsk, onLeave }: { a: Answer; onAsk: (q: string) => void; onLeave: () => void }) {
+/** One fact: its text, the titles and people it names (tappable), and links out. */
+function FactView({ a, onLeave }: { a: Answer; onLeave: () => void }) {
   const titles = (a.cards ?? []).filter((c): c is Extract<AnswerCard, { kind: "title" }> => c.kind === "title");
   const people = (a.cards ?? []).filter((c): c is Extract<AnswerCard, { kind: "person" }> => c.kind === "person");
   return (
@@ -132,11 +128,11 @@ function AnswerView({ a, onAsk, onLeave }: { a: Answer; onAsk: (q: string) => vo
       {people.length > 0 && (
         <div className="ask-cards">
           {people.map((p) => (
-            <button key={p.id} type="button" className="ask-pc" onClick={() => onAsk(`Where do I know ${p.name} from?`)} title={`Where do I know ${p.name} from?`}>
+            <PersonLink key={p.id} pid={p.id} it={p} className="ask-pc" onClick={onLeave}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               {p.photo ? <img src={img(p.photo, "w185")} alt="" loading="lazy" /> : <span className="ask-noph" aria-hidden="true">{p.name[0]}</span>}
               <b>{p.name}</b>{p.sub && <span className="small muted">{p.sub}</span>}
-            </button>
+            </PersonLink>
           ))}
         </div>
       )}
@@ -153,127 +149,175 @@ function AnswerView({ a, onAsk, onLeave }: { a: Answer; onAsk: (q: string) => vo
           ))}
         </div>
       )}
-      {a.links && a.links.length > 0 && (
-        <div className="ask-links">{a.links.map((l) => <a key={l.url} href={l.url} target="_blank" rel="noopener noreferrer">{l.label} ↗</a>)}</div>
-      )}
+      {a.links && a.links.length > 0 && <div className="ask-links">{a.links.map((l) => <a key={l.url} href={l.url} target="_blank" rel="noopener noreferrer">{l.label} ↗</a>)}</div>}
     </>
   );
 }
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-const Speech: any = typeof window !== "undefined" ? (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition : null;
+const noPhoto = (name: string) => <span className="wh-noph" aria-hidden="true">{name[0]}</span>;
 
-function AskSheet({ w, first, onChange, onClose, onStop }: { w: Watch; first?: string; onChange: (w: Watch) => void; onClose: () => void; onStop: () => void }) {
+/** One face in the grid: photo, name, the part they play, where they are in the show, and what you've seen them in. */
+function Tile({ f, hit, onPick }: { f: Face; hit?: Hit[]; onPick: () => void }) {
+  const role = roleLabel(f.role), note = faceNote(f);
+  return (
+    <li>
+      <button type="button" className="wh-tile" onClick={onPick}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        {f.photo ? <img src={img(f.photo, "w185")} alt="" loading="lazy" /> : noPhoto(f.name)}
+        <b>{f.name}</b>
+        {role && <span className="small muted wh-role">{role}</span>}
+        {note && <span className="wh-note">{note}</span>}
+        {hit && hit.length > 0 && <span className="ask-seen">You&rsquo;ve seen them in {hit[0].title}{hit[0].ep ? ` (${hit[0].ep})` : ""}{hit.length > 1 ? ` +${hit.length - 1}` : ""}</span>}
+      </button>
+    </li>
+  );
+}
+
+const credit = (c: Credit) => ({ key: c.key, title: c.title, year: c.year, poster: c.poster });
+
+/** A list of someone's other work: poster, title, year and part. */
+function Works({ label, list, status, onLeave }: { label: string; list: Credit[]; status?: string; onLeave: () => void }) {
+  if (!list.length) return null;
+  return (
+    <section className="wh-works">
+      <h3 className="mc-label">{label}</h3>
+      <ul>
+        {list.map((c) => (
+          <li key={c.key}>
+            <TitleLink k={c.key} it={credit(c)} className="wh-work" onClick={onLeave}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              {c.poster ? <img src={img(c.poster, "w92")} alt="" loading="lazy" /> : <span className="wh-wph" aria-hidden="true" />}
+              <span><b>{c.title}</b> <span className="muted">{c.year}</span>
+                <span className="small muted wh-wr">{[c.role && `as ${c.role}`, c.eps ? `${c.eps} ep${c.eps === 1 ? "" : "s"}` : ""].filter(Boolean).join(" · ")}</span></span>
+              {status && <span className={`ask-st ${status === "On your list" ? "list" : "seen"}`}>{status}</span>}
+            </TitleLink>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+/** Everything about one person: where they are in this show, what you've seen them in, what they're known for. */
+function PersonPanel({ f, w, onBack, onLeave }: { f: Face; w: Watch; onBack: () => void; onLeave: () => void }) {
+  const [p, setP] = useState<PersonBrief | null>(null);
+  const [err, setErr] = useState(false);
+  useEffect(() => {
+    let live = true;
+    fetch(`/api/ask?person=${f.id}`).then((r) => (r.ok ? r.json() : Promise.reject())).then((j) => { if (live) setP(j); }).catch(() => { if (live) setErr(true); });
+    return () => { live = false; };
+  }, [f.id]);
+  const role = roleLabel(f.role);
+  const here = f.part === "episode" ? `In this episode${f.count && f.count > 1 ? `, and ${f.count - 1} earlier` : ""}` : f.part === "guest" ? `${f.count && f.count > 1 ? `${f.count} episodes: ${f.first} to ${f.last}` : `Seen in ${f.first}`}` : "";
+  return (
+    <div className="wh-person">
+      <button type="button" className="back" onClick={onBack}><span aria-hidden="true">&#8249;</span> All faces</button>
+      <div className="wh-phead">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        {f.photo ? <img src={img(f.photo, "w185")} alt="" /> : noPhoto(f.name)}
+        <div>
+          <h2 className="wh-pname">{f.name}</h2>
+          {role && <p className="muted" style={{ margin: "2px 0 0" }}>{f.part === "cameo" ? role : `Plays ${role}`} in {w.title}</p>}
+          {here && <p className="wh-note" style={{ margin: "4px 0 0" }}>{here}</p>}
+          <PersonLink pid={f.id} it={{ name: f.name, photo: f.photo }} className="linkish small" onClick={onLeave}>Open full profile</PersonLink>
+        </div>
+      </div>
+      {!p && !err && <p className="small muted"><span className="spin" />Finding their other work</p>}
+      {err && <p className="small muted">Couldn&rsquo;t load their other work. Try again in a moment.</p>}
+      {p && (
+        <>
+          {p.seen.length > 0 ? <Works label="You've seen them in" list={p.seen} status="Seen" onLeave={onLeave} />
+            : <p className="small muted">Nothing in your library yet{p.total ? `, but ${p.total} other credits on TMDB` : ""}.</p>}
+          <Works label="On your watchlist" list={p.listed} status="On your list" onLeave={onLeave} />
+          <Works label="Best known for" list={p.famous} onLeave={onLeave} />
+        </>
+      )}
+    </div>
+  );
+}
+
+
+function WhoSheet({ w, onChange, onClose, onStop }: { w: Watch; onChange: (w: Watch) => void; onClose: () => void; onStop: () => void }) {
   const lib = useLib();
   const now = useNow();
-  const [msgs, setMsgs] = useState<Msg[]>(() => safe(() => { const j = JSON.parse(localStorage.getItem(CHAT_KEY) ?? "{}"); return j.key === w.key && Array.isArray(j.msgs) ? j.msgs : []; }, []));
-  const [spoilers, setSpoilers] = useState(() => safe(() => localStorage.getItem(SPOIL_KEY) === "1", false));
+  const tv = w.type === "tv";
+  const [tab, setTab] = useState<"who" | "about">("who");
+  const [roster, setRoster] = useState<Roster | null>(null);
+  const [err, setErr] = useState(false);
+  const [hits, setHits] = useState<Record<number, Hit[]>>({});
   const [q, setQ] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [faces, setFaces] = useState<Face[] | null>(null);
-  const [ai, setAi] = useState(false);
-  const [facesErr, setFacesErr] = useState(false);
+  const [found, setFound] = useState<{ q: string; people: Face[] } | null>(null);
+  const [finding, setFinding] = useState(false);
+  const [sel, setSel] = useState<Face | null>(null);
+  const [spoilers, setSpoilers] = useState(() => safe(() => localStorage.getItem(SPOIL_KEY) === "1", false));
+  const [fact, setFact] = useState<{ label: string; a: Answer | null } | null>(null);
+  const [custom, setCustom] = useState("");
   const [ending, setEnding] = useState(false);
-  const [listening, setListening] = useState(false);
   const body = useRef<HTMLDivElement>(null);
-  const input = useRef<HTMLTextAreaElement>(null);
-  const abort = useRef<AbortController | null>(null);
-  const rec = useRef<any>(null);
-  const asked = useRef(false);
+  const scrollAt = useRef(0);
 
   useBackClose(true, onClose);
   useEffect(() => {
-    const key = (e: KeyboardEvent) => { if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); onClose(); } };
+    const key = (e: KeyboardEvent) => { if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); if (sel) setSel(null); else onClose(); } };
     window.addEventListener("keydown", key, true); return () => window.removeEventListener("keydown", key, true);
-  }, [onClose]);
-  useEffect(() => () => { abort.current?.abort(); rec.current?.abort?.(); }, []);
-  useEffect(() => { if (!busy) safe(() => localStorage.setItem(CHAT_KEY, JSON.stringify({ key: w.key, msgs: msgs.slice(-30) })), undefined); }, [msgs, busy, w.key]);
-  useEffect(() => { body.current?.scrollTo({ top: body.current.scrollHeight, behavior: "smooth" }); }, [msgs]);
+  }, [onClose, sel]);
 
-  // The faces on screen (this episode's, for a series), with where the user knows each of them from.
-  const epKey = `${w.key}:${w.s ?? 0}:${w.e ?? 0}`;
+  // Who can be on screen at this episode (a film: its whole cast, cameos included).
+  const s = w.s ?? 1, e = w.e ?? 1;
   useEffect(() => {
     let live = true;
-    setFaces(null); setFacesErr(false);
-    fetch("/api/ask").then((r) => (r.ok ? r.json() : Promise.reject())).then((j) => { if (live) { setFaces(j.faces ?? []); setAi(j.ai === true); } }).catch(() => { if (live) setFacesErr(true); });
+    setErr(false);
+    fetch(`/api/ask${tv ? `?s=${s}&e=${e}` : ""}`).then((r) => (r.ok ? r.json() : Promise.reject())).then((j: Roster) => { if (live) setRoster(j); }).catch(() => { if (live) setErr(true); });
     return () => { live = false; };
-  }, [epKey]);
+  }, [w.key, tv, s, e]);
 
-  /** Who the last answer was about, so "and what else was he in?" works. */
-  const lastAbout = () => { for (let i = msgs.length - 1; i >= 0; i--) { const m = msgs[i]; if (m.role === "answer" && m.a.about?.length) return m.a.about; } return []; };
+  // Then, in the background, which of the first faces the user has already seen elsewhere.
+  const groups = roster ? groupFaces(roster.faces, w.type) : [];
+  const firstIds = groups.filter((g) => g.id !== "other").flatMap((g) => g.faces).slice(0, 24).map((f) => f.id).join(",");
+  useEffect(() => {
+    if (!firstIds) return;
+    let live = true;
+    fetch(`/api/ask?hits=${firstIds}`).then((r) => (r.ok ? r.json() : Promise.reject())).then((j) => { if (live) setHits((h) => ({ ...h, ...j.hits })); }).catch(() => {});
+    return () => { live = false; };
+  }, [firstIds]);
 
-  const send = useCallback(async (text: string) => {
-    const question = text.trim();
-    if (!question || busy) return;
-    setQ("");
-    const history: Msg[] = [...msgs, { role: "user", content: question }];
-    setBusy(true);
-    const ctl = new AbortController(); abort.current = ctl;
-    const fail = (msg: string): Msg => ({ role: "answer", a: { text: `⚠ ${msg}` } });
-    if (!ai) {
-      setMsgs([...history, { role: "answer", a: { text: "" } }]);
-      try {
-        const r = await fetch("/api/ask", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ q: question, last: lastAbout(), spoilers }), signal: ctl.signal });
-        const j = await r.json().catch(() => ({}));
-        setMsgs([...history, r.ok && typeof j.text === "string" ? { role: "answer", a: j as Answer } : fail(j.error ?? `Couldn't answer (${r.status}). Try again.`)]);
-      } catch (e) {
-        setMsgs([...history, (e as Error).name === "AbortError" ? fail("Stopped.") : fail("Couldn't reach Typecast. Check your connection.")]);
-      } finally { setBusy(false); }
-      return;
-    }
-    // Benched AI path (ASK_AI=1): plain-text conversation, streamed.
-    const convo = history.map((m): { role: "user" | "assistant"; content: string } => (m.role === "answer" ? { role: "assistant", content: m.a.text } : m));
-    setMsgs([...history, { role: "assistant", content: "" }]);
-    let got = "";
-    try {
-      const r = await fetch("/api/ask", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ messages: convo, spoilers }), signal: ctl.signal });
-      if (!r.ok || !r.body) throw new Error((await r.json().catch(() => ({}))).error ?? `Failed (${r.status})`);
-      const rd = r.body.getReader(), dec = new TextDecoder();
-      for (;;) {
-        const { done, value } = await rd.read();
-        if (done) break;
-        got += dec.decode(value, { stream: true });
-        setMsgs([...history, { role: "assistant", content: got }]);
-      }
-      if (!got.trim()) throw new Error("No answer came back. Try again in a moment.");
-    } catch (e) {
-      if ((e as Error).name === "AbortError") { setMsgs([...history, { role: "assistant", content: got || "(Stopped)" }]); return; }
-      setMsgs([...history, { role: "assistant", content: got || `⚠ ${(e as Error).message || "Couldn't answer right now."}` }]);
-    } finally { setBusy(false); }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [busy, msgs, spoilers, ai]);
+  const pick = (f: Face) => { scrollAt.current = body.current?.scrollTop ?? 0; setSel(f); body.current?.scrollTo({ top: 0 }); };
+  const back = () => { setSel(null); requestAnimationFrame(() => body.current?.scrollTo({ top: scrollAt.current })); };
+  const leave = () => { keepHistory(); onClose(); };
 
-  // A question handed in when the sheet opened (a face, a chip elsewhere) is asked once.
-  useEffect(() => { if (first && !asked.current) { asked.current = true; send(first); } }, [first, send]);
-
+  const setEp = (ns: number, ne: number) => onChange({ ...w, s: Math.max(1, ns), e: Math.max(1, ne) });
+  const epCount = (n: number) => roster?.seasons.find((x) => x.n === n)?.eps ?? 0;
   const shift = (min: number) => onChange({ ...w, started: Math.min(Date.now(), w.started - min * 60000) });
-  const setEp = (s: number, e: number) => {
-    const next = { ...w, s: Math.max(1, s), e: Math.max(1, e) };
-    onChange(next);
-    if (lib.get(w.key)) setProgress("tv", w.id, next.s!, next.e!).then(lib.touch).catch(() => {});
+
+  const query = q.trim();
+  const shown = roster ? filterFaces(roster.faces, query) : [];
+  const shownGroups = query ? groupFaces(shown, w.type) : groups.filter((g) => g.id !== "other");
+  const search = async () => {
+    setFinding(true);
+    try {
+      const j = await fetch(`/api/ask?find=${encodeURIComponent(query)}`).then((r) => r.json());
+      setFound({ q: query, people: (j.people ?? []).map((p: Face) => ({ ...p, part: "other" as const })) });
+    } catch { setFound({ q: query, people: [] }); } finally { setFinding(false); }
+  };
+
+  const ask = async (label: string, text: string) => {
+    setFact({ label, a: null });
+    try {
+      const r = await fetch("/api/ask", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ q: text, spoilers }) });
+      const j = await r.json().catch(() => ({}));
+      setFact({ label, a: r.ok && typeof j.text === "string" ? j : { text: j.error ?? `Couldn't look that up (${r.status}). Try again.` } });
+    } catch { setFact({ label, a: { text: "Couldn't reach Typecast. Check your connection." } }); }
   };
   const toggleSpoilers = () => { const v = !spoilers; setSpoilers(v); safe(() => localStorage.setItem(SPOIL_KEY, v ? "1" : "0"), undefined); };
-  const listen = () => {
-    if (listening) { rec.current?.stop(); return; }
-    const r = new Speech();
-    r.lang = navigator.language || "en-US"; r.interimResults = true; r.maxAlternatives = 1;
-    let final = "";
-    r.onresult = (ev: any) => { const t = Array.from(ev.results as ArrayLike<any>).map((x: any) => x[0].transcript).join(""); final = t; setQ(t); };
-    r.onend = () => { setListening(false); if (final.trim()) send(final); };
-    r.onerror = () => setListening(false);
-    rec.current = r; setListening(true); r.start();
-  };
   const finish = (watched: boolean) => {
     if (watched) lib.mark({ key: w.key, type: w.type, id: w.id, title: w.title, year: w.year, poster: w.poster }, "watched", undefined, true);
     onStop();
   };
 
-  const chips = quickQuestions(w.type);
-  const lastMsg = msgs[msgs.length - 1];
-  const nextUp = lastMsg?.role === "answer" ? lastMsg.a.next ?? [] : [];
+  const kind = tv ? "episode" : "film";
   return (
-    <div className="gl-wrap ask-wrap" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="gl ask" role="dialog" aria-modal="true" aria-label={`Ask about ${w.title}`}>
+    <div className="gl-wrap ask-wrap" onClick={(ev) => { if (ev.target === ev.currentTarget) onClose(); }}>
+      <div className="gl ask" role="dialog" aria-modal="true" aria-label={`Who's on screen in ${w.title}`}>
         <div className="gl-bar">
           <div style={{ minWidth: 0 }}>
             <div className="wbar-k"><span className="live-dot" aria-hidden="true" />Watching now</div>
@@ -281,61 +325,87 @@ function AskSheet({ w, first, onChange, onClose, onStop }: { w: Watch; first?: s
           </div>
           <button type="button" className="back" onClick={onClose} aria-label="Close"><span aria-hidden="true">&#215;</span> Close</button>
         </div>
+        <div className="gl-tabs" role="tablist">
+          <button type="button" role="tab" aria-selected={tab === "who"} className={tab === "who" ? "on" : ""} onClick={() => setTab("who")}>Who&rsquo;s that?</button>
+          <button type="button" role="tab" aria-selected={tab === "about"} className={tab === "about" ? "on" : ""} onClick={() => setTab("about")}>About this {kind}</button>
+        </div>
 
         <div className="gl-body" ref={body}>
-          <div className="ask-where">
-            {w.type === "tv" && (
-              <span className="ask-step" role="group" aria-label="Episode">
-                <button type="button" onClick={() => setEp((w.s ?? 1) - 1, 1)} aria-label="Previous season" disabled={(w.s ?? 1) <= 1}>−</button>
-                <b>S{w.s}</b>
-                <button type="button" onClick={() => setEp((w.s ?? 1) + 1, 1)} aria-label="Next season">+</button>
-                <button type="button" onClick={() => setEp(w.s ?? 1, (w.e ?? 1) - 1)} aria-label="Previous episode" disabled={(w.e ?? 1) <= 1}>−</button>
-                <b>E{w.e}</b>
-                <button type="button" onClick={() => setEp(w.s ?? 1, (w.e ?? 1) + 1)} aria-label="Next episode">+</button>
-              </span>
-            )}
-            <span className="ask-step" role="group" aria-label="How far in">
-              <button type="button" onClick={() => shift(-5)} aria-label="5 minutes less">−5</button>
-              <b>{whereLabel({ ...w, type: "movie" }, now)}</b>
-              <button type="button" onClick={() => shift(5)} aria-label="5 minutes more">+5</button>
-            </span>
-            <button type="button" className="chip" aria-pressed={spoilers} onClick={toggleSpoilers}>{spoilers ? "Spoilers OK" : "No spoilers"}</button>
-          </div>
-
-          <div className="ask-faces" aria-label="Who's on screen">
-            {!faces && !facesErr && <p className="small muted" style={{ margin: 0 }}><span className="spin" />Loading the cast</p>}
-            {faces?.map((f) => (
-              <button key={f.id} type="button" className="ask-face" onClick={() => send(`Where do I know ${f.name}${f.role ? ` (${f.role})` : ""} from?`)} disabled={busy}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                {f.photo ? <img src={img(f.photo, "w185")} alt="" loading="lazy" /> : <span className="ask-noph" aria-hidden="true">{f.name[0]}</span>}
-                <b>{f.name}</b>
-                {f.role && <span className="small muted">{f.role}</span>}
-                {f.hits.length > 0 ? <span className="ask-seen">Seen in {f.hits[0].title}{f.hits[0].ep ? ` (${f.hits[0].ep})` : ""}{f.hits.length > 1 ? ` +${f.hits.length - 1}` : ""}</span> : f.guest ? <span className="small muted">Guest</span> : null}
-              </button>
-            ))}
-          </div>
-          {faces && faces.length > 0 && msgs.length === 0 && <p className="small muted" style={{ margin: "2px 0 12px" }}>Tap a face to ask where you know them from, or ask anything below.</p>}
-
-          {msgs.length === 0 && (
-            <div className="chips ask-chips">
-              {chips.map((c) => <button key={c} type="button" className="chip" onClick={() => send(c)} disabled={busy}>{c}</button>)}
-            </div>
+          {tab === "who" && sel && <PersonPanel f={sel} w={w} onBack={back} onLeave={leave} />}
+          {tab === "who" && !sel && (
+            <>
+              {tv && (
+                <div className="wh-pos">
+                  <b>Which episode are they on?</b>
+                  <span className="wh-sel">
+                    <label>Season <select value={s} onChange={(ev) => setEp(Number(ev.target.value), 1)} aria-label="Season">
+                      {(roster?.seasons.length ? roster.seasons : [{ n: s, eps: 0 }]).map((x) => <option key={x.n} value={x.n}>{x.n}</option>)}
+                    </select></label>
+                    <label>Episode <select value={e} onChange={(ev) => setEp(s, Number(ev.target.value))} aria-label="Episode">
+                      {Array.from({ length: Math.max(epCount(s), e) }, (_, i) => i + 1).map((n) => <option key={n} value={n}>{n}</option>)}
+                    </select></label>
+                  </span>
+                  <p className="small muted" style={{ margin: "6px 0 0" }}>Only people who have appeared up to S{s} E{e} are shown, so nothing is given away.</p>
+                </div>
+              )}
+              <div className="wh-find">
+                <input type="search" value={q} onChange={(ev) => { setQ(ev.target.value); setFound(null); }} placeholder="Search this cast by actor or character" aria-label="Search the cast" enterKeyHint="search" />
+              </div>
+              {!roster && !err && <p className="small muted"><span className="spin" />Loading who&rsquo;s in it</p>}
+              {err && <p className="small muted">Couldn&rsquo;t load the cast. Check your connection and reopen this.</p>}
+              {roster?.note && <p className="small muted">{roster.note}</p>}
+              {shownGroups.map((g) => (
+                <section key={g.id} className="wh-group">
+                  <h3 className="wh-gh">{g.label}<span className="muted"> · {g.faces.length}</span></h3>
+                  {g.hint && !query && <p className="small muted" style={{ margin: "0 0 8px" }}>{g.hint}</p>}
+                  <ul className="wh-grid">{g.faces.map((f) => <Tile key={f.id} f={f} hit={hits[f.id]} onPick={() => pick(f)} />)}</ul>
+                </section>
+              ))}
+              {roster && query && !shown.length && <p className="small muted">No one in this cast matches &ldquo;{query}&rdquo;.</p>}
+              {roster && query && (
+                <div className="wh-more">
+                  {found?.q === query ? (
+                    found.people.length ? (
+                      <>
+                        <h3 className="wh-gh">Actors named &ldquo;{query}&rdquo; <span className="muted">· anywhere</span></h3>
+                        <ul className="wh-grid">{found.people.map((f) => <Tile key={f.id} f={f} onPick={() => pick(f)} />)}</ul>
+                      </>
+                    ) : <p className="small muted">TMDB has nobody by that name.</p>
+                  ) : <button type="button" className="btn sm" onClick={search} disabled={finding}>{finding ? "Searching…" : `Search every actor for “${query}”`}</button>}
+                </div>
+              )}
+              {roster && !query && <p className="small muted" style={{ marginTop: 14 }}>Not there? {tv ? "Change the episode above, or t" : "T"}ype a name in the box to search all actors.</p>}
+            </>
           )}
 
-          <div className="ask-log" aria-live="polite">
-            {msgs.map((m, i) => (
-              <div key={i} className={`ask-msg ${m.role === "user" ? "user" : "assistant"}`}>
-                {m.role === "user" ? m.content
-                  : m.role === "answer" ? (m.a.text ? <AnswerView a={m.a} onAsk={send} onLeave={() => { keepHistory(); onClose(); }} /> : <span className="muted"><span className="spin" />Looking it up</span>)
-                  : m.content ? <Rich text={m.content} /> : <span className="muted"><span className="spin" />Thinking</span>}
+          {tab === "about" && (
+            <>
+              <div className="ask-where">
+                {!tv && (
+                  <span className="ask-step" role="group" aria-label="How far in">
+                    <button type="button" onClick={() => shift(-5)} aria-label="5 minutes less">−5</button>
+                    <b>{whereLabel(w, now)}</b>
+                    <button type="button" onClick={() => shift(5)} aria-label="5 minutes more">+5</button>
+                  </span>
+                )}
+                {tv && <span className="small muted">Up to S{s} E{e}. Change the episode on the Who&rsquo;s that? tab.</span>}
+                <button type="button" className="chip" aria-pressed={spoilers} onClick={toggleSpoilers}>{spoilers ? "Spoilers OK" : "No spoilers"}</button>
               </div>
-            ))}
-          </div>
-          {msgs.length > 0 && !busy && (
-            <div className="chips scroll ask-more">
-              <button type="button" className="chip" onClick={() => { setMsgs([]); input.current?.focus(); }}>New chat</button>
-              {[...new Set([...nextUp, ...chips])].slice(0, 6).map((c) => <button key={c} type="button" className="chip" onClick={() => send(c)}>{c}</button>)}
-            </div>
+              <div className="chips ask-chips">
+                {factButtons(w.type).map((b) => <button key={b.label} type="button" className="chip" aria-pressed={fact?.label === b.label} onClick={() => ask(b.label, b.q)}>{b.label}</button>)}
+              </div>
+              {fact && (
+                <div className="wh-fact" aria-live="polite">
+                  <h3 className="mc-label">{fact.label}</h3>
+                  {fact.a ? <FactView a={fact.a} onLeave={leave} /> : <p className="muted" style={{ margin: 0 }}><span className="spin" />Looking it up</p>}
+                </div>
+              )}
+              <form className="wh-custom" onSubmit={(ev) => { ev.preventDefault(); if (custom.trim()) ask(`Search: ${custom.trim()}`, custom.trim()); }}>
+                <input type="search" value={custom} onChange={(ev) => setCustom(ev.target.value)} placeholder={`Look something up about ${w.title}`} aria-label="Look something up" enterKeyHint="search" />
+                <button type="submit" className="btn sm" disabled={!custom.trim()}>Look up</button>
+              </form>
+              <p className="small muted" style={{ margin: "6px 0 0" }}>Searches this title&rsquo;s Wikipedia page{spoilers ? "" : ", with plot sections left out"}.</p>
+            </>
           )}
 
           <div className="ask-end">
@@ -348,18 +418,6 @@ function AskSheet({ w, first, onChange, onClose, onStop }: { w: Watch; first?: s
             ) : <button type="button" className="linkish small" onClick={() => setEnding(true)}>End this watch</button>}
           </div>
         </div>
-
-        <form className="ask-input" onSubmit={(e) => { e.preventDefault(); send(q); }}>
-          <textarea ref={input} value={q} rows={1} placeholder={listening ? "Listening…" : "Ask anything: a name, a character, a question"} aria-label="Your question"
-            onChange={(e) => setQ(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(q); } }} />
-          {Speech && <button type="button" className={`ask-mic${listening ? " on" : ""}`} onClick={listen} aria-label={listening ? "Stop listening" : "Ask by voice"} aria-pressed={listening}>
-            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21" /></svg>
-          </button>}
-          {busy
-            ? <button type="button" className="btn sm" onClick={() => { abort.current?.abort(); setBusy(false); }}>Stop</button>
-            : <button type="submit" className="btn sm gold" disabled={!q.trim()}>Ask</button>}
-        </form>
       </div>
     </div>
   );

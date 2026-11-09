@@ -1,46 +1,49 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { answer, watchCast } from "@/lib/answer";
-import { ask, aiEnabled } from "@/lib/ask";
+import { answer } from "@/lib/answer";
 import { getLibrary, getProfile } from "@/lib/library";
+import { findPeople, loadHits, loadPerson, loadRoster } from "@/lib/roster-data";
 import { TmdbError } from "@/lib/tmdb";
 import { parseWatch, WATCH_COOKIE } from "@/lib/watching";
 
 export const maxDuration = 60;
 
 const current = (req: NextRequest) => parseWatch(req.cookies.get(WATCH_COOKIE)?.value);
+const num = (v: string | null) => { const n = Number(v); return Number.isInteger(n) && n > 0 ? n : null; };
+const fail = (e: unknown) => NextResponse.json({ error: (e as Error).message }, { status: e instanceof TmdbError ? e.status : 500 });
+const lib = () => getLibrary().catch(() => []);
 
-/** GET: the faces on screen for the current watch, each with where the user knows them from. */
+/**
+ * GET (the current watch, from its cookie), no AI:
+ *   ?s=&e=       who can be on screen at that episode (a film ignores them)
+ *   ?hits=1,2,3  which of those people the user has seen elsewhere in the library
+ *   ?person=ID   one person's library titles and best-known work
+ *   ?find=name   people anywhere on TMDB
+ */
 export async function GET(req: NextRequest) {
   const w = current(req);
   if (!w) return NextResponse.json({ error: "Not watching anything" }, { status: 404 });
+  const p = req.nextUrl.searchParams;
   try {
-    const { faces } = await watchCast(w, await getLibrary().catch(() => []));
-    return NextResponse.json({ key: w.key, s: w.s ?? null, e: w.e ?? null, faces, ai: aiEnabled() }, { headers: { "Cache-Control": "private, max-age=600" } });
-  } catch (e) { return NextResponse.json({ error: (e as Error).message }, { status: e instanceof TmdbError ? e.status : 500 }); }
+    const hits = p.get("hits");
+    if (hits) return NextResponse.json({ hits: await loadHits(hits.split(",").map(Number).filter((n) => Number.isInteger(n) && n > 0), await lib(), w.key) }, { headers: { "Cache-Control": "private, max-age=600" } });
+    const person = num(p.get("person"));
+    if (person) return NextResponse.json(await loadPerson(person, await lib(), w.key), { headers: { "Cache-Control": "private, max-age=600" } });
+    const find = p.get("find")?.trim().slice(0, 80);
+    if (find) return NextResponse.json({ people: await findPeople(find) }, { headers: { "Cache-Control": "private, max-age=600" } });
+    const pos = w.type === "tv" ? { s: num(p.get("s")) ?? w.s ?? 1, e: num(p.get("e")) ?? w.e ?? 1 } : null;
+    return NextResponse.json(await loadRoster(w.type, w.id, pos), { headers: { "Cache-Control": "private, max-age=600" } });
+  } catch (e) { return fail(e); }
 }
 
-type Msg = { role: "user" | "assistant"; content: string };
-
-/**
- * POST { q, last, spoilers }: a structured answer (JSON) from TMDB, Wikidata, Wikipedia and the library. No AI.
- * With ASK_AI=1 (benched) and { messages }, streams a plain-text AI answer instead.
- */
+/** POST { q, spoilers }: a fact about the title (story so far, filming, trivia, time left, …) from TMDB, Wikidata and Wikipedia. */
 export async function POST(req: NextRequest) {
   const w = current(req);
   if (!w) return NextResponse.json({ error: "Start Watching now on a title first." }, { status: 404 });
-  const body = await req.json().catch(() => null) as { q?: unknown; last?: unknown; spoilers?: unknown; messages?: unknown } | null;
-  const spoilers = body?.spoilers === true;
+  const body = await req.json().catch(() => null) as { q?: unknown; spoilers?: unknown } | null;
+  const q = typeof body?.q === "string" ? body.q.trim().slice(0, 300) : "";
+  if (!q) return NextResponse.json({ error: "Ask a question" }, { status: 400 });
   try {
-    if (aiEnabled() && Array.isArray(body?.messages)) {
-      const messages = (body.messages as Msg[]).filter((m) => (m?.role === "user" || m?.role === "assistant") && typeof m.content === "string" && m.content.trim());
-      if (!messages.length) return NextResponse.json({ error: "Ask a question" }, { status: 400 });
-      const stream = await ask(w, await getLibrary(), { messages, spoilers });
-      return new Response(stream, { headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" } });
-    }
-    const q = typeof body?.q === "string" ? body.q.trim().slice(0, 300) : "";
-    if (!q) return NextResponse.json({ error: "Ask a question" }, { status: 400 });
-    const last = Array.isArray(body?.last) ? body.last.filter((x): x is number => Number.isInteger(x) && x > 0).slice(0, 3) : [];
-    const [lib, profile] = await Promise.all([getLibrary().catch(() => []), getProfile().catch(() => null)]);
-    return NextResponse.json(await answer(w, lib, profile, { q, last, spoilers }), { headers: { "Cache-Control": "no-store" } });
-  } catch (e) { return NextResponse.json({ error: (e as Error).message }, { status: e instanceof TmdbError ? e.status : 500 }); }
+    const [l, profile] = await Promise.all([lib(), getProfile().catch(() => null)]);
+    return NextResponse.json(await answer(w, l, profile, { q, last: [], spoilers: body?.spoilers === true }), { headers: { "Cache-Control": "no-store" } });
+  } catch (e) { return fail(e); }
 }

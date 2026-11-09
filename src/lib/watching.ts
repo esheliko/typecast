@@ -46,26 +46,21 @@ export function whereLabel(w: Watch, now = Date.now()): string {
   return w.type === "tv" ? `S${w.s} E${w.e} · ${t}` : t;
 }
 
-/** One line for the assistant: how far the user is, so it can keep quiet about what comes after. */
-export function spoilerPoint(w: Watch, now = Date.now()): string {
-  const m = elapsedMin(w, now);
-  const of = w.runtime ? ` of about ${w.runtime}` : "";
-  return w.type === "tv"
-    ? `They are watching season ${w.s}, episode ${w.e}, roughly ${m} minutes into the episode${of}.`
-    : `They are roughly ${m} minutes into the film${of}.`;
-}
-
-/** One-tap questions for the Ask sheet. Phrased the way a person would ask out loud. */
-export function quickQuestions(type: MediaType): string[] {
-  const common = [
-    "Where do I know the cast from?",
-    "Which of the cast have worked together before?",
-    "Is this based on a true story?",
-    "Where was this filmed?",
-    "Who did the music?",
-    "Tell me some trivia (no spoilers)",
+/** The facts offered under "About": a label and the question the built-in answer engine (lib/answer.ts) is given. */
+export function factButtons(type: MediaType): { label: string; q: string }[] {
+  const tv = type === "tv";
+  return [
+    { label: "Story so far", q: tv ? "Recap the story so far, up to this episode" : "Recap the story so far" },
+    { label: tv ? "This episode" : "What it's about", q: tv ? "Which episode is this?" : "What is it about?" },
+    { label: tv ? "Episodes left" : "How long is left", q: tv ? "How many episodes are left this season?" : "How much longer is it?" },
+    ...(tv ? [] : [{ label: "Post-credits scene?", q: "Is there a post-credits scene?" }]),
+    { label: "Based on a true story?", q: "Is this based on a true story?" },
+    { label: "Where it was filmed", q: "Where was this filmed?" },
+    { label: "Who made it", q: "Who directed this?" },
+    { label: "Music", q: "Who did the music?" },
+    { label: "Trivia", q: "Tell me some trivia" },
+    { label: "Awards", q: "Did it win any awards?" },
+    { label: "Rating", q: "What is the rating?" },
+    { label: "Where to stream", q: "Where can I watch this?" },
   ];
-  return type === "tv"
-    ? ["Recap the story so far, up to this episode", ...common, "How many episodes are left this season?"]
-    : ["Recap the story so far (no spoilers past this point)", ...common, "Is there a post-credits scene?"];
 }

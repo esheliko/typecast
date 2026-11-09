@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { elapsedMin, parseWatch, quickQuestions, serializeWatch, spoilerPoint, whereLabel, WATCH_MAX_MS, type Watch } from "../../src/lib/watching";
+import { elapsedMin, parseWatch, factButtons, serializeWatch, whereLabel, WATCH_MAX_MS, type Watch } from "../../src/lib/watching";
 
 const now = 1_800_000_000_000;
 const film: Watch = { key: "movie:1", type: "movie", id: 1, title: "Heat", year: "1995", poster: "/p.jpg", started: now - 42 * 60000, runtime: 170 };
@@ -29,11 +29,17 @@ test("labels how far in", () => {
   assert.equal(whereLabel(film, now), "42 of 170 min");
   assert.equal(whereLabel({ ...film, runtime: 30 }, now), "30 of 30 min");
   assert.equal(whereLabel({ ...film, type: "tv", s: 2, e: 5, runtime: null }, now), "S2 E5 · 42 min in");
-  assert.match(spoilerPoint(film, now), /42 minutes into the film of about 170/);
-  assert.match(spoilerPoint({ ...film, type: "tv", s: 2, e: 5 }, now), /season 2, episode 5/);
 });
 
-test("quick questions fit the kind of title", () => {
-  assert.ok(quickQuestions("tv").some((q) => /episode/.test(q)));
-  assert.ok(quickQuestions("movie").some((q) => /post-credits/.test(q)));
+test("fact buttons fit the kind of title", () => {
+  assert.ok(factButtons("tv").some((f) => /episode/i.test(f.label)));
+  assert.ok(factButtons("movie").some((f) => /post-credits/i.test(f.label)));
+  assert.ok(!factButtons("tv").some((f) => /post-credits/i.test(f.label)));
+});
+
+test("every fact button reaches its own answer", async () => {
+  const { parseQuestion } = await import("../../src/lib/ask-intent");
+  for (const type of ["movie", "tv"] as const) {
+    for (const b of factButtons(type)) assert.notEqual(parseQuestion(b.q, []).kind, "search", `${type}: ${b.label}`);
+  }
 });

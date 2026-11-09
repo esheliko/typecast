@@ -473,6 +473,12 @@ export async function getCast(type: MediaType, id: number, limit = 60): Promise<
   }));
 }
 
+/** A film's whole billed cast, cameos and "Self" parts included (unlike `getCast`), in billing order. */
+export async function getFullCast(id: number): Promise<(CastMember & { order: number })[]> {
+  const d = await tmdb(`/movie/${id}/credits`, {}, 24 * HOUR);
+  return ((d.cast ?? []) as any[]).map((c, i) => ({ id: c.id as number, name: c.name as string, photo: (c.profile_path ?? null) as string | null, role: (c.character ?? "") as string, order: (c.order ?? i) as number }));
+}
+
 export async function getEpisode(tv: number, s: number, e: number) {
   const d = await tmdb(`/tv/${tv}/season/${s}/episode/${e}`, { append_to_response: "credits" }, 24 * HOUR);
   const map = (a: any[] = []): CastMember[] => a.map((p) => ({ id: p.id, name: p.name, photo: p.profile_path ?? null, role: p.character ?? "", ...(p.credit_id ? { credits: [p.credit_id] } : {}) }));
@@ -480,7 +486,7 @@ export async function getEpisode(tv: number, s: number, e: number) {
 }
 
 /** Every episode of one season with its air date, guest stars and who directed and wrote it. Cached 6 hours (new episodes get dates). */
-export async function getSeason(tv: number, s: number): Promise<{ name: string; air: string; episodes: Episode[] }> {
+export async function getSeason(tv: number, s: number, opts: { selves?: boolean } = {}): Promise<{ name: string; air: string; episodes: Episode[] }> {
   const d = await tmdb(`/tv/${tv}/season/${s}`, {}, 6 * HOUR);
   const crew = (x: any, jobs: string[]) => [...new Set<string>((x.crew ?? []).filter((c: any) => jobs.includes(c.job)).map((c: any) => c.name))].slice(0, 3);
   return {
@@ -488,7 +494,7 @@ export async function getSeason(tv: number, s: number): Promise<{ name: string; 
     episodes: (d.episodes ?? []).map((x: any): Episode => ({
       ...epLite(x), overview: x.overview ?? "", still: x.still_path ?? null,
       directors: crew(x, ["Director"]), writers: crew(x, ["Writer", "Teleplay", "Story"]),
-      guests: (x.guest_stars ?? []).filter((g: any) => !BAD_ROLE.test(g.character ?? "")).slice(0, 30)
+      guests: (x.guest_stars ?? []).filter((g: any) => opts.selves || !BAD_ROLE.test(g.character ?? "")).slice(0, 30)
         .map((g: any): CastMember => ({ id: g.id, name: g.name, photo: g.profile_path ?? null, role: g.character ?? "", ...(g.credit_id ? { credits: [g.credit_id] } : {}) })),
     })),
   };
