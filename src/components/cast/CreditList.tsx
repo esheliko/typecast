@@ -36,7 +36,7 @@ function sorted(list: CreditItem[], sort: Sort, rel: Map<string, number>): Credi
  * opens, so unmarking something does not send it to the other section. Each section is sorted by release date (newest first)
  * unless you pick another order. "Known for" is the 30 best-known titles (or all, via "Show all"), then sorted.
  */
-export default function PersonCredits({ known, mineKeys }: { known: CreditItem[]; mineKeys: string[] }) {
+export default function PersonCredits({ known, mineKeys, name }: { known: CreditItem[]; mineKeys: string[]; name: string }) {
   const { get } = useLib();
   const [sort, setSort] = useState<Sort>("release");
   const [kind, setKind] = useState<"all" | "movie" | "tv">("all");
@@ -55,7 +55,7 @@ export default function PersonCredits({ known, mineKeys }: { known: CreditItem[]
   const rest = sorted(all ? restAll : restAll.slice(0, 30), sort, rel.current);
   const [mineStable, resetMine] = useRetained(mine);
   const [restStable, resetRest] = useRetained(rest);
-  const rows = (list: CreditItem[]) => <div className="card"><ul className="rows">{list.map((k) => <li key={k.key}><TitleRow it={k} sub={creditSub(k.role ?? "", k.eps, k.since, k.date)} small /></li>)}</ul></div>;
+  const rows = (list: CreditItem[]) => <div className="card"><ul className="rows">{list.map((k) => <li key={k.key}><TitleRow it={k} sub={creditSub(k.role ?? "", k.eps, k.since, k.date)} actor={name} role={k.role} small /></li>)}</ul></div>;
   return (
     <>
       <div className="inline" style={{ marginTop: 18, alignItems: "center", gap: 8 }}>

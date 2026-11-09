@@ -3,7 +3,7 @@ import QuickMark from "./cast/QuickMark";
 import LivePill from "./cast/LivePill";
 import RelatedButton from "./cast/RelatedButton";
 import { GlimpseButton } from "./Glimpse";
-import { titleSpec } from "@/lib/glimpse";
+import { creditSpec, titleSpec } from "@/lib/glimpse";
 import { avgLabel, img, typeLabel } from "@/lib/img";
 import { markLabel, type Item, type LibItem } from "@/lib/types";
 
@@ -21,7 +21,8 @@ export function Avatar({ photo, name }: { photo: string | null; name: string }) 
   return photo ? <img className="avatar" src={img(photo, "w185")} alt="" loading="lazy" decoding="async" /> : <span className="avatar">{name.charAt(0)}</span>;
 }
 
-export function TitleRow({ it, sub, small }: { it: Item; sub?: string; small?: boolean }) {
+/** `actor` (+ their `role`) makes the images button start with that person in the title. */
+export function TitleRow({ it, sub, small, actor, role }: { it: Item; sub?: string; small?: boolean; actor?: string; role?: string }) {
   return (
     <div className="row mark-row">
       <TitleLink className="row-link" k={it.key} it={it}>
@@ -33,7 +34,7 @@ export function TitleRow({ it, sub, small }: { it: Item; sub?: string; small?: b
         <LivePill k={it.key} />
       </TitleLink>
       <QuickMark it={it} variant="inline" />
-      <GlimpseButton spec={titleSpec(it)} />
+      <GlimpseButton spec={actor ? creditSpec(actor, role, it) : titleSpec(it)} label={actor ? `See images of ${actor} in ${it.title}` : undefined} />
       <RelatedButton it={it} />
     </div>
   );
