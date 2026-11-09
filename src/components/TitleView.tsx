@@ -8,7 +8,8 @@ import Episodes from "@/components/Episodes";
 import Appearances, { EpisodeJump } from "@/components/Appearances";
 import { Avatar } from "@/components/ui";
 import { releaseFor } from "@/lib/release-dates";
-import { epCode, epsLabel, fmtDate, isRunning, showLine, untilLabel } from "@/lib/episodes";
+import { epCode, epsLabel, fmtDate, isRunning, plural, untilLabel, yearSpan } from "@/lib/episodes";
+import YearSpan from "@/components/YearSpan";
 import DetailOrder from "@/components/DetailOrder";
 import NoteBox from "@/components/NoteBox";
 import NewEpPill from "@/components/NewEp";
@@ -173,17 +174,10 @@ async function Related({ t, origin }: { t: Title; origin?: Item | null }) {
   );
 }
 
-/** Header credits: the top-ranked crew detail, plus the composer. Same output for TMDB's data and for the Wikidata-filled version. */
+/** Header credit: the top-ranked crew detail (never the composer or the long crew tail). Same output for TMDB's data and for the Wikidata-filled version. */
 function Bylines({ t, crewBy, details }: { t: Title; crewBy: CrewBy; details: DetailId[] }) {
-  const byline = details.find((id): id is CrewId => isCrewId(id) && crewBy[id].length > 0 && id !== "crew_rest");
-  // Music is always worth a line, even when the Composer detail isn't switched on in Setup.
-  const music = byline !== "composer" ? crewBy.composer.slice(0, 2).map((p) => p.name).join(", ") : "";
-  return (
-    <>
-      {byline && <div className="sh-meta">{bylineLabel(byline, t.type)} {crewBy[byline].slice(0, 2).map((p) => p.name).join(", ")}</div>}
-      {music && <div className="sh-meta">{bylineLabel("composer", t.type)} {music}</div>}
-    </>
-  );
+  const byline = details.find((id): id is CrewId => isCrewId(id) && crewBy[id].length > 0 && id !== "crew_rest" && id !== "composer");
+  return byline ? <div className="sh-meta">{bylineLabel(byline, t.type)} {crewBy[byline].slice(0, 2).map((p) => p.name).join(", ")}</div> : null;
 }
 /** TMDB's credits show at once; the gaps fill in from Wikidata behind them. */
 async function FilledBylines({ t, details }: { t: Title; details: DetailId[] }) {
@@ -203,14 +197,25 @@ function CalLink({ k }: { k: string }) {
 
 function ShowFacts({ t }: { t: Title }) {
   const s = t.show!; const now = today();
-  const ep = s.next ?? s.latest;
+  const running = isRunning(s.status);
+  // An ended series needs no "last episode" line: its finale is one tap away behind the year range.
+  const ep = running ? (s.next ?? s.latest) : null;
   const when = ep?.air ? (s.next ? `${fmtDate(ep.air, true)}${untilLabel(ep.air, now) ? ` (${untilLabel(ep.air, now)})` : ""}` : fmtDate(ep.air)) : "";
+  const label = (e: NonNullable<typeof ep>) => `${epCode(e.s, e.e)}${e.name && !/^Episode \d+$/.test(e.name) ? ` “${e.name}”` : ""}`;
+  const fin = !running ? s.latest : null;
   return (
     <>
-      <div className="sh-meta">{showLine(s)}</div>
+      <YearSpan
+        lead={[s.seasons ? plural(s.seasons, "season") : "", s.episodes ? plural(s.episodes, "episode") : ""].filter(Boolean).join(" · ")}
+        span={yearSpan(s.first, s.last, running)}
+        tail={s.status === "Canceled" ? "Cancelled" : s.status === "Ended" ? "Ended" : running ? "Still running" : ""}
+        dates={running || !s.last ? `First aired ${fmtDate(s.first)}` : `${fmtDate(s.first)} – ${fmtDate(s.last)}`}
+      >
+        {fin && <EpisodeJump s={fin.s} e={fin.e}>Finale: {label(fin)}</EpisodeJump>}
+      </YearSpan>
       {ep && (
         <div className="sh-meta">
-          <EpisodeJump s={ep.s} e={ep.e}>{s.next ? "Next episode" : "Last episode"}: {epCode(ep.s, ep.e)}{ep.name && !/^Episode \d+$/.test(ep.name) ? ` “${ep.name}”` : ""}{when ? ` · ${when}` : ""}</EpisodeJump>
+          <EpisodeJump s={ep.s} e={ep.e}>{s.next ? "Next episode" : "Last episode"}: {label(ep)}{when ? ` · ${when}` : ""}</EpisodeJump>
           {s.next?.air && untilLabel(s.next.air, now) && <> <CalLink k={t.key} /></>}
         </div>
       )}
@@ -249,7 +254,7 @@ function Focus({ t, id }: { t: Title; id: number }) {
 export default async function TitleView({ t, origin, focus }: { t: Title; origin?: Item | null; focus?: number | null }) {
   const [lib, profile] = await Promise.all([getLibrary(), getProfile()]);
   const mine = lib.find((l) => l.key === t.key) ?? null;
-  const meta = [t.year, typeLabel(t.type), t.runtime ? `${t.runtime} min${t.type === "tv" ? " / ep" : ""}` : "", t.genres.slice(0, 3).join(", ")].filter(Boolean).join(" · ");
+  const meta = [t.show ? "" : t.year, typeLabel(t.type), t.runtime ? `${t.runtime} min${t.type === "tv" ? " / ep" : ""}` : "", t.genres.slice(0, 3).join(", ")].filter(Boolean).join(" · ");
   const gaps = missingCrew(t.crewBy).length > 0 && !!t.imdbId;
   return (
     <FromProvider k={t.key} name={t.title}>

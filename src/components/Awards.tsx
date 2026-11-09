@@ -19,8 +19,12 @@ function pills(a: Awards): Pill[] {
   const g = lead && a.groups.find((x) => x.name === lead.fam);
   if (lead && g) {
     const { n, name } = lead;
-    if (n.won) out.push({ text: plural(n.won, name), win: true, sections: [{ name: awardName(g.name), entries: g.won, won: true }] });
-    if (n.nominated) out.push({ text: n.won ? `+${n.nominated} nominated` : plural(n.nominated, `${name} nomination`), win: false, sections: [{ name: `${awardName(g.name)}, nominated`, entries: g.nominated, won: false }] });
+    // One pill per body; the nominations sit inside the wins' popover instead of taking a second pill.
+    const sections = [
+      ...(n.won ? [{ name: awardName(g.name), entries: g.won, won: true }] : []),
+      ...(n.nominated ? [{ name: `${awardName(g.name)}, nominated`, entries: g.nominated, won: false }] : []),
+    ];
+    out.push({ text: n.won ? plural(n.won, name) : plural(n.nominated, `${name} nomination`), win: n.won > 0, sections });
   }
   const others = a.groups.filter((x) => x.name !== lead?.fam && x.won.length);
   const other = others.reduce((s, x) => s + x.won.length, 0);
