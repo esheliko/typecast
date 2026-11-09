@@ -46,10 +46,10 @@ export default function StatusControls({ item, lib }: { item: Item; lib: LibItem
         {!cur ? (
           // Not in the library yet: say what you can do, one tap, on the same line (the menu keeps Watching / Partial).
           <div className="mc-quick" role="group" aria-label="Add to my library">
-            <button type="button" className="chip sc mc-cur none" onClick={() => pick("watchlist")}>
+            <button type="button" className="chip sc mc-q none" onClick={() => pick("watchlist")}>
               <StatusIcon kind="watchlist" size={16} /><span className="mc-cur-t">Watchlist</span>
             </button>
-            <button type="button" className="chip sc mc-cur watchedq" onClick={() => pick("watched")}>
+            <button type="button" className="chip sc mc-q watchedq" onClick={() => pick("watched")}>
               <StatusIcon kind="watched" size={16} /><span className="mc-cur-t">Watched</span>
             </button>
             <button type="button" className="chip sc mc-more" aria-expanded={open} aria-haspopup="true" aria-label="More options: watching, partly watched" onClick={() => setOpen((o) => !o)}>

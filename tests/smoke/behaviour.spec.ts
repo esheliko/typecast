@@ -8,7 +8,7 @@ import { configured, deleteRows, rowOf, smokeClient, SCRATCH, SEED } from "./see
 /** The title card shows the current mark; the options (Status group) open on tap and close after a pick. Opens them if needed. */
 async function statusMenu(page: Page) {
   const group = page.getByRole("group", { name: "Status" });
-  if (!(await group.isVisible())) await page.locator(".mc-cur").click();
+  if (!(await group.isVisible())) await page.locator(".mc-cur, .mc-more").click();
   await expect(group).toBeVisible({ timeout: 10_000 });
   return group;
 }
@@ -38,7 +38,7 @@ test.describe("behaviour (signed in)", () => {
     try {
       expect(await status(), "scratch title must start unsaved").toBeNull();
       await page.goto(`/title/movie/${inception.tmdb_id}`);
-      const card = page.locator(".mc-cur");
+      const card = page.locator(".mc-cur, .mc-more");
       await expect(card).toBeVisible({ timeout: 30_000 });
       await pick(page, "Watched");
       await expect.poll(async () => (await status())?.status, { timeout: 15_000 }).toBe("watched");
@@ -171,7 +171,7 @@ test.describe("behaviour (signed in)", () => {
       expect(await rowOf(sb, userId, target.type, target.id), "poster title must start unsaved").toBeNull();
       made = target;
       await link.click();
-      const card = page.locator(".mc-cur");
+      const card = page.locator(".mc-cur, .mc-more");
       await expect(card).toBeVisible({ timeout: 30_000 });
       await pick(page, "To watch");
       await expect(card).toContainText("To watch");
@@ -356,7 +356,7 @@ test.describe("behaviour (signed in)", () => {
         await expect(badge).toHaveText(/New (episode|season)/);
       }
       await page.goto(`/title/tv/${show.tmdb_id}`);
-      const card = page.locator(".mc-cur");
+      const card = page.locator(".mc-cur, .mc-more");
       await expect(card).toBeVisible({ timeout: 30_000 });
       if (hasFlag) await expect(page.getByTestId("new-ep").first()).toContainText(/aired/);
       await pick(page, "Watched");
