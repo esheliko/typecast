@@ -26,7 +26,7 @@ import { fillCrew, missingCrew } from "@/lib/crew-fill";
 import { bylineLabel, DETAIL_IDS, DETAIL_LABEL, detailLabel, isCrewId, MAIN_CAST, type CrewBy, type CrewId, type DetailId } from "@/lib/details";
 import { enrich } from "@/lib/enrich";
 import { img, typeLabel } from "@/lib/img";
-import { getLibrary, getProfile } from "@/lib/library";
+import { getLibrary, getLibraryItem, getProfile } from "@/lib/library";
 import TitleFranchise from "@/components/cast/TitleFranchise";
 import { getFranchise, getTitle, TmdbError } from "@/lib/tmdb";
 import type { EnrichedMember, Item, LibItem, MediaType, Title } from "@/lib/types";
@@ -36,6 +36,8 @@ export type TitleParams = Promise<{ type: string; id: string }>;
 export async function loadTitle(p: TitleParams) {
   const { type, id } = await p;
   if ((type !== "movie" && type !== "tv") || !/^\d+$/.test(id)) notFound();
+  // Start the database reads now, beside the TMDB call, instead of after it (both are cached per request, so TitleView reuses them).
+  getProfile().catch(() => {}); getLibraryItem(`${type}:${id}`).catch(() => {});
   try { return await getTitle(type as MediaType, +id); }
   catch (e) { if (e instanceof TmdbError && e.status === 404) notFound(); throw e; }
 }
@@ -108,12 +110,13 @@ function CastBlock({ part, t, lib, people, first, last, pending }: CastProps & {
 }
 
 /** The same block once everyone's other credits are in. */
-async function CastSection(props: CastProps) {
-  return <CastBlock {...props} people={await castOf(props.t, props.lib)} />;
+async function CastSection({ libP, ...props }: Omit<CastProps, "lib"> & { libP: Promise<LibItem[]> }) {
+  const lib = await libP;
+  return <CastBlock {...props} lib={lib} people={await castOf(props.t, lib)} />;
 }
 
 /** Every section the user chose, in the order they chose. Crew is already in hand; cast streams in behind its own spinner. */
-function Details({ t, lib, order }: { t: Title; lib: LibItem[]; order: DetailId[] }) {
+function Details({ t, libP, order }: { t: Title; libP: Promise<LibItem[]>; order: DetailId[] }) {
   const casts = order.filter((i) => i === "cast_main" || i === "cast_rest");
   // Merge runs of adjacent crew details into one block.
   const blocks: (DetailId | CrewId[])[] = [];
@@ -128,9 +131,9 @@ function Details({ t, lib, order }: { t: Title; lib: LibItem[]; order: DetailId[
         <Suspense key={id[0]} fallback={<CrewSection ids={id} t={t} />}><FilledCrew ids={id} t={t} /></Suspense>
       ) : id === "cast_main" || id === "cast_rest" ? (
         // The cast is already known from the title itself, so show it right away; "you know them from" fills in behind it.
-        <Suspense key={id} fallback={<CastBlock part={id} t={t} lib={lib} first={id === casts[0]} last={id === casts[casts.length - 1]} pending
+        <Suspense key={id} fallback={<CastBlock part={id} t={t} lib={[]} first={id === casts[0]} last={id === casts[casts.length - 1]} pending
           people={t.people.map((c) => ({ ...c, hits: [], also: [], top: [] }))} />}>
-          <CastSection part={id} t={t} lib={lib} first={id === casts[0]} last={id === casts[casts.length - 1]} />
+          <CastSection part={id} t={t} libP={libP} first={id === casts[0]} last={id === casts[casts.length - 1]} />
         </Suspense>
       ) : null)}
     </>
@@ -138,13 +141,13 @@ function Details({ t, lib, order }: { t: Title; lib: LibItem[]; order: DetailId[
 }
 
 /** Details switched off in Setup stay one tap away, folded under a single collapsed section. */
-function Unchosen({ t, lib, order }: { t: Title; lib: LibItem[]; order: DetailId[] }) {
+function Unchosen({ t, libP, order }: { t: Title; libP: Promise<LibItem[]>; order: DetailId[] }) {
   const rest = DETAIL_IDS.filter((id) => !order.includes(id));
   if (!rest.length) return null;
   return (
     <details className="cw" style={{ marginTop: 22 }}>
       <summary>More details<span className="cw-n">{rest.length}</span></summary>
-      <Details t={t} lib={lib} order={rest} />
+      <Details t={t} libP={libP} order={rest} />
     </details>
   );
 }
@@ -252,8 +255,9 @@ function Focus({ t, id }: { t: Title; id: number }) {
 
 /** Everything about one title. Shown as the full page, and as the popup over Browse, Library and the rest. */
 export default async function TitleView({ t, origin, focus }: { t: Title; origin?: Item | null; focus?: number | null }) {
-  const [lib, profile] = await Promise.all([getLibrary(), getProfile()]);
-  const mine = lib.find((l) => l.key === t.key) ?? null;
+  // Only this title's row and the profile gate the first paint; the whole library (cast "you know them from") streams in behind the cast.
+  const libP = getLibrary().catch((): LibItem[] => []);
+  const [mine, profile] = await Promise.all([getLibraryItem(t.key), getProfile()]);
   const meta = [t.show ? "" : t.year, typeLabel(t.type), t.runtime ? `${t.runtime} min${t.type === "tv" ? " / ep" : ""}` : "", t.genres.slice(0, 3).join(", ")].filter(Boolean).join(" · ");
   const gaps = missingCrew(t.crewBy).length > 0 && !!t.imdbId;
   return (
@@ -281,8 +285,8 @@ export default async function TitleView({ t, origin, focus }: { t: Title; origin
       {focus && <Focus t={t} id={focus} />}
       <Where t={t} profile={profile} />
       <DetailOrder initial={profile.details} type={t.type} />
-      <Details t={t} lib={lib} order={profile.details} />
-      <Unchosen t={t} lib={lib} order={profile.details} />
+      <Details t={t} libP={libP} order={profile.details} />
+      <Unchosen t={t} libP={libP} order={profile.details} />
       {t.type === "tv" && t.seasons.length > 0 && (
         <Episodes item={{ id: t.id, title: t.title, year: t.year, poster: t.poster }} seasons={t.seasons} progress={mine?.progress ?? null} status={mine?.status ?? null} today={today()}
           ended={!!t.show && !isRunning(t.show.status)} latest={t.show?.latest ?? null} next={t.show?.next ?? null} />

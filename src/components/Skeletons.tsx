@@ -36,12 +36,15 @@ export function TitleSkeleton({ title, poster, sub }: { title?: string; poster?:
           ? <img className="sh-poster" src={poster} alt="" />
           : <div className="sh-poster sk-b" />}
         <div style={{ minWidth: 0, display: "flow-root" }}>
-          {title ? <h1 className="sh-title">{title}</h1> : bar("70%", 26)}
+          {/* The real title line carries 32px inline buttons, which make it taller than the bare text; the ghost button keeps the same height. */}
+          {title ? <h1 className="sh-title">{title} <span className="rel-b ghost" aria-hidden="true" /></h1> : bar("70%", 32)}
           {sub ? <div className="sh-meta">{sub}</div> : bar("40%", 13, { marginTop: 8 })}
         </div>
         <div className="sh-ov" style={{ lineHeight: 1.4 }}>{bar("95%", 14)}{bar("70%", 14, { marginTop: 6 })}</div>
       </div>
-      <div className="chips" style={{ marginTop: 18 }}>{[0, 1, 2].map((i) => <div key={i} className="sk-b pill" style={{ width: 96, height: 38 }} />)}</div>
+      <section className="mark-card" style={{ minHeight: 98 }}>
+        <div className="chips">{[0, 1].map((i) => <div key={i} className="sk-b pill" style={{ width: 120, height: 34 }} />)}</div>
+      </section>
       <h2><span className="sk-b" style={{ width: 90, height: 12 }} /></h2>
       <RowsSkeleton n={5} />
     </div>

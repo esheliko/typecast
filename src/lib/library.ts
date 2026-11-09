@@ -30,6 +30,18 @@ const getLibraryRaw = cache(async () => {
   return rows.map(toItem);
 });
 
+/** One title's row, or null. A single small query, so the popup does not wait for the whole library. Cached per request. */
+export const getLibraryItem = cache(async (key: string): Promise<LibItem | null> => {
+  const [type, id] = key.split(":");
+  const sb = await supabaseServer();
+  const { data } = await sb.from("library_items").select("*").eq("tmdb_type", type).eq("tmdb_id", Number(id)).limit(1);
+  const r: any = data?.[0];
+  if (!r) return null;
+  const out: LibItem & { checkedAt?: number } = toItem(r);
+  delete out.checkedAt;
+  return out;
+});
+
 /** The signed-in user's library, newest first. Cached per request. Never waits on TMDB: the new-episode check runs separately (see recheckEpisodes). */
 export const getLibrary = cache(async (): Promise<LibItem[]> => {
   const items = await getLibraryRaw();
