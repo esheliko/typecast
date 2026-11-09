@@ -196,26 +196,32 @@ test.describe("signed in", () => {
     await healthy(page, bad);
   });
 
-  // Watching now: start on a title, the Ask sheet opens with the episode's faces, the bar stays on other pages, and it ends cleanly.
-  // Answers are built in (TMDB, Wikidata, Wikipedia; no AI), so it asks real questions.
-  test("Watching now bar and Ask sheet", async ({ page }) => {
+  // Watching now ("Who's that?"): start on a title, the sheet opens with the cast grid at the seeded episode, a face opens its panel,
+  // the episode can be changed without touching saved progress, the About tab answers a fact, and the watch ends cleanly. No AI.
+  test("Watching now: Who's that? sheet", async ({ page }) => {
     const bad = watch(page);
     await visit(page, "/title/tv/1396?full=1", bad);
-    await page.getByRole("button", { name: "I'm watching this now" }).click();
-    const sheet = page.getByRole("dialog", { name: /Ask about Breaking Bad/ });
+    await page.getByRole("button", { name: /watching this now/ }).click();
+    const sheet = page.getByRole("dialog", { name: /Who's on screen in Breaking Bad/ });
     await expect(sheet).toBeVisible();
-    await expect(sheet.getByText("Bryan Cranston").first()).toBeVisible({ timeout: 20_000 });
+    // Starts where the seeded progress is (S2 E3); the regulars are listed.
+    await expect(sheet.getByLabel("Season")).toHaveValue("2");
+    await expect(sheet.getByLabel("Episode")).toHaveValue("3");
+    await expect(sheet.getByRole("button", { name: /^Bryan Cranston/ }).first()).toBeVisible({ timeout: 30_000 });
+    // The search box filters by character name; a face opens its panel.
+    await sheet.getByLabel("Search the cast").fill("walter");
     await sheet.getByRole("button", { name: /^Bryan Cranston/ }).first().click();
-    await expect(sheet.getByText(/plays Walter White/)).toBeVisible({ timeout: 20_000 });
-    await sheet.getByLabel("Your question").fill("how old is he?");
-    await sheet.getByRole("button", { name: "Ask", exact: true }).click();
-    await expect(sheet.getByText(/born \d+ \w+ 1956/)).toBeVisible({ timeout: 20_000 });
-    // Starts where the seeded progress is (S2 E3). Step forward and back, which leaves the saved progress as it was.
-    await expect(sheet.getByText("E3", { exact: true })).toBeVisible();
-    await sheet.getByRole("button", { name: "Next episode" }).click();
-    await expect(sheet.getByText("E4", { exact: true })).toBeVisible();
-    await sheet.getByRole("button", { name: "Previous episode" }).click();
-    await expect(sheet.getByText("E3", { exact: true })).toBeVisible();
+    await expect(sheet.getByText(/Plays Walter White/)).toBeVisible({ timeout: 20_000 });
+    await sheet.getByRole("button", { name: /All faces/ }).click();
+    // Step the episode forward and back; saved progress stays as it was.
+    await sheet.getByLabel("Episode").selectOption("4");
+    await expect(sheet.getByText(/up to S2 E4/)).toBeVisible();
+    await sheet.getByLabel("Episode").selectOption("3");
+    await expect(sheet.getByText(/up to S2 E3/)).toBeVisible();
+    // About tab: a built-in fact is looked up (TMDB/Wikipedia, no AI).
+    await sheet.getByRole("tab", { name: /About this episode/ }).click();
+    await sheet.getByRole("button", { name: "Episodes left" }).click();
+    await expect(sheet.getByText("Looking it up")).toHaveCount(0, { timeout: 30_000 });
     await sheet.getByRole("button", { name: "Close" }).click();
     await visit(page, "/library", bad);
     const bar = page.getByRole("region", { name: "Watching now" });
