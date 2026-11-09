@@ -13,7 +13,8 @@ export function markLabel(status: Status, priority?: Priority): string {
   return status === "watchlist" && priority === "must" ? PRIORITY_LABEL.must : STATUS_LABEL[status];
 }
 
-export interface Item { key: string; type: MediaType; id: number; title: string; year: string; poster: string | null }
+/** `avg`: TMDB's average vote (0-10), set only by lists that carry it and only when enough people voted. Not your own rating (`LibItem.rating`, 0-5). */
+export interface Item { key: string; type: MediaType; id: number; title: string; year: string; poster: string | null; avg?: number }
 export interface BrowseItem extends Item { rating: number }
 export interface Related extends Item { rel: string }
 /** `eps` / `since`: for a series, how many episodes they were in and the date of their first one. */

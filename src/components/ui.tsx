@@ -4,7 +4,7 @@ import LivePill from "./cast/LivePill";
 import RelatedButton from "./cast/RelatedButton";
 import { GlimpseButton } from "./Glimpse";
 import { titleSpec } from "@/lib/glimpse";
-import { img, typeLabel } from "@/lib/img";
+import { avgLabel, img, typeLabel } from "@/lib/img";
 import { markLabel, type Item, type LibItem } from "@/lib/types";
 
 export function Pill({ lib }: { lib?: LibItem | null }) {
@@ -28,7 +28,7 @@ export function TitleRow({ it, sub, small }: { it: Item; sub?: string; small?: b
         <Thumb path={it.poster} />
         <span className="row-main">
           <span className="row-title" style={small ? { fontSize: 17 } : undefined}>{it.title}</span>
-          <span className="row-sub">{it.year} · {typeLabel(it.type)}{sub ? ` · ${sub}` : ""}</span>
+          <span className="row-sub">{it.year} · {typeLabel(it.type)}{avgLabel(it)}{sub ? ` · ${sub}` : ""}</span>
         </span>
         <LivePill k={it.key} />
       </TitleLink>

@@ -37,6 +37,12 @@ function item(type: MediaType, r: any): Item {
   return { key: `${type}:${r.id}`, type, id: r.id, title: r.title ?? r.name ?? "", year: yr(r.release_date ?? r.first_air_date), poster: r.poster_path ?? null };
 }
 
+/** `item` plus TMDB's average vote, when at least 10 people voted (a lone 10.0 says nothing). */
+function rated(type: MediaType, r: any): Item {
+  const a = (r.vote_count ?? 0) >= 10 && r.vote_average ? Math.round(r.vote_average * 10) / 10 : 0;
+  return a ? { ...item(type, r), avg: a } : item(type, r);
+}
+
 function hit(r: any, media?: string): SearchHit | null {
   const m = media ?? r.media_type;
   if (m === "person") return { kind: "person", id: r.id, name: r.name, photo: r.profile_path ?? null, dept: r.known_for_department ?? "", knownFor: (r.known_for ?? []).map((k: any) => k.title ?? k.name).slice(0, 3),
@@ -180,7 +186,7 @@ export async function getTitle(type: MediaType, id: number): Promise<Title> {
     related: (d.recommendations?.results ?? []).slice(0, 8).map((r: any): Related => {
       const mine = new Map<number, string>((d.genres ?? []).map((g: any) => [g.id, g.name]));
       const shared = ((r.genre_ids ?? []) as number[]).filter((g) => mine.has(g)).map((g) => mine.get(g)!).slice(0, 3);
-      return { ...item(type, r), rel: shared.length ? `Recommended for fans of this: also ${shared.join(", ")}` : "Recommended for fans of this" };
+      return { ...rated(type, r), rel: shared.length ? `Recommended for fans of this: also ${shared.join(", ")}` : "Recommended for fans of this" };
     }),
   };
 }
@@ -270,7 +276,7 @@ export async function getTitleCredits(type: MediaType, id: number): Promise<{ ca
 
 export async function getCollection(id: number): Promise<Related[]> {
   const d = await tmdb(`/collection/${id}`, {}, 24 * HOUR);
-  return [...(d.parts ?? [])].sort((a: any, b: any) => (a.release_date || "9").localeCompare(b.release_date || "9")).map((r: any): Related => ({ ...item("movie", r), rel: "Same collection" }));
+  return [...(d.parts ?? [])].sort((a: any, b: any) => (a.release_date || "9").localeCompare(b.release_date || "9")).map((r: any): Related => ({ ...rated("movie", r), rel: "Same collection" }));
 }
 
 /** A set of titles that belong together, in release order. */
@@ -319,7 +325,7 @@ export const getFranchise = cache(async (type: MediaType, id: number): Promise<F
   const keep = (rows: any[], t: MediaType) => rows
     .filter((r) => r.poster_path && when(r) && when(r) <= today())
     .sort((a, b) => when(a).localeCompare(when(b)))
-    .map((r) => item(t, r)).filter((i) => !have.has(i.key) && have.add(i.key));
+    .map((r) => rated(t, r)).filter((i) => !have.has(i.key) && have.add(i.key));
 
   const names = franchiseNames(d.title ?? d.name ?? "");
   const kws: any[] = (type === "movie" ? d.keywords?.keywords : d.keywords?.results) ?? [];
@@ -390,7 +396,7 @@ export const getSimilar = cache(async (type: MediaType, id: number): Promise<Fra
   const when = (r: any): string => r.release_date || r.first_air_date || "";
   const keep = (rows: any[], t: MediaType) => rows
     .filter((r) => r.poster_path && when(r) && when(r) <= today())
-    .map((r) => item(t, r)).filter((i) => !have.has(i.key) && have.add(i.key));
+    .map((r) => rated(t, r)).filter((i) => !have.has(i.key) && have.add(i.key));
   const out: FranchiseGroup[] = [];
   // Same creator: the strongest signal for a distinctive author (a series' creator, a film's director). Their other work comes first.
   // Skipped for prolific people (more than CREATOR_MAX credits in that role), where "same person" says little about similarity.
@@ -442,7 +448,7 @@ async function personRaw(id: number) {
   const seen = new Set<string>(); const known: Credit[] = [];
   const add = (r: any, role: string) => {
     if (r.media_type !== "movie" && r.media_type !== "tv") return;
-    const it = item(r.media_type, r); if (seen.has(it.key)) return; seen.add(it.key);
+    const it = rated(r.media_type, r); if (seen.has(it.key)) return; seen.add(it.key);
     known.push({ ...it, role, votes: r.vote_count ?? 0, rating: r.vote_average ?? 0, date: r.release_date ?? r.first_air_date ?? "" });
   };
   for (const r of cc.cast ?? []) {
