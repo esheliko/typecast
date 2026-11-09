@@ -481,6 +481,11 @@ button:not([disabled]):active, a.row:active, a.tab:active, .person-chip:active, 
 @media (prefers-reduced-motion: reduce) { .gl-wrap { animation: none; } }
 .credit.has-gl .credit-main { padding-right: 38px; }
 .credit-gl { position: absolute; right: 0; top: 6px; z-index: 1; }
+/* An open row's name bar sticks (z-index 3) and would cover this button, so the button sticks with it: a zero-height strip at the top of the
+   row (margins cancel, nothing moves) that pins at the bar's offset and sits above it. */
+.credit { --gl-t: 6px; }
+.cast-main .credit { --gl-t: 12px; }
+.credit:has(details[open]) > .credit-gl { position: sticky; top: calc(var(--stick) + 4px); right: auto; z-index: 4; display: block; height: 0; text-align: right; margin: calc(var(--gl-t) - 4px) 0 calc(4px - var(--gl-t)); }
 /* Below the poster, on the caption line, so it never sits over the Watching / To watch / Watched buttons. */
 .pc-gl { position: absolute; bottom: -2px; right: -2px; }
 .pc-gl .gl-b { width: 28px; height: 28px; }
