@@ -110,3 +110,18 @@ export function layoutSearch(q: string, hits: SearchHit[], lib: LibLookup = () =
 export function youKnowFrom(p: PersonHit, lib: LibLookup): string[] {
   return p.knownFor.filter((_, i) => { const k = p.knownKeys?.[i]; const m = k ? lib(k) : undefined; return !!m && m.status !== "watchlist"; });
 }
+
+/** A film collection found by name: `pop` / `votes` are those of its biggest film. */
+export interface CollHit { id: number; name: string; pop?: number; votes?: number; items: { key: string }[] }
+
+/**
+ * Collections worth showing for a search. A franchise nobody has heard of ("The Roaming Reporter and Rookie Detective Series" for
+ * "rookie") must not push the title you meant down, so a collection needs a well-known film or one of its films on your lists.
+ * When nothing else matched at all, a weak one is better than an empty page.
+ */
+export function pickCollections<C extends CollHit>(colls: C[], lay: Layout | null, lib: LibLookup = () => undefined): C[] {
+  const strong = (c: C) => (c.votes ?? 0) >= 1000 || (c.pop ?? 0) >= 20 || c.items.some((i) => !!lib(i.key));
+  const keep = colls.filter(strong);
+  if (keep.length || !lay) return keep;
+  return lay.top || lay.titles.length ? [] : colls;
+}

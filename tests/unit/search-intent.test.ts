@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { layoutSearch, nameTier, personTier, youKnowFrom, type LibLookup } from "../../src/lib/search-intent";
+import { layoutSearch, pickCollections, nameTier, personTier, youKnowFrom, type CollHit, type LibLookup } from "../../src/lib/search-intent";
 import type { SearchHit } from "../../src/lib/types";
 
 // Shapes and numbers copied from live TMDB answers.
@@ -105,4 +105,15 @@ test("a half-typed surname finds the person (hitchcoc -> Alfred Hitchcock)", () 
   assert.equal(personTier("del r", "Lana Del Rey"), 1, "multi-word stays loose");
   const l = layoutSearch("hitchcoc", [P("Alfred Hitchcock", 6.2, ["Psycho", "Vertigo"], "Directing"), P("Patricia Hitchcock", 1.2), T("Hitchcock", 12, 2000)]);
   assert.ok(l.top?.kind === "person" || l.also?.kind === "person" || l.people.some((p) => p.name === "Alfred Hitchcock"));
+});
+
+test("an unknown collection is hidden when a title matched, a known or marked one stays", () => {
+  const rookie = T("The Rookie", 60, 4000, "tv", "2018");
+  const lay = layoutSearch("rookie", [rookie]);
+  const obscure: CollHit = { id: 1, name: "The Roaming Reporter and Rookie Detective Series", pop: 1, votes: 3, items: [{ key: "movie:900" }] };
+  const bond: CollHit = { id: 2, name: "Rookie Wars Collection", pop: 40, votes: 9000, items: [{ key: "movie:901" }] };
+  assert.deepEqual(pickCollections([obscure], lay), []);
+  assert.deepEqual(pickCollections([obscure, bond], lay), [bond]);
+  assert.deepEqual(pickCollections([obscure], lay, (k) => (k === "movie:900" ? { status: "watched" } : undefined)), [obscure]);
+  assert.deepEqual(pickCollections([obscure], layoutSearch("rookie detective", [])), [obscure], "better than an empty page");
 });

@@ -80,7 +80,7 @@ export async function search(q: string, kind: "all" | "person" | "title" = "all"
 }
 
 /** Film collections ("James Bond Collection") whose name contains what was typed; each with its films in release order. At most two. */
-export async function searchCollections(q: string): Promise<{ id: number; name: string; items: BrowseItem[] }[]> {
+export async function searchCollections(q: string): Promise<{ id: number; name: string; pop: number; votes: number; items: BrowseItem[] }[]> {
   const want = norm(q).replace(/ (collection|franchise|series|films?|movies?)$/, "");
   if (want.length < 3) return [];
   const d = await tmdb("/search/collection", { query: q, include_adult: "false" }, HOUR).catch(() => ({ results: [] }));
@@ -88,6 +88,8 @@ export async function searchCollections(q: string): Promise<{ id: number; name: 
   const full = await Promise.all(ok.map((c: any) => tmdb(`/collection/${c.id}`, {}, 24 * HOUR).then((x) => ({ id: c.id as number, name: (x.name ?? c.name) as string, parts: x.parts ?? [] })).catch(() => null)));
   return full.filter((c): c is NonNullable<typeof c> => !!c && c.parts.length > 1).map((c) => ({
     id: c.id, name: c.name,
+    // The biggest film decides how well known the franchise is (the search box hides unknown ones).
+    pop: Math.max(...c.parts.map((r: any) => r.popularity ?? 0)), votes: Math.max(...c.parts.map((r: any) => r.vote_count ?? 0)),
     items: [...c.parts].sort((a: any, b: any) => (a.release_date || "9").localeCompare(b.release_date || "9")).map((r: any) => browseItem("movie", r)),
   }));
 }

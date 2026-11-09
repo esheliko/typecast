@@ -7,10 +7,10 @@ import QuickMark from "./cast/QuickMark";
 import { useLib } from "./cast/LibState";
 import { KindFilter } from "./KindSeg";
 import { img } from "@/lib/img";
-import { layoutSearch, youKnowFrom, type PersonHit, type TitleHit } from "@/lib/search-intent";
+import { layoutSearch, pickCollections, youKnowFrom, type PersonHit, type TitleHit } from "@/lib/search-intent";
 import type { BrowseItem, SearchHit } from "@/lib/types";
 
-type Coll = { id: number; name: string; items: BrowseItem[] };
+type Coll = { id: number; name: string; pop?: number; votes?: number; items: BrowseItem[] };
 
 const RECENT = "tc:recent-searches";
 const readRecent = (): string[] => { try { const v = JSON.parse(localStorage.getItem(RECENT) ?? "[]"); return Array.isArray(v) ? v.filter((x) => typeof x === "string").slice(0, 6) : []; } catch { return []; } };
@@ -61,6 +61,7 @@ export default function Search({ onActive }: { onActive: (on: boolean) => void }
   getRef.current = get;
   const lay = useMemo(() => (hits ? layoutSearch(fix ?? term, hits, (k) => getRef.current(k)) : null), [hits, fix, term]);
   const top = lay?.top ?? null;
+  const shownColls = useMemo(() => pickCollections(colls, lay, (k) => getRef.current(k)), [colls, lay]);
   const known = useMemo(() => (top?.kind === "person" ? youKnowFrom(top, (k) => getRef.current(k)) : []), [top]);
 
   const links = useCallback(() => Array.from(box.current?.querySelectorAll<HTMLAnchorElement>('a[href^="/title/"]:not([tabindex="-1"]), a[href^="/person/"]') ?? []), []);
@@ -113,12 +114,6 @@ export default function Search({ onActive }: { onActive: (on: boolean) => void }
             <div style={{ opacity: state === "loading" ? 0.55 : 1, transition: "opacity .15s" }}>
               {fix && <p className="muted" style={{ marginTop: 16 }}>Showing results for <b>{fix}</b>. <button type="button" className="linkish" onClick={() => setExact(true)}>Search for &quot;{term}&quot; instead</button></p>}
               {hits.length === 0 && colls.length === 0 && <p className="muted" style={{ marginTop: 20 }}>Nothing found for &quot;{term}&quot;. Try the full name or add the year.</p>}
-              {colls.map((c) => (
-                <div key={c.id}>
-                  <h2>{c.name}</h2>
-                  <ul className="grid">{c.items.map((h) => <li key={h.key}><Poster it={h} /></li>)}</ul>
-                </div>
-              ))}
               {top && (
                 <>
                   <h2>Top result</h2>
@@ -131,6 +126,12 @@ export default function Search({ onActive }: { onActive: (on: boolean) => void }
                   <TopRow hit={lay.also} known={lay.also.kind === "person" ? youKnowFrom(lay.also, (k) => getRef.current(k)) : []} />
                 </>
               )}
+              {shownColls.map((c) => (
+                <div key={c.id}>
+                  <h2>{c.name}</h2>
+                  <ul className="grid">{c.items.map((h) => <li key={h.key}><Poster it={h} /></li>)}</ul>
+                </div>
+              ))}
               {people.length > 0 && (
                 <>
                   <h2>{lay?.intent === "person" ? `Also named ${term}` : "People"}</h2>
