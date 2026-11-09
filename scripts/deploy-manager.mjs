@@ -260,7 +260,7 @@ function render(st, ctx, d, pending) {
   const rel = pending.relevant;
   const lines = [];
   lines.push('# Deploy Manager status board');
-  lines.push('_Auto-updated by `scripts/deploy-manager.mjs` (GitHub Actions every 5 min + on every push, with a Claude supervisor as backup). Do not edit by hand._');
+  lines.push('_Auto-updated by `scripts/deploy-manager.mjs` (GitHub Actions: on every push and every 5 min). Do not edit by hand._');
   lines.push('');
   const headline = { deploy: 'DEPLOYING', hold: 'HOLDING (batching pushes)', blocked: 'BLOCKED', idle: 'UP TO DATE' }[d.action] ?? d.action;
   lines.push(`**${headline}** — ${d.why}${d.dueAt && d.action !== 'idle' ? ` · due ${hhmm(d.dueAt)} UTC` : ''}`);

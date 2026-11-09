@@ -7,8 +7,8 @@ Vercel Hobby limits deployments, so **a push no longer deploys by itself** (`ver
 - **GitHub Actions** (`.github/workflows/deploy-manager.yml`): on every push to `main`, every 5 min, and on demand. Needs the repo
   secret `VERCEL_TOKEN` (Vercel → Account → Tokens, scope: the `eshelikos-projects` team; GitHub → Settings → Secrets → Actions).
   Without it the workflow idles.
-- **Claude supervisor** (scheduled task): runs the same script with `--no-poll` as a backup, checks the board is fresh,
-  tunes the policy, and reports.
+- **No Claude supervisor any more** (deleted 2026-11-09, see lessons). Actions is the only automatic executor. A Claude session can still run
+  `STATUS_ISSUE=1 node scripts/deploy-manager.mjs` by hand as a one-off (Vercel auth is proxy-injected there).
 - **Board**: issue #1 shows live commit, pending commits, next deploy time, recent deployments and events.
 
 ## Policy (see `CFG` in the script)
@@ -51,3 +51,6 @@ The supervisor has nothing to refresh there. `scripts/dashboard-data.mjs` is gon
 - 2026-11-08 (owner suggestion): relevance is now judged on the NET diff between the live commit and main, not commit by commit. Docs/scripts/tests/CI
   never count, and an edit followed by its revert counts as nothing, so the manager waits for a change that actually alters the site. Unknown files still
   count as site files (safe default).
+- 2026-11-09 (08:55 IST): deleted the hourly Claude supervisor. Scheduled sessions start with no GitHub access (no repo attached, `gh` token invalid, no `add_repo`
+  tool), so it could neither read issue #1 nor monitor anything, and pushed an hourly complaint instead. Actions has been the real executor all along (ticks #15-#32
+  and every deployment since 15:50 IST yesterday). Known gap: nothing alerts if Actions itself stops; the board's 'Last tick' is the only sign.
