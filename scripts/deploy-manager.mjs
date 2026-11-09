@@ -36,7 +36,7 @@ export const CFG = {
     { minSpendable: 1, quietMin: 4, maxWaitMin: 15 }, // Vercel accepted deployments at 150+ in 24h, so a high count is no reason to hold long
   ],
 
-  loopMaxMin: 14, // --wait: longest we sleep inside one run
+  loopMaxMin: 24, // --wait: longest we sleep inside one run
   pollMaxMin: 9, // longest we watch a build
   sleepSec: 30,
   errorCooldownMin: 45, // after a 402 (limit) response
@@ -357,6 +357,8 @@ async function tick() {
       if (ci === 'pending' && ageMin < CFG.ciMaxWaitMin) {
         log(`CI still running for ${pending.head.slice(0, 7)}: holding`);
         writeBoard(st, ctx, { ...d, action: 'hold', why: 'waiting for CI to pass on the head commit' }, pending, false);
+        // Keep this run alive and poll: GitHub's schedule is unreliable (2026-11-09: a 5.5h gap), so nothing else may be coming.
+        if (WAIT && Date.now() - started < CFG.loopMaxMin * 60e3) { await sleep(CFG.sleepSec * 1000); continue; }
         return;
       }
       if (ci === 'pending') event(st, 'ci', `CI still running after ${Math.round(ageMin)}m: deploying ${pending.head.slice(0, 7)} anyway`);

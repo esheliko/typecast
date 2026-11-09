@@ -4,6 +4,9 @@ name: Deploy Manager
 on:
   push:
     branches: [main]
+  workflow_run: # the moment CI finishes: the gate may now open (the cron below is best effort and was seen 5h late)
+    workflows: [CI]
+    types: [completed]
   schedule:
     - cron: '*/5 * * * *'
   workflow_dispatch:
@@ -17,7 +20,7 @@ permissions:
 jobs:
   manage:
     runs-on: ubuntu-latest
-    timeout-minutes: 28
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
