@@ -8,7 +8,9 @@ import { useLib } from "./cast/LibState";
 import { KindFilter } from "./KindSeg";
 import { img } from "@/lib/img";
 import { layoutSearch, youKnowFrom, type PersonHit, type TitleHit } from "@/lib/search-intent";
-import type { SearchHit } from "@/lib/types";
+import type { BrowseItem, SearchHit } from "@/lib/types";
+
+type Coll = { id: number; name: string; items: BrowseItem[] };
 
 const RECENT = "tc:recent-searches";
 const readRecent = (): string[] => { try { const v = JSON.parse(localStorage.getItem(RECENT) ?? "[]"); return Array.isArray(v) ? v.filter((x) => typeof x === "string").slice(0, 6) : []; } catch { return []; } };
@@ -18,6 +20,7 @@ const writeRecent = (v: string[]) => { try { localStorage.setItem(RECENT, JSON.s
 export default function Search({ onActive }: { onActive: (on: boolean) => void }) {
   const [q, setQ] = useState("");
   const [hits, setHits] = useState<SearchHit[] | null>(null);
+  const [colls, setColls] = useState<Coll[]>([]);
   const [fix, setFix] = useState<string | null>(null);
   const [exact, setExact] = useState(false);
   const [state, setState] = useState<"idle" | "loading" | "error">("idle");
@@ -41,7 +44,7 @@ export default function Search({ onActive }: { onActive: (on: boolean) => void }
         const r = await fetch(`/api/search?q=${encodeURIComponent(term)}${exact ? "&exact=1" : ""}`, { signal: ctl.signal });
         const j = await r.json();
         if (!r.ok) throw new Error(j.error ?? "Search failed.");
-        setHits(j.hits); setFix(j.didYouMean ?? null); setShowFolded(false); setState("idle");
+        setHits(j.hits); setColls(j.collections ?? []); setFix(j.didYouMean ?? null); setShowFolded(false); setState("idle");
       } catch (e) { if ((e as Error).name !== "AbortError") { setError((e as Error).message); setState("error"); } }
     }, 250);
     return () => { clearTimeout(t); ctl.abort(); };
@@ -107,7 +110,13 @@ export default function Search({ onActive }: { onActive: (on: boolean) => void }
           {hits && state !== "error" && (
             <div style={{ opacity: state === "loading" ? 0.55 : 1, transition: "opacity .15s" }}>
               {fix && <p className="muted" style={{ marginTop: 16 }}>Showing results for <b>{fix}</b>. <button type="button" className="linkish" onClick={() => setExact(true)}>Search for &quot;{term}&quot; instead</button></p>}
-              {hits.length === 0 && <p className="muted" style={{ marginTop: 20 }}>Nothing found for &quot;{term}&quot;. Try the full name or add the year.</p>}
+              {hits.length === 0 && colls.length === 0 && <p className="muted" style={{ marginTop: 20 }}>Nothing found for &quot;{term}&quot;. Try the full name or add the year.</p>}
+              {colls.map((c) => (
+                <div key={c.id}>
+                  <h2>{c.name}</h2>
+                  <ul className="grid">{c.items.map((h) => <li key={h.key}><Poster it={h} /></li>)}</ul>
+                </div>
+              ))}
               {top && (
                 <>
                   <h2>Top result</h2>

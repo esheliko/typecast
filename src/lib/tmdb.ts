@@ -73,6 +73,19 @@ export async function search(q: string, kind: "all" | "person" | "title" = "all"
   return scored.sort((a, b) => b.s - a.s).map((x) => x.h).slice(0, kind === "all" ? 24 : 8);
 }
 
+/** Film collections ("James Bond Collection") whose name contains what was typed; each with its films in release order. At most two. */
+export async function searchCollections(q: string): Promise<{ id: number; name: string; items: BrowseItem[] }[]> {
+  const want = norm(q).replace(/ (collection|franchise|series|films?|movies?)$/, "");
+  if (want.length < 3) return [];
+  const d = await tmdb("/search/collection", { query: q, include_adult: "false" }, HOUR).catch(() => ({ results: [] }));
+  const ok = (d.results ?? []).filter((c: any) => (" " + norm(c.name ?? "") + " ").includes(" " + want + " ")).slice(0, 2);
+  const full = await Promise.all(ok.map((c: any) => tmdb(`/collection/${c.id}`, {}, 24 * HOUR).then((x) => ({ id: c.id as number, name: (x.name ?? c.name) as string, parts: x.parts ?? [] })).catch(() => null)));
+  return full.filter((c): c is NonNullable<typeof c> => !!c && c.parts.length > 1).map((c) => ({
+    id: c.id, name: c.name,
+    items: [...c.parts].sort((a: any, b: any) => (a.release_date || "9").localeCompare(b.release_date || "9")).map((r: any) => browseItem("movie", r)),
+  }));
+}
+
 const norm = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/&/g, " and ").replace(/[^a-z0-9]+/g, " ").trim();
 
 /** Higher is better: exact name, then name starting with the query, then whole words, then anywhere; popularity and rating weigh in heavily. */
