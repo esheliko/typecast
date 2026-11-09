@@ -36,6 +36,12 @@ export function nameTier(q: string, name: string): 0 | 1 | 2 | 3 | 4 {
   return a.split(" ").every((w) => bw.some((x) => x.startsWith(w))) ? 1 : 0;
 }
 
+/** A person's name tier: a half-typed name ("hitchcoc" for Alfred Hitchcock) counts as a word match for a single word of 4+ letters, so people can be found while typing. */
+export function personTier(q: string, name: string): 0 | 1 | 2 | 3 | 4 {
+  const t = nameTier(q, name);
+  return t === 1 && !core(q).includes(" ") && core(q).length >= 4 ? 2 : t;
+}
+
 const isPerson = (h: SearchHit): h is PersonHit => h.kind === "person";
 const isTitle = (h: SearchHit): h is TitleHit => h.kind === "title";
 
@@ -54,7 +60,7 @@ export interface Layout {
 
 export function layoutSearch(q: string, hits: SearchHit[], lib: LibLookup = () => undefined): Layout {
   const tokens = norm(q).split(" ").filter(Boolean).length;
-  const persons = hits.filter(isPerson).map((h) => ({ h, tier: nameTier(q, h.name), pop: h.pop ?? 0 }));
+  const persons = hits.filter(isPerson).map((h) => ({ h, tier: personTier(q, h.name), pop: h.pop ?? 0 }));
   const titles = hits.filter(isTitle).map((h, i) => ({ h, i, tier: nameTier(q, h.title), pop: h.pop ?? 0, votes: h.votes ?? 0, mark: lib(h.key) }));
 
   // Hide people nobody knows, unless the whole name was typed or nothing else was found.

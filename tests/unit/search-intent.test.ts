@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { layoutSearch, nameTier, youKnowFrom, type LibLookup } from "../../src/lib/search-intent";
+import { layoutSearch, nameTier, personTier, youKnowFrom, type LibLookup } from "../../src/lib/search-intent";
 import type { SearchHit } from "../../src/lib/types";
 
 // Shapes and numbers copied from live TMDB answers.
@@ -97,4 +97,12 @@ test("youKnowFrom lists seen known-for titles, not watchlist ones", () => {
   const p = P("Al Pacino", 6.4, ["The Godfather Part II", "Scarface", "The Godfather"]) as Extract<SearchHit, { kind: "person" }>;
   const lib: LibLookup = (k) => (k === p.knownKeys![0] ? { status: "watched" } : k === p.knownKeys![1] ? { status: "watchlist" } : undefined);
   assert.deepEqual(youKnowFrom(p, lib), ["The Godfather Part II"]);
+});
+
+test("a half-typed surname finds the person (hitchcoc -> Alfred Hitchcock)", () => {
+  assert.equal(personTier("hitchcoc", "Alfred Hitchcock"), 2);
+  assert.equal(personTier("rey", "Lana Del Reynolds"), 1, "under 4 letters: too short to guess");
+  assert.equal(personTier("del r", "Lana Del Rey"), 1, "multi-word stays loose");
+  const l = layoutSearch("hitchcoc", [P("Alfred Hitchcock", 6.2, ["Psycho", "Vertigo"], "Directing"), P("Patricia Hitchcock", 1.2), T("Hitchcock", 12, 2000)]);
+  assert.ok(l.top?.kind === "person" || l.also?.kind === "person" || l.people.some((p) => p.name === "Alfred Hitchcock"));
 });
