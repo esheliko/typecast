@@ -9,6 +9,7 @@ import { whoApi, type RecentTrail } from "@/lib/who-client";
 import { byCast, byGender, groupWhoFaces, matchFaces, type CastFilter, type GenderFilter } from "@/lib/who-scope";
 import { RecentRow } from "./Trail";
 import { roleLabel } from "@/lib/roster";
+import { pickSeenIn, seenInText, type KnownTitle } from "@/lib/who-known";
 import type { WhoFace, WhoRoster } from "@/lib/who-types";
 
 const PER_GROUP = 12;
@@ -46,7 +47,7 @@ export function Finder({ roster, loading, err, q, setQ, inputRef, recents, onOpe
 
   // "Known from": for the tiles on screen, matched against the user's marks in the browser.
   const visible = useMemo(() => groups.flatMap((g) => g.faces.slice(0, open[g.id] ? g.faces.length : PER_GROUP)), [groups, open]);
-  const [known, setKnown] = useState<Record<number, [string, string, string][]>>({});
+  const [known, setKnown] = useState<Record<number, KnownTitle[]>>({});
   const askedKnown = useRef(new Set<number>());
   const ids = visible.map((f) => f.id).join(",");
   useEffect(() => {
@@ -181,8 +182,8 @@ function GridSkeleton() {
   );
 }
 
-/** One face: photo, name, character (one line each) and one muted line, "x4 · Seen in X" (gold only for the seen part). Nothing is drawn for what is not known. */
-function Tile({ f, known, eager, onOpen, onPop }: { f: WhoFace; known?: [string, string, string][]; eager: boolean; onOpen: () => void; onPop: (p: { f: WhoFace; r: DOMRect } | null) => void }) {
+/** One face: photo, name, character (one line each) and one muted line, "x4 · Character in Title" (gold only for the seen part). Nothing is drawn for what is not known. */
+function Tile({ f, known, eager, onOpen, onPop }: { f: WhoFace; known?: KnownTitle[]; eager: boolean; onOpen: () => void; onPop: (p: { f: WhoFace; r: DOMRect } | null) => void }) {
   const lib = useLib();
   const { brief, prefetchPerson } = useWho();
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -195,7 +196,8 @@ function Tile({ f, known, eager, onOpen, onPop }: { f: WhoFace; known?: [string,
   };
   const hide = () => { clearTimeout(timer.current); onPop(null); };
   useEffect(() => () => clearTimeout(timer.current), []);
-  const seen = known?.find(([k]) => k !== brief.key && SEEN_STATUS.has(lib.get(k)?.status ?? ""));
+  const pick = known ? pickSeenIn(known, brief.key, (k) => { const m = lib.get(k); return m && SEEN_STATUS.has(m.status) ? m : undefined; }) : null;
+  const seen = pick ? seenInText(pick) : "";
   const best = known?.find(([k]) => k !== brief.key);
   const role = roleLabel(f.role);
   const n = f.part === "main" || f.n < 1 || (f.part === "episode" && f.n <= 1) ? 0 : f.n;
@@ -206,8 +208,8 @@ function Tile({ f, known, eager, onOpen, onPop }: { f: WhoFace; known?: [string,
         <Photo path={f.photo} name={f.name} eager={eager} className="wx-ph" />
         <b className="wx-nm">{f.name}</b>
         <span className="small muted wx-rl"><span className="wx-rlt">{role || " "}</span>{n > 0 && <span className="wx-rln" title={`${n} episode${n === 1 ? "" : "s"}`}>&nbsp;· x{n}</span>}</span>
-        <span className="small muted wx-meta" title={seen ? `Seen in ${seen[1]}` : best ? best[1] : undefined}>
-          {seen ? <span className="wx-seen">Seen in {seen[1]}</span> : best ? best[1] : null}
+        <span className="small muted wx-meta" title={seen || (best ? best[1] : undefined)}>
+          {seen ? <span className="wx-seen">{seen}</span> : best ? best[1] : null}
         </span>
       </button>
     </li>

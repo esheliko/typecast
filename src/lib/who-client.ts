@@ -1,3 +1,4 @@
+import type { KnownTitle } from "./who-known";
 import type { SharedBrief, TitleNode, WhoBrief, WhoEp, WhoEpDetail } from "./who-data";
 import type { FoundTitle, Shared } from "./who-common";
 import type { PersonData, Pos, Span, WhoRoster } from "./who-types";
@@ -34,7 +35,7 @@ export const whoApi = {
   person: (id: number) => getJson<PersonData>(`/api/who/person?id=${id}`),
   spans: (p: number, keys: string[], cur?: { k: string; pos: Pos; cids: string[] } | null) =>
     getJson<Record<string, Span | null>>(`/api/who/spans?${q({ p, keys: keys.join(","), cur: cur?.k, s: cur?.pos.s, e: cur?.pos.e, cids: cur?.cids.join(",") })}`),
-  known: (ids: number[]) => getJson<{ known: Record<number, { top: [string, string, string][] }> }>(`/api/who/known?ids=${ids.join(",")}`),
+  known: (ids: number[]) => getJson<{ known: Record<number, { top: KnownTitle[] }> }>(`/api/who/known?ids=${ids.join(",")}`),
   shared: (id: number, others: number[], cur: string) => getJson<{ shared: SharedBrief[] }>(`/api/who/shared?${q({ id, with: others.join(","), cur })}`),
   pair: (a: number, b: number) => getJson<{ a: PersonData; b: PersonData; titles: Shared[] }>(`/api/who/pair?a=${a}&b=${b}`),
   title: (k: string) => getJson<TitleNode>(`/api/who/title?k=${k}`),

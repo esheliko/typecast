@@ -1,3 +1,4 @@
+import type { KnownTitle } from "./who-known";
 import { unstable_cache } from "next/cache";
 import { buildAllRoster, buildRoster, asGender, scopeKind } from "./who-scope";
 import { commonResults, sharedTitles, type CastEntry, type FoundTitle, type Shared } from "./who-common";
@@ -254,12 +255,12 @@ export async function loadSpans(personId: number, keys: string[], scope?: { key:
 
 /* ---------- "you know them from": the few titles to match against the user's library ---------- */
 
-export interface KnownFor { /** [key, title, year] by votes, most known first. */ top: [string, string, string][] }
+export interface KnownFor { /** [key, title, year, character, episodes, votes] by votes, most known first (see who-known.ts). */ top: KnownTitle[] }
 
 export async function loadKnown(ids: number[]): Promise<Record<number, KnownFor>> {
   const rows = await pool(ids.slice(0, 30), 6, async (id) => {
     const p = await loadWhoPerson(id);
-    const top = p.credits.filter((c) => !c.extra).sort((a, b) => b.votes - a.votes).slice(0, 40).map((c): [string, string, string] => [c.key, c.title, c.year]);
+    const top = p.credits.filter((c) => !c.extra).sort((a, b) => b.votes - a.votes).slice(0, 40).map((c): KnownTitle => [c.key, c.title, c.year, c.role, c.eps ?? 0, c.votes]);
     return { id, top };
   });
   return Object.fromEntries(rows.flatMap((r) => (r ? [[r.id, { top: r.top }]] : [])));
