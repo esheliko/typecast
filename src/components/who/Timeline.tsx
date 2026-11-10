@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { dotSize, layoutTimeline, type TItem } from "@/lib/who-timeline";
 import type { Range } from "@/lib/who-types";
 
-export interface AxisItem extends TItem { label: string; run?: boolean; seen?: boolean; /** The show being watched: gold, and only as far as you know it. */ now?: boolean }
+export interface AxisItem extends TItem { label: string; run?: boolean; seen?: boolean; /** The show being watched: gold. */ now?: boolean; /** Spoilers hidden: its right end fades (where you are, not where it ends). */ sofar?: boolean }
 
 const BAR = 10;   // a bar's height (px)
 const PAD = 3;    // space above and below a mark inside its lane
@@ -65,7 +65,7 @@ export function Timeline({ items, refRange, refLabel, refSoFar, selected, hot, o
               onPick(m.ids[(at + 1) % m.ids.length]);
             };
             return (
-              <button key={m.id} type="button" className={`wx-mark${m.dot ? " dot" : ""}${many ? " merged" : ""}${it.run ? " run" : ""}${seen ? " seen" : ""}${it.now ? " now" : ""}${isSel ? " sel" : ""}${isHot ? " hot" : ""}`}
+              <button key={m.id} type="button" className={`wx-mark${m.dot ? " dot" : ""}${many ? " merged" : ""}${it.run ? " run" : ""}${seen ? " seen" : ""}${it.now ? " now" : ""}${it.now && it.sofar ? " sofar" : ""}${isSel ? " sel" : ""}${isHot ? " hot" : ""}`}
                 style={m.dot ? { left: `${((m.x0 + m.x1) / 2) * 100}%`, width: m.px, height: m.px, marginLeft: -m.px / 2, top } : { left: `${m.x0 * 100}%`, width: `${(m.x1 - m.x0) * 100}%`, height: m.px, top }}
                 aria-label={label} aria-pressed={isSel}
                 onClick={click} onMouseEnter={() => enter(m.id)} onMouseLeave={leave} onFocus={() => enter(m.id)} onBlur={leave}>
@@ -78,7 +78,7 @@ export function Timeline({ items, refRange, refLabel, refSoFar, selected, hot, o
               {text(tm.ids).slice(0, 5).map((l, i) => <span key={i} className="wx-tipl">{l}</span>)}
               {tm.n > 5 && <span className="wx-tipl">+{tm.n - 5} more</span>}
               {tm.n > 1 && <span className="wx-tipl wx-tipn">Press to step through them</span>}
-              {byId.get(tm.id)?.now && <span className="wx-tipl wx-tipn">So far: where you are, not where it ends</span>}
+              {byId.get(tm.id)?.sofar && <span className="wx-tipl wx-tipn">So far: where you are, not where it ends</span>}
             </div>
           )}
         </div>

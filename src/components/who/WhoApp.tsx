@@ -51,8 +51,9 @@ export function WhoApp({ brief, initialPos, today }: { brief: WhoBrief; initialP
   useEffect(() => { const un = lockScroll(); return un; }, []);
 
   /* ----- roster, for the position. Late answers for an older position are ignored. ----- */
-  // With spoilers allowed the whole series is in scope, whatever the position says.
-  const rpos: Pos | null = tv && spoilers ? { s: null, e: null } : pos;
+  // With spoilers allowed the whole series is in scope, unless one exact episode is chosen.
+  // A chosen episode keeps its own cast, though: you still want to see who is in the episode you are watching.
+  const rpos: Pos | null = tv && spoilers && scopeKind(pos) !== "exact" ? { s: null, e: null } : pos;
   const pk = posKey(rpos);
   useEffect(() => {
     const id = ++reqId.current;

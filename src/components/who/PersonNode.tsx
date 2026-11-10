@@ -149,7 +149,7 @@ export function PersonNode({ node }: { node: PNode }) {
     if (w.kind !== "range") return [];
     const now = tv && c.key === brief.key;
     const dates = w.own ? fmtRange(w.range.start, w.range.end) : showRunLabel(w.range.start, w.range.end);
-    return [{ id: c.key, start: w.range.start, end: w.range.end, label: `${c.title} ${dates}${now && clip ? `, so far (up to ${posCode(clip)})` : ""}`, run: !w.own, seen: SEEN_STATUS.has(lib.get(c.key)?.status ?? ""), now, solo: now }];
+    return [{ id: c.key, start: w.range.start, end: w.range.end, label: `${c.title} ${dates}${now && clip ? `, so far (up to ${posCode(clip)})` : ""}`, run: !w.own, seen: SEEN_STATUS.has(lib.get(c.key)?.status ?? ""), now, sofar: now && !!clip, solo: now }];
   }), [rows, spansEff, lib, tv, brief.key, clip]);
 
   const pick = (id: string) => {
@@ -235,7 +235,7 @@ export function PersonNode({ node }: { node: PNode }) {
           {!data && !err && <div className="sk-b wx-axis-sk" />}
           {data && (
             <>
-              <Timeline items={axis} refRange={ref?.range ?? null} refLabel={tv && clip ? "Watching · so far" : "Watching"} refSoFar={tv && scopeKind(pos) === "season" && !!clip} selected={marked} hot={preview} onPick={pick} onPreview={setPreview} />
+              <Timeline items={axis} refRange={ref?.range ?? null} refLabel="Watching" refSoFar={tv && scopeKind(pos) === "season" && !!clip} selected={marked} hot={preview} onPick={pick} onPreview={setPreview} />
             </>
           )}
         </div>

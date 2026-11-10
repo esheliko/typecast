@@ -1019,7 +1019,8 @@ button.wx-epchip:hover { border-color: var(--gold-fill); }
 .wx-mark.run { background: repeating-linear-gradient(135deg, var(--muted) 0 3px, transparent 3px 6px); opacity: .8; }
 .wx-mark.run.seen { background: repeating-linear-gradient(135deg, var(--good) 0 3px, transparent 3px 6px); }
 /* the show being watched is gold, and only as long as what you know so far: its end fades instead of claiming the full run */
-.wx-mark.now { background: linear-gradient(90deg, var(--gold-fill) 0 50%, color-mix(in srgb, var(--gold-fill) 15%, transparent)); border-right: 2px dashed var(--gold-fill); border-radius: 5px 2px 2px 5px; opacity: 1; }
+.wx-mark.now { background: var(--gold-fill); opacity: 1; }
+.wx-mark.now.sofar { background: linear-gradient(90deg, var(--gold-fill) 0 50%, color-mix(in srgb, var(--gold-fill) 15%, transparent)); border-right: 2px dashed var(--gold-fill); border-radius: 5px 2px 2px 5px; opacity: 1; }
 .wx-mark.sel { opacity: 1; z-index: 3; box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--ink); }
 .wx-mark.hot, .wx-mark:hover, .wx-mark:focus-visible { opacity: 1; outline: 2px solid var(--gold-fill); outline-offset: 2px; }
 .wx-tip { position: absolute; z-index: 5; display: flex; flex-direction: column; gap: 1px; transform: translate(-50%, calc(-100% - 4px)); max-width: 260px; width: max-content; padding: 5px 9px; border-radius: 8px; background: var(--ink); color: var(--bg); font-size: 12px; line-height: 1.3; pointer-events: none; box-shadow: 0 4px 14px rgba(0, 0, 0, .3); }
