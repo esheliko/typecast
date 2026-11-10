@@ -17,7 +17,9 @@ type TNode = Extract<Node, { t: "title" }>;
 
 /** Another title as a node: your mark, where it sits against what you are watching, who from this cast is in it, and its top billed. */
 export function TitleNode({ node }: { node: TNode }) {
-  const { watched, faces, push } = useWho();
+  const { watched, faces, push, brief: cur } = useWho();
+  // The show being watched: its end date and later episodes would give things away, so only its start year is shown.
+  const self = node.key === cur.key;
   const lib = useLib();
   const [data, setData] = useState<TitleData | null>(null);
   const [err, setErr] = useState(false);
@@ -33,7 +35,7 @@ export function TitleNode({ node }: { node: TNode }) {
   const it: Item = { key: node.key, type, id, title: node.title, year: node.year, poster: node.poster };
   const m = lib.get(node.key);
   const range = data ? { start: data.brief.first, end: data.brief.last || data.brief.first } : null;
-  const placed = range?.start && watched.range ? readout({ label: node.title, range }, { label: watched.label, range: watched.range }) : "";
+  const placed = !self && range?.start && watched.range ? readout({ label: node.title, range }, { label: watched.label, range: watched.range }) : "";
 
   const fromCast = useMemo(() => (data ? data.cast.filter(([pid]) => faces.has(pid)).map(([pid, role, n]) => ({ f: faces.get(pid)!, role, n })) : []), [data, faces]);
   const lim = useLimit(fromCast.length, 5);
@@ -44,7 +46,7 @@ export function TitleNode({ node }: { node: TNode }) {
         <Photo path={node.poster} name={node.title} w="w185" className="wx-tposter" eager />
         <div className="wx-pmeta">
           <h2 className="wx-pname" tabIndex={-1} data-focus-target>{node.title}</h2>
-          <p className="small muted" style={{ margin: "2px 0 8px" }}>{[typeLabel(type), data ? (type === "movie" ? fmtRange(data.brief.first, data.brief.first) : range?.start ? fmtRange(range.start, range.end) : node.year) : node.year, data?.brief.genres.slice(0, 2).join(", ")].filter(Boolean).join(" · ")}</p>
+          <p className="small muted" style={{ margin: "2px 0 8px" }}>{[typeLabel(type), data ? (type === "movie" ? fmtRange(data.brief.first, data.brief.first) : self ? node.year : range?.start ? fmtRange(range.start, range.end) : node.year) : node.year, data?.brief.genres.slice(0, 2).join(", ")].filter(Boolean).join(" · ")}</p>
           <div className="wx-mark-row">
             <QuickMark it={it} variant="inline" />
             <span className="small muted">{m ? markLabel(m.status, m.priority) : "Not marked"}</span>
@@ -56,14 +58,14 @@ export function TitleNode({ node }: { node: TNode }) {
       {err && <Soft>Couldn&rsquo;t load this title just now. <button type="button" className="linkish" onClick={() => { setErr(false); whoApi.title(urlKey(node.key)).then(setData).catch(() => setErr(true)); }}>Try again</button></Soft>}
 
       <Section title="Against what you're watching">
-        {!data && !err ? <Sk w="90%" h={16} /> : placed ? <p className="wx-place">{placed}.</p> : <p className="small muted" style={{ margin: 0 }}>No dates to compare.</p>}
+        {self ? <p className="small muted" style={{ margin: 0 }}>This is what you are watching.</p> : !data && !err ? <Sk w="90%" h={16} /> : placed ? <p className="wx-place">{placed}.</p> : <p className="small muted" style={{ margin: 0 }}>No dates to compare.</p>}
       </Section>
 
       <Section title="From this cast" count={data ? fromCast.length : undefined} note="People in what you are watching (up to where you are) who are also in this title.">
         {!data && !err && <div className="wx-rowsk" aria-hidden="true"><Sk w="80%" h={44} /><Sk w="70%" h={44} style={{ marginTop: 8 }} /></div>}
         {data && !fromCast.length && <p className="small muted" style={{ margin: 0 }}>No one from the cast here is in this title.</p>}
         {fromCast.slice(0, lim.shown).map(({ f, role }) => (
-          <CastRow key={f.id} f={f} role={role} titleKey={node.key} type={type} release={data?.brief.first ?? ""}
+          <CastRow key={f.id} f={f} role={role} titleKey={node.key} type={type} release={data?.brief.first ?? ""} hideDates={self}
             onOpen={() => push({ t: "person", id: f.id, name: f.name, photo: f.photo, hl: node.key })} />
         ))}
         {data && <More total={fromCast.length} {...lim} />}
@@ -89,18 +91,18 @@ export function TitleNode({ node }: { node: TNode }) {
 }
 
 /** One person of the watched cast within another title: their part, their own dates there, and the gap to what you are watching. */
-function CastRow({ f, role, titleKey, type, release, onOpen }: { f: { id: number; name: string; photo: string | null }; role: string; titleKey: string; type: "movie" | "tv"; release: string; onOpen: () => void }) {
+function CastRow({ f, role, titleKey, type, release, hideDates, onOpen }: { f: { id: number; name: string; photo: string | null }; role: string; titleKey: string; type: "movie" | "tv"; release: string; hideDates?: boolean; onOpen: () => void }) {
   const { watched } = useWho();
-  const { spans } = useSpans(f.id, type === "tv" ? [titleKey] : [], null);
+  const { spans } = useSpans(f.id, type === "tv" && !hideDates ? [titleKey] : [], null);
   const s = spans[titleKey];
   const range = type === "movie" ? (release ? { start: release, end: release } : null) : s && s.kind === "own" ? { start: s.start, end: s.end } : null;
-  const loading = type === "tv" && s === undefined;
+  const loading = type === "tv" && !hideDates && s === undefined;
   return (
     <button type="button" className="wx-wrow" onClick={onOpen}>
       <Photo path={f.photo} name={f.name} className="wx-wimg" />
       <span className="wx-wmain"><b>{f.name}</b>
         <span className="small muted wx-wline">{role ? `as ${roleLabel(role) || role}` : " "}</span>
-        <span className="small wx-wline">{loading ? <Sk w={110} h={12} /> : range ? <><b>{fmtRange(range.start, range.end)}</b>{watched.range && <span className="wx-gap" style={{ marginLeft: 8 }}>{gapChip(gapBetween(range, watched.range))}</span>}</> : <span className="muted">{s?.kind === "run" ? "during the show's run" : "date unknown"}</span>}</span>
+        <span className="small wx-wline">{hideDates ? null : loading ? <Sk w={110} h={12} /> : range ? <><b>{fmtRange(range.start, range.end)}</b>{watched.range && <span className="wx-gap" style={{ marginLeft: 8 }}>{gapChip(gapBetween(range, watched.range))}</span>}</> : <span className="muted">{s?.kind === "run" ? "during the show's run" : "date unknown"}</span>}</span>
       </span>
       <span className="wx-go" aria-hidden="true">›</span>
     </button>
