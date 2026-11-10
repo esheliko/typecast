@@ -218,7 +218,7 @@ test.describe("signed in", () => {
     const main = page.getByRole("main", { name: /Watching now: Breaking Bad/ });
     await expect(main).toBeVisible({ timeout: 30_000 });
     // Starts where the seeded progress is (S2 E3); the regulars are listed.
-    await expect(main.getByLabel("Season")).toHaveValue("2");
+    await expect(main.locator("select[aria-label='Season']")).toHaveValue("2");
     await expect(main.getByRole("button", { name: /^Episode: E3/ })).toBeVisible();
     await expect(main.locator(".wx-tile", { hasText: "Bryan Cranston" }).first()).toBeVisible({ timeout: 30_000 });
     // The Next button sits in the same pill as the episode picker.
