@@ -67,3 +67,8 @@ test("pickOwner: best match wins, else the earliest push after green, never nobo
   assert.equal(pickOwner([c("n", "s2"), c("o", "s1")], [c("n", "s2"), c("o", "s1")])?.session, "s1"); // newest first: o is the earliest
   assert.equal(pickOwner([], []), null);
 });
+
+test("parseFailures also reads lines prefixed with a Playwright project name ([core] ›)", () => {
+  const txt = "  1 failed\n    [core] › tests/smoke/smoke.spec.ts:213:3 › signed in › Watching now: start, next episode, bar, end \n  1 flaky\n    [core] › tests/smoke/behaviour.spec.ts:187:3 › behaviour › Library: filter chips\n  32 passed (2.9m)";
+  assert.deepEqual(parseFailures([txt]), ["tests/smoke/smoke.spec.ts › signed in › Watching now: start, next episode, bar, end"]); // the flaky one passed on retry
+});

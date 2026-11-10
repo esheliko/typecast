@@ -29,7 +29,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 export function parseFailures(texts) {
   const out = new Set();
   for (const t of texts) {
-    for (const m of String(t).matchAll(/^\s+(tests\/[^\s:]+\.spec\.ts):(\d+):\d+ › (.+?)\s*$/gm)) out.add(`${m[1]} › ${m[3].replace(/[\s─]+$/, '')}`);
+    // Playwright lists failed tests first, then '<n> flaky' (passed on retry), '<n> skipped', '<n> passed': only the failed block counts.
+    const failedOnly = String(t).split(/^\s+\d+ (?:flaky|skipped|did not run|passed)\b/m)[0];
+    for (const m of failedOnly.matchAll(/^\s+(?:\[[^\]]+\] › )?(tests\/[^\s:]+\.spec\.ts):(\d+):\d+ › (.+?)\s*$/gm)) out.add(`${m[1]} › ${m[3].replace(/[\s─]+$/, '')}`);
   }
   return [...out];
 }
