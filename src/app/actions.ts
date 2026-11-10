@@ -59,19 +59,25 @@ async function writeStatus(item: Single, status: Status | null, priority?: Prior
 type Row = { type: MediaType; id: number; title: string; year: string; poster: string | null };
 const byType = (rows: Row[], t: MediaType) => rows.filter((r) => r.type === t).map((r) => r.id);
 
-/** Mark many titles at once (the rest of a franchise). Meant for titles the user has not marked yet. */
-export async function setStatusMany(items: Row[], status: Status) {
+/**
+ * Mark many titles at once (the rest of a franchise). Titles already in the library are left exactly as they are (the
+ * screen may be out of date, e.g. after a mark on another device); returns the rows this call really added, which is
+ * all its Undo may remove.
+ */
+export async function setStatusMany(items: Row[], status: Status): Promise<Row[]> {
   if (!STATUSES.includes(status)) throw new Error("Bad status");
   const rows = items.slice(0, 100);
-  if (!rows.length) return;
+  if (!rows.length) return [];
   const { sb, user } = await requireUser();
   const now = new Date().toISOString();
-  const { error } = await sb.from("library_items").upsert(
+  const { data, error } = await sb.from("library_items").upsert(
     rows.map((r) => ({ user_id: user.id, ...where(r.type, r.id), title: r.title, year: r.year, poster_path: r.poster, status, ...(status === "watched" ? { watched_at: now } : {}), updated_at: now })),
-    { onConflict: "user_id,tmdb_type,tmdb_id" },
-  );
+    { onConflict: "user_id,tmdb_type,tmdb_id", ignoreDuplicates: true },
+  ).select("tmdb_type, tmdb_id");
   if (error) throw dbError(error);
   done();
+  const added = new Set((data ?? []).map((d) => `${d.tmdb_type}:${d.tmdb_id}`));
+  return rows.filter((r) => added.has(`${r.type}:${r.id}`));
 }
 
 /** Undo for setStatusMany: removes only rows still holding that status with no rating, so nothing the user added since is lost. */

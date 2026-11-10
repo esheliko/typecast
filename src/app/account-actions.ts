@@ -29,6 +29,9 @@ export async function changePassword(current: string, next: string, again: strin
     if (bad || data.user?.id !== user.id) return { ok: false, error: "The current password is wrong." };
     const { error } = await sb.auth.updateUser({ password: next });
     if (error) { console.error("[error] changePassword:", error.message); return { ok: false, error: "Could not change the password. Try again in a moment." }; }
+    // A changed password must end every other login (a stolen or forgotten device); this one stays signed in.
+    const { error: out } = await sb.auth.signOut({ scope: "others" });
+    if (out) console.error("[error] changePassword sign-out others:", out.message);
     return { ok: true };
   } catch (e) { return { ok: false, error: msg(e) }; }
 }
@@ -68,8 +71,21 @@ export async function restoreChunk(raw: unknown, apply: boolean): Promise<Restor
       }]);
       // ignoreDuplicates: if the title appeared meanwhile, keep what is there.
       if (adds.length) { const { error } = await sb.from("library_items").upsert(adds, { onConflict: "user_id,tmdb_type,tmdb_id", ignoreDuplicates: true }); if (error) throw dbError(error, "restoreChunk"); }
-      const fills = items.flatMap((i, n) => { const p = plans[n]; return p.kind !== "fill" ? [] : [{ ...saved.get(`${i.type}:${i.id}`)!, ...p.fills, updated_at: now }]; });
-      if (fills.length) { const { error } = await sb.from("library_items").upsert(fills, { onConflict: "user_id,tmdb_type,tmdb_id" }); if (error) throw dbError(error, "restoreChunk"); }
+      // Fills touch only the empty field and only while it is still empty in the database, so an edit made while the
+      // restore runs is never overwritten (the old code wrote back the whole row it had read earlier).
+      const fills = items.flatMap((i, n) => { const p = plans[n]; return p.kind !== "fill" ? [] : [{ type: i.type, id: i.id, f: p.fills }]; });
+      const updates = fills.flatMap(({ type, id, f }) => {
+        const q = (values: Record<string, unknown>, empty: string) =>
+          sb.from("library_items").update({ ...values, updated_at: now }).eq("user_id", user.id).eq("tmdb_type", type).eq("tmdb_id", id).or(empty);
+        const list: PromiseLike<{ error: { message: string } | null }>[] = [];
+        if (f.rating !== undefined) list.push(q({ rating: f.rating }, "rating.is.null,rating.eq.0"));
+        if (f.note !== undefined) list.push(q({ note: f.note }, "note.is.null,note.eq."));
+        if (f.progress_season !== undefined) list.push(q({ progress_season: f.progress_season, progress_episode: f.progress_episode }, "progress_season.is.null,progress_season.eq.0"));
+        return list;
+      });
+      for (let k = 0; k < updates.length; k += 25) {
+        for (const r of await Promise.all(updates.slice(k, k + 25))) if (r.error) throw dbError(r.error, "restoreChunk");
+      }
       if (adds.length || fills.length) revalidatePath("/", "layout");
     }
     return { ok: true, ...tally(plans) };

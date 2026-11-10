@@ -202,10 +202,16 @@ export function LibProvider({ packed, children }: { packed: PackedMarks; childre
     const row = (i: Item) => ({ type: i.type, id: i.id, title: i.title, year: i.year, poster: i.poster });
     const setMany = (list: Item[], m: Mark | null) => setOver((o) => ({ ...o, ...Object.fromEntries(list.map((i) => [i.key, m])) }));
     setMany(todo, { status, priority: "someday", rich: false });
-    setStatusMany(todo.map(row), status).then(() => {
+    setStatusMany(todo.map(row), status).then((added) => {
+      // The server keeps titles that were already saved; only the rows it really added are shown as marked and can be undone.
+      const addedKeys = new Set(added.map((a) => `${a.type}:${a.id}`));
+      const kept = todo.filter((i) => !addedKeys.has(`${i.type}:${i.id}`));
+      const mine = todo.filter((i) => addedKeys.has(`${i.type}:${i.id}`));
+      if (kept.length) setMany(kept, null);
+      if (!mine.length) { show({ msg: "Those titles were already in your library.", err: true }); return; }
       show({
-        msg: `${todo.length} ${todo.length === 1 ? "title" : "titles"}: ${STATUS_LABEL[status]}`,
-        undo: () => { setToast(null); setMany(todo, null); undoStatusMany(todo.map(row), status).catch(() => { setMany(todo, { status, priority: "someday", rich: false }); show({ msg: "Could not undo. Check your connection.", err: true }); }); },
+        msg: `${mine.length} ${mine.length === 1 ? "title" : "titles"}: ${STATUS_LABEL[status]}`,
+        undo: () => { setToast(null); setMany(mine, null); undoStatusMany(mine.map(row), status).catch(() => { setMany(mine, { status, priority: "someday", rich: false }); show({ msg: "Could not undo. Check your connection.", err: true }); }); },
       });
     }).catch(() => { setMany(todo, null); show({ msg: "Could not save those titles. Check your connection.", err: true }); });
   }, [current, show]);

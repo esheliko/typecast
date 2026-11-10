@@ -1,6 +1,6 @@
 "use server";
 import { revalidatePath } from "next/cache";
-import { requireAdmin } from "@/lib/admin";
+import { isAdminEmail, requireAdmin } from "@/lib/admin";
 import { dbError, userMessage } from "@/lib/errors";
 
 export type ManagedUser = { id: string; email: string; created: string; lastSignIn: string | null; isAdmin: boolean };
@@ -37,10 +37,15 @@ export async function addUser(email: string, password: string): Promise<Res> {
 /** Change a user's email and/or password. Blank fields are left alone. */
 export async function editUser(id: string, email: string, password: string): Promise<Res> {
   try {
-    const { admin } = await requireAdmin();
+    const { admin, user } = await requireAdmin();
     const attrs: { email?: string; password?: string; email_confirm?: boolean } = {};
     email = email.trim().toLowerCase();
-    if (email) { if (!emailOk(email)) return { ok: false, error: "Enter a valid email." }; attrs.email = email; attrs.email_confirm = true; }
+    if (email) {
+      if (!emailOk(email)) return { ok: false, error: "Enter a valid email." };
+      // The admin is the account whose email is ADMIN_EMAIL: moving it to another address would lock the admin out.
+      if (id === user.id && !isAdminEmail(email)) return { ok: false, error: "You can't change your own email: this account is the admin by its email address." };
+      attrs.email = email; attrs.email_confirm = true;
+    }
     if (password) { if (password.length < 8) return { ok: false, error: "Password must be at least 8 characters." }; attrs.password = password; }
     if (!attrs.email && !attrs.password) return { ok: false, error: "Nothing to change." };
     const { error } = await admin.auth.admin.updateUserById(id, attrs);
