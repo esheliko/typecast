@@ -16,15 +16,12 @@ export function PositionControl({ brief, pos, onChange }: { brief: WhoBrief; pos
       <span className="wx-pos-l" id={`${id}-l`}>Where are you?</span>
       <label className="wx-sel">
         <span className="sr-only">Season</span>
-        <select value={unsure ? "" : String(pos.s)} onChange={(ev) => ev.target.value !== "" && onChange({ s: Number(ev.target.value), e: null })} aria-label="Season">
-          {unsure && <option value="" disabled>Season…</option>}
+        <select value={unsure ? "" : String(pos.s)} onChange={(ev) => onChange({ s: Number(ev.target.value) || null, e: null })} aria-label="Season">
+          <option value="">Whole series</option>
           {seasons.map((s) => <option key={s.n} value={s.n}>{s.n === 0 ? "Specials" : `Season ${s.n}`}</option>)}
         </select>
       </label>
       <EpisodePicker brief={brief} pos={pos} onChange={onChange} />
-      <button type="button" className="chip wx-unsure" aria-pressed={unsure} onClick={() => onChange(unsure ? { s: seasons.find((x) => x.n > 0)?.n ?? 1, e: null } : { s: null, e: null })}>
-        Not sure of the season
-      </button>
     </div>
   );
 }
@@ -70,7 +67,7 @@ function EpisodePicker({ brief, pos, onChange }: { brief: WhoBrief; pos: Pos; on
   };
 
   const cur = pos.e != null ? eps?.find((x) => x.e === pos.e) : null;
-  const label = s == null ? "Pick a season first" : pos.e == null ? "Not sure" : `E${pos.e}${cur?.name ? ` · ${cur.name}` : ""}`;
+  const label = s == null ? "Pick a season first" : pos.e == null ? "Whole season" : `E${pos.e}${cur?.name ? ` · ${cur.name}` : ""}`;
   const pick = (e: number | null) => { onChange({ s, e }); setOpen(false); btn.current?.focus(); };
   return (
     <div className="wx-ep" ref={wrap}>
@@ -80,7 +77,7 @@ function EpisodePicker({ brief, pos, onChange }: { brief: WhoBrief; pos: Pos; on
       {open && (
         <div className="wx-eplist" role="listbox" aria-label="Episodes" ref={list} onKeyDown={key}>
           <button type="button" role="option" aria-selected={pos.e == null} className="wx-epo" onClick={() => pick(null)}>
-            <span className="wx-epn">?</span><span className="wx-epm"><b>Not sure</b><span className="small muted">Everyone in the whole season counts</span></span>
+            <span className="wx-epn">?</span><span className="wx-epm"><b>Whole season</b><span className="small muted">Everyone in the whole season counts</span></span>
           </button>
           {!eps && !err && Array.from({ length: 6 }, (_, i) => <div key={i} className="wx-epo wx-epsk" aria-hidden="true"><span className="sk-b wx-epimg" /><span className="sk-b" style={{ flex: 1, height: 14 }} /></div>)}
           {err && <p className="small muted" style={{ padding: 12 }}>Couldn&rsquo;t load the episodes. Close this and try again.</p>}
