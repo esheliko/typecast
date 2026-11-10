@@ -209,7 +209,7 @@ function Tile({ f, known, eager, onOpen, onPop }: { f: WhoFace; known?: KnownTit
         <b className="wx-nm">{f.name}</b>
         <span className="small muted wx-rl"><span className="wx-rlt">{role || " "}</span>{n > 0 && <span className="wx-rln" title={`${n} episode${n === 1 ? "" : "s"}`}>&nbsp;· x{n}</span>}</span>
         <span className="small muted wx-meta" title={seen || (best ? best[1] : undefined)}>
-          {seen ? <span className="wx-seen">{seen}</span> : best ? best[1] : null}
+          {pick ? <span className="wx-seen">{pick.character ? <><span className="wx-sc">{pick.character}</span><span className="wx-st">in {pick.title}</span></> : <span className="wx-st">Seen in {pick.title}</span>}</span> : best ? best[1] : null}
         </span>
       </button>
     </li>

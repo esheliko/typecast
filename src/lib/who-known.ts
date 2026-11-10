@@ -3,8 +3,8 @@
  * Pure (unit tested). The browser calls it with the user's own marks; the server only supplies the facts.
  */
 
-/** [key, title, year, character, episodes, votes] as sent by /api/who/known (episodes is 0 for a film). */
-export type KnownTitle = [string, string, string, string, number, number];
+/** [key, title, year, character, episodes, votes, billing] as sent by /api/who/known (episodes is 0 for a film; billing is the cast position, -1 when unknown). */
+export type KnownTitle = [string, string, string, string, number, number, number];
 /** What the user's library says about a title: its status, and whether they rated or noted it. */
 export interface KnownMark { status: string; rich: boolean }
 
@@ -21,13 +21,15 @@ export function characterName(role: string): string {
 }
 
 /** How much a person's part in a title is likely to have stuck: 0..1. */
-export function partWeight(role: string, eps: number): number {
+export function partWeight(role: string, eps: number, order = -1): number {
   const name = characterName(role);
-  let w = !name ? 0.35 : BIT_PART.test(name) ? 0.45 : 0.85;
+  let w = !name ? 0.35 : BIT_PART.test(name) ? 0.12 : 0.85;
   if (eps > 0) {
     // A series: many episodes means a face you saw again and again; one or two means a cameo.
     w *= eps >= 20 ? 1 : eps >= 8 ? 0.9 : eps >= 4 ? 0.7 : eps >= 2 ? 0.5 : 0.35;
   } else if (!name) w *= 0.8;
+  // Billing: a face from the top of the cast is remembered, one from the tail of a long cast is not.
+  if (order >= 0) w *= order < 3 ? 1 : order < 8 ? 0.8 : order < 15 ? 0.5 : 0.3;
   return w;
 }
 
@@ -43,13 +45,13 @@ export interface Pick { key: string; title: string; year: string; character: str
  */
 export function pickSeenIn(top: KnownTitle[], exclude: string, mark: (key: string) => KnownMark | undefined): Pick | null {
   let best: Pick | null = null;
-  for (const [key, title, year, role, eps, votes] of top) {
+  for (const [key, title, year, role, eps, votes, order] of top) {
     if (key === exclude) continue;
     const m = mark(key);
     const sw = m ? SEEN_WEIGHT[m.status] : undefined;
     if (!sw) continue;
     // Partly watched series: only the episodes you saw count, and we do not know which, so trust the part size less.
-    const score = sw * (0.25 + partWeight(role, eps)) * (0.3 + fame(votes)) * (m!.rich ? 1.2 : 1);
+    const score = sw * (0.1 + partWeight(role, eps, order)) * (0.3 + fame(votes)) * (m!.rich ? 1.2 : 1);
     if (!best || score > best.score) best = { key, title, year, character: characterName(role), score };
   }
   return best;

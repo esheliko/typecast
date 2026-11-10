@@ -64,6 +64,8 @@ export interface PCredit {
   extra: boolean;
   /** TMDB popularity-ish votes, for "best known". */
   votes: number;
+  /** Billing position in the cast (0 = top billed), lowest across parts; absent when TMDB or an older cache lacks it. */
+  order?: number;
 }
 
 export interface PersonData {

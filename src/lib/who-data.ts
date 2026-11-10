@@ -169,12 +169,13 @@ function personFrom(d: any): PersonData {
     if (!o) {
       byKey.set(key, {
         key, type: r.media_type, id: r.id, title: r.title ?? r.name ?? "", year: yr(r.release_date ?? r.first_air_date), poster: r.poster_path ?? null,
-        role, date, eps: r.episode_count ?? 0, cids: r.credit_id ? [r.credit_id] : [], extra, allExtra: extra, votes: r.vote_count ?? 0,
+        role, date, eps: r.episode_count ?? 0, cids: r.credit_id ? [r.credit_id] : [], extra, allExtra: extra, votes: r.vote_count ?? 0, ...(typeof r.order === "number" ? { order: r.order } : {}),
       });
       continue;
     }
     if (role && !o.role.includes(role) && o.role.length < 80) o.role = o.role ? `${o.role} / ${role}` : role;
     if (date && (!o.date || date < o.date)) o.date = date;
+    if (typeof r.order === "number" && (o.order === undefined || r.order < o.order)) o.order = r.order;
     o.eps += r.episode_count ?? 0;
     if (r.credit_id && !o.cids.includes(r.credit_id)) o.cids.push(r.credit_id);
     o.allExtra = o.allExtra && extra; o.extra = o.allExtra;
@@ -260,7 +261,7 @@ export interface KnownFor { /** [key, title, year, character, episodes, votes] b
 export async function loadKnown(ids: number[]): Promise<Record<number, KnownFor>> {
   const rows = await pool(ids.slice(0, 30), 6, async (id) => {
     const p = await loadWhoPerson(id);
-    const top = p.credits.filter((c) => !c.extra).sort((a, b) => b.votes - a.votes).slice(0, 40).map((c): KnownTitle => [c.key, c.title, c.year, c.role, c.eps ?? 0, c.votes]);
+    const top = p.credits.filter((c) => !c.extra).sort((a, b) => b.votes - a.votes).slice(0, 40).map((c): KnownTitle => [c.key, c.title, c.year, c.role, c.eps ?? 0, c.votes, c.order ?? -1]);
     return { id, top };
   });
   return Object.fromEntries(rows.flatMap((r) => (r ? [[r.id, { top: r.top }]] : [])));
