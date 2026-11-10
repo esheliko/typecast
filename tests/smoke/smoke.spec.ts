@@ -25,6 +25,13 @@ async function visit(page: Page, path: string, bad: string[]) {
   await healthy(page, bad);
 }
 
+/** Like `visit` but without waiting for the network to go quiet: for loops over many URLs that each assert visible content right after. */
+async function visitQuick(page: Page, path: string, bad: string[]) {
+  const r = await page.goto(path, { waitUntil: "domcontentloaded" });
+  expect(r?.status(), `${path} status`).toBeLessThan(400);
+  await healthy(page, bad);
+}
+
 test.describe("signed out", () => {
   test("login page renders", async ({ page }) => {
     const bad = watch(page);
@@ -111,8 +118,9 @@ test.describe("signed in", () => {
     }
     // The server page reads these params and the client view applies them: this is the path that crashed in production.
     for (const q of ["f=watched", "f=watching", "f=watchlist", "f=partial", "s=title", "s=year", "s=yearOld", "s=rating", "s=watched", "f=watched&s=rating", "s=bogus", "k=movie", "k=tv&f=watching", "k=bogus"]) {
-      await visit(page, `/library?${q}`, bad);
+      await visitQuick(page, `/library?${q}`, bad);
       await expect(page.getByText("The Matrix").or(page.getByText("Breaking Bad")).first()).toBeVisible();
+      await healthy(page, bad); // after the content is there, so a late render error still counts
     }
     // Films / Series switch: Series hides the films and keeps the shows.
     await visit(page, "/library", bad);
@@ -133,8 +141,9 @@ test.describe("signed in", () => {
     await expect(page.getByText("Time watched")).toBeVisible();
     await healthy(page, bad);
     for (const q of ["y=2026", "y=2025", "y=1900", "y=abc"]) {
-      await visit(page, `/library/stats?${q}`, bad);
-      await expect(page.getByText("Longest streak")).toBeVisible();
+      await visitQuick(page, `/library/stats?${q}`, bad);
+      await expect(page.getByText("Longest streak")).toBeVisible({ timeout: 20_000 });
+      await healthy(page, bad);
     }
     await visit(page, "/library/stats", bad);
     await page.getByRole("navigation", { name: "Year" }).getByRole("link", { name: "All time" }).click();

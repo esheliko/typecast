@@ -19,6 +19,7 @@ Vercel Hobby limits deployments, so **a push no longer deploys by itself** (`ver
 
 ## CI gate
 `.github/workflows/ci.yml` runs lint (incl. the client/server import check), typecheck, unit tests, build and the smoke test as one check named `verify`.
+The smoke test is two Playwright projects against one server, run concurrently: `core` (behaviour + smoke; they write to the one shared test user, so they stay on a single worker) and `visual` (read-only, started with `SMOKE_SKIP_SETUP=1` so it never seeds or cleans up under `core`). Locally `npm run smoke` runs both, one after the other. Anything new that WRITES to the test user belongs in `core`; the Playwright browser cache is keyed on the Playwright version, not the lockfile.
 The Deploy Manager reads that check on the head commit before deploying: **pass** (or no check at all) deploys, **running** holds (up to 25 min, then
 deploys anyway so a stuck CI cannot freeze releases), **failed** blocks, comments on issue #1 once and keeps the last good version live. A new commit re-runs it.
 `[deploy-now]` skips the gate (real hotfixes only).

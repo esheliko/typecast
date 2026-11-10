@@ -41,19 +41,32 @@ jobs:
           key: next-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-${{ hashFiles('src/**', 'next.config.ts') }}
           restore-keys: next-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-
       - run: npm run build
+      - name: Playwright version (the browser cache key; the lockfile changes far more often than the browser build does)
+        id: pwv
+        run: echo "v=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
       - name: Cache Playwright browser
         id: pw
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
-          key: pw-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          key: pw-${{ runner.os }}-${{ steps.pwv.outputs.v }}
       - name: Install browser
         run: |
           if [ "${{ steps.pw.outputs.cache-hit }}" = "true" ]; then npx playwright install-deps chromium; else npx playwright install --with-deps chromium; fi
       - name: Smoke test (signed-out pages always; signed-in pages when SMOKE_* secrets are set)
         run: |
           if [ -z "$SMOKE_EMAIL" ] || [ -z "$SMOKE_PASSWORD" ]; then echo "::warning::SMOKE_EMAIL/SMOKE_PASSWORD secrets missing: only signed-out pages are smoke-tested. See DEPLOYING.md > Smoke test."; fi
-          npm run smoke -- --trace off
+          # One server, two concurrent runs: `core` (behaviour + smoke) writes to the shared test user so it stays on one worker;
+          # `visual` only reads pages, so it runs beside it. SMOKE_SKIP_SETUP keeps visual from seeding or cleaning up under core.
+          npm run start -- -p 3100 > server.log 2>&1 &
+          for i in $(seq 1 60); do curl -sf -o /dev/null http://localhost:3100/login && break; sleep 1; done
+          export SMOKE_BASE_URL=http://localhost:3100
+          npx playwright test --project=core --trace off & core=$!
+          SMOKE_SKIP_SETUP=1 npx playwright test --project=visual --trace off & visual=$!
+          rc=0
+          wait $core || rc=1
+          wait $visual || rc=1
+          exit $rc
       - name: Upload page screenshots (for a quick human look; 7 days)
         if: always()
         uses: actions/upload-artifact@v4

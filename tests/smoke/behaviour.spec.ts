@@ -186,7 +186,7 @@ test.describe("behaviour (signed in)", () => {
 
   test("Library: filter chips, text filter and sort narrow and order the list", async ({ page }) => {
     await page.goto("/library");
-    await expect(inRow(page, "The Matrix")).toBeVisible({ timeout: 20_000 });
+    await expect(inRow(page, "The Matrix").first()).toBeVisible({ timeout: 20_000 }); // .first(): the row can render twice for a moment on first load
     const chips = page.getByRole("group", { name: "Filter" });
 
     await chips.getByRole("button", { name: /^Watched\b/ }).click();

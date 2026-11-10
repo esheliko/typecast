@@ -1,6 +1,7 @@
 import { configured, deleteRows, smokeClient, SCRATCH, SEED } from "./seed";
 
 export default async function setup() {
+  if (process.env.SMOKE_SKIP_SETUP) return; // the concurrent visual run only reads; the core run owns seeding and cleanup
   if (!configured()) { console.warn("Smoke: SMOKE_EMAIL/SMOKE_PASSWORD or Supabase env missing, authenticated pages are skipped."); return; }
   const { sb, userId } = await smokeClient();
   await deleteRows(sb, userId, SCRATCH); // leftovers of a crashed run
