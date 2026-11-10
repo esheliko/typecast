@@ -1,7 +1,7 @@
 import { unstable_cache } from "next/cache";
 import { buildAllRoster, buildRoster, asGender, scopeKind } from "./who-scope";
 import { commonResults, sharedTitles, type CastEntry, type FoundTitle, type Shared } from "./who-common";
-import { spanFromEpisodes, type CreditEp } from "./who-spans";
+import { spanFromEpisodes, type CreditEp, type CreditSeason } from "./who-spans";
 import { tmdb, TmdbError } from "./tmdb";
 import type { MediaType } from "./types";
 import type { AggPerson, PCredit, PersonData, Pos, SeasonData, SeasonPerson, Span, WhoFace, WhoRoster } from "./who-types";
@@ -215,14 +215,19 @@ function showRun(id: number) {
   return p;
 }
 
-async function creditEpisodes(cids: string[]): Promise<CreditEp[]> {
+async function creditEpisodes(cids: string[]): Promise<{ eps: CreditEp[]; seasons: CreditSeason[] }> {
   const ds = await pool(cids.slice(0, 12), 4, (id) => tmdb(`/credit/${id}`, {}, 24 * HOUR));
   const all = new Map<string, CreditEp>();
-  for (const d of ds) for (const x of (d?.media?.episodes ?? []) as any[]) {
-    if (x.season_number == null || x.episode_number == null) continue;
-    all.set(`${x.season_number}:${x.episode_number}`, { s: x.season_number, e: x.episode_number, air: x.air_date ?? "" });
+  const seasons = new Map<number, CreditSeason>();
+  for (const d of ds) {
+    for (const x of (d?.media?.episodes ?? []) as any[]) {
+      if (x.season_number == null || x.episode_number == null) continue;
+      all.set(`${x.season_number}:${x.episode_number}`, { s: x.season_number, e: x.episode_number, air: x.air_date ?? "" });
+    }
+    // A regular's credit often lists seasons instead of episodes.
+    for (const x of (d?.media?.seasons ?? []) as any[]) if (x.season_number != null && x.air_date) seasons.set(x.season_number, { s: x.season_number, air: x.air_date });
   }
-  return [...all.values()];
+  return { eps: [...all.values()], seasons: [...seasons.values()] };
 }
 
 /**
@@ -238,12 +243,12 @@ export async function loadSpans(personId: number, keys: string[], scope?: { key:
     const isScope = scope?.key === key;
     const cids = [...new Set([...(c?.cids ?? []), ...(isScope ? scope!.cids : [])])];
     if (!c && !isScope) return null;
-    const eps = await creditEpisodes(cids);
+    const { eps, seasons } = await creditEpisodes(cids);
     const expected = c?.eps ?? 0;
     const tvId = Number(key.slice(3));
-    // The show's own run is only needed when the person's episode list is missing or short.
-    const needRun = !isScope && (eps.filter((x) => x.air).length === 0 || (expected > 0 && eps.filter((x) => x.air).length < expected));
-    return spanFromEpisodes(key, eps, expected, needRun ? await showRun(tvId) : null, isScope ? scope!.pos : null);
+    // The show's own run is only needed when neither the person's episode list nor their seasons give dates.
+    const needRun = !isScope && !seasons.length && (eps.filter((x) => x.air).length === 0 || (expected > 0 && eps.filter((x) => x.air).length < expected));
+    return spanFromEpisodes(key, eps, expected, needRun ? await showRun(tvId) : null, isScope ? scope!.pos : null, seasons);
   });
   return Object.fromEntries(wanted.map((k, i) => [k, res[i]]));
 }
@@ -318,7 +323,7 @@ export async function loadCommon(q: string, rosterIds: ReadonlySet<number>): Pro
   const found = await pool(hits, 3, async (r) => {
     const type = r.media_type as MediaType;
     const d = await tmdb(type === "tv" ? `/tv/${r.id}/aggregate_credits` : `/movie/${r.id}/credits`, {}, 24 * HOUR);
-    return { key: `${type}:${r.id}`, type, title: r.title ?? r.name ?? "", year: yr(r.release_date ?? r.first_air_date), poster: (r.poster_path ?? null) as string | null, cast: castOf(type, d).entries };
+    return { key: `${type}:${r.id}`, type, title: r.title ?? r.name ?? "", year: yr(r.release_date ?? r.first_air_date), poster: (r.poster_path ?? null) as string | null, pop: Number(r.popularity) || 0, cast: castOf(type, d).entries };
   });
   return commonResults(found.filter((x): x is NonNullable<typeof x> => !!x), rosterIds);
 }

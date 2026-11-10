@@ -70,16 +70,16 @@ export function gapBetween(r: Range, ref: Range): Gap {
 }
 
 /** The chip on a row: "11 years before", "2 years after", "same time". */
-export function gapChip(g: Gap): string {
-  return g.dir === "same" ? "same time" : `${gapLabel(g.months)} ${g.dir}`;
+export function gapChip(g: Gap, approx = false): string {
+  return g.dir === "same" ? (approx ? "about the same time" : "same time") : `${approx ? "about " : ""}${gapLabel(g.months)} ${g.dir}`;
 }
 
 /** The readout sentence: "The Big Bang Theory (Nov-Dec 2008) was 11 years before The Rookie S2 E8 (Nov 2019)". */
-export function readout(a: { label: string; range: Range }, ref: { label: string; range: Range }): string {
+export function readout(a: { label: string; range: Range; approx?: boolean }, ref: { label: string; range: Range }): string {
   const g = gapBetween(a.range, ref.range);
   const A = `${a.label} (${fmtRange(a.range.start, a.range.end)})`, B = `${ref.label} (${fmtRange(ref.range.start, ref.range.end)})`;
   if (g.dir === "same") return `${A} overlapped ${B}`;
-  return `${A} was ${gapLabel(g.months)} ${g.dir} ${B}`;
+  return `${A} was ${a.approx ? "about " : ""}${gapLabel(g.months)} ${g.dir} ${B}`;
 }
 
 /**

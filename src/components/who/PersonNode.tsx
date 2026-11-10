@@ -4,13 +4,15 @@ import { useLib } from "../cast/LibState";
 import { KindSeg } from "../KindSeg";
 import { More, Photo, Section, SEEN_STATUS, Sk, Soft, useLimit, useSpans } from "./bits";
 import { Timeline, type AxisItem } from "./Timeline";
+import { defaultChoice, readoutChoice } from "@/lib/who-readout";
 import { nodeId, useWho, type Node } from "./WhoContext";
 import { img } from "@/lib/img";
 import { roleLabel } from "@/lib/roster";
 import { ofKind, type Kind } from "@/lib/kind";
 import { ageAt, fmtMonth, fmtRange, gapBetween, gapChip, lifeLine, readout } from "@/lib/who-dates";
+import { pairLabels } from "@/lib/who-common";
 import { whoApi } from "@/lib/who-client";
-import { runLabel } from "@/lib/who-spans";
+import { showRunLabel } from "@/lib/who-spans";
 import { posLabel } from "@/lib/who-scope";
 import type { PCredit, PersonData, Range, Span } from "@/lib/who-types";
 import type { SharedBrief } from "@/lib/who-data";
@@ -50,13 +52,21 @@ export function PersonNode({ node }: { node: PNode }) {
   const [onlySeen, setOnlySeen] = useState(false);
   const [extras, setExtras] = useState(false);
   const [override, setOverride] = useState<{ id: string; label: string; range: Range } | null>(null);
-  const [focus, setFocus] = useState<string | null>(node.hl ?? null);
-  const [hot, setHot] = useState<string | null>(node.hl ?? null);
+  // The readout compares the reference only with a row somebody chose on purpose: a click (selected), or a hover/focus (preview).
+  const [selected, setSelected] = useState<string | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
   const rowRefs = useRef(new Map<string, HTMLElement>());
-  useEffect(() => { setOverride(null); setFocus(node.hl ?? null); setHot(node.hl ?? null); setKind("all"); setOnlySeen(false); setExtras(false); }, [node.id, node.hl]);
+  useEffect(() => { setOverride(null); setSelected(null); setPreview(null); setKind("all"); setOnlySeen(false); setExtras(false); }, [node.id, node.hl]);
 
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const credits = useMemo(() => (data?.credits ?? []).filter((c) => c.key !== brief.key), [data, brief.key]);
+  // "You know them from": what the user has seen of theirs, then what is on their list.
+  const known = useMemo(() => {
+    const st = (c: PCredit) => lib.get(c.key)?.status;
+    const seen = credits.filter((c) => !c.extra && SEEN_STATUS.has(st(c) ?? ""));
+    const listed = credits.filter((c) => !c.extra && st(c) === "watchlist");
+    return [...seen, ...listed];
+  }, [credits, lib]);
   const filtered = useMemo(() => {
     let l = credits;
     if (!extras) l = l.filter((c) => !c.extra);
@@ -66,7 +76,7 @@ export function PersonNode({ node }: { node: PNode }) {
 
   // Dates to load, on-screen rows first. The show being watched is asked for with the position so its dates stop at where you are.
   const seenFirst = useMemo(() => credits.filter((c) => c.type === "tv" && ["watched", "watching", "partial", "watchlist"].includes(lib.get(c.key)?.status ?? "")).map((c) => c.key), [credits, lib]);
-  const [limitHint, setLimitHint] = useState(5);
+  const [limitHint, setLimitHint] = useState(8);
   const orderedKeys = useMemo(() => {
     const head = filtered.slice(0, limitHint).filter((c) => c.type === "tv").map((c) => c.key);
     const rest = [...filtered.filter((c) => c.type === "tv").map((c) => c.key), ...seenFirst];
@@ -93,27 +103,34 @@ export function PersonNode({ node }: { node: PNode }) {
     return [...base].sort((a, b) => (b.date || b.year).localeCompare(a.date || a.year));
   }, [data, filtered, tv, face, brief, spansEff, ownStart, onlySeen, kind, lib]);
 
-  const lim = useLimit(rows.length, 5);
+  const lim = useLimit(rows.length, 8);
   useEffect(() => { setLimitHint(lim.shown); }, [lim.shown]);
 
   const ref = override ?? (watched.range ? { id: "watched", label: watched.label, range: watched.range } : null);
   const whenRow = (c: PCredit) => whenOf(c, spansEff);
-  const rangeById = (id: string): { label: string; range: Range } | null => {
-    if (id === "watched") return watched.range ? { label: watched.label, range: watched.range } : null;
+  const rangeById = (id: string): { label: string; range: Range; approx: boolean } | null => {
+    if (id === "watched") return watched.range ? { label: watched.label, range: watched.range, approx: false } : null;
     const c = rows.find((r) => r.key === id);
     if (!c) return null;
     const w = whenRow(c);
-    return w.kind === "range" ? { label: `${c.title}${c.key === brief.key ? ` (up to ${posLabel(pos)})` : ""}`, range: w.range } : null;
+    return w.kind === "range" ? { label: `${c.title}${c.key === brief.key ? ` (up to ${posLabel(pos)})` : ""}`, range: w.range, approx: !w.own } : null;
   };
 
-  // The default comparison: the row asked about, else the newest row with dates, set against the reference.
-  const focusId = focus ?? rows.find((r) => r.key !== ref?.id && whenRow(r).kind === "range" && (whenRow(r) as { own: boolean }).own)?.key ?? null;
+  // Default choice on open: the title picked from "titles in common", else the top "You know them from" title, else nothing.
+  const usable = (id: string) => {
+    if (ref && id === ref.id) return false;
+    const c = rows.find((r) => r.key === id);
+    return !!c && whenRow(c).kind !== "none";
+  };
+  const fallback = defaultChoice({ highlighted: node.hl, known: known.map((c) => c.key), usable });
+  const chosen = readoutChoice({ preview, selected, fallback, usable });
   const readoutLine = (() => {
-    if (!ref || !focusId || focusId === ref.id) return "";
-    const f = rangeById(focusId);
-    if (!f) return "";
-    return readout(f, { label: ref.label, range: ref.range });
+    if (!ref || !chosen) return "";
+    const f = rangeById(chosen);
+    return f ? readout(f, { label: ref.label, range: ref.range }) : "";
   })();
+  const hot = chosen;
+  const marked = selected && usable(selected) ? selected : fallback;
 
   // Opened from "titles in common": bring that row into view once its place is known.
   useEffect(() => {
@@ -128,28 +145,25 @@ export function PersonNode({ node }: { node: PNode }) {
   const axis: AxisItem[] = useMemo(() => rows.flatMap((c): AxisItem[] => {
     const w = whenOf(c, spansEff);
     if (w.kind !== "range") return [];
-    return [{ id: c.key, start: w.range.start, end: w.range.end, label: `${c.title} ${fmtRange(w.range.start, w.range.end)}${w.own ? "" : " (show's run)"}`, run: !w.own }];
-  }), [rows, spansEff]);
+    return [{ id: c.key, start: w.range.start, end: w.range.end, label: `${c.title} ${w.own ? fmtRange(w.range.start, w.range.end) : showRunLabel(w.range.start, w.range.end)}`, run: !w.own, seen: SEEN_STATUS.has(lib.get(c.key)?.status ?? "") }];
+  }), [rows, spansEff, lib]);
 
-  const pick = (id: string) => { setFocus(id); setHot(id); rowRefs.current.get(id)?.scrollIntoView({ block: "nearest", behavior: "smooth" }); if (id && rows.findIndex((r) => r.key === id) >= lim.shown && !lim.all) lim.toggle(); };
+  const pick = (id: string) => {
+    setSelected(id);
+    if (rows.findIndex((r) => r.key === id) >= lim.shown && !lim.all) lim.toggle();
+    // After the row has rendered (it may have just been revealed).
+    setTimeout(() => rowRefs.current.get(id)?.scrollIntoView({ block: "center", behavior: "smooth" }), 30);
+  };
   const measure = (c: PCredit) => {
     const w = whenRow(c);
     if (w.kind !== "range") return;
-    if (focusId === c.key) setFocus("watched");
+    if (selected === c.key) setSelected(null);
     setOverride({ id: c.key, label: `${c.title}${c.key === brief.key ? ` (up to ${posLabel(pos)})` : ""}`, range: w.range });
-    setHot(c.key);
   };
 
   const life = data ? lifeLine(data.birthday, data.deathday, watched.at, watched.atLabel, today) : "";
   const hereLabel = face ? (face.role ? (brief.type === "movie" ? `Plays ${roleLabel(face.role) || face.role} in ${brief.title}` : `${/themselves/i.test(roleLabel(face.role)) ? "" : "Plays "}${roleLabel(face.role)} in ${brief.title}`) : `In ${brief.title}`) : `Not listed in ${brief.title} up to ${posLabel(pos) || "here"}`;
 
-  // "You know them from": what the user has seen of theirs, then what is on their list.
-  const known = useMemo(() => {
-    const st = (c: PCredit) => lib.get(c.key)?.status;
-    const seen = credits.filter((c) => !c.extra && SEEN_STATUS.has(st(c) ?? ""));
-    const listed = credits.filter((c) => !c.extra && st(c) === "watchlist");
-    return [...seen, ...listed];
-  }, [credits, lib]);
   const knownLim = useLimit(known.length, 5);
 
   return (
@@ -193,7 +207,7 @@ export function PersonNode({ node }: { node: PNode }) {
         {data && known.slice(0, knownLim.shown).map((c) => {
           const w = whenRow(c);
           const st = lib.get(c.key)?.status;
-          const g = w.kind === "range" && w.own && watched.range ? gapChip(gapBetween(w.range, watched.range)) : "";
+          const g = w.kind === "range" && watched.range ? gapChip(gapBetween(w.range, watched.range), !w.own) : "";
           return (
             <button key={c.key} type="button" className="wx-krow" onClick={() => push({ t: "title", key: c.key, title: c.title, year: c.year, poster: c.poster })}>
               <Photo path={c.poster} name={c.title} w="w92" className="wx-kpos" />
@@ -220,16 +234,17 @@ export function PersonNode({ node }: { node: PNode }) {
         {!data && !err && <><div className="sk-b wx-axis-sk" /><RowsSk n={4} /></>}
         {data && (
           <>
-            <Timeline items={axis} refRange={ref?.range ?? null} refLabel={override ? override.label : "Watching"} hot={hot} onPick={pick} />
+            <Timeline items={axis} refRange={ref?.range ?? null} refLabel={override ? override.label : "Watching"} selected={marked} hot={preview} onPick={pick} onPreview={setPreview} />
             <div className="wx-readout" aria-live="polite">
-              {readoutLine ? <p>{readoutLine}.</p> : <p className="muted">{ref ? "Tap a bar or a row to compare it." : "TMDB has no air date for what you are watching, so there is nothing to measure from."}</p>}
-              {override && <p className="small"><span className="muted">Measuring from </span><b>{override.label}</b> <button type="button" className="linkish" onClick={() => { setOverride(null); setFocus(null); }}>Reset to what you&rsquo;re watching</button></p>}
+              {readoutLine && <p>{readoutLine}.</p>}
+              {!ref && <p className="small muted">TMDB has no air date for what you are watching, so there is nothing to measure from.</p>}
+              {override && <p className="small"><span className="muted">Measuring from </span><b>{override.label}</b> <button type="button" className="linkish" onClick={() => { setOverride(null); setSelected(null); }}>Reset to what you&rsquo;re watching</button></p>}
             </div>
             {!rows.length && <p className="small muted">{credits.length ? "Nothing matches these filters." : "No other credits on TMDB."}</p>}
             <ol className="wx-trows">
               {rows.slice(0, lim.shown).map((c) => <TRow key={c.key} c={c} when={whenRow(c)} birthday={data.birthday} isRef={ref?.id === c.key} refRange={ref?.range ?? null} hot={hot === c.key}
                 reg={(el) => { if (el) rowRefs.current.set(c.key, el); else rowRefs.current.delete(c.key); }}
-                onOpen={() => push({ t: "title", key: c.key, title: c.title, year: c.year, poster: c.poster })} onMeasure={() => measure(c)} onFocus={() => { setFocus(c.key); setHot(c.key); }}
+                onOpen={() => push({ t: "title", key: c.key, title: c.title, year: c.year, poster: c.poster })} onMeasure={() => measure(c)} onSelect={() => pick(c.key)} onPreview={(on) => setPreview(on ? c.key : null)}
                 isCur={c.key === brief.key} pos={pos} lib={lib.get(c.key)?.status} />)}
             </ol>
             <More total={rows.length} {...lim} />
@@ -239,7 +254,7 @@ export function PersonNode({ node }: { node: PNode }) {
       </Section>
 
       {/* 5. With this cast */}
-      <WithCast pid={node.id} name={node.name} />
+      <WithCast pid={node.id} name={node.name} g={data?.g ?? faces.get(node.id)?.g ?? 0} />
 
       {lightbox && <Lightbox path={lightbox} name={node.name} onClose={() => setLightbox(null)} />}
     </div>
@@ -252,16 +267,16 @@ const RowsSk = ({ n }: { n: number }) => (
 
 function whenText(c: PCredit, w: When): string {
   if (w.kind !== "range") return w.kind === "none" ? "date unknown" : "";
-  if (!w.own) return runLabel(c.title, w.range.start, w.range.end);
+  if (!w.own) return showRunLabel(w.range.start, w.range.end);
   return fmtRange(w.range.start, w.range.end);
 }
 
-/** The episodes of the show being watched this person is in (up to where you are), each with "We're on this one". */
+/** The episodes of the show being watched this person is in (up to where you are). Each chip is itself the button; only the one set now is gold. */
 function HereEpisodes({ span, loading, failed, regular, inScope, onSet }: { span: Span | null | undefined; loading: boolean; failed: boolean; regular: boolean; inScope: boolean; onSet: (s: number, e: number) => void }) {
   const { pos } = useWho();
   const eps = span?.eps ?? [];
-  const lim = useLimit(eps.length, 5);
-  if (loading && span === undefined) return <div className="wx-chiprow" aria-hidden="true"><Sk w={150} h={44} /><Sk w={150} h={44} /></div>;
+  const lim = useLimit(eps.length, 8);
+  if (loading && span === undefined) return <div className="wx-chiprow" aria-hidden="true"><Sk w={120} h={44} /><Sk w={120} h={44} /></div>;
   if (failed) return <Soft>Couldn&rsquo;t load their episodes just now.</Soft>;
   if (!eps.length) return <p className="small muted" style={{ margin: 0 }}>{regular ? "Part of the main cast. TMDB lists no episode dates for them." : inScope ? "TMDB lists no episode dates for them here." : "TMDB doesn’t list them in the episodes up to here."}</p>;
   return (
@@ -269,10 +284,12 @@ function HereEpisodes({ span, loading, failed, regular, inScope, onSet }: { span
       <ul className="wx-chiprow">
         {eps.slice(0, lim.shown).map((x) => {
           const here = pos?.s === x.s && pos?.e === x.e;
+          const name = `S${x.s} E${x.e}`;
           return (
-            <li key={`${x.s}-${x.e}`} className="wx-epchip">
-              <span><b>S{x.s} E{x.e}</b>, {fmtMonth(x.air)}</span>
-              {here ? <span className="wx-here-now">This episode</span> : <button type="button" className="wx-set" onClick={() => onSet(x.s, x.e)}>We&rsquo;re on this one</button>}
+            <li key={`${x.s}-${x.e}`}>
+              {here
+                ? <span className="wx-epchip here" aria-current="true"><b>{name}</b> · You are here</span>
+                : <button type="button" className="wx-epchip" onClick={() => onSet(x.s, x.e)} title={`Set ${name} as where we are`} aria-label={`Set ${name} as where we are`}><b>{name}</b>{x.air ? ` · ${fmtMonth(x.air)}` : ""}</button>}
             </li>
           );
         })}
@@ -282,41 +299,42 @@ function HereEpisodes({ span, loading, failed, regular, inScope, onSet }: { span
   );
 }
 
-function TRow({ c, when, birthday, isRef, refRange, hot, reg, onOpen, onMeasure, onFocus, isCur, pos, lib }: {
+function TRow({ c, when, birthday, isRef, refRange, hot, reg, onOpen, onMeasure, onSelect, onPreview, isCur, pos, lib }: {
   c: PCredit; when: When; birthday: string; isRef: boolean; refRange: Range | null; hot: boolean; reg: (el: HTMLElement | null) => void;
-  onOpen: () => void; onMeasure: () => void; onFocus: () => void; isCur: boolean; pos: ReturnType<typeof useWho>["pos"]; lib?: string;
+  onOpen: () => void; onMeasure: () => void; onSelect: () => void; onPreview: (on: boolean) => void; isCur: boolean; pos: ReturnType<typeof useWho>["pos"]; lib?: string;
 }) {
   const range = when.kind === "range" ? when.range : null;
   const own = when.kind === "range" && when.own;
   const age = range && own ? ageAt(birthday, range.start) : null;
-  const gap = range && own && refRange && !isRef ? gapChip(gapBetween(range, refRange)) : "";
+  const gap = range && refRange && !isRef ? gapChip(gapBetween(range, refRange), !own) : "";
+  const seen = SEEN_STATUS.has(lib ?? "");
+  const role = [c.role && `as ${roleLabel(c.role) || c.role}`, isCur ? `up to ${posLabel(pos)}` : "", age != null ? `age ${age}` : ""].filter(Boolean).join(" · ");
   return (
-    <li ref={reg} className={`wx-trow${hot ? " hot" : ""}${isRef ? " isref" : ""}`} data-key={c.key}>
-      <div className="wx-tdates">
-        {when.kind === "loading" ? <><Sk w={74} h={13} /><Sk w={54} h={11} style={{ marginTop: 6 }} /></>
-          : when.kind === "none" ? <span className="small muted">date unknown</span>
-          : own ? <b>{fmtRange(when.range.start, when.range.end)}</b> : <span className="small muted">{runLabel(c.title, when.range.start, when.range.end)}</span>}
-        {when.kind === "range" && own && when.range.start.slice(0, 4) && <span className="small muted wx-tyear">{c.type === "tv" && when.range.start !== when.range.end ? "series run" : ""}</span>}
-      </div>
-      <div className="wx-tmain">
-        <button type="button" className="wx-ttitle" onClick={onOpen} onFocus={onFocus}>{c.title}</button>
-        <span className="pill">{c.type === "tv" ? "Series" : "Film"}</span>
-        {SEEN_STATUS.has(lib ?? "") && <span className="ask-st seen">Seen</span>}
-        <div className="small muted wx-trole">{[c.role && `as ${roleLabel(c.role) || c.role}`, isCur ? `up to ${posLabel(pos)}` : "", age != null ? `age ${age}` : ""].filter(Boolean).join(" · ")}</div>
-        <div className="wx-tgap">
-          {when.kind === "loading" ? <Sk w={96} h={22} style={{ borderRadius: 999 }} /> : gap ? <span className="wx-gap">{gap}</span> : isRef ? <span className="wx-gap ref">Measuring from here</span> : null}
-        </div>
-      </div>
-      <button type="button" className="wx-measure" onClick={onMeasure} disabled={!(when.kind === "range" && own)} aria-pressed={isRef} aria-label={`Measure from ${c.title}`} title="Measure every gap from this row">
-        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M4 12h16M7 8l-3 4 3 4M17 8l3 4-3 4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
-        <span>Measure</span>
+    <li ref={reg} className={`wx-trow${hot ? " hot" : ""}${isRef ? " isref" : ""}`} data-key={c.key}
+      onMouseEnter={() => onPreview(true)} onMouseLeave={() => onPreview(false)} onFocus={() => onPreview(true)} onBlur={() => onPreview(false)}
+      onClick={(ev) => { if (!(ev.target as HTMLElement).closest("button")) onSelect(); }}>
+      {when.kind === "loading" ? <span className="wx-tdates"><Sk w={74} h={13} /></span>
+        : <button type="button" className="wx-tdates" onClick={onSelect} disabled={when.kind === "none"} aria-label={`Compare ${c.title} with what you are watching`}>
+          {when.kind === "none" ? <span className="muted">date unknown</span> : own ? <b>{fmtRange(when.range.start, when.range.end)}</b> : <span className="muted">{showRunLabel(when.range.start, when.range.end)}</span>}
+        </button>}
+      <span className="wx-tline">
+        <button type="button" className="wx-ttitle" onClick={onOpen}>{c.title}</button>
+        <span className="pill wx-kind">{c.type === "tv" ? "Series" : "Film"}</span>
+        {seen && <span className="ask-st seen" title="You have seen this">&#10003; Seen</span>}
+      </span>
+      <span className="small muted wx-trole" title={role}>{role}</span>
+      <span className="wx-tgap">
+        {when.kind === "loading" ? <Sk w={90} h={22} style={{ borderRadius: 999 }} /> : gap ? <span className="wx-gap">{gap}</span> : isRef ? <span className="wx-gap ref">Reference</span> : null}
+      </span>
+      <button type="button" className="wx-measure" onClick={onMeasure} disabled={when.kind !== "range"} aria-pressed={isRef} aria-label={`Measure from ${c.title}`} title={isRef ? "Measuring every gap from this row" : "Measure every gap from this row"}>
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M4 12h16M7 8l-3 4 3 4M17 8l3 4-3 4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
       </button>
     </li>
   );
 }
 
 /** Other people in the roster (main cast and this episode's guests) this person shares earlier titles with. Loaded when scrolled into view. */
-function WithCast({ pid, name }: { pid: number; name: string }) {
+function WithCast({ pid, name, g }: { pid: number; name: string; g: number }) {
   const { brief, faces, push } = useWho();
   const [list, setList] = useState<SharedBrief[] | null>(null);
   const [err, setErr] = useState(false);
@@ -345,7 +363,7 @@ function WithCast({ pid, name }: { pid: number; name: string }) {
     return () => { live = false; };
   }, [seen, pid, brief.key, ids.join(",")]); // eslint-disable-line react-hooks/exhaustive-deps
   const lim = useLimit(list?.length ?? 0, 5);
-  const dateOf = (c: PCredit) => (c.type === "tv" ? (c.date ? `from ${fmtMonth(c.date)}` : "") : fmtMonth(c.date) || c.year);
+  const yearOf = (c: PCredit) => c.date.slice(0, 4) || c.year;
   return (
     <Section title="With this cast" count={list ? list.length : undefined} note={`People in ${brief.title}'s cast who share earlier titles with ${name}.`}>
       <div ref={box}>
@@ -356,15 +374,17 @@ function WithCast({ pid, name }: { pid: number; name: string }) {
         {list?.slice(0, lim.shown).map((s) => {
           const f = faces.get(s.id);
           if (!f) return null;
+          const [la, lb] = pairLabels({ name, g }, { name: f.name, g: f.g });
           return (
             <button key={s.id} type="button" className="wx-wrow" onClick={() => push({ t: "pair", a: { id: pid, name, photo: faces.get(pid)?.photo ?? null }, b: { id: f.id, name: f.name, photo: f.photo } })}>
               <Photo path={f.photo} name={f.name} className="wx-wimg" />
               <span className="wx-wmain">
                 <b>{f.name}</b> <span className="muted">· {s.total} title{s.total === 1 ? "" : "s"} together</span>
-                {s.titles.map((t) => (
-                  <span key={t.key} className="small wx-wline"><span className="wx-wt">{t.title}{t.year && ` (${t.year})`}</span>
-                    <span className="muted"> · {name.split(" ")[0]} {dateOf(t.a)}, {f.name.split(" ")[0]} {dateOf(t.b)}</span></span>
+                {s.titles.slice(0, 2).map((t) => (
+                  <span key={t.key} className="small wx-wline"><span className="wx-wt">{t.title}</span>
+                    <span className="muted"> · {la} {yearOf(t.a)} · {lb} {yearOf(t.b)}</span></span>
                 ))}
+                {s.total > 2 && <span className="small muted wx-wline">+{s.total - 2} more</span>}
               </span>
               <span className="wx-go" aria-hidden="true">›</span>
             </button>

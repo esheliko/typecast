@@ -27,7 +27,7 @@ export function yearTicks(t0: number, t1: number, max = 7): number[] {
   return out;
 }
 
-const DOT = 0.07;     // a credit shorter than this (years) is drawn as a dot
+const DOT = 1;        // a credit of a year or less is drawn as a dot; a longer run is a bar
 const MIN_W = 0.028;  // the fraction of the axis a mark needs so it can be seen and tapped
 
 export function layoutTimeline(items: TItem[], ref: Range | null): TLayout {

@@ -46,7 +46,12 @@ export function useSpans(pid: number, keys: string[], cur: { k: string; pos: Pos
   const store = useRef<{ tok: string; data: Record<string, Span | null>; asked: Set<string> }>({ tok, data: {}, asked: new Set() });
   const [, bump] = useState(0);
   const [failed, setFailed] = useState(false);
-  if (store.current.tok !== tok) store.current = { tok, data: {}, asked: new Set() };
+  if (store.current.tok !== tok) {
+    // Same person, another position: only the show being watched changes, so every other row keeps its dates (no flash of skeletons).
+    const same = store.current.tok.split("|")[0] === String(pid);
+    const old = store.current;
+    store.current = { tok, data: same ? Object.fromEntries(Object.entries(old.data).filter(([k]) => k !== cur?.k)) : {}, asked: same ? new Set([...old.asked].filter((k) => k !== cur?.k)) : new Set() };
+  }
   const joined = keys.filter((k) => k.startsWith("tv:")).join(",");
   const curRef = useRef(cur); curRef.current = cur;
   useEffect(() => {

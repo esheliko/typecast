@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { runLabel, spanFromEpisodes } from "../../src/lib/who-spans";
+import { runLabel, showRunLabel, spanFromEpisodes, yearSpan } from "../../src/lib/who-spans";
 
 const show = { first: "2007-09-24", last: "2019-05-16" };
 const eps = [{ s: 2, e: 9, air: "2008-11-24" }, { s: 2, e: 8, air: "2008-11-17" }, { s: 2, e: 10, air: "2008-12-08" }];
@@ -44,4 +44,25 @@ test("the show being watched is clipped to the position: nothing later is given 
 test("run label", () => {
   assert.equal(runLabel("The Big Bang Theory", "2007-09-24", "2019-05-16"), "during The Big Bang Theory's run, 2007-19");
   assert.equal(runLabel("Show", "2010-01-01", "2010-12-01"), "during Show's run, 2010");
+});
+
+test("a regular's credit gives seasons, not episodes: those air dates are their own dates", () => {
+  const seasons = [{ s: 2, air: "2021-01-05" }, { s: 1, air: "2020-11-18" }, { s: 3, air: "2022-02-01" }, { s: 0, air: "2019-01-01" }, { s: 4, air: "" }];
+  const s = spanFromEpisodes("tv:9", [], 40, { first: "2020-11-18", last: "2022-05-01" }, null, seasons)!;
+  assert.equal(s.kind, "own");
+  assert.equal(s.start, "2020-11-18");
+  assert.equal(s.end, "2022-02-01");
+  assert.equal(yearSpan(s.start, s.end), "2020-22");
+  assert.equal(spanFromEpisodes("tv:9", [eps[0]], 40, show, null, seasons)!.kind, "own", "a short episode list does not beat the seasons");
+  assert.equal(spanFromEpisodes("tv:9", eps, 3, show, null, seasons)!.start, "2008-11-17", "a complete episode list still wins");
+});
+
+test("seasons never widen the show being watched (its dates stay clipped to the position)", () => {
+  assert.equal(spanFromEpisodes("tv:9", [], 40, null, { s: 1, e: 2 }, [{ s: 1, air: "2020-11-18" }]), null);
+});
+
+test("neither episodes nor seasons: the show's run, written as such", () => {
+  const s = spanFromEpisodes("tv:9", [], 40, { first: "2020-11-18", last: "2022-05-01" }, null, [])!;
+  assert.equal(s.kind, "run");
+  assert.equal(showRunLabel(s.start, s.end), "2020-22 (show's run)");
 });

@@ -3,9 +3,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useLib } from "../cast/LibState";
 import { Photo, SEEN_STATUS, Sk } from "./bits";
 import { useWho } from "./WhoContext";
-import { peopleHere, type FoundTitle } from "@/lib/who-common";
+import { peopleHere, titlesForQuery, titlesWithPeople, type FoundTitle } from "@/lib/who-common";
+import { img } from "@/lib/img";
 import { whoApi, type Recent } from "@/lib/who-client";
-import { byGender, episodesLabel, groupWhoFaces, guestsOnly, matchFaces, type GenderFilter } from "@/lib/who-scope";
+import { byGender, groupWhoFaces, guestsOnly, matchFaces, type GenderFilter } from "@/lib/who-scope";
 import { roleLabel } from "@/lib/roster";
 import type { WhoFace, WhoRoster } from "@/lib/who-types";
 
@@ -25,6 +26,9 @@ export function Finder({ roster, loading, err, q, setQ, inputRef, recents, onOpe
   const shown = useMemo(() => matchFaces(guests ? guestsOnly(byGender(faces, gender)) : byGender(faces, gender), q), [faces, gender, guests, q]);
   const groups = useMemo(() => groupWhoFaces(shown, roster?.scope ?? null).map((g) => (film && g.id === "guest" ? { ...g, label: "Also in the cast" } : g)), [shown, roster?.scope, film]);
   const query = q.trim();
+
+  // The enlarged photo on hover or keyboard focus (never on touch): fixed, so nothing in the grid moves.
+  const [pop, setPop] = useState<{ f: WhoFace; r: DOMRect } | null>(null);
 
   // Titles in common: what the query names (a show, a film) searched on TMDB and met with the roster.
   const [common, setCommon] = useState<{ q: string; titles: FoundTitle[] | null; err?: boolean } | null>(null);
@@ -48,13 +52,12 @@ export function Finder({ roster, loading, err, q, setQ, inputRef, recents, onOpe
     const need = ids.split(",").map(Number).filter((n) => n && !askedKnown.current.has(n));
     if (!need.length) return;
     need.forEach((n) => askedKnown.current.add(n));
-    let live = true;
     for (let i = 0; i < need.length; i += 24) {
       const chunk = need.slice(i, i + 24);
-      whoApi.known(chunk).then((r) => { if (live) setKnown((k) => ({ ...k, ...Object.fromEntries(chunk.map((id) => [id, r.known[id]?.top ?? []])) })); })
+      // Answers are kept even when the visible set has moved on, so a tile never waits for a reply that was thrown away.
+      whoApi.known(chunk).then((r) => setKnown((k) => ({ ...k, ...Object.fromEntries(chunk.map((id) => [id, r.known[id]?.top ?? []])) })))
         .catch(() => { chunk.forEach((n) => askedKnown.current.delete(n)); });
     }
-    return () => { live = false; };
   }, [ids]);
 
   const arrows = (ev: React.KeyboardEvent) => {
@@ -75,6 +78,11 @@ export function Finder({ roster, loading, err, q, setQ, inputRef, recents, onOpe
       .sort((a, b) => Math.abs(a.getBoundingClientRect().left + a.getBoundingClientRect().width / 2 - cx) - Math.abs(b.getBoundingClientRect().left + b.getBoundingClientRect().width / 2 - cx))[0]?.focus();
   };
 
+  // Cast matches come first. Titles in common sit under them, and only when a title is what was asked for; with no cast match they are the answer.
+  const faceById = useMemo(() => new Map(faces.map((f) => [f.id, f])), [faces]);
+  const cmTitles = useMemo(() => (common?.titles ? titlesWithPeople(titlesForQuery(query, common.titles, shown.length > 0), (id) => { const f = faceById.get(id); return !!f && byGender([f], gender).length > 0; }) : null), [common, query, shown.length, gender, faceById]);
+  const cmPending = !!common && common.titles === null && query.length >= 3;
+  const noMatch = !!roster && !groups.length && !cmPending && !cmTitles?.length;
   const total = faces.length;
   return (
     <div className="wx-finder">
@@ -109,18 +117,38 @@ export function Finder({ roster, loading, err, q, setQ, inputRef, recents, onOpe
         </div>
       )}
 
-      {common && (
+      {loading && !roster && !err && <GridSkeleton />}
+      {err && <p className="small muted wx-soft" role="alert">Couldn&rsquo;t load who&rsquo;s in it. <button type="button" className="linkish" onClick={onRetry}>Try again</button></p>}
+      {noMatch && <p className="small muted">{query ? `No one in this cast matches “${query}”.${common?.err ? " Couldn’t search titles just now." : ""}` : "No one to show for this filter."}</p>}
+      <div onKeyDown={arrows}>
+        {groups.map((g) => {
+          const all = !!open[g.id];
+          const list = all ? g.faces : g.faces.slice(0, PER_GROUP);
+          return (
+            <section key={g.id} className="wx-group" aria-label={g.label}>
+              <h3 className="wx-gh">{g.label}<span className="muted"> · {g.faces.length}</span></h3>
+              <ul className="wx-grid">
+                {list.map((f, i) => <Tile key={f.id} f={f} eager={i < 12} known={known[f.id]} onOpen={() => onOpen(f)} onPop={setPop} />)}
+              </ul>
+              {g.faces.length > PER_GROUP && <button type="button" className="chip wx-more" onClick={() => setOpen((o) => ({ ...o, [g.id]: !all }))}>{all ? "Show fewer" : `Show ${g.faces.length - PER_GROUP} more`}</button>}
+            </section>
+          );
+        })}
+      </div>
+
+      {query.length >= 3 && (cmPending && !groups.length ? (
+        <section className="wx-common" aria-label="Titles in common" aria-hidden="true"><div className="wx-comrow"><Sk w={34} h={51} /><Sk w="55%" h={16} /></div></section>
+      ) : cmTitles && cmTitles.length > 0 ? (
         <section className="wx-common" aria-label="Titles in common">
           <h3 className="wx-gh">Titles in common</h3>
-          {common.titles === null && <div className="wx-comrow" aria-hidden="true"><Sk w={34} h={51} /><Sk w="55%" h={16} /></div>}
-          {common.titles?.map((t) => (
+          {cmTitles.map((t) => (
             <div key={t.key} className="wx-comrow">
               <Photo path={t.poster} name={t.title} w="w92" className="wx-cpos" />
               <div className="wx-ccol">
                 <b>{t.title}{t.year && <span className="muted"> ({t.year})</span>}: {peopleHere(t.people.length)}</b>
                 <div className="wx-cfaces">
                   {t.people.slice(0, 8).map((p) => {
-                    const f = roster?.faces.find((x) => x.id === p.id);
+                    const f = faceById.get(p.id);
                     return f ? (
                       <button key={p.id} type="button" className="wx-cface" onClick={() => onOpen(f, { hl: t.key })} onMouseEnter={() => prefetchPerson(f.id)}>
                         <Photo path={f.photo} name={f.name} className="wx-cimg" /><span><b>{f.name}</b><span className="small muted">{p.role ? `as ${p.role}` : ""}</span></span>
@@ -131,29 +159,27 @@ export function Finder({ roster, loading, err, q, setQ, inputRef, recents, onOpe
               </div>
             </div>
           ))}
-          {common.titles && !common.titles.length && !common.err && <p className="small muted" style={{ margin: 0 }}>No one here was in a title named &ldquo;{query}&rdquo;.</p>}
-          {common.err && <p className="small muted" style={{ margin: 0 }}>Couldn&rsquo;t search titles just now.</p>}
         </section>
-      )}
+      ) : null)}
 
-      {loading && !roster && !err && <GridSkeleton />}
-      {err && <p className="small muted wx-soft" role="alert">Couldn&rsquo;t load who&rsquo;s in it. <button type="button" className="linkish" onClick={onRetry}>Try again</button></p>}
-      {roster && !groups.length && <p className="small muted">{query ? `No one in this cast matches “${query}”.` : "No one to show for this filter."}</p>}
-      <div onKeyDown={arrows}>
-        {groups.map((g) => {
-          const all = !!open[g.id];
-          const list = all ? g.faces : g.faces.slice(0, PER_GROUP);
-          return (
-            <section key={g.id} className="wx-group" aria-label={g.label}>
-              <h3 className="wx-gh">{g.label}<span className="muted"> · {g.faces.length}</span></h3>
-              <ul className="wx-grid">
-                {list.map((f, i) => <Tile key={f.id} f={f} eager={i < 8} known={known[f.id]} onOpen={() => onOpen(f)} />)}
-              </ul>
-              {g.faces.length > PER_GROUP && <button type="button" className="chip wx-more" onClick={() => setOpen((o) => ({ ...o, [g.id]: !all }))}>{all ? "Show fewer" : `Show ${g.faces.length - PER_GROUP} more`}</button>}
-            </section>
-          );
-        })}
-      </div>
+      {pop && <Pop f={pop.f} r={pop.r} />}
+    </div>
+  );
+}
+
+/** The larger photo beside a tile: to its right, or its left near the edge, always inside the window. */
+function Pop({ f, r }: { f: WhoFace; r: DOMRect }) {
+  const W = 220, H = Math.round(W * 1.5) + 54;
+  let left = r.right + 10;
+  if (left + W > window.innerWidth - 8) left = r.left - W - 10;
+  left = Math.max(8, left);
+  const top = Math.min(Math.max(8, r.top + r.height / 2 - H / 2), Math.max(8, window.innerHeight - H - 8));
+  return (
+    <div className="wx-pop" style={{ left, top, width: W }} aria-hidden="true">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      {f.photo ? <img src={img(f.photo, "w342")} alt="" /> : <span className="wx-noph wx-popph">{f.name.charAt(0)}</span>}
+      <b>{f.name}</b>
+      {f.role && <span className="small muted">{roleLabel(f.role)}</span>}
     </div>
   );
 }
@@ -161,31 +187,40 @@ export function Finder({ roster, loading, err, q, setQ, inputRef, recents, onOpe
 function GridSkeleton() {
   return (
     <ul className="wx-grid" aria-hidden="true" data-testid="who-skeleton">
-      {Array.from({ length: 12 }, (_, i) => <li key={i}><div className="wx-tile"><span className="sk-b wx-ph" /><Sk w="70%" h={14} style={{ marginTop: 8 }} /><Sk w="50%" h={11} style={{ marginTop: 6 }} /><Sk w="60%" h={11} style={{ marginTop: 6 }} /></div></li>)}
+      {Array.from({ length: 14 }, (_, i) => <li key={i}><div className="wx-tile"><span className="sk-b wx-ph" /><Sk w="70%" h={13} style={{ marginTop: 6 }} /><Sk w="50%" h={11} style={{ marginTop: 5 }} /></div></li>)}
     </ul>
   );
 }
 
-/** Seen: the user has seen them in something (gold). Otherwise their best-known title, muted. Reserves its line so nothing jumps when it arrives. */
-function Tile({ f, known, eager, onOpen }: { f: WhoFace; known?: [string, string, string][]; eager: boolean; onOpen: () => void }) {
+/** One face: photo, name, character (one line each) and one muted line, "x4 · Seen in X" (gold only for the seen part). Nothing is drawn for what is not known. */
+function Tile({ f, known, eager, onOpen, onPop }: { f: WhoFace; known?: [string, string, string][]; eager: boolean; onOpen: () => void; onPop: (p: { f: WhoFace; r: DOMRect } | null) => void }) {
   const lib = useLib();
   const { brief, prefetchPerson } = useWho();
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
-  const hover = () => { clearTimeout(timer.current); timer.current = setTimeout(() => prefetchPerson(f.id), 150); };
-  const leave = () => clearTimeout(timer.current);
+  const show = (el: HTMLElement) => {
+    clearTimeout(timer.current);
+    timer.current = setTimeout(() => {
+      prefetchPerson(f.id);
+      if (window.matchMedia("(hover: hover) and (pointer: fine)").matches) onPop({ f, r: el.getBoundingClientRect() });
+    }, 150);
+  };
+  const hide = () => { clearTimeout(timer.current); onPop(null); };
   useEffect(() => () => clearTimeout(timer.current), []);
   const seen = known?.find(([k]) => k !== brief.key && SEEN_STATUS.has(lib.get(k)?.status ?? ""));
   const best = known?.find(([k]) => k !== brief.key);
-  const role = roleLabel(f.role), eps = episodesLabel(f);
+  const role = roleLabel(f.role);
+  const n = f.part === "main" || f.n < 1 || (f.part === "episode" && f.n <= 1) ? 0 : f.n;
   return (
     <li>
-      <button type="button" className="wx-tile" data-pid={f.id} onClick={onOpen} onMouseEnter={hover} onMouseLeave={leave} onFocus={hover} onBlur={leave}>
+      <button type="button" className="wx-tile" data-pid={f.id} onClick={() => { hide(); onOpen(); }} onMouseEnter={(ev) => show(ev.currentTarget)} onMouseLeave={hide}
+        onFocus={(ev) => { if (ev.currentTarget.matches(":focus-visible")) show(ev.currentTarget); else { clearTimeout(timer.current); prefetchPerson(f.id); } }} onBlur={hide}>
         <Photo path={f.photo} name={f.name} eager={eager} className="wx-ph" />
-        <b>{f.name}</b>
-        <span className="small muted wx-role">{role || " "}</span>
-        {eps && !(f.part === "episode" && f.n <= 1) && <span className="wx-eps">{eps}{f.part === "episode" ? " so far" : ""}</span>}
-        <span className="wx-known">
-          {!known ? <Sk w="65%" h={11} /> : seen ? <span className="wx-seen">Seen in {seen[1]}</span> : best ? <span className="small muted">Best known: {best[1]}</span> : null}
+        <b className="wx-nm">{f.name}</b>
+        <span className="small muted wx-rl">{role || " "}</span>
+        <span className="small muted wx-meta">
+          {n > 0 && <span title={`${n} episode${n === 1 ? "" : "s"}`}>x{n}</span>}
+          {n > 0 && (seen || best) && " · "}
+          {seen ? <span className="wx-seen">Seen in {seen[1]}</span> : best ? `Best known: ${best[1]}` : null}
         </span>
       </button>
     </li>

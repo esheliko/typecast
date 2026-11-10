@@ -54,6 +54,8 @@ export function RootNode() {
         <h2 className="wx-pname" tabIndex={-1} data-focus-target>{brief.title}</h2>
       </header>
 
+      <p className="small muted wx-hint">Tap a face to see where you know them from.</p>
+
       <Section title={tv ? (exact ? "This episode" : "Where you are") : "This film"}>
         {tv && exact && ep === undefined && <div className="wx-epcard" aria-hidden="true"><span className="sk-b wx-epstill" /><span style={{ flex: 1 }}><Sk w="60%" h={18} /><Sk w="40%" h={12} style={{ marginTop: 8 }} /><Sk w="70%" h={12} style={{ marginTop: 8 }} /></span></div>}
         {tv && exact && ep === null && <Soft>TMDB has no details for {posLabel(pos)}.</Soft>}
@@ -76,7 +78,7 @@ export function RootNode() {
             </div>
           </div>
         )}
-        {tv && !exact && <p className="small" style={{ margin: 0 }}>{pos?.s == null ? "The season is not set." : `${posLabel(pos)}: the episode is not set.`} Pick an episode above, or tap &ldquo;We&rsquo;re on this one&rdquo; on a person&rsquo;s episode.</p>}
+        {tv && !exact && <p className="small" style={{ margin: 0 }}>{pos?.s == null ? "The season is not set." : `${posLabel(pos)}: the episode is not set.`} Pick an episode above, or set one from a person&rsquo;s episode list.</p>}
         {!tv && (
           <div className="wx-epcard">
             <div className="wx-epinfo">
