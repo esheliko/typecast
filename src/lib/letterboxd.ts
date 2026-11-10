@@ -1,6 +1,7 @@
 /** Optional Letterboxd link. Server only. Nothing here runs unless the user imports an export or connects a username in Setup. */
 import { search, tmdb } from "./tmdb";
 import { suggestSpelling } from "./spell";
+import { dayIn } from "./today";
 import { baseOf, charSim, isLiteral, normSeq, sameNumbers, score, sim, splitQualifier, startsWithWords, trailingNumber, variants } from "./title-match";
 import { parseFeed, type FeedEntry, type LbEntry } from "./letterboxd-parse";
 import type { supabaseServer } from "./supabase/server";
@@ -154,12 +155,12 @@ async function poolFor(q: string, e: LbEntry): Promise<C[]> {
  * Sure = the same title, and nothing else of that name (the other kind, a remake, a typo of a famous title) comes close in how well known it is.
  * A sequel or spin-off with a longer title ("Thor: Ragnarok") is not a rival of "Thor"; only a title that matches as well is. `why` is empty when sure.
  */
-function judge(pool: C[], e: LbEntry, newest: boolean): { top?: C; second?: C; why: string } {
+function judge(pool: C[], e: LbEntry, newest: boolean, tz?: string): { top?: C; second?: C; why: string } {
   const top = pool[0] as C | undefined;
   if (!top) return { why: "" };
   if (newest) {
     // "... live action" / "remake": the newest film of that name.
-    const today = new Date().toISOString().slice(0, 10);
+    const today = dayIn(Date.now(), tz);
     const latest = pool.filter((c) => c.type === "movie" && c.s === 3 && fame(c.hit) >= 100 && dateOf(c.hit) && dateOf(c.hit) <= today).sort((a, b) => dateOf(b.hit).localeCompare(dateOf(a.hit)))[0];
     if (latest) return { top: latest, why: "" };
   }
@@ -173,12 +174,12 @@ function judge(pool: C[], e: LbEntry, newest: boolean): { top?: C; second?: C; w
   else if (top.s === 2 && !exact) why = "The title only partly matches.";
   else if (!typoOk && !dominant) why = second!.type !== top.type && second!.s === 3 ? (top.type === "tv" ? "There is a film with the same name." : "There is a series with the same name.") : "Several titles share this name.";
   else if (e.watching && top.type === "movie") why = "Marked as watching, which fits a series better.";
-  else if (!e.year && dateOf(top.hit) > new Date().toISOString().slice(0, 10)) why = "This one is not out yet.";
+  else if (!e.year && dateOf(top.hit) > dayIn(Date.now(), tz)) why = "This one is not out yet.";
   return { top, second, why };
 }
 
 /** "Avatar 2" is the second film of the Avatar collection, whatever its title is ("The Way of Water"). The film is only a guess to confirm. */
-async function sequelGuess(name: string): Promise<{ guess: BrowseItem; alts: BrowseItem[]; why: string } | null> {
+async function sequelGuess(name: string, tz?: string): Promise<{ guess: BrowseItem; alts: BrowseItem[]; why: string } | null> {
   const t = trailingNumber(name);
   if (!t || t.n < 2 || t.n > 12) return null;
   const found = (((await tmdb("/search/movie", { query: t.base, include_adult: "false" }, DAY_MS)).results ?? []) as any[])
@@ -187,7 +188,7 @@ async function sequelGuess(name: string): Promise<{ guess: BrowseItem; alts: Bro
   const cid = (await tmdb(`/movie/${found.id}`, {}, DAY_MS)).belongs_to_collection?.id;
   if (!cid) return null;
   const col = await tmdb(`/collection/${cid}`, {}, DAY_MS);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = dayIn(Date.now(), tz);
   const parts = ((col.parts ?? []) as any[]).filter((p) => p.release_date && p.release_date <= today).sort((a, b) => a.release_date.localeCompare(b.release_date));
   const pick = parts[t.n - 1];
   if (!pick || pick.id === found.id) return null;
@@ -202,7 +203,7 @@ async function mapLimit<T>(items: T[], n: number, fn: (x: T) => Promise<void>): 
 }
 
 /** Match export entries to TMDB. `unmatched` lists names nothing was found for; `unsure` names a best guess to confirm before it is saved. */
-export async function resolveEntries(entries: LbEntry[]): Promise<{ rows: Resolved[]; unmatched: Unmatched[]; unsure: Unsure[]; trace: TraceRow[] }> {
+export async function resolveEntries(entries: LbEntry[], tz?: string): Promise<{ rows: Resolved[]; unmatched: Unmatched[]; unsure: Unsure[]; trace: TraceRow[] }> {
   const rows: Resolved[] = [], unmatched: Unmatched[] = [], unsure: Unsure[] = [], trace: TraceRow[] = [];
   await mapLimit(entries, 12, async (e) => {
     const label = e.year ? `${e.name} (${e.year})` : e.name;
@@ -211,7 +212,7 @@ export async function resolveEntries(entries: LbEntry[]): Promise<{ rows: Resolv
       const { name: typed, newest } = splitQualifier(searchName(e.name));
       let q = typed;
       let pool = await poolFor(q, e);
-      let v = judge(pool, e, newest);
+      let v = judge(pool, e, newest, tz);
       let near: BrowseItem[] | null = null;
       let doubtful = false;
       let suggested: string | null = null;
@@ -219,7 +220,7 @@ export async function resolveEntries(entries: LbEntry[]): Promise<{ rows: Resolv
       // Nothing matched the typed name: a numbered sequel by its place in the collection ("Avatar 2"), or the name spelled the way a close title or Wikipedia spells it.
       const obscureTop = !!v.top && v.top.s < 3 && fame(v.top.hit) < 100 && !e.year;
       if (!v.top || obscureTop) {
-        const sq = v.top ? null : await sequelGuess(q).catch(() => null);
+        const sq = v.top ? null : await sequelGuess(q, tz).catch(() => null);
         if (sq) {
           trace.push({ input: label, asTv: !!e.tv, watched: e.watched, watching: !!e.watching, watchlist: e.watchlist, movie: { id: sq.guess.id, title: sq.guess.title, year: sq.guess.year }, tv: null, picked: "movie" });
           unsure.push({ label, status, rating: e.rating, why: sq.why, guess: sq.guess, alts: sq.alts });
@@ -232,7 +233,7 @@ export async function resolveEntries(entries: LbEntry[]): Promise<{ rows: Resolv
         for (const nm of names) {
           if (normSeq(nm) === normSeq(q)) continue;
           const p2 = await poolFor(nm, e);
-          const v2 = judge(p2, e, newest);
+          const v2 = judge(p2, e, newest, tz);
           if (!v2.top || v2.top.s !== 3 || !sameNumbers(q, titleOf(v2.top.hit))) continue;
           // A different spelling is only trusted when the match is a well known title that looks like what was typed.
           const like = charSim(q, titleOf(v2.top.hit));
@@ -370,7 +371,7 @@ export interface SyncResult { added: number; updated: number; seen: number; erro
  * when the last check was under six hours ago. Only entries newer than the stored cursor are read, except on the first
  * run, so a film you remove later is not brought back.
  */
-export async function syncLetterboxd(sb: Sb, userId: string, force = false): Promise<SyncResult> {
+export async function syncLetterboxd(sb: Sb, userId: string, force = false, tz?: string): Promise<SyncResult> {
   const none: SyncResult = { added: 0, updated: 0, seen: 0 };
   const { data } = await sb.from("profiles").select("letterboxd_user,letterboxd_synced_at,letterboxd_cursor").eq("user_id", userId).maybeSingle();
   const user: string | null = data?.letterboxd_user ?? null;
@@ -384,7 +385,7 @@ export async function syncLetterboxd(sb: Sb, userId: string, force = false): Pro
     let failed = false;
     const rows: Resolved[] = [];
     await Promise.all(fresh.map(async (e) => {
-      try { rows.push({ type: e.type, id: e.id, ...fields(await tmdb(`/${e.type}/${e.id}`, {}, DAY_MS)), watched: true, rating: e.rating, date: e.watched ?? new Date(e.pub).toISOString().slice(0, 10) }); }
+      try { rows.push({ type: e.type, id: e.id, ...fields(await tmdb(`/${e.type}/${e.id}`, {}, DAY_MS)), watched: true, rating: e.rating, date: e.watched ?? dayIn(e.pub, tz) }); }
       catch { failed = true; }
     }));
     const res = await applyResolved(sb, userId, rows);

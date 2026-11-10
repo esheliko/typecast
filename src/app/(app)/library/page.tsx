@@ -8,6 +8,7 @@ import { rankUpNext, realServices } from "@/lib/upnext";
 import { loadUpNext } from "@/lib/upnext-data";
 import { hasUpcomingCandidates, loadUpcoming } from "@/lib/upcoming-data";
 import { dayOf } from "@/lib/upcoming";
+import { tzOf } from "@/lib/today";
 import { isSort } from "@/lib/library-sort";
 import { isKind } from "@/lib/kind";
 import { SuggestionRows } from "@/components/cast/CreditList";
@@ -65,8 +66,9 @@ async function WatchNext({ lib }: { lib: LibItem[] }) {
 async function UpcomingFromList({ lib }: { lib: LibItem[] }) {
   try {
     const now = Date.now();
-    const entries = await loadUpcoming(lib, await getProfile(), now);
-    return entries.length ? <Upcoming entries={entries} today={dayOf(now)} /> : null;
+    const profile = await getProfile();
+    const entries = await loadUpcoming(lib, profile, now);
+    return entries.length ? <Upcoming entries={entries} today={dayOf(now, tzOf(profile.country))} /> : null;
   } catch (e) {
     console.error("Upcoming failed", e);
     return null;

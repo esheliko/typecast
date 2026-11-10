@@ -1,4 +1,5 @@
 import { getPickBasics } from "./tmdb";
+import { tzOf } from "./today";
 import { discoveryCandidates, rankUpNext, realServices, tasteSeeds, type Facts, type Pick } from "./upnext";
 import type { Item, LibItem, Profile } from "./types";
 
@@ -36,8 +37,8 @@ export async function loadUpNext(lib: LibItem[], profile: Profile, now = Date.no
   const wl = lib.filter((l) => l.status === "watchlist").sort((a, b) => Number(b.priority === "must") - Number(a.priority === "must") || b.added - a.added).slice(0, MAX_WATCHLIST);
   const facts = new Map<string, Facts>();
   await factsFor([...tasteSeeds(lib), ...progress, ...wl], profile, facts);
-  await factsFor(discoveryCandidates(lib, facts, now), profile, facts);
+  await factsFor(discoveryCandidates(lib, facts, now, 8, tzOf(profile.country)), profile, facts);
   // Titles not looked up (a very long watchlist) are still ranked, just on what the library knows.
   // 48 so the "on your services" view still has enough after filtering.
-  return rankUpNext(lib, { now, facts, hasServices: realServices(profile.services).length > 0 }, new Set(), 48);
+  return rankUpNext(lib, { now, facts, tz: tzOf(profile.country), hasServices: realServices(profile.services).length > 0 }, new Set(), 48);
 }

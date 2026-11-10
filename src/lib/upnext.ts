@@ -1,4 +1,5 @@
 import { newEpDetail } from "./new-episode";
+import { dayIn } from "./today";
 import { airsLabel, daysUntil } from "./episodes";
 import type { Item, LibItem } from "./types";
 
@@ -52,10 +53,12 @@ export interface Ctx {
   facts: Map<string, Facts>;
   /** Whether the user picked streaming services (otherwise availability is neutral). */
   hasServices: boolean;
+  /** The user's time zone (from their country), so "today" is their today. UTC when absent. */
+  tz?: string;
 }
 
 const daysSince = (t: number, now: number) => (now - t) / DAY;
-const iso = (t: number) => new Date(t).toISOString().slice(0, 10);
+const iso = (t: number, tz?: string) => dayIn(t, tz);
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const monthOf = (t: number, now: number) => { const d = new Date(t); return MONTHS[d.getUTCMonth()] + (new Date(now).getUTCFullYear() !== d.getUTCFullYear() ? ` ${d.getUTCFullYear()}` : ""); };
 
@@ -111,9 +114,9 @@ function inProgress(l: LibItem, ctx: Ctx): Pick {
     return { ...base, kind: "new-eps", score: 21, fresh: l.newEp.season ? "season" : "episode", why: `${newEpDetail(l.newEp, ctx.now)}${where ? ` · you're at ${where}` : ""}` };
   }
   // A series with an episode newer than your last touch is worth picking back up even if it sat for a while.
-  const newer = l.type === "tv" && !!f?.lastAired && f.lastAired > iso(l.updated);
+  const newer = l.type === "tv" && !!f?.lastAired && f.lastAired > iso(l.updated, ctx.tz);
   // "· new ep Thursday" when the next episode airs within a week.
-  const soon = l.type === "tv" && f?.nextAir && daysUntil(f.nextAir, iso(ctx.now)) <= 6 ? airsLabel(f.nextAir, iso(ctx.now)) : "";
+  const soon = l.type === "tv" && f?.nextAir && daysUntil(f.nextAir, iso(ctx.now, ctx.tz)) <= 6 ? airsLabel(f.nextAir, iso(ctx.now, ctx.tz)) : "";
   const plus = (p: Pick): Pick => (soon && p.kind !== "stale" ? { ...p, why: `${p.why} · new ep ${soon}` } : p);
   return plus(pickInProgress(l, ctx, age, where, base, newer));
 }
@@ -127,13 +130,13 @@ function pickInProgress(l: LibItem, ctx: Ctx, age: number, where: string | null,
 
 function fromWatchlist(l: LibItem, ctx: Ctx, taste: Map<number, number>, recBy: Map<string, LibItem[]>): Pick | null {
   const f = ctx.facts.get(l.key);
-  const today = iso(ctx.now);
+  const today = iso(ctx.now, ctx.tz);
   if (f?.released && f.released > today) return null; // not out yet: not a next watch
   const base = { key: l.key, type: l.type, id: l.id, title: l.title, year: l.year, poster: l.poster, length: lengthLabel(l.type, f?.runtime ?? null), tag: f?.onMine[0] ?? null, checked: !!f };
   const reasons: [number, string][] = [];
   let score = 3;
   // A watched series moved back to the watchlist because a new episode aired (see recheckEpisodes).
-  if (l.type === "tv" && l.watchedAt && f?.lastAired && f.lastAired > iso(l.watchedAt)) { score += 5; reasons.push([5, "New episodes are out"]); }
+  if (l.type === "tv" && l.watchedAt && f?.lastAired && f.lastAired > iso(l.watchedAt, ctx.tz)) { score += 5; reasons.push([5, "New episodes are out"]); }
   if (l.priority === "must") { score += 3; reasons.push([3, "On your must-watch list"]); }
   if (f) {
     if (f.onMine.length) { score += 2.5; reasons.push([0.05, `Streaming on ${f.onMine[0]}`]); } // already a badge on the poster: only a last-resort reason
@@ -155,9 +158,9 @@ function fromWatchlist(l: LibItem, ctx: Ctx, taste: Map<number, number>, recBy: 
 }
 
 /** Recommendations of loved titles that are not in the library, out already and well rated, with who recommends them. */
-function recPool(lib: LibItem[], seeds: LibItem[], facts: Map<string, Facts>, now: number): { r: Rec; from: LibItem[] }[] {
+function recPool(lib: LibItem[], seeds: LibItem[], facts: Map<string, Facts>, now: number, tz?: string): { r: Rec; from: LibItem[] }[] {
   const own = new Set(lib.map((l) => l.key));
-  const today = iso(now);
+  const today = iso(now, tz);
   const by = new Map<string, { r: Rec; from: LibItem[] }>();
   for (const s of seeds) for (const r of facts.get(s.key)?.recs ?? []) {
     if (own.has(r.key) || !r.poster || !r.released || r.released > today || r.votes < 100 || r.vote < 6.8) continue;
@@ -169,13 +172,13 @@ function recPool(lib: LibItem[], seeds: LibItem[], facts: Map<string, Facts>, no
 }
 
 /** Candidates from outside the library worth looking up (for availability and length) before ranking. */
-export function discoveryCandidates(lib: LibItem[], facts: Map<string, Facts>, now: number, max = 8): Rec[] {
-  return recPool(lib, tasteSeeds(lib), facts, now).sort((a, b) => b.from.length - a.from.length || b.r.vote - a.r.vote).slice(0, max).map((e) => e.r);
+export function discoveryCandidates(lib: LibItem[], facts: Map<string, Facts>, now: number, max = 8, tz?: string): Rec[] {
+  return recPool(lib, tasteSeeds(lib), facts, now, tz).sort((a, b) => b.from.length - a.from.length || b.r.vote - a.r.vote).slice(0, max).map((e) => e.r);
 }
 
 /** New titles from outside the library that loved titles agree on; ones on your services first. */
 export function discoveries(lib: LibItem[], ctx: Ctx, seeds: LibItem[], taste: Map<number, number>, max = 4): Pick[] {
-  return recPool(lib, seeds, ctx.facts, ctx.now).map(({ r, from }) => {
+  return recPool(lib, seeds, ctx.facts, ctx.now, ctx.tz).map(({ r, from }) => {
     const f = ctx.facts.get(r.key);
     let score = from.length * 2 + voteBoost(r.vote, r.votes) + tasteOf(r.genres, taste);
     if (f?.onMine.length) score += 2; else if (ctx.hasServices) score -= 1.5;

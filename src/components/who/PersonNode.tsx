@@ -32,7 +32,7 @@ function whenOf(c: PCredit, spans: Record<string, Span | null>): When {
 
 /** Everything about one person, in one scroll column: no tabs. */
 export function PersonNode({ node }: { node: PNode }) {
-  const { brief, pos, faces, watched, push, setExact } = useWho();
+  const { brief, today, pos, faces, watched, push, setExact } = useWho();
   const lib = useLib();
   const [data, setData] = useState<PersonData | null>(null);
   const [err, setErr] = useState(false);
@@ -58,7 +58,6 @@ export function PersonNode({ node }: { node: PNode }) {
   const rowRefs = useRef(new Map<string, HTMLElement>());
   useEffect(() => { setOverride(null); setSelected(null); setPreview(null); setKind("all"); setOnlySeen(false); setExtras(false); }, [node.id, node.hl]);
 
-  const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const credits = useMemo(() => (data?.credits ?? []).filter((c) => c.key !== brief.key), [data, brief.key]);
   // "You know them from": what the user has seen of theirs, then what is on their list.
   const known = useMemo(() => {

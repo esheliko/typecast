@@ -1,5 +1,6 @@
 import { daysUntil, epCode, untilLabel } from "./episodes";
 import { eventUid, type IcsEvent } from "./ical";
+import { dayIn } from "./today";
 import type { Item, LibItem } from "./types";
 
 /**
@@ -37,7 +38,8 @@ export interface UpEntry extends Item {
   approx: boolean;
 }
 
-export const dayOf = (t: number) => new Date(t).toISOString().slice(0, 10);
+/** YYYY-MM-DD of a timestamp (ms) in the user's time zone (`tz`; UTC when not given). */
+export const dayOf = (t: number, tz?: string) => dayIn(t, tz);
 
 const THIS_YEAR = (today: string) => Number(today.slice(0, 4));
 

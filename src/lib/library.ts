@@ -3,6 +3,7 @@ import { supabaseServer } from "./supabase/server";
 import { normalizeDetails } from "./details";
 import { getEpisodeFacts } from "./tmdb";
 import { newEpisodeSince } from "./new-episode";
+import { tzOf } from "./today";
 import { syncLetterboxd } from "./letterboxd";
 import { fetchAll } from "./paginate";
 import type { LibItem, Profile } from "./types";
@@ -62,8 +63,8 @@ export async function recheckEpisodes(): Promise<boolean> {
   const uid = data?.claims?.sub;
   // The Letterboxd check is opt-in: it returns at once unless a username is saved, and runs at most every six hours.
   const [moved, lb] = await Promise.all([
-    returnNewEpisodes(sb, await getLibraryRaw()),
-    uid ? syncLetterboxd(sb, uid).catch(() => null) : null,
+    returnNewEpisodes(sb, await getLibraryRaw(), tzOf((await getProfile()).country)),
+    uid ? syncLetterboxd(sb, uid, false, tzOf((await getProfile()).country)).catch(() => null) : null,
   ]);
   return moved.size > 0 || (lb?.added ?? 0) + (lb?.updated ?? 0) > 0;
 }
@@ -72,13 +73,13 @@ const RECHECK_MS = 12 * 3600 * 1000;
 const MAX_CHECKS = 20;
 
 /** Watched series with an episode aired after the day they were marked go back to Watching, flagged with that episode. Returns the keys moved. */
-async function returnNewEpisodes(sb: Awaited<ReturnType<typeof supabaseServer>>, items: (LibItem & { checkedAt: number })[]): Promise<Set<string>> {
+async function returnNewEpisodes(sb: Awaited<ReturnType<typeof supabaseServer>>, items: (LibItem & { checkedAt: number })[], tz: string): Promise<Set<string>> {
   const moved = new Set<string>();
   const now = Date.now();
   const due = items.filter((i) => i.type === "tv" && i.status === "watched" && i.watchedAt && now - i.checkedAt > RECHECK_MS).slice(0, MAX_CHECKS);
   await Promise.all(due.map(async (i) => {
     try {
-      const ne = newEpisodeSince(i.watchedAt!, await getEpisodeFacts(i.id));
+      const ne = newEpisodeSince(i.watchedAt!, await getEpisodeFacts(i.id), tz);
       const at = new Date().toISOString();
       const q = (v: Record<string, unknown>) => sb.from("library_items").update(v).eq("tmdb_type", "tv").eq("tmdb_id", i.id).eq("status", "watched");
       if (!ne) { await q({ checked_at: at }); return; }

@@ -1,5 +1,6 @@
 import { getUpcomingFacts } from "./tmdb";
 import { releaseFor } from "./release-dates";
+import { tzOf } from "./today";
 import { buildEntry, candidates, dayOf, byDate, type UpEntry, type UpFacts } from "./upcoming";
 import type { LibItem, Profile } from "./types";
 
@@ -16,7 +17,7 @@ async function pool<T, R>(xs: T[], n: number, fn: (x: T) => Promise<R>): Promise
  * 12 at a time, each cached by TMDB's fetch cache. A title whose lookup fails is simply left out. Sorted by date.
  */
 export async function loadUpcoming(lib: LibItem[], profile: Pick<Profile, "country" | "services">, now = Date.now()): Promise<UpEntry[]> {
-  const today = dayOf(now);
+  const today = dayOf(now, tzOf(profile.country));
   const mine = new Set(profile.services);
   const got = await pool(candidates(lib, today), 12, async (l) => {
     try { return [l, await getUpcomingFacts(l.type, l.id)] as const; } catch { return null; }
@@ -36,7 +37,7 @@ export async function loadUpcoming(lib: LibItem[], profile: Pick<Profile, "count
 }
 
 /** Whether the library holds anything worth asking TMDB about, so the page can show a placeholder only when something may appear. */
-export const hasUpcomingCandidates = (lib: LibItem[], now = Date.now()) => candidates(lib, dayOf(now), 1).length > 0;
+export const hasUpcomingCandidates = (lib: LibItem[], country?: string, now = Date.now()) => candidates(lib, dayOf(now, tzOf(country)), 1).length > 0;
 
 /**
  * The one upcoming date of a single title for the user's country, for "Add to calendar". Null when TMDB has no future date.
@@ -45,5 +46,5 @@ export const hasUpcomingCandidates = (lib: LibItem[], now = Date.now()) => candi
 export async function upcomingFor(type: "movie" | "tv", id: number, country: string, now = Date.now()): Promise<UpEntry | null> {
   const f = await getUpcomingFacts(type, id);
   const l = { key: `${type}:${id}`, type, id, title: f.title, year: "", poster: null, status: "watchlist", priority: "someday" } as LibItem;
-  return buildEntry(l, { date: releaseFor(f.byCountry, country, f.date), s: f.s, e: f.e, epName: f.epName }, dayOf(now));
+  return buildEntry(l, { date: releaseFor(f.byCountry, country, f.date), s: f.s, e: f.e, epName: f.epName }, dayOf(now, tzOf(country)));
 }

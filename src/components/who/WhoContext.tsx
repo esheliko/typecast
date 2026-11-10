@@ -18,6 +18,8 @@ export interface Watched { label: string; range: Range | null; /** Date for ages
 
 export interface WhoCtx {
   brief: WhoBrief;
+  /** Today (YYYY-MM-DD) in the user's time zone, worked out on the server from their country. */
+  today: string;
   pos: Pos | null;
   scope: ScopeKind | null;
   faces: Map<number, WhoFace>;

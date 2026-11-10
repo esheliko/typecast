@@ -64,13 +64,12 @@ export const loadBrief = cached(async (type: MediaType, id: number): Promise<Who
 export interface WhoEp { e: number; name: string; air: string; runtime: number | null; still: string | null; aired: boolean }
 export interface WhoEpDetail extends WhoEp { overview: string; directors: string[]; writers: string[] }
 
-const today = () => new Date().toISOString().slice(0, 10);
 const crewOf = (x: any, jobs: string[]) => [...new Set<string>((x.crew ?? []).filter((c: any) => jobs.includes(c.job)).map((c: any) => c.name))].slice(0, 3);
 
 /** One season's episodes for the episode select (no summaries), and with `e`, that episode's card. Specials are season 0. */
-export async function loadSeason(tv: number, s: number, e?: number): Promise<{ air: string; episodes: WhoEp[]; detail: WhoEpDetail | null }> {
+export async function loadSeason(tv: number, s: number, e?: number, today = new Date().toISOString().slice(0, 10)): Promise<{ air: string; episodes: WhoEp[]; detail: WhoEpDetail | null }> {
   const d = await tmdb(`/tv/${tv}/season/${s}`, {}, 6 * HOUR);
-  const now = today();
+  const now = today;
   const episodes: WhoEp[] = ((d.episodes ?? []) as any[]).map((x) => ({
     e: x.episode_number, name: x.name ?? "", air: x.air_date ?? "", runtime: x.runtime ?? null, still: x.still_path ?? null, aired: !!x.air_date && x.air_date <= now,
   }));

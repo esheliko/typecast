@@ -20,7 +20,7 @@ import type { Pos, WhoRoster } from "@/lib/who-types";
 const ROOT: Node = { t: "root" };
 
 /** The /who page: top bar, the finder (left) and the node you opened (right), joined by a trail. Position lives in the watch cookie when there is a watch, else the URL. */
-export function WhoApp({ brief, initialPos }: { brief: WhoBrief; initialPos: Pos | null }) {
+export function WhoApp({ brief, initialPos, today }: { brief: WhoBrief; initialPos: Pos | null; today: string }) {
   const router = useRouter();
   const wc = useWatchControl();
   const tv = brief.type === "tv";
@@ -141,7 +141,7 @@ export function WhoApp({ brief, initialPos }: { brief: WhoBrief; initialPos: Pos
   };
 
   const faces = useMemo(() => new Map((rosterFresh?.faces ?? roster?.faces ?? []).map((f) => [f.id, f])), [rosterFresh, roster]);
-  const ctx = useMemo(() => ({ brief, pos, scope: scopeKind(pos), faces, watched, push, setExact, prefetchPerson }), [brief, pos, faces, watched, push, setExact, prefetchPerson]);
+  const ctx = useMemo(() => ({ brief, today, pos, scope: scopeKind(pos), faces, watched, push, setExact, prefetchPerson }), [brief, today, pos, faces, watched, push, setExact, prefetchPerson]);
   const nodeOpen = stack.length > 0 || rootOpen;
 
   return (

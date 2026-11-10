@@ -54,3 +54,11 @@ test("marks carry the new-episode flag through packing", () => {
   const back = unpackMarks(Object.fromEntries(m.map((x, i) => [`tv:${i}`, packMark(x)])));
   assert.deepEqual(m.map((_, i) => back[`tv:${i}`]), m);
 });
+
+test("a series marked watched late in the user's evening counts the user's day, not UTC's", () => {
+  // 2026-11-09 23:00 UTC is already 10 Nov in India; an episode aired 10 Nov is not "after" that day there.
+  const watchedAt = Date.UTC(2026, 10, 9, 23, 0);
+  const f = { last: { s: 1, e: 2, date: "2026-11-10" }, seasons: [{ n: 1, air: "2026-10-01" }] };
+  assert.ok(newEpisodeSince(watchedAt, f));                            // UTC: still 9 Nov, so 10 Nov is new
+  assert.equal(newEpisodeSince(watchedAt, f, "Asia/Kolkata"), null);   // IST: already 10 Nov
+});

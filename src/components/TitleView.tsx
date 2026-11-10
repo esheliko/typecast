@@ -8,6 +8,7 @@ import Episodes from "@/components/Episodes";
 import Appearances, { EpisodeJump } from "@/components/Appearances";
 import { Avatar } from "@/components/ui";
 import { releaseFor } from "@/lib/release-dates";
+import { todayFor } from "@/lib/today";
 import { epCode, epsLabel, fmtDate, isRunning, plural, untilLabel, yearSpan } from "@/lib/episodes";
 import YearSpan from "@/components/YearSpan";
 import DetailOrder from "@/components/DetailOrder";
@@ -193,7 +194,6 @@ async function FilledCrew({ ids, t }: { ids: CrewId[]; t: Title }) {
   return <CrewSection ids={ids} t={{ ...t, crewBy: await fillCrew(t.type, t.imdbId, t.crewBy) }} />;
 }
 
-const today = () => new Date().toISOString().slice(0, 10);
 
 /** Series facts under the title: seasons, episodes, years, and when the next episode airs (or when the last one did). Tapping it opens that episode. */
 /** "Add to calendar": a plain link to a one-event .ics (a normal navigation, so iOS and Android hand it to the calendar). */
@@ -201,8 +201,8 @@ function CalLink({ k }: { k: string }) {
   return <a className="cal-link" href={`/api/event?key=${encodeURIComponent(k)}`} aria-label="Add to calendar" title="Download a calendar event">+ Calendar</a>;
 }
 
-function ShowFacts({ t }: { t: Title }) {
-  const s = t.show!; const now = today();
+function ShowFacts({ t, today }: { t: Title; today: string }) {
+  const s = t.show!; const now = today;
   const running = isRunning(s.status);
   // An ended series needs no "last episode" line: its finale is one tap away behind the year range.
   const ep = running ? (s.next ?? s.latest) : null;
@@ -230,8 +230,8 @@ function ShowFacts({ t }: { t: Title }) {
 }
 
 /** An unreleased film: "Releases Fri 18 Dec 2026 (in 40 days)". Nothing once it is out or when TMDB has no date. */
-function ReleaseLine({ date, k }: { date: string; k: string }) {
-  const until = untilLabel(date, today());
+function ReleaseLine({ date, k, today }: { date: string; k: string; today: string }) {
+  const until = untilLabel(date, today);
   if (!until) return null;
   return <div className="sh-meta">Releases {fmtDate(date, true)} ({until}) <CalLink k={k} /></div>;
 }
@@ -263,6 +263,7 @@ export default async function TitleView({ t, origin, focus }: { t: Title; origin
   const [mine, profile] = await Promise.all([getLibraryItem(t.key), getProfile()]);
   const meta = [t.show ? "" : t.year, typeLabel(t.type), t.runtime ? `${t.runtime} min${t.type === "tv" ? " per episode" : ""}` : "", t.genres.slice(0, 3).join(", ")].filter(Boolean).join(" · ");
   const gaps = missingCrew(t.crewBy).length > 0 && !!t.imdbId;
+  const today = todayFor(profile.country);
   return (
     <FromProvider k={t.key} name={t.title} year={t.show ? undefined : t.year}>
       <div className="sh-top sh-compact" style={{ marginTop: 10 }}>
@@ -271,8 +272,8 @@ export default async function TitleView({ t, origin, focus }: { t: Title; origin
         <div style={{ minWidth: 0 }}>
           <h1 className="sh-title">{t.title} <RelatedButton it={t} /> <GlimpseButton spec={titleSpec(t)} /> {t.imdbId && <a className="imdb-link" href={`https://www.imdb.com/title/${t.imdbId}/`} target="_blank" rel="noopener noreferrer" aria-label="Open on IMDb" title="Open on IMDb">IMDb ↗</a>}</h1>
           <div className="sh-meta">{meta}</div>
-          {t.show && <ShowFacts t={t} />}
-          {t.release && <ReleaseLine date={releaseFor(t.releaseBy, profile.country, t.release)} k={t.key} />}
+          {t.show && <ShowFacts t={t} today={today} />}
+          {t.release && <ReleaseLine date={releaseFor(t.releaseBy, profile.country, t.release)} k={t.key} today={today} />}
           {mine?.newEp && <div style={{ margin: "4px 0 2px" }}><NewEpPill k={t.key} detail={newEpDetail(mine.newEp)} /></div>}
           <Suspense fallback={null}><AwardChips t={t} /></Suspense>
           {gaps
@@ -291,7 +292,7 @@ export default async function TitleView({ t, origin, focus }: { t: Title; origin
       <Details t={t} libP={libP} order={profile.details} />
       <Unchosen t={t} libP={libP} order={profile.details} />
       {t.type === "tv" && t.seasons.length > 0 && (
-        <Episodes item={{ id: t.id, title: t.title, year: t.year, poster: t.poster }} seasons={t.seasons} progress={mine?.progress ?? null} status={mine?.status ?? null} today={today()}
+        <Episodes item={{ id: t.id, title: t.title, year: t.year, poster: t.poster }} seasons={t.seasons} progress={mine?.progress ?? null} status={mine?.status ?? null} today={today}
           ended={!!t.show && !isRunning(t.show.status)} latest={t.show?.latest ?? null} next={t.show?.next ?? null} />
       )}
       <Suspense fallback={null}><AwardsSection t={t} /></Suspense>

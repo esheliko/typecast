@@ -4,6 +4,8 @@ import { WhoApp } from "@/components/who/WhoApp";
 import { WhoStart } from "@/components/who/WhoStart";
 import { loadBrief } from "@/lib/who-data";
 import { parseUrlKey, posFromParams } from "@/lib/who-scope";
+import { getProfile } from "@/lib/library";
+import { todayFor } from "@/lib/today";
 import { parseWatch, WATCH_COOKIE } from "@/lib/watching";
 import type { Pos } from "@/lib/who-types";
 
@@ -38,5 +40,6 @@ export default async function WhoPage({ searchParams }: { searchParams: Promise<
     const fromUrl = one(sp.s) != null;
     pos = fromUrl ? posFromParams(one(sp.s), one(sp.e)) : mine ? (mine.pos ?? { s: mine.s ?? 1, e: mine.e ?? 1 }) : { s: null, e: null };
   }
-  return <WhoApp key={`${brief.key}`} brief={brief} initialPos={pos} />;
+  const today = todayFor((await getProfile().catch(() => null))?.country);
+  return <WhoApp key={`${brief.key}`} brief={brief} initialPos={pos} today={today} />;
 }

@@ -6,6 +6,8 @@ import { requireUser, supabaseServer } from "@/lib/supabase/server";
 import { normalizeDetails, type DetailId } from "@/lib/details";
 import type { MediaType, Priority, Status } from "@/lib/types";
 import { progressPassed } from "@/lib/new-episode";
+import { tzOf } from "@/lib/today";
+import { getProfile } from "@/lib/library";
 import type { LbEntry } from "@/lib/letterboxd-parse";
 import { applyResolved, cleanUsername, fetchFeed, LbError, resolveEntries, type Applied, type Failed, type Prev, type Unmatched, type Unsure, syncLetterboxd } from "@/lib/letterboxd";
 
@@ -168,7 +170,7 @@ export async function importLetterboxd(entries: LbEntry[], last: boolean): Promi
     name: e.name, tv: !!e.tv, watching: !!e.watching, year: Number.isInteger(e.year) ? e.year : null, watched: !!e.watched, watchlist: !!e.watchlist,
     rating: Number.isInteger(e.rating) ? Math.max(0, Math.min(5, e.rating)) : 0, date: typeof e.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(e.date) ? e.date : null,
   })).filter((e) => e.watched || e.watchlist || e.watching);
-  const { rows, unmatched, unsure, trace } = await resolveEntries(clean);
+  const { rows, unmatched, unsure, trace } = await resolveEntries(clean, tzOf((await getProfile()).country));
   let res: Awaited<ReturnType<typeof applyResolved>> = { added: 0, updated: 0, items: [], failed: [] }, failure: string | null = null, userFailure = "";
   try { res = await applyResolved(sb, user.id, rows); } catch (e) { failure = e instanceof Error ? e.message : String(e); userFailure = userMessage(e, "import"); }
   // Audit trail: one line in the Vercel runtime logs and one row in `import_log` (table migration 0007). Logging never breaks an import.
@@ -238,14 +240,14 @@ export async function connectLetterboxd(input: string): Promise<LbResult> {
     { onConflict: "user_id" },
   );
   if (error) { console.error("[error] saveLetterboxd:", error.message); return { ok: false, error: "Could not save that. Please try again." }; }
-  const r = await syncLetterboxd(sb, user.id, true);
+  const r = await syncLetterboxd(sb, user.id, true, tzOf((await getProfile()).country));
   done();
   return r.error ? { ok: false, error: r.error } : { ok: true, added: r.added, updated: r.updated };
 }
 
 export async function syncLetterboxdNow(): Promise<LbResult> {
   const { sb, user } = await requireUser();
-  const r = await syncLetterboxd(sb, user.id, true);
+  const r = await syncLetterboxd(sb, user.id, true, tzOf((await getProfile()).country));
   done();
   return r.error ? { ok: false, error: r.error } : { ok: true, added: r.added, updated: r.updated };
 }

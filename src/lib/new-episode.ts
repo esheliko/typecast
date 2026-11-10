@@ -1,4 +1,5 @@
 import type { NewEp } from "./types";
+import { dayIn } from "./today";
 
 /**
  * "New episode" on a series that came back from Watched: pure helpers, no fetching.
@@ -13,15 +14,15 @@ export interface EpisodeFacts {
   seasons: { n: number; air: string | null }[];
 }
 
-/** YYYY-MM-DD of a timestamp (ms), in UTC like TMDB's air dates. */
-export const dayOf = (t: number) => new Date(t).toISOString().slice(0, 10);
+/** YYYY-MM-DD of a timestamp (ms) in the user's time zone (`tz`, from their country; UTC when not given). */
+export const dayOf = (t: number, tz?: string) => dayIn(t, tz);
 
 /**
  * The new episode for a series marked Watched at `watchedAt` (ms), or null when nothing has aired since that day.
  * `season` is true when a whole new season started since then (specials, season 0, do not count).
  */
-export function newEpisodeSince(watchedAt: number, f: EpisodeFacts | null): NewEp | null {
-  const day = dayOf(watchedAt);
+export function newEpisodeSince(watchedAt: number, f: EpisodeFacts | null, tz?: string): NewEp | null {
+  const day = dayOf(watchedAt, tz);
   if (!f?.last || !f.last.date || f.last.date <= day) return null;
   const season = f.seasons.some((s) => s.n > 0 && !!s.air && s.air > day && s.air <= f.last!.date);
   return { at: f.last.date, s: f.last.s, e: f.last.e, season };
