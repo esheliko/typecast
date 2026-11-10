@@ -50,6 +50,7 @@ Next.js 16 (App Router) + Supabase (email/password auth, RLS) + TMDB. See README
 - Every title list offers Both / Films / Series: wrap it in `KindFilter` (or use `KindSeg` + `ofKind` from `src/lib/kind.ts`); the switch appears when the list holds both kinds. Library keeps it in the URL (`?k=movie|tv`).
 - Decorative sections (suggestions, awards, marks) must fail soft: catch and render nothing or a small note, never let them take the page down.
 - Cookie-based watch bar (`tc_watch`) with a cast-face finder and an About tab; no runtime AI. Pure logic in `src/lib/roster.ts` and `ask-intent.ts` (unit tested). Later episodes are never shown (no spoilers). Details: `docs/features/watching-now.md` (read before changing this feature).
+- `/who` is the redesigned Who's that? (preview, additive; node/trail UI, no question box; position in the `tc_watch` `pos` field or the URL; spoiler-safe scope + a person's own episode dates). Pure logic in `src/lib/who-*.ts` (unit tested). Details: `docs/features/who.md` (read before changing this feature).
 - `artifact.html` is the legacy single-file prototype, not part of the site.
 
 ## Known gaps
