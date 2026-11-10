@@ -37,6 +37,17 @@ test("going back keeps the later steps; choosing the same next step just moves o
   assert.equal(jumpTo(s, 99), s);
 });
 
+test("opening the step right before the current one is just going back; further back is a new step", () => {
+  let s = startTrail([p(1), t("tv:5"), p(2)], "b1");
+  s = pushNode(s, t("tv:5"), "b2");
+  assert.equal(s.cur, 2, "one before: back");
+  assert.equal(s.nodes.length, 3);
+  assert.equal(s.branch, "b1");
+  s = startTrail([p(1), t("tv:5"), p(2)], "b1");
+  s = pushNode(s, p(1), "b3");
+  assert.deepEqual(s.nodes.map(nodeId), ["p1", "tv:5", "p2", "p1"], "two back is a new step");
+});
+
 test("a new step chosen from an earlier one replaces what was ahead and starts a new branch", () => {
   let s = startTrail([p(1), t("tv:5"), p(2)], "b1");
   s = jumpTo(s, 1);

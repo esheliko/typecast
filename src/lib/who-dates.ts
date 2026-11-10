@@ -102,3 +102,11 @@ export function lifeLine(birth: string, death: string, at: string, atLabel: stri
 
 /** A range for one date. */
 export const day = (d: string): Range => ({ start: d, end: d });
+
+/** A series' years beside its name: "2009-2017", "2019-" while it is still going, or just "2009" (one year, or the end is not known). */
+export function yearsLabel(year: string, show?: { first: string; last: string; ongoing: boolean } | null): string {
+  if (!show) return year;
+  const a = (show.first || "").slice(0, 4) || year, b = (show.last || "").slice(0, 4);
+  if (show.ongoing) return a ? `${a}\u2013` : year;
+  return a && b && b !== a ? `${a}\u2013${b}` : a || year;
+}

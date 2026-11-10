@@ -208,41 +208,34 @@ test.describe("signed in", () => {
     await healthy(page, bad);
   });
 
-  // Watching now ("Who's that?"): start on a title, the sheet opens with the cast grid at the seeded episode, a face opens its panel,
-  // the episode can be changed without touching saved progress, the About tab answers a fact, and the watch ends cleanly. No AI.
-  test("Watching now: Who's that? sheet", async ({ page }) => {
+  // Watching now: start on a title, land on /watching at the seeded episode, step to the next episode (saved progress is never written),
+  // the bar above the tabs has no extra button and opens the page, and the watch ends cleanly. No AI.
+  test("Watching now: start, next episode, bar, end", async ({ page }) => {
     const bad = watch(page);
     await visit(page, "/title/tv/1396?full=1", bad);
     await page.getByRole("button", { name: /watching this now/ }).click();
-    const sheet = page.getByRole("dialog", { name: /Who's on screen in Breaking Bad/ });
-    await expect(sheet).toBeVisible();
+    await page.waitForURL(/\/watching/, { timeout: 30_000 });
+    const main = page.getByRole("main", { name: /Watching now: Breaking Bad/ });
+    await expect(main).toBeVisible({ timeout: 30_000 });
     // Starts where the seeded progress is (S2 E3); the regulars are listed.
-    await expect(sheet.getByLabel("Season")).toHaveValue("2");
-    await expect(sheet.getByLabel("Episode")).toHaveValue("3");
-    await expect(sheet.getByRole("button", { name: /^Bryan Cranston/ }).first()).toBeVisible({ timeout: 30_000 });
-    // The search box filters by character name; a face opens its panel.
-    await sheet.getByLabel("Search the cast").fill("walter");
-    await sheet.getByRole("button", { name: /^Bryan Cranston/ }).first().click();
-    await expect(sheet.getByText(/Plays Walter White/)).toBeVisible({ timeout: 20_000 });
-    await sheet.getByRole("button", { name: /All faces/ }).click();
-    // Step the episode forward and back; saved progress stays as it was.
-    await sheet.getByLabel("Episode").selectOption("4");
-    await expect(sheet.getByText(/up to S2 E4/)).toBeVisible();
-    await sheet.getByLabel("Episode").selectOption("3");
-    await expect(sheet.getByText(/up to S2 E3/)).toBeVisible();
-    // About tab: a built-in fact is looked up (TMDB/Wikipedia, no AI).
-    await sheet.getByRole("tab", { name: /About this episode/ }).click();
-    await sheet.getByRole("button", { name: "Episodes left" }).click();
-    await expect(sheet.getByText("Looking it up")).toHaveCount(0, { timeout: 30_000 });
-    await sheet.getByRole("button", { name: "Close" }).click();
+    await expect(main.getByLabel("Season")).toHaveValue("2");
+    await expect(main.getByRole("button", { name: /^Episode: E3/ })).toBeVisible();
+    await expect(main.locator(".wx-tile", { hasText: "Bryan Cranston" }).first()).toBeVisible({ timeout: 30_000 });
+    // The Next button sits in the same pill as the episode picker.
+    const next = main.getByRole("button", { name: /^Next episode/ });
+    await expect(next).toBeEnabled({ timeout: 30_000 });
+    await next.click();
+    await expect(main.getByRole("button", { name: /^Episode: E4/ })).toBeVisible();
     await visit(page, "/library", bad);
     const bar = page.getByRole("region", { name: "Watching now" });
-    await expect(bar).toContainText("S2 E3");
-    await bar.getByRole("button").click();
-    await sheet.getByRole("button", { name: "End this watch" }).click();
-    await sheet.getByRole("button", { name: "Stop watching" }).click();
-    await expect(bar).toHaveCount(0);
-    expect((await page.request.get("/api/ask")).status()).toBe(404);
+    await expect(bar).toContainText("S2 E4");
+    await expect(bar.getByText(/Who.s that/)).toHaveCount(0);
+    await bar.getByRole("link").click();
+    await page.waitForURL(/\/watching/, { timeout: 30_000 });
+    await page.getByRole("button", { name: "End this watch" }).click({ timeout: 30_000 });
+    await page.getByRole("button", { name: "Stop watching" }).click();
+    await expect(page.getByRole("region", { name: "Watching now" })).toHaveCount(0, { timeout: 30_000 });
+    expect((await page.request.get("/api/ask")).status()).toBe(405);
     await healthy(page, bad);
   });
 
@@ -319,9 +312,9 @@ test.describe("signed in", () => {
     await healthy(page, bad);
   });
 
-  test("/who: Rookie S2, filter to women, open a face, see the timeline", async ({ page }) => {
+  test("/watching: Rookie S2, filter to women, open a face, see the timeline", async ({ page }) => {
     const bad = watch(page);
-    await visit(page, "/who?k=tv-79744&s=2", bad);
+    await visit(page, "/watching?k=tv-79744&s=2", bad);
     // Season 2, episode not set: the whole season counts, and the page says so.
     await expect(page.getByText("Includes all of season 2 because the episode is not set")).toBeVisible({ timeout: 30_000 });
     const tiles = page.locator(".wx-tile[data-pid]");
@@ -349,14 +342,17 @@ test.describe("signed in", () => {
     // Going back keeps the step (it is dimmed, not erased), the line of history is a recents chip, and the spoiler switch is always on screen.
     await expect(page.locator(".wx-trail")).toContainText("Sara Rue");
     await expect(page.locator(".wx-rchip[title*='Sara Rue']")).toBeVisible();
-    await expect(page.getByRole("switch", { name: /No spoilers/ })).toHaveAttribute("aria-checked", "true");
+    await expect(page.getByRole("switch", { name: /No spoilers/ })).toHaveAttribute("aria-checked", "false");
+    // The old address still lands here.
+    await visit(page, "/who?k=tv-79744&s=2", bad);
+    await expect(page).toHaveURL(/\/watching\?k=tv-79744&s=2/);
     await healthy(page, bad);
   });
 
-  test("/who: no title shows a search, and its API routes refuse bad input", async ({ page }) => {
+  test("/watching: no title shows a search, and its API routes refuse bad input", async ({ page }) => {
     const bad = watch(page);
     await page.context().clearCookies({ name: "tc_watch" });
-    await visit(page, "/who", bad);
+    await visit(page, "/watching", bad);
     await expect(page.getByLabel("Search for a film or series")).toBeVisible();
     for (const p of ["/api/who/roster?k=bogus", "/api/who/person?id=abc", "/api/who/spans?p=1", "/api/who/pair?a=1&b=1", "/api/who/title?k=x-1", "/api/who/common?q=a&k=tv-1"]) {
       expect((await page.request.get(p)).status(), p).toBe(400);

@@ -44,6 +44,7 @@ export const jumpTo = (s: TrailState, i: number): TrailState => (i < 0 || i > s.
  * Open `n` from the node showing now.
  * - It is the node already showing: nothing changes.
  * - It is the very next step of the trail: just move on (the steps after it stay).
+ * - It is the step right before the one showing (not further back): that is just "back", so go one step back and change nothing else.
  * - Otherwise it goes after the current step; when that cuts off steps that were ahead, the cut-off steps stay only in the recents row
  *   (under the old branch) and this is a new branch.
  */
@@ -51,6 +52,7 @@ export function pushNode(s: TrailState, n: Node, newBranch: string): TrailState 
   const id = nodeId(n);
   if (s.cur > 0 && nodeId(s.nodes[s.cur - 1]) === id) return s;
   if (s.cur < s.nodes.length && nodeId(s.nodes[s.cur]) === id) return { ...s, cur: s.cur + 1 };
+  if (s.cur >= 2 && nodeId(s.nodes[s.cur - 2]) === id) return { ...s, cur: s.cur - 1 };
   const forking = s.cur < s.nodes.length;
   const nodes = [...s.nodes.slice(0, s.cur), n];
   const over = Math.max(0, nodes.length - MAX_TRAIL);

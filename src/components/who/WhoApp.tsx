@@ -163,19 +163,19 @@ export function WhoApp({ brief, initialPos, today }: { brief: WhoBrief; initialP
 
   return (
     <WhoProvider value={ctx}>
-      <div className="wx" role="main" aria-label={`Who's that? ${brief.title}`}>
+      <div className="wx" role="main" aria-label={`Watching now: ${brief.title}`}>
         <header className="wx-top">
           <ZoomBtn path={brief.poster} name={brief.title} className="wx-posterb"><Photo path={brief.poster} name={brief.title} w="w92" className="wx-poster" eager /></ZoomBtn>
           <div className="wx-ttl">
-            <span className="wbar-k"><span className="live-dot" aria-hidden="true" />Who&rsquo;s that?</span>
+            <span className="wbar-k"><span className="live-dot" aria-hidden="true" />Watching now</span>
             <b className="wx-title">{brief.title}</b>
             <span className="small muted">{[brief.year, tv ? posLabel(pos) : "Film"].filter(Boolean).join(" · ")}</span>
           </div>
           {tv && pos && <PositionControl brief={brief} pos={pos} onChange={changePos} />}
           <div className="wx-topr">
-            <button type="button" role="switch" aria-checked={!spoilers} className="wx-nospoil" onClick={toggleSpoilers}
+            <button type="button" role="switch" aria-checked={spoilers} className="wx-nospoil" onClick={toggleSpoilers}
               title={spoilers ? "Spoilers are shown: the whole series, past where you are" : "Spoilers are hidden: everything stops at where you are"}>
-              <span className="wx-sw" aria-hidden="true" /><span>No spoilers</span>
+              <span className="wx-sw" aria-hidden="true" /><span>{spoilers ? "Show spoilers" : "No spoilers"}</span>
             </button>
             <button type="button" className="back wx-close" onClick={close}><span aria-hidden="true">&#215;</span> Close</button>
           </div>

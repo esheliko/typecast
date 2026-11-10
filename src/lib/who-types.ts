@@ -85,4 +85,8 @@ export interface Span {
   /** Episodes listed (0 for a run). */
   n: number;
   eps: { s: number; e: number; air: string }[];
+  /** The whole show's run, for "2009-2017" beside its name (absent for the show being watched, whose end is never given away). */
+  show?: ShowRun;
 }
+/** A series' own first and last air dates, and whether it is still going. */
+export interface ShowRun { first: string; last: string; ongoing: boolean }

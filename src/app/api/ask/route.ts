@@ -1,7 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { answer } from "@/lib/answer";
 import { getLibrary, getProfile } from "@/lib/library";
-import { findPeople, loadHits, loadPerson, loadRoster } from "@/lib/roster-data";
 import { apiError } from "@/lib/errors";
 import { parseWatch, WATCH_COOKIE, type Watch } from "@/lib/watching";
 import { parseUrlKey } from "@/lib/who-scope";
@@ -9,32 +8,8 @@ import { parseUrlKey } from "@/lib/who-scope";
 export const maxDuration = 60;
 
 const current = (req: NextRequest) => parseWatch(req.cookies.get(WATCH_COOKIE)?.value);
-const num = (v: string | null) => { const n = Number(v); return Number.isInteger(n) && n > 0 ? n : null; };
 const fail = (e: unknown) => { const { body, status } = apiError(e, "api/ask"); return NextResponse.json(body, { status }); };
 const lib = () => getLibrary().catch(() => []);
-
-/**
- * GET (the current watch, from its cookie), no AI:
- *   ?s=&e=       who can be on screen at that episode (a film ignores them)
- *   ?hits=1,2,3  which of those people the user has seen elsewhere in the library
- *   ?person=ID   one person's library titles and best-known work
- *   ?find=name   people anywhere on TMDB
- */
-export async function GET(req: NextRequest) {
-  const w = current(req);
-  if (!w) return NextResponse.json({ error: "Not watching anything" }, { status: 404 });
-  const p = req.nextUrl.searchParams;
-  try {
-    const hits = p.get("hits");
-    if (hits) return NextResponse.json({ hits: await loadHits(hits.split(",").map(Number).filter((n) => Number.isInteger(n) && n > 0), await lib(), w.key) }, { headers: { "Cache-Control": "private, max-age=600" } });
-    const person = num(p.get("person"));
-    if (person) return NextResponse.json(await loadPerson(person, await lib(), w.key), { headers: { "Cache-Control": "private, max-age=600" } });
-    const find = p.get("find")?.trim().slice(0, 80);
-    if (find) return NextResponse.json({ people: await findPeople(find) }, { headers: { "Cache-Control": "private, max-age=600" } });
-    const pos = w.type === "tv" ? { s: num(p.get("s")) ?? w.s ?? 1, e: num(p.get("e")) ?? w.e ?? 1 } : null;
-    return NextResponse.json(await loadRoster(w.type, w.id, pos), { headers: { "Cache-Control": "private, max-age=600" } });
-  } catch (e) { return fail(e); }
-}
 
 /** POST { q, spoilers }: a fact about the title (story so far, filming, trivia, time left, …) from TMDB, Wikidata and Wikipedia. */
 export async function POST(req: NextRequest) {

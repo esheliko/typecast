@@ -5,12 +5,12 @@ import { KindSeg } from "../KindSeg";
 import { GlimpseButton } from "../Glimpse";
 import { More, Photo, Section, SEEN_STATUS, Sk, Soft, useLimit, useSpans } from "./bits";
 import { Timeline, type AxisItem } from "./Timeline";
-import { defaultChoice, readoutChoice } from "@/lib/who-readout";
+import { defaultChoice } from "@/lib/who-readout";
 import { nodeId, useWho, type Node } from "./WhoContext";
 import { img } from "@/lib/img";
 import { roleLabel } from "@/lib/roster";
 import { ofKind, type Kind } from "@/lib/kind";
-import { ageAt, fmtMonth, fmtRange, gapBetween, gapChip, lifeLine, readout } from "@/lib/who-dates";
+import { fmtMonth, fmtRange, lifeLine, yearsLabel } from "@/lib/who-dates";
 import { pairLabels } from "@/lib/who-common";
 import { whoApi } from "@/lib/who-client";
 import { showRunLabel } from "@/lib/who-spans";
@@ -52,7 +52,7 @@ export function PersonNode({ node }: { node: PNode }) {
   const [kind, setKind] = useState<Kind>("all");
   const [onlySeen, setOnlySeen] = useState(false);
   const [extras, setExtras] = useState(false);
-  // The readout compares the reference only with a row somebody chose on purpose: a click (selected), or a hover/focus (preview).
+  // The row somebody chose on purpose: a click (selected), or a hover/focus (preview). The default is the title picked from "titles in common", else the top "You know them from" title.
   const [selected, setSelected] = useState<string | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const rowRefs = useRef(new Map<string, HTMLElement>());
@@ -117,17 +117,8 @@ export function PersonNode({ node }: { node: PNode }) {
   const lim = useLimit(rows.length, 8);
   useEffect(() => { setLimitHint(lim.shown); }, [lim.shown]);
 
-  const upTo = clip ? ` (up to ${posCode(clip)})` : "";
   const ref = watched.range ? { id: "watched", label: watched.label, range: watched.range } : null;
   const whenRow = (c: PCredit) => whenOf(c, spansEff);
-  const rangeById = (id: string): { label: string; range: Range; approx: boolean } | null => {
-    if (id === "watched") return watched.range ? { label: watched.label, range: watched.range, approx: false } : null;
-    const c = rows.find((r) => r.key === id);
-    if (!c) return null;
-    const w = whenRow(c);
-    return w.kind === "range" ? { label: `${c.title}${c.key === brief.key ? upTo : ""}`, range: w.range, approx: !w.own } : null;
-  };
-
   // Default choice on open: the title picked from "titles in common", else the top "You know them from" title, else nothing.
   const usable = (id: string) => {
     if (ref && id === ref.id) return false;
@@ -135,12 +126,6 @@ export function PersonNode({ node }: { node: PNode }) {
     return !!c && whenRow(c).kind !== "none";
   };
   const fallback = defaultChoice({ highlighted: node.hl, known: known.map((c) => c.key), usable });
-  const chosen = readoutChoice({ preview, selected, fallback, usable });
-  const readoutLine = (() => {
-    if (!ref || !chosen) return "";
-    const f = rangeById(chosen);
-    return f ? readout(f, { label: ref.label, range: ref.range }) : "";
-  })();
   const marked = selected && usable(selected) ? selected : fallback;
   // The selected row is always on screen: when it is below the first rows, it follows them after a "…" gap, in its chronological place.
   const markedIdx = marked ? rows.findIndex((r) => r.key === marked) : -1;
@@ -217,17 +202,16 @@ export function PersonNode({ node }: { node: PNode }) {
         {data && known.slice(0, knownLim.shown).map((c) => {
           const w = whenRow(c);
           const st = lib.get(c.key)?.status;
-          const g = w.kind === "range" && watched.range ? gapChip(gapBetween(w.range, watched.range), !w.own) : "";
+          const n = epsIn(c, spansEff[c.key]);
           return (
             <div key={c.key} className="wx-krow">
               <button type="button" className="wx-kbtn" onClick={() => push({ t: "title", key: c.key, title: c.title, year: c.year, poster: c.poster })}>
                 <Photo path={c.poster} name={c.title} w="w92" className="wx-kpos" />
-                <span className="wx-kmain"><b>{c.title}</b> <span className="muted">{c.year}</span>
-                  <span className="small muted wx-kline">{[c.role && `as ${roleLabel(c.role) || c.role}`, whenText(c, w)].filter(Boolean).join(" · ")}{w.kind === "loading" && <Sk w={90} h={11} style={{ marginLeft: 4 }} />}</span>
+                <span className="wx-kmain"><b>{c.title}</b> <span className="muted">{c.type === "tv" ? yearsLabel(c.year, spansEff[c.key]?.show) : c.year}</span>
+                  <span className="small muted wx-kline">{[c.role && `as ${roleLabel(c.role) || c.role}`, whenText(c, w), n ? epsLabel(n) : ""].filter(Boolean).join(" · ")}{w.kind === "loading" && <Sk w={90} h={11} style={{ marginLeft: 4 }} />}</span>
                 </span>
                 <span className="wx-kright">
                   <span className={`ask-st ${st === "watchlist" ? "list" : "seen"}`}>{st === "watchlist" ? "On your list" : "Seen"}</span>
-                  {g && <span className="wx-gap">{g} this</span>}
                 </span>
               </button>
               <GlimpseButton spec={creditSpec(node.name, c.role, { title: c.title, year: c.year, type: c.type })} label={`See images of ${c.title}${c.role ? `, or ${node.name} as ${roleLabel(c.role) || c.role}` : ""}`} />
@@ -238,7 +222,7 @@ export function PersonNode({ node }: { node: PNode }) {
       </Section>
 
       {/* 4. Timeline: its header, filters and the axis stay in view while the titles scroll under them */}
-      <section className="wx-sec wx-tl" aria-label="Timeline" ref={tlSec}>
+      <section className="wx-sec wx-tlsec" aria-label="Timeline" ref={tlSec}>
         <div className="wx-tsticky" ref={tlSticky}>
           <div className="wx-tfilters">
             <h3 className="wx-h wx-tlh">Timeline{data && <span className="muted"> · {rows.length}</span>}</h3>
@@ -250,10 +234,6 @@ export function PersonNode({ node }: { node: PNode }) {
           {data && (
             <>
               <Timeline items={axis} refRange={ref?.range ?? null} refLabel={tv && clip ? "Watching · so far" : "Watching"} refSoFar={tv && scopeKind(pos) === "season" && !!clip} selected={marked} hot={preview} onPick={pick} onPreview={setPreview} />
-              <div className="wx-readout" aria-live="polite">
-                {readoutLine && <p title={readoutLine}>{readoutLine}.</p>}
-                {!ref && <p className="small muted">TMDB has no air date for what you are watching, so there is nothing to measure from.</p>}
-              </div>
             </>
           )}
         </div>
@@ -265,7 +245,7 @@ export function PersonNode({ node }: { node: PNode }) {
               {visibleRows.map((c, i) => (
                 <Fragment key={c.key}>
                   {pinned && i === visibleRows.length - 1 && <li className="wx-gaprow" aria-hidden="true">&hellip;</li>}
-                  <TRow c={c} actor={node.name} when={whenRow(c)} birthday={data.birthday} refRange={ref?.range ?? null} sel={marked === c.key} hot={preview === c.key}
+                  <TRow c={c} actor={node.name} when={whenRow(c)} eps={epsIn(c, spansEff[c.key])} sel={marked === c.key} hot={preview === c.key}
                     reg={(el) => { if (el) rowRefs.current.set(c.key, el); else rowRefs.current.delete(c.key); }}
                     onOpen={() => push({ t: "title", key: c.key, title: c.title, year: c.year, poster: c.poster })} onSelect={() => pick(c.key)} onPreview={(on) => setPreview(on ? c.key : null)}
                     isCur={c.key === brief.key} upTo={clip ? posLabel(clip) : ""} lib={lib.get(c.key)?.status} />
@@ -288,6 +268,12 @@ export function PersonNode({ node }: { node: PNode }) {
 const RowsSk = ({ n }: { n: number }) => (
   <div className="wx-rowsk" aria-hidden="true">{Array.from({ length: n }, (_, i) => <div key={i} className="wx-krow"><span className="sk-b wx-kpos" /><span className="wx-kmain"><Sk w="55%" h={15} /><Sk w="75%" h={11} style={{ marginTop: 6 }} /></span></div>)}</div>
 );
+
+/** How many episodes they were in: TMDB's count on the credit, or what their own episode list adds up to. */
+function epsIn(c: PCredit, s: Span | null | undefined): number {
+  return c.type === "tv" ? Math.max(c.eps, s?.n ?? 0) : 0;
+}
+const epsLabel = (n: number) => `${n} episode${n === 1 ? "" : "s"}`;
 
 function whenText(c: PCredit, w: When): string {
   if (w.kind !== "range") return w.kind === "none" ? "date unknown" : "";
@@ -323,23 +309,20 @@ function HereEpisodes({ span, loading, failed, regular, inScope }: { span: Span 
   );
 }
 
-function TRow({ c, actor, when, birthday, refRange, sel, hot, reg, onOpen, onSelect, onPreview, isCur, upTo, lib }: {
-  c: PCredit; actor: string; when: When; birthday: string; refRange: Range | null; sel: boolean; hot: boolean; reg: (el: HTMLElement | null) => void;
+function TRow({ c, actor, when, eps, sel, hot, reg, onOpen, onSelect, onPreview, isCur, upTo, lib }: {
+  c: PCredit; actor: string; when: When; eps: number; sel: boolean; hot: boolean; reg: (el: HTMLElement | null) => void;
   onOpen: () => void; onSelect: () => void; onPreview: (on: boolean) => void; isCur: boolean; upTo: string; lib?: string;
 }) {
-  const range = when.kind === "range" ? when.range : null;
   const own = when.kind === "range" && when.own;
-  const age = range && own ? ageAt(birthday, range.start) : null;
-  const gap = range && refRange ? gapChip(gapBetween(range, refRange), !own) : "";
   const seen = SEEN_STATUS.has(lib ?? "");
-  const role = [c.role && `as ${roleLabel(c.role) || c.role}`, isCur && upTo ? `up to ${upTo}` : "", age != null ? `age ${age}` : ""].filter(Boolean).join(" · ");
+  const role = [c.role && `as ${roleLabel(c.role) || c.role}`, isCur && upTo ? `up to ${upTo}` : "", eps ? epsLabel(eps) : ""].filter(Boolean).join(" · ");
   return (
     <li ref={reg} className={`wx-trow${sel ? " sel" : ""}${hot ? " hot" : ""}`} data-key={c.key}
       onMouseEnter={() => onPreview(true)} onMouseLeave={() => onPreview(false)} onFocus={() => onPreview(true)} onBlur={() => onPreview(false)}
       onClick={(ev) => { if (!(ev.target as HTMLElement).closest("button")) onSelect(); }}>
       {when.kind === "loading" ? <span className="wx-tdates"><Sk w={74} h={13} /></span>
         : <button type="button" className="wx-tdates" onClick={onSelect} disabled={when.kind === "none"} aria-label={`Compare ${c.title} with what you are watching`}>
-          {when.kind === "none" ? <span className="muted">date unknown</span> : own ? <b>{fmtRange(when.range.start, when.range.end)}</b> : <span className="muted">{showRunLabel(when.range.start, when.range.end)}</span>}
+          {when.kind === "none" ? <span className="muted">date unknown</span> : own ? <b>{fmtRange(when.range.start, when.range.end).replace(/ /g, "\u00a0").replace("-", "-\u200b")}</b> : <span className="muted">{showRunLabel(when.range.start, when.range.end)}</span>}
         </button>}
       <span className="wx-tline">
         <button type="button" className="wx-ttitle" onClick={onOpen}>{c.title}</button>
@@ -347,9 +330,6 @@ function TRow({ c, actor, when, birthday, refRange, sel, hot, reg, onOpen, onSel
         {seen && <span className="ask-st seen" title="You have seen this">&#10003; Seen</span>}
       </span>
       <span className="small muted wx-trole" title={role}>{role}</span>
-      <span className="wx-tgap">
-        {when.kind === "loading" ? <Sk w={90} h={22} style={{ borderRadius: 999 }} /> : gap ? <span className="wx-gap">{gap}</span> : null}
-      </span>
       <span className="wx-tgl"><GlimpseButton spec={creditSpec(actor, c.role, { title: c.title, year: c.year, type: c.type })} label={`See images of ${c.title}${c.role ? `, or ${actor} as ${roleLabel(c.role) || c.role}` : ""}`} /></span>
     </li>
   );

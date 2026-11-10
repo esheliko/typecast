@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { ageAt, fmtMonth, fmtRange, gapBetween, gapChip, gapLabel, lifeLine, monthsBetween, readout } from "../../src/lib/who-dates";
+import { ageAt, fmtMonth, fmtRange, gapBetween, gapChip, gapLabel, lifeLine, monthsBetween, readout, yearsLabel } from "../../src/lib/who-dates";
 
 test("months between two dates, never negative, day of month counts", () => {
   assert.equal(monthsBetween("2008-12-08", "2019-11-12"), 131);
@@ -61,4 +61,11 @@ test("life line: omits what is unknown, uses life dates for the dead", () => {
   assert.equal(lifeLine("1974-05-05", "", "", "in this episode", "2026-11-09"), "born 1974, 52 today");
   assert.equal(lifeLine("1944-05-05", "2019-01-01", "2010-01-01", "in this episode", "2026-11-09"), "1944-2019, 65 in this episode, died aged 74");
   assert.equal(lifeLine("", "", "2019-11-12", "in this episode", "2026-11-09"), "");
+});
+
+test("a series' years: the run, still going, one year, unknown end", () => {
+  assert.equal(yearsLabel("2009", { first: "2009-09-10", last: "2017-03-10", ongoing: false }), "2009–2017");
+  assert.equal(yearsLabel("2018", { first: "2018-09-23", last: "2026-05-01", ongoing: true }), "2018–");
+  assert.equal(yearsLabel("2008", { first: "2008-01-01", last: "2008-12-01", ongoing: false }), "2008");
+  assert.equal(yearsLabel("2008", null), "2008");
 });

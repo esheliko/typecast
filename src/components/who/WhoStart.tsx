@@ -5,7 +5,7 @@ import { Photo } from "./bits";
 import { typeLabel, urlParam } from "./start-util";
 import type { SearchHit } from "@/lib/types";
 
-/** /who with no title: search for the film or series you are watching and start from it. */
+/** /watching with no title: search for the film or series you are watching and start from it. */
 export function WhoStart() {
   const [q, setQ] = useState("");
   const [hits, setHits] = useState<SearchHit[] | null>(null);
@@ -25,7 +25,7 @@ export function WhoStart() {
   return (
     <div className="wx wx-start">
       <div className="wx-startbox">
-        <span className="wbar-k"><span className="live-dot" aria-hidden="true" />Who&rsquo;s that?</span>
+        <span className="wbar-k"><span className="live-dot" aria-hidden="true" />Watching now</span>
         <h1 className="wx-startt">What are you watching?</h1>
         <input ref={input} type="search" value={q} onChange={(ev) => setQ(ev.target.value)} aria-label="Search for a film or series" placeholder="Search a film or series…" autoComplete="off" />
         {err && <p className="small muted" role="alert">Couldn&rsquo;t search just now.</p>}

@@ -4,7 +4,7 @@ import { commonResults, sharedTitles, type CastEntry, type FoundTitle, type Shar
 import { spanFromEpisodes, type CreditEp, type CreditSeason } from "./who-spans";
 import { tmdb, TmdbError } from "./tmdb";
 import type { MediaType } from "./types";
-import type { AggPerson, PCredit, PersonData, Pos, SeasonData, SeasonPerson, Span, WhoFace, WhoRoster } from "./who-types";
+import type { AggPerson, PCredit, PersonData, Pos, SeasonData, SeasonPerson, ShowRun, Span, WhoFace, WhoRoster } from "./who-types";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
@@ -203,11 +203,11 @@ export function loadWhoPerson(id: number): Promise<PersonData> {
 const CID = /^[0-9a-f]{20,32}$/;
 export const isCid = (s: string) => CID.test(s);
 
-const showRuns = new Map<number, Promise<{ first: string; last: string } | null>>();
+const showRuns = new Map<number, Promise<ShowRun | null>>();
 function showRun(id: number) {
   let p = showRuns.get(id);
   if (!p) {
-    p = tmdb(`/tv/${id}`, {}, 24 * HOUR).then((d) => ({ first: d.first_air_date ?? "", last: d.last_air_date ?? d.first_air_date ?? "" })).catch(() => null);
+    p = tmdb(`/tv/${id}`, {}, 24 * HOUR).then((d): ShowRun => ({ first: d.first_air_date ?? "", last: d.last_air_date ?? d.first_air_date ?? "", ongoing: d.in_production === true || d.status === "Returning Series" })).catch(() => null);
     showRuns.set(id, p);
     if (showRuns.size > 300) showRuns.delete(showRuns.keys().next().value!);
   }
@@ -242,12 +242,12 @@ export async function loadSpans(personId: number, keys: string[], scope?: { key:
     const isScope = scope?.key === key;
     const cids = [...new Set([...(c?.cids ?? []), ...(isScope ? scope!.cids : [])])];
     if (!c && !isScope) return null;
-    const { eps, seasons } = await creditEpisodes(cids);
+    const [{ eps, seasons }, run] = await Promise.all([creditEpisodes(cids), isScope ? Promise.resolve(null) : showRun(Number(key.slice(3)))]);
     const expected = c?.eps ?? 0;
-    const tvId = Number(key.slice(3));
     // The show's own run is only needed when neither the person's episode list nor their seasons give dates.
     const needRun = !isScope && !seasons.length && (eps.filter((x) => x.air).length === 0 || (expected > 0 && eps.filter((x) => x.air).length < expected));
-    return spanFromEpisodes(key, eps, expected, needRun ? await showRun(tvId) : null, isScope ? scope!.pos : null, seasons);
+    const sp = spanFromEpisodes(key, eps, expected, needRun ? run : null, isScope ? scope!.pos : null, seasons);
+    return sp && run ? { ...sp, show: run } : sp;
   });
   return Object.fromEntries(wanted.map((k, i) => [k, res[i]]));
 }

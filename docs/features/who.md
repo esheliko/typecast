@@ -1,6 +1,6 @@
-# /who: the redesigned "Who's that?" (preview)
+# /watching: Watching now (was the /who preview)
 
-> Additive: the Watching bar and its sheet (`components/Watching.tsx`, `docs/features/watching-now.md`) are unchanged except a "Try the new design" link in the sheet header, `export` on `FactView`, a `useWatchControl()` hook, and `setEp` clearing `pos`. `/who` is behind the same auth as everything else.
+> This is now the only design: the old sheet was removed (see `docs/features/watching-now.md`). `/who` redirects to `/watching`. Same auth as everything else.
 
 **Idea.** No question box. Everything is a node (this title, a person, another title, a pair of people) reached by tapping; the one input is a finder that filters and finds. Desktop first: finder left (55%), node right (45%, own scroll) with a trail (`The Rookie S2E8 › Sara Rue › The Big Bang Theory`, Esc = back one step). Below 1000 px the panes stack: the details open over the finder with a Close button (top right of the trail bar), and a bottom dock (`Dock`) shows the step you were on so you can reopen them (nothing is lost by closing).
 
@@ -31,3 +31,9 @@
 - **Episode chips** on a person open an `episode` node (`EpisodeNode`, shared `EpisodeCard`); they never change the position (that node has "Set S2E8 as where I am").
 - **Timeline:** header, filters (one scrolling row), axis and readout are sticky under the trail (`.wx-tsticky`, `--wx-tl-h` is measured so row scroll margins clear it). What you are watching is gold: a bar of its own above the credits plus the show's own mark, drawn only as far as you know (its right end fades, tooltip "So far"). Close dots merge into one dot sized by count (`dotSize`; press steps through its credits; the watched show is `solo`, never merged). The chosen row keeps a gold border and faint gold wash (`.sel`); hover adds a lighter outline (`.hot`). The "measure from this row" button and the override are gone; each row and each "You know them from" title has the Glimpse (images) button instead.
 - **Finder:** All / Main cast / Guests (`byCast`).
+
+## Round 3 (sticky fix, Next, history shortcuts)
+- **Sticky timeline works:** its section class is `wx-tlsec` (the earlier `wx-tl` was also the trail label, with `overflow: hidden`, which stops `position: sticky` from working). The text readout under the axis, all relative-time chips ("7 years before this") and the actor's age are gone; each row shows the person's episode count for series ("4 episodes", the credit's count or what their own list adds up to) and a series' years in "You know them from" include the end ("2009-2017", "2018-" while it airs: `ShowRun` on `Span.show`, `yearsLabel`).
+- **No spoilers switch:** off = switch off, text "No spoilers" (everything stops at where you are). Pressed = coloured, switch on, text "Show spoilers" (whole series). `aria-checked` is true when spoilers are shown.
+- **Position control:** the episode picker and "Next" (next aired episode, else the next aired season's first) share one pill; each half has its own hover and pressed state.
+- **Trail:** opening the step right before the one showing (only one back) is treated as Back (`pushNode`).

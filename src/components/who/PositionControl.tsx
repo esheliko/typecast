@@ -69,7 +69,23 @@ function EpisodePicker({ brief, pos, onChange }: { brief: WhoBrief; pos: Pos; on
   const cur = pos.e != null ? eps?.find((x) => x.e === pos.e) : null;
   const label = s == null ? "Pick a season first" : pos.e == null ? "Whole season" : `E${pos.e}${cur?.name ? ` · ${cur.name}` : ""}`;
   const pick = (e: number | null) => { onChange({ s, e }); setOpen(false); btn.current?.focus(); };
+
+  // Next: the next aired episode of this season, else the first aired episode of the next season that has aired.
+  const nextEp = s == null ? undefined : eps?.find((x) => x.e > (pos.e ?? 0) && x.aired);
+  const soon = new Date(Date.now() + 864e5).toISOString().slice(0, 10);
+  const nextSeason = s == null ? undefined : brief.seasons.filter((x) => x.n > s && x.air && x.air <= soon).sort((a, b) => a.n - b.n)[0];
+  const canNext = !!nextEp || (!!nextSeason && eps !== null);
+  const next = async () => {
+    if (nextEp) return onChange({ s, e: nextEp.e });
+    if (!nextSeason) return;
+    try {
+      const r = await whoApi.season(brief.id, nextSeason.n);
+      const first = r.episodes.find((x) => x.aired);
+      if (first) onChange({ s: nextSeason.n, e: first.e });
+    } catch { /* stays where it is */ }
+  };
   return (
+    <div className="wx-epgroup">
     <div className="wx-ep" ref={wrap}>
       <button ref={btn} type="button" className="wx-epb" disabled={s == null} aria-haspopup="listbox" aria-expanded={open} aria-label={`Episode: ${label}`} onClick={() => setOpen((v) => !v)}>
         <span className="wx-epl">{label}</span><span aria-hidden="true" className="wx-caret">▾</span>
@@ -91,6 +107,11 @@ function EpisodePicker({ brief, pos, onChange }: { brief: WhoBrief; pos: Pos; on
           ))}
         </div>
       )}
+    </div>
+      <button type="button" className="wx-epnext" disabled={!canNext} onClick={next} aria-label={nextEp ? `Next episode: E${nextEp.e}` : nextSeason ? `Next season: S${nextSeason.n}` : "Next episode"} title="Go to the next episode">
+        <span>Next</span>
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 5.5v13l8.5-6.5zM17 5.5v13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+      </button>
     </div>
   );
 }
