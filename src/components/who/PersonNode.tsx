@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useLib } from "../cast/LibState";
 import { KindSeg } from "../KindSeg";
 import { More, Photo, Section, SEEN_STATUS, Sk, Soft, useLimit, useSpans } from "./bits";
@@ -131,6 +131,10 @@ export function PersonNode({ node }: { node: PNode }) {
   })();
   const hot = chosen;
   const marked = selected && usable(selected) ? selected : fallback;
+  // The selected row is always on screen: when it is below the first rows, it follows them after a "…" gap, in its chronological place.
+  const markedIdx = marked ? rows.findIndex((r) => r.key === marked) : -1;
+  const pinned = !lim.all && markedIdx >= lim.shown;
+  const visibleRows = pinned ? [...rows.slice(0, lim.shown), rows[markedIdx]] : rows.slice(0, lim.shown);
 
   // Opened from "titles in common": bring that row into view once its place is known.
   useEffect(() => {
@@ -242,10 +246,15 @@ export function PersonNode({ node }: { node: PNode }) {
             </div>
             {!rows.length && <p className="small muted">{credits.length ? "Nothing matches these filters." : "No other credits on TMDB."}</p>}
             <ol className="wx-trows">
-              {rows.slice(0, lim.shown).map((c) => <TRow key={c.key} c={c} when={whenRow(c)} birthday={data.birthday} isRef={ref?.id === c.key} refRange={ref?.range ?? null} hot={hot === c.key}
-                reg={(el) => { if (el) rowRefs.current.set(c.key, el); else rowRefs.current.delete(c.key); }}
-                onOpen={() => push({ t: "title", key: c.key, title: c.title, year: c.year, poster: c.poster })} onMeasure={() => measure(c)} onSelect={() => pick(c.key)} onPreview={(on) => setPreview(on ? c.key : null)}
-                isCur={c.key === brief.key} pos={pos} lib={lib.get(c.key)?.status} />)}
+              {visibleRows.map((c, i) => (
+                <Fragment key={c.key}>
+                  {pinned && i === visibleRows.length - 1 && <li className="wx-gaprow" aria-hidden="true">&hellip;</li>}
+                  <TRow c={c} when={whenRow(c)} birthday={data.birthday} isRef={ref?.id === c.key} refRange={ref?.range ?? null} hot={hot === c.key}
+                    reg={(el) => { if (el) rowRefs.current.set(c.key, el); else rowRefs.current.delete(c.key); }}
+                    onOpen={() => push({ t: "title", key: c.key, title: c.title, year: c.year, poster: c.poster })} onMeasure={() => measure(c)} onSelect={() => pick(c.key)} onPreview={(on) => setPreview(on ? c.key : null)}
+                    isCur={c.key === brief.key} pos={pos} lib={lib.get(c.key)?.status} />
+                </Fragment>
+              ))}
             </ol>
             <More total={rows.length} {...lim} />
             {failed && <Soft>Some dates couldn&rsquo;t be loaded. They are left blank, not guessed.</Soft>}

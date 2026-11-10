@@ -923,10 +923,14 @@ body:has(.wbar) .toast-slot { bottom: calc(146px + env(safe-area-inset-bottom, 0
 .wx-pop b { font-size: 14px; margin-top: 4px; }
 @media (hover: hover) and (prefers-reduced-motion: no-preference) { .wx-tile:hover .wx-ph, .wx-tile:focus-visible .wx-ph { transform: translateY(-3px); box-shadow: 0 6px 14px rgba(0, 0, 0, .28); } }
 .wx-tile b { font-size: 13px; }
-.wx-nm, .wx-rl, .wx-meta { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wx-nm, .wx-rl { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wx-rl { display: flex; }
+.wx-rlt { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.wx-rln { flex: none; }
 .wx-rl, .wx-meta { font-size: 11.5px; }
 .wx-role { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; min-height: 2.6em; }
-.wx-meta { min-height: 16px; }
+.wx-meta { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; min-height: calc(2 * 1.3em); line-height: 1.3; }
+.wx-gaprow { text-align: center; color: var(--muted); line-height: 14px; letter-spacing: .3em; }
 .wx-seen { color: var(--gold); font-weight: 600; }
 .wx-more { min-height: 44px; margin-top: 12px; }
 .wx-sk { display: inline-block; border-radius: 6px; vertical-align: middle; }
