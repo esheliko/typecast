@@ -15,6 +15,11 @@ export interface Watch {
   runtime: number | null;
   /** Series only: the episode being watched. */
   s?: number; e?: number;
+  /**
+   * Set by the /who page when the position is not an exact episode ("season 2, episode not sure", "season not sure", specials). `s` and `e` then hold the
+   * nearest exact guess (1 for an unknown part) so the older sheet keeps working; /who reads `pos` first. The older sheet clears it when it sets an episode.
+   */
+  pos?: { s: number | null; e: number | null };
 }
 
 const str = (v: unknown, max: number) => (typeof v === "string" ? v.slice(0, max) : "");
@@ -30,7 +35,15 @@ export function parseWatch(raw: string | undefined | null, now = Date.now()): Wa
   const id = int(j.id), started = int(j.started);
   if (!type || !id || !started || now - started > WATCH_MAX_MS || started > now + 60_000) return null;
   const w: Watch = { key: `${type}:${id}`, type, id, title: str(j.title, 200), year: str(j.year, 4), poster: str(j.poster, 120) || null, started, runtime: int(j.runtime) || null };
-  if (type === "tv") { w.s = int(j.s) || 1; w.e = int(j.e) || 1; }
+  if (type === "tv") {
+    w.s = int(j.s) || 1; w.e = int(j.e) || 1;
+    const p = j.pos as Record<string, unknown> | undefined;
+    if (p && typeof p === "object") {
+      const n = (v: unknown) => (v === null ? null : typeof v === "number" && Number.isInteger(v) && v >= 0 && v < 1000 ? v : undefined);
+      const ps = n(p.s), pe = n(p.e);
+      if (ps !== undefined && pe !== undefined && (ps !== null || pe === null)) w.pos = { s: ps, e: ps === null ? null : pe };
+    }
+  }
   return w;
 }
 

@@ -19,6 +19,8 @@ const PAGES: [string, string][] = [
   ["person", "/person/6384?full=1"],
   ["film-popup", "/title/movie/603"],
   ["person-popup", "/person/6384"],
+  ["who", "/who?k=tv-79744&s=2&e=8"],
+  ["who-film", "/who?k=movie-603"],
 ];
 
 async function shot(page: Page, name: string) {

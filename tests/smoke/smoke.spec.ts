@@ -310,6 +310,55 @@ test.describe("signed in", () => {
     await healthy(page, bad);
   });
 
+  test("/who: Rookie S2, filter to women, open a face, see the timeline", async ({ page }) => {
+    const bad = watch(page);
+    await visit(page, "/who?k=tv-79744&s=2", bad);
+    // Season 2, episode not set: the whole season counts, and the page says so.
+    await expect(page.getByText("Includes all of season 2 because the episode is not set")).toBeVisible({ timeout: 30_000 });
+    const tiles = page.locator(".wx-tile[data-pid]");
+    await expect(tiles.first()).toBeVisible({ timeout: 30_000 });
+    const all = await tiles.count();
+    await page.getByRole("group", { name: "Gender" }).getByRole("button", { name: "Women" }).click();
+    await expect.poll(async () => tiles.count()).toBeLessThan(all);
+    await expect(page.locator(".wx-count")).toContainText(" of ");
+    // "/" focuses the finder; a character name finds her.
+    await page.keyboard.press("/");
+    await page.keyboard.type("Nell");
+    await expect(page.locator(".wx-tile", { hasText: "Sara Rue" })).toBeVisible({ timeout: 15_000 });
+    await page.locator(".wx-tile", { hasText: "Sara Rue" }).click();
+    await expect(page.getByRole("heading", { name: "Sara Rue" })).toBeVisible({ timeout: 15_000 });
+    await expect(page.locator(".wx-trail")).toContainText("Sara Rue");
+    for (const h of ["Here", "You know them from", "Timeline", "With this cast"]) await expect(page.getByRole("region", { name: h })).toBeVisible();
+    // Her own dates load (a skeleton until they do): The Big Bang Theory is Nov-Dec 2008. The list shows about five rows; Show all has the rest.
+    await page.getByRole("region", { name: "Timeline" }).getByRole("button", { name: /Show all/ }).click();
+    await expect(page.locator(".wx-trow", { hasText: "The Big Bang Theory" }).getByText("Nov-Dec 2008")).toBeVisible({ timeout: 45_000 });
+    // Esc goes back one step to "This title", whose facts are cards, not a question box.
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("heading", { name: "The Rookie" }).first()).toBeVisible();
+    await expect(page.getByRole("button", { name: "Trivia" })).toBeVisible();
+    await expect(page.getByPlaceholder(/look something up/i)).toHaveCount(0);
+    await healthy(page, bad);
+  });
+
+  test("/who: no title shows a search, and its API routes refuse bad input", async ({ page }) => {
+    const bad = watch(page);
+    await page.context().clearCookies({ name: "tc_watch" });
+    await visit(page, "/who", bad);
+    await expect(page.getByLabel("Search for a film or series")).toBeVisible();
+    for (const p of ["/api/who/roster?k=bogus", "/api/who/person?id=abc", "/api/who/spans?p=1", "/api/who/pair?a=1&b=1", "/api/who/title?k=x-1", "/api/who/common?q=a&k=tv-1"]) {
+      expect((await page.request.get(p)).status(), p).toBe(400);
+    }
+    await healthy(page, bad);
+  });
+
+  test("/who API answers 401 JSON when signed out (the request fixture carries no session)", async ({ request }) => {
+    for (const p of ["/api/who/roster?k=tv-79744", "/api/who/person?id=10131"]) {
+      const r = await request.get(p);
+      expect(r.status(), p).toBe(401);
+      expect(await r.json()).toHaveProperty("error");
+    }
+  });
+
   test("Add to calendar: bad keys are refused, a released film has nothing to add", async ({ page }) => {
     expect((await page.request.get("/api/event?key=bogus")).status()).toBe(400);
     expect((await page.request.get("/api/event?key=movie:603")).status()).toBe(404); // The Matrix is long out

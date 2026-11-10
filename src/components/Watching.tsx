@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { useLib } from "./cast/LibState";
 import { PersonLink, TitleLink } from "./Modal";
@@ -14,12 +15,16 @@ type Hit = { key: string; title: string; year: string; ep?: string };
 
 interface Ctx {
   watch: Watch | null;
+  /** Replace the stored watch (the /who page moves the position with it, so the bar and the older sheet stay in step). */
+  save: (w: Watch | null) => void;
   start: (it: Item, runtime: number | null, ep?: { s: number; e: number } | null) => void;
   stop: () => void;
   open: () => void;
 }
 const WatchCtx = createContext<Ctx | null>(null);
 const useWatch = () => useContext(WatchCtx);
+/** The current watch and a way to change it, for the /who page. */
+export function useWatchControl(): { watch: Watch | null; save: (w: Watch | null) => void } | null { return useContext(WatchCtx); }
 
 const SPOIL_KEY = "typecast.ask.spoilers";
 const safe = <T,>(f: () => T, d: T): T => { try { return f(); } catch { return d; } };
@@ -46,7 +51,7 @@ export function WatchProvider({ initial, children }: { initial: Watch | null; ch
   const open = useCallback(() => setSheet(true), []);
 
   return (
-    <WatchCtx.Provider value={{ watch, start, stop, open }}>
+    <WatchCtx.Provider value={{ watch, save, start, stop, open }}>
       {children}
       {watch && <WatchBar w={watch} onOpen={() => setSheet(true)} />}
       {watch && sheet && <WhoSheet w={watch} onChange={save} onClose={() => setSheet(false)} onStop={stop} />}
@@ -118,7 +123,7 @@ function Rich({ text }: { text: string }) {
 }
 
 /** One fact: its text, the titles and people it names (tappable), and links out. */
-function FactView({ a, onLeave }: { a: Answer; onLeave: () => void }) {
+export function FactView({ a, onLeave }: { a: Answer; onLeave: () => void }) {
   const titles = (a.cards ?? []).filter((c): c is Extract<AnswerCard, { kind: "title" }> => c.kind === "title");
   const people = (a.cards ?? []).filter((c): c is Extract<AnswerCard, { kind: "person" }> => c.kind === "person");
   return (
@@ -284,7 +289,7 @@ function WhoSheet({ w, onChange, onClose, onStop }: { w: Watch; onChange: (w: Wa
   const back = () => { setSel(null); requestAnimationFrame(() => body.current?.scrollTo({ top: scrollAt.current })); };
   const leave = () => { keepHistory(); onClose(); };
 
-  const setEp = (ns: number, ne: number) => onChange({ ...w, s: Math.max(1, ns), e: Math.max(1, ne) });
+  const setEp = (ns: number, ne: number) => onChange({ ...w, s: Math.max(1, ns), e: Math.max(1, ne), pos: undefined });
   const epCount = (n: number) => roster?.seasons.find((x) => x.n === n)?.eps ?? 0;
   const shift = (min: number) => onChange({ ...w, started: Math.min(Date.now(), w.started - min * 60000) });
 
@@ -322,7 +327,10 @@ function WhoSheet({ w, onChange, onClose, onStop }: { w: Watch; onChange: (w: Wa
             <div className="wbar-k"><span className="live-dot" aria-hidden="true" />Watching now</div>
             <b className="gl-h">{w.title}</b>
           </div>
-          <button type="button" className="back" onClick={onClose} aria-label="Close"><span aria-hidden="true">&#215;</span> Close</button>
+          <span style={{ display: "flex", alignItems: "center", gap: 10, flex: "none" }}>
+            <Link className="linkish small" href={`/who?k=${w.key.replace(":", "-")}`} onClick={leave}>Try the new design</Link>
+            <button type="button" className="back" onClick={onClose} aria-label="Close"><span aria-hidden="true">&#215;</span> Close</button>
+          </span>
         </div>
         <div className="gl-tabs" role="tablist">
           <button type="button" role="tab" aria-selected={tab === "who"} className={tab === "who" ? "on" : ""} onClick={() => setTab("who")}>Who&rsquo;s that?</button>
