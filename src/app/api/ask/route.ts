@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { answer } from "@/lib/answer";
 import { getLibrary, getProfile } from "@/lib/library";
 import { findPeople, loadHits, loadPerson, loadRoster } from "@/lib/roster-data";
-import { TmdbError } from "@/lib/tmdb";
+import { apiError } from "@/lib/errors";
 import { parseWatch, WATCH_COOKIE, type Watch } from "@/lib/watching";
 import { parseUrlKey } from "@/lib/who-scope";
 
@@ -10,7 +10,7 @@ export const maxDuration = 60;
 
 const current = (req: NextRequest) => parseWatch(req.cookies.get(WATCH_COOKIE)?.value);
 const num = (v: string | null) => { const n = Number(v); return Number.isInteger(n) && n > 0 ? n : null; };
-const fail = (e: unknown) => NextResponse.json({ error: (e as Error).message }, { status: e instanceof TmdbError ? e.status : 500 });
+const fail = (e: unknown) => { const { body, status } = apiError(e, "api/ask"); return NextResponse.json(body, { status }); };
 const lib = () => getLibrary().catch(() => []);
 
 /**

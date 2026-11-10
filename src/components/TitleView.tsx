@@ -45,6 +45,9 @@ export async function loadTitle(p: TitleParams) {
 /** Enriched cast, computed once per request even though both cast sections ask for it. */
 const castOf = cache((t: Title, lib: LibItem[]) => enrich(t.people, lib, t.key));
 
+/** Sections whose job names only repeat the section label ("Director", "Creator", "Editor"…). Writers, producers and the rest keep theirs. */
+const SAME_AS_LABEL = new Set<CrewId>(["director", "cinematography", "composer", "editor"]);
+
 /** Consecutive crew details share one card; each category is a small label beside its people, not a header of its own. */
 function CrewSection({ ids, t }: { ids: CrewId[]; t: Title }) {
   const groups = ids.filter((id) => t.crewBy[id].length);
@@ -56,7 +59,7 @@ function CrewSection({ ids, t }: { ids: CrewId[]; t: Title }) {
         {groups.map((id) => (
           <div key={id} className="crew-group">
             <div className="crew-label">{detailLabel(id, t.type)}</div>
-            <ul className="credits">{t.crewBy[id].map((c) => <CrewRow key={c.id} c={c} />)}</ul>
+            <ul className="credits">{t.crewBy[id].map((c) => <CrewRow key={c.id} c={c} plain={SAME_AS_LABEL.has(id)} />)}</ul>
           </div>
         ))}
       </div>
@@ -258,7 +261,7 @@ export default async function TitleView({ t, origin, focus }: { t: Title; origin
   // Only this title's row and the profile gate the first paint; the whole library (cast "you know them from") streams in behind the cast.
   const libP = getLibrary().catch((): LibItem[] => []);
   const [mine, profile] = await Promise.all([getLibraryItem(t.key), getProfile()]);
-  const meta = [t.show ? "" : t.year, typeLabel(t.type), t.runtime ? `${t.runtime} min${t.type === "tv" ? " / ep" : ""}` : "", t.genres.slice(0, 3).join(", ")].filter(Boolean).join(" · ");
+  const meta = [t.show ? "" : t.year, typeLabel(t.type), t.runtime ? `${t.runtime} min${t.type === "tv" ? " per episode" : ""}` : "", t.genres.slice(0, 3).join(", ")].filter(Boolean).join(" · ");
   const gaps = missingCrew(t.crewBy).length > 0 && !!t.imdbId;
   return (
     <FromProvider k={t.key} name={t.title} year={t.show ? undefined : t.year}>

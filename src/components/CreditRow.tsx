@@ -40,14 +40,14 @@ export function CreditRow({ c, title, pending, tv, light, hidden }: {
   );
 }
 
-/** One crew line (composer, cinematographer…): a link to their page with the job on the right. */
-export function CrewRow({ c }: { c: CastMember }) {
+/** One crew line (composer, cinematographer…): a link to their page with the job on the right. `plain` drops the job when the section label already says it (Director · Director). */
+export function CrewRow({ c, plain }: { c: CastMember; plain?: boolean }) {
   return (
     <li className="credit has-gl">
       <span className="credit-gl"><GlimpseButton spec={personSpec(c.name, c.role)} label={`See images of ${c.name}`} /></span>
       <PersonLink className="credit-main" pid={c.id} it={c}>
         <Avatar photo={c.photo} name={c.name} />
-        <span className="credit-line"><span className="nm">{c.name}</span><span className="dots" /><span className="role">{c.role}</span></span>
+        <span className="credit-line"><span className="nm">{c.name}</span>{!plain && c.role && <><span className="dots" /><span className="role">{c.role}</span></>}</span>
       </PersonLink>
     </li>
   );

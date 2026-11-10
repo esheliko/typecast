@@ -478,7 +478,7 @@ async function personRaw(id: number) {
 
 export async function getPerson(id: number): Promise<Person> {
   const { d, known } = await personRaw(id);
-  return { id: d.id, name: d.name, photo: d.profile_path ?? null, dept: d.known_for_department ?? "", bio: (d.biography ?? "").slice(0, 360), known: known.slice(0, 200), imdbId: d.external_ids?.imdb_id || d.imdb_id || null };
+  return { id: d.id, name: d.name, photo: d.profile_path ?? null, dept: d.known_for_department ?? "", bio: clip(d.biography ?? "", 360), known: known.slice(0, 200), imdbId: d.external_ids?.imdb_id || d.imdb_id || null };
 }
 
 /** Every acting (or directing) credit for a person, most-voted first. Same request as getPerson, so it shares its cache. */
@@ -705,4 +705,15 @@ export async function getTitleFacts(type: MediaType, id: number): Promise<TitleF
 export async function getPersonBasics(id: number): Promise<{ id: number; name: string; photo: string | null; birthday: string; deathday: string; place: string; bio: string; imdbId: string | null }> {
   const { d } = await personRaw(id);
   return { id: d.id, name: d.name, photo: d.profile_path ?? null, birthday: d.birthday ?? "", deathday: d.deathday ?? "", place: d.place_of_birth ?? "", bio: d.biography ?? "", imdbId: d.external_ids?.imdb_id || null };
+}
+
+/** The opening of a long text, cut at the end of a sentence when one ends in the last stretch, else at a word, with an ellipsis. */
+export function clip(text: string, max: number): string {
+  const t = text.replace(/\s+/g, " ").trim();
+  if (t.length <= max) return t;
+  const head = t.slice(0, max);
+  const stop = Math.max(head.lastIndexOf(". "), head.lastIndexOf("! "), head.lastIndexOf("? "));
+  if (stop > max * 0.5) return head.slice(0, stop + 1);
+  const sp = head.lastIndexOf(" ");
+  return `${head.slice(0, sp > 0 ? sp : max).replace(/[\s,;:–-]+$/, "")}…`;
 }

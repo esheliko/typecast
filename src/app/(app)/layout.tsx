@@ -28,12 +28,13 @@ export default async function AppLayout({ children, modal }: { children: React.R
       <Suspense fallback={null}><BgTracker /></Suspense>
       <ScrollKeeper />
       <RecheckOnce />
+      <a className="skip" href="#main">Skip to content</a>
       <header className="top"><div className="top-in">
         <div className="logo"><span className="mark" aria-hidden="true" />Typecast</div>
         <Tabs where="top" />
       </div></header>
       <HeaderHeight />
-      <main className="wrap">{children}</main>
+      <main className="wrap" id="main" tabIndex={-1}>{children}</main>
       <Tabs where="bottom" />
       {modal}
       <PendingPopup />

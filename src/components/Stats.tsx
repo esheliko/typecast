@@ -5,14 +5,14 @@ import type { LibItem } from "@/lib/types";
 
 /** Server-safe building blocks for the stats page: CSS bars where every bar also says its number. */
 
-export function BarList({ rows, unit = "", empty = "Nothing yet." }: { rows: Counted[]; unit?: string; empty?: string }) {
+export function BarList({ rows, unit = "", empty = "Nothing yet." }: { rows: (Counted & { /** Read aloud instead of the label (for labels made of symbols). */ say?: string })[]; unit?: string; empty?: string }) {
   const max = Math.max(1, ...rows.map((r) => r.n));
   if (!rows.some((r) => r.n > 0)) return <p className="muted small" style={{ margin: 0 }}>{empty}</p>;
   return (
     <ul className="bars">
       {rows.map((r) => (
         <li key={r.label}>
-          <span className="bar-l">{r.label}</span>
+          <span className="bar-l" title={r.label} aria-label={r.say}>{r.label}</span>
           <span className="bar-t" aria-hidden="true"><i style={{ width: `${(r.n / max) * 100}%` }} /></span>
           <b className="bar-v">{r.n}{unit}</b>
         </li>
@@ -51,7 +51,7 @@ export function PeopleList({ people, empty }: { people: { id: number; name: stri
   return (
     <ul className="plain-list">
       {people.map((p) => (
-        <li key={p.id}><PersonLink pid={p.id} it={{ name: p.name }}>{p.name}</PersonLink> <span className="muted small">{p.n} {p.sub ?? "titles"}</span></li>
+        <li key={p.id}><PersonLink pid={p.id} it={{ name: p.name }}>{p.name}</PersonLink> <span className="muted small">{p.n} {p.sub ?? (p.n === 1 ? "title" : "titles")}</span></li>
       ))}
     </ul>
   );

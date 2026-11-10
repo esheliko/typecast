@@ -163,7 +163,7 @@ export default function ImportReviewDialog({ rows, onChange, onClose, onRevert }
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   {r.item?.poster ? <img className="thumb" src={img(r.item.poster, "w92")} alt="" loading="lazy" /> : <div className="thumb" />}
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 600 }}>{r.item ? `${r.item.title}${r.item.year ? ` (${r.item.year})` : ""}${r.item.type === "tv" ? " · TV" : ""}` : "Not imported"}</div>
+                    <div style={{ fontWeight: 600 }}>{r.item ? `${r.item.title}${r.item.year ? ` (${r.item.year})` : ""}${r.item.type === "tv" ? " · Series" : ""}` : "Not imported"}</div>
                     <div className="small muted" dir="auto">You wrote: {r.label}</div>
                     {r.problem && <div className="small err">{r.problem} Pick the right title, or skip it.</div>}
                     {r.unsure && <div className="small" style={{ color: "var(--gold, #d4a017)" }}><b>{r.unsure.weak ? "Couldn't match this." : "Not sure."}</b> {r.unsure.why} {r.unsure.weak ? "Is this it, or search?" : "Is this it?"}</div>}
@@ -194,7 +194,7 @@ export default function ImportReviewDialog({ rows, onChange, onClose, onRevert }
                           <button type="button" disabled={busy === r.id || bulk} onClick={() => swap(r, a)} style={{ display: "flex", gap: 10, alignItems: "center", flex: 1, minWidth: 0, textAlign: "start", background: "none", border: 0, padding: 6, cursor: "pointer", color: "inherit", font: "inherit" }}>
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             {a.poster ? <img className="thumb" src={img(a.poster, "w92")} alt="" loading="lazy" /> : <div className="thumb" />}
-                            <span>{a.title}{a.year ? ` (${a.year})` : ""}<span className="small muted">{a.type === "tv" ? " · TV" : " · Film"}</span></span>
+                            <span>{a.title}{a.year ? ` (${a.year})` : ""}<span className="small muted">{a.type === "tv" ? " · Series" : " · Film"}</span></span>
                           </button>
                           <Peek it={a} />
                         </li>
@@ -257,7 +257,7 @@ function Picker({ start, onPick }: { start: string; onPick: (it: BrowseItem) => 
               <button type="button" onClick={() => onPick(h)} style={{ display: "flex", gap: 10, alignItems: "center", flex: 1, minWidth: 0, textAlign: "start", background: "none", border: 0, padding: 8, cursor: "pointer", color: "inherit", font: "inherit" }}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 {h.poster ? <img className="thumb" src={img(h.poster, "w92")} alt="" loading="lazy" /> : <div className="thumb" />}
-                <span>{h.title}{h.year ? ` (${h.year})` : ""}<span className="small muted">{h.type === "tv" ? " · TV" : " · Film"}</span></span>
+                <span>{h.title}{h.year ? ` (${h.year})` : ""}<span className="small muted">{h.type === "tv" ? " · Series" : " · Film"}</span></span>
               </button>
               <Peek it={h} />
             </li>

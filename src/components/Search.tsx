@@ -96,7 +96,7 @@ export default function Search({ onActive }: { onActive: (on: boolean) => void }
   };
 
   const people = lay?.people ?? [];
-  const summary = !lay ? "" : `${hits?.length ?? 0} results${top ? `, top result ${top.kind === "person" ? top.name : top.title}` : ""}`;
+  const summary = !lay ? "" : `${hits?.length ?? 0} ${hits?.length === 1 ? "result" : "results"}${top ? `, top result ${top.kind === "person" ? top.name : top.title}` : ""}`;
   const recents = focused && !q && recent.length > 0;
   return (
     <>
@@ -118,7 +118,7 @@ export default function Search({ onActive }: { onActive: (on: boolean) => void }
       {term.length >= 2 && (
         <div className="results" ref={box} onKeyDown={onResultsKey} onClick={(e) => { if ((e.target as HTMLElement).closest("a")) remember(); }}>
           <p className="sr-only" role="status" aria-live="polite">{state === "idle" ? summary : ""}</p>
-          {state === "loading" && !hits && <p className="muted" style={{ marginTop: 20 }}><span className="spin" />Searching</p>}
+          {state === "loading" && !hits && <p className="muted" style={{ marginTop: 20 }}><span className="spin" aria-hidden="true" />Searching…</p>}
           {state === "error" && <p className="err" style={{ marginTop: 20 }}>{error}</p>}
           {hits && state !== "error" && (
             <div style={{ opacity: state === "loading" ? 0.55 : 1, transition: "opacity .15s" }}>

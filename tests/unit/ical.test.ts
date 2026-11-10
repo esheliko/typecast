@@ -7,7 +7,7 @@ import { pickRelease, releaseByCountry, releaseFor } from "../../src/lib/release
 const STAMP = Date.UTC(2026, 10, 9, 12, 0, 0);
 
 test("escapeText escapes backslash, semicolon, comma and newlines", () => {
-  assert.equal(escapeText("a, b; c\\d\ne"), "a\\, b\; c\\\\d\\ne");
+  assert.equal(escapeText("a, b; c\\d\ne"), "a\\, b\\; c\\\\d\\ne");
 });
 
 test("fold: lines over 75 octets continue after CRLF + space, and a multi-byte character is never split", () => {
@@ -41,7 +41,7 @@ test("calendar frame: CRLF everywhere, escaped text, feed hints, bad events skip
   assert.ok(out.startsWith("BEGIN:VCALENDAR\r\nVERSION:2.0\r\n"));
   assert.ok(out.endsWith("END:VCALENDAR\r\n"));
   assert.ok(!/[^\r]\n/.test(out));
-  assert.match(out, /SUMMARY:A\\, B\; C/);
+  assert.match(out, /SUMMARY:A\\, B\\; C/);
   assert.match(out, /DESCRIPTION:line1\\nline2/);
   assert.match(out, /REFRESH-INTERVAL;VALUE=DURATION:PT12H/);
   assert.equal((out.match(/BEGIN:VEVENT/g) ?? []).length, 1);

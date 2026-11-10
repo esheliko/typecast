@@ -5,7 +5,7 @@ import { layoutSearch, norm } from "@/lib/search-intent";
 import { suggestSpelling } from "@/lib/spell";
 
 export async function GET(req: NextRequest) {
-  const q = req.nextUrl.searchParams.get("q")?.trim() ?? "";
+  const q = (req.nextUrl.searchParams.get("q")?.trim() ?? "").slice(0, 100);
   const k = req.nextUrl.searchParams.get("kind");
   const kind = k === "person" || k === "title" ? k : "all";
   if (q.length < 2) return NextResponse.json({ hits: [] });

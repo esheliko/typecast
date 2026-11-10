@@ -25,7 +25,10 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ file: strin
     const feed = error ? null : feedLibrary(data);
     if (!feed) return NOT_FOUND();
     const now = Date.now();
-    const entries = await loadUpcoming(feed.lib, { country: feed.country, services: [] }, now).catch(() => []);
+    // A failed lookup is "try later", never an empty calendar: a calendar app would take that as "every event was removed".
+    let entries: Awaited<ReturnType<typeof loadUpcoming>>;
+    try { entries = await loadUpcoming(feed.lib, { country: feed.country, services: [] }, now); }
+    catch { return new NextResponse("Temporarily unavailable", { status: 503, headers: { "Retry-After": "900", "Cache-Control": "no-store", "X-Robots-Tag": "noindex" } }); }
     const body = buildCalendar(entries.map((e) => eventFor(e, req.nextUrl.origin)), { stamp: now, name: "Typecast: upcoming", feed: true });
     return new NextResponse(body, { headers: {
       "Content-Type": "text/calendar; charset=utf-8",

@@ -80,7 +80,7 @@ test("length labels", () => {
   assert.equal(lengthLabel("movie", 112), "1h 52m");
   assert.equal(lengthLabel("movie", 120), "2h");
   assert.equal(lengthLabel("movie", 45), "45m");
-  assert.equal(lengthLabel("tv", 50), "50m eps");
+  assert.equal(lengthLabel("tv", 50), "50 min episodes");
   assert.equal(lengthLabel("movie", null), null);
 });
 

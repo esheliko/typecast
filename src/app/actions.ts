@@ -254,6 +254,6 @@ export async function disconnectLetterboxd() {
 
 export async function signOut() {
   const sb = await supabaseServer();
-  await sb.auth.signOut();
+  await sb.auth.signOut({ scope: "local" }); // this device only: signing out on a laptop must not sign the phone out too
   redirect("/login");
 }

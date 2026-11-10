@@ -32,7 +32,7 @@ export default async function PersonView({ p, from }: { p: Awaited<ReturnType<ty
           <Link className="btn sm gold" href={`/?view=connect&a=${p.id}`} style={{ marginTop: 12 }}>Connect with another person</Link>
         </div>
       </div>
-      {p.bio && <p className="small muted" style={{ margin: "14px 0 0" }}>{p.bio}{p.bio.length >= 360 ? "…" : ""}</p>}
+      {p.bio && <p className="small muted" style={{ margin: "14px 0 0" }}>{p.bio}</p>}
       <PersonProvider id={p.id}><PersonCredits known={p.known} mineKeys={mineKeys} name={p.name} /></PersonProvider>
     </>
   );

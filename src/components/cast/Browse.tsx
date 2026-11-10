@@ -245,27 +245,34 @@ export default function Browse({ filters, filtered, list: initialList, salt: ser
         <div className="seg" role="group" aria-label="Type">
           {(["all", "movie", "tv"] as BrowseType[]).map((t) => <button key={t} type="button" aria-pressed={vType === t} onClick={() => chooseType(t)}>{t === "all" ? "Both" : t === "movie" ? "Films" : "Series"}</button>)}
         </div>
-        <button type="button" className="chip sm filt" aria-expanded={panel} aria-pressed={n > 0} onClick={() => setPanel(!panel)}>
+        <button type="button" className="chip sm filt" aria-expanded={panel} data-on={n > 0 || undefined} onClick={() => setPanel(!panel)}>
           <svg className="pill-i" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M4 5h16l-6 8v6l-4-2v-4z" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" /></svg>
           Filters{n ? ` · ${n}` : ""} <span aria-hidden="true">{panel ? "▴" : "▾"}</span>
         </button>
-        <label className="pillsel" title="Sort order">
+        {/* Sorting belongs to filtered results; a quick list (For you, Trending…) has its own order, so the control would only mislead there. */}
+        {(filtered || panel) && <label className="pillsel" title="Sort order">
           <svg className="pill-i" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M8 4v16m0 0-3-3m3 3 3-3M16 20V4m0 0-3 3m3-3 3 3" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
           <select aria-label="Sort by" value={shownFilters.sort} onChange={(e) => navigate({ ...filters, type, sort: e.target.value as Sort })}>
             {SORTS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
-        </label>
-        <button type="button" className="chip sm" aria-pressed={hide} onClick={() => setHide(!hide)} title="Hide titles you have already marked or skipped, and make ones you keep scrolling past turn up less often">Hide marked{hide && hiddenCount > 0 ? ` · ${hiddenCount}` : ""}</button>
+        </label>}
       </div>
       {panel && <BrowseFilters q={{ ...shownFilters, type: vType }} genres={genres[vType]} canFilterMine={canFilterMine} active={filtered} pending={routing} onChange={navigate} />}
+      {/* Quiet, and only when it has something to say: what is being left out, and the one tap that brings it back. */}
+      {(hiddenCount > 0 || !hide) && (
+        <p className="small muted hid-note">
+          {hide ? `${hiddenCount} hidden (already marked, skipped or passed over).` : "Showing titles you already marked or skipped too."}{" "}
+          <button type="button" className="linkish" aria-pressed={!hide} onClick={() => setHide(!hide)}>{hide ? "Show them" : "Hide them"}</button>
+        </p>
+      )}
       {filtered && <h2>{routing ? <span><span className="spin" />Updating</span> : "Filtered results"}</h2>}
       {data?.notice && <p className="small muted" style={{ margin: "8px 0 0" }}>{data.notice}</p>}
 
       {shown.length > 0 && <ul className="grid">{shown.map((it) => <PassedCell key={it.key} k={it.key} track={hide}><Poster it={it} skippable /></PassedCell>)}</ul>}
       {state === "idle" && data && shown.length === 0 && (
-        <p className="muted" style={{ marginTop: 20 }}>{hiddenCount ? `You have already marked, skipped or passed over all ${hiddenCount} titles loaded so far.` : filtered ? "Nothing matches those filters. Try removing one." : "Nothing in this list."}</p>
+        <p className="muted" style={{ marginTop: 20 }}>{hiddenCount ? "Everything loaded so far is hidden." : filtered ? "Nothing matches those filters. Try removing one." : "Nothing in this list."}</p>
       )}
-      {state === "loading" && (data ? <p className="muted center"><span className="spin" />Loading more</p> : <ul className="grid">{Array.from({ length: 12 }, (_, i) => <li key={i}><div className="pc"><div className="pc-img sk" /></div></li>)}</ul>)}
+      {state === "loading" && (data ? <p className="muted center" role="status"><span className="spin" aria-hidden="true" />Loading more…</p> : <ul className="grid">{Array.from({ length: 12 }, (_, i) => <li key={i}><div className="pc"><div className="pc-img sk" /></div></li>)}</ul>)}
       {state === "error" && <p className="err" style={{ marginTop: 16 }}>{error} <button className="btn sm" onClick={() => load(data ? data.page + 1 : 1)}>Try again</button></p>}
       {state === "idle" && data?.more && <div className="center"><button className="btn" onClick={more}>Load more</button></div>}
       <div ref={sentinel} aria-hidden="true" />

@@ -7,6 +7,7 @@ import { formatHours, libraryStats, parseYear, recentWatched, tmdbStats, watched
 import { BarList, Extreme, PeopleList, Stat, StatCard, YearPicker } from "@/components/Stats";
 import { StatCardsSkeleton } from "@/components/Skeletons";
 import { STATUS_LABEL, type LibItem, type Status } from "@/lib/types";
+import { userMessage } from "@/lib/errors";
 
 export const metadata = { title: "Library stats" };
 
@@ -46,7 +47,7 @@ async function TmdbStatsSection({ scope, year }: { scope: LibItem[]; year: StatY
         {note && <p className="muted small" style={{ margin: "0 0 10px" }}>{note}{[
           s.filmsNoRuntime ? `${plural(s.filmsNoRuntime, "film")} without a runtime left out.` : "",
           s.seriesUntimed ? `${plural(s.seriesUntimed, "series", "series")} could not be timed and are left out.` : "",
-          s.guessedEpisodes ? `${plural(s.guessedEpisodes, "episode")} had no listed length and count at the show's usual length.` : "",
+          s.guessedEpisodes ? `${plural(s.guessedEpisodes, "episode")} had no listed length and count at the series’ usual length.` : "",
           s.missingEpisodes ? `${plural(s.missingEpisodes, "episode")} with no length at all are left out.` : "",
         ].filter(Boolean).map((x) => ` ${x}`).join("")}</p>}
         <div className="stat-cards">
@@ -69,7 +70,7 @@ export default async function LibraryStats({ searchParams }: { searchParams: Pro
   try { lib = await getLibrary(); }
   catch (e) {
     console.error("Library load failed", e);
-    return <div className="page"><p className="muted" style={{ marginTop: 20 }}>Could not load your library: {e instanceof Error ? e.message : String(e)}</p></div>;
+    return <div className="page"><p className="muted" style={{ marginTop: 20 }}>Could not load your library: {userMessage(e, "library stats load")} Reload to try again.</p></div>;
   }
   const years = watchedYears(lib);
   const year = parseYear(y, years);
@@ -77,27 +78,27 @@ export default async function LibraryStats({ searchParams }: { searchParams: Pro
   try { s = libraryStats(lib, year, Date.now()); }
   catch (e) {
     console.error("Library stats failed", e);
-    return <div className="page"><p className="muted" style={{ marginTop: 20 }}>Stats unavailable: {e instanceof Error ? e.message : String(e)}</p></div>;
+    return <div className="page"><p className="muted" style={{ marginTop: 20 }}>Stats are unavailable right now. Reload to try again.</p></div>;
   }
   const when = year === "all" ? "all time" : String(year);
   const status = (["watched", "watching", "partial", "watchlist"] as Status[]).map((k) => ({ label: STATUS_LABEL[k], n: s.byStatus[k] }));
   return (
     <div className="page">
-      <p style={{ margin: "14px 0 8px" }}><Link href="/library">← Library</Link></p>
+      <div className="page-head"><h1>Stats</h1><Link href="/library"><span aria-hidden="true">‹</span> Library</Link></div>
       <YearPicker years={years} current={year} />
       {s.total === 0 ? <p className="muted" style={{ marginTop: 20 }}>Nothing to count yet. Mark a few titles as watched.</p> : (
         <>
-          <div className="stat-grid">
+          <div className="stat-grid three">
             <Stat value={s.watched} label={`Watched, ${when}`} note={`${plural(s.films, "film")} · ${plural(s.series, "series", "series")}`} />
             <Stat value={s.avgRating == null ? "–" : s.avgRating.toFixed(1)} label="Average rating" note={s.rated ? `${plural(s.rated, "rated title")}` : "No ratings yet"} />
-            <Stat value={s.streak ? plural(s.streak.weeks, "week") : "–"} label="Longest streak" note={s.streak ? `${date(s.streak.from)} to ${date(s.streak.to)}` : "Needs watch dates"} />
+            <Stat value={s.streak ? plural(s.streak.weeks, "week") : "–"} label="Longest streak" note={s.streak ? (s.streak.weeks === 1 ? `Week of ${date(s.streak.from)}` : `${date(s.streak.from)} to ${date(s.streak.to)}`) : "Needs watch dates"} />
           </div>
           <div className="stat-cards">
             <StatCard title="Your library"><BarList rows={status} /></StatCard>
-            <StatCard title="Watched per month, last 12"><BarList rows={s.perMonth} empty="Nothing watched in the last 12 months." /></StatCard>
+            <StatCard title="Watched per month, last 12 months"><BarList rows={s.perMonth} empty="Nothing watched in the last 12 months." /></StatCard>
             <StatCard title="Watched per year"><BarList rows={s.perYear} empty="No watch dates yet." /></StatCard>
             <StatCard title={`Ratings, ${when}`}>
-              <BarList rows={s.ratings.map((n, i) => ({ label: "★".repeat(i + 1), n })).reverse()} empty="No ratings yet." />
+              <BarList rows={s.ratings.map((n, i) => ({ label: "★".repeat(i + 1), say: plural(i + 1, "star"), n })).reverse()} empty="No ratings yet." />
             </StatCard>
             <StatCard title={`Release decades, ${when}`}>
               <BarList rows={s.decades} empty="Nothing watched yet." />

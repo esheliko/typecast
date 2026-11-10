@@ -60,7 +60,7 @@ export function candidates(lib: LibItem[], today: string, cap = MAX_LOOKUPS): Li
 /** "New season" for episode 1 of a later season, "Premiere" for the first episode of the first season. */
 export function episodeNote(s: number, e: number): string | null {
   if (e !== 1) return null;
-  return s <= 1 ? "Premiere" : "New season";
+  return s === 1 ? "Premiere" : s > 1 ? "New season" : null; // season 0 is specials: neither
 }
 
 /** The list entry for one title, or null when TMDB has no future date for it (or it is past, or too far away). */

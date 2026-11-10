@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { getAppearances, TmdbError } from "@/lib/tmdb";
+import { getAppearances } from "@/lib/tmdb";
+import { apiError } from "@/lib/errors";
 
 /** Which episodes of a series one person was in. `c` is their TMDB credit ids (comma-separated), `n` their episode count. */
 export async function GET(req: NextRequest) {
@@ -8,5 +9,5 @@ export async function GET(req: NextRequest) {
   const ids = (p.get("c") ?? "").split(",").filter((id) => /^[0-9a-f]{20,32}$/.test(id));
   if (!tv || !ids.length) return NextResponse.json({ error: "Missing show or credits" }, { status: 400 });
   try { return NextResponse.json(await getAppearances(tv, ids, n)); }
-  catch (err) { const st = err instanceof TmdbError ? err.status : 500; return NextResponse.json({ error: (err as Error).message }, { status: st }); }
+  catch (err) { const { body, status } = apiError(err, "api/appearances"); return NextResponse.json(body, { status }); }
 }

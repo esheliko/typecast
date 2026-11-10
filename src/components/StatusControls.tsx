@@ -67,7 +67,7 @@ export default function StatusControls({ item, lib }: { item: Item; lib: LibItem
         {status && (
           <div className="stars" role="group" aria-label="Your rating" style={{ fontSize: 20 }}>
             {[1, 2, 3, 4, 5].map((n) => (
-              <button key={n} onClick={() => rate(n)} aria-label={`${n} stars`} style={{ color: "var(--gold)" }}>{n <= stars ? "★" : "☆"}</button>
+              <button key={n} type="button" onClick={() => rate(n)} aria-pressed={n === stars} aria-label={n === 1 ? "1 star" : `${n} stars`} style={{ color: "var(--gold)" }}>{n <= stars ? "★" : "☆"}</button>
             ))}
           </div>
         )}

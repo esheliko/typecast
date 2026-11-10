@@ -34,16 +34,16 @@ export default function TagPicker({ kind, label, placeholder, value, onChange }:
   return (
     <div className="picker">
       <label className="l">{label}
-        <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={placeholder} autoComplete="off" enterKeyHint="search" style={{ width: "100%", marginTop: 4, textTransform: "none", letterSpacing: 0, font: "inherit", fontSize: 16 }} />
+        <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={placeholder} autoComplete="off" enterKeyHint="search" style={{ width: "100%", marginTop: 4, textTransform: "none", letterSpacing: 0, fontFamily: "var(--body)", fontWeight: 400, fontSize: 16 }} />
       </label>
       {value.length > 0 && (
         <div className="chips" style={{ marginTop: 8 }}>
           {value.map((t) => (
-            <button key={t.id} type="button" className="chip" aria-pressed="true" aria-label={`Remove ${t.name}`} onClick={() => onChange(value.filter((v) => v.id !== t.id))}>{t.name} ×</button>
+            <button key={t.id} type="button" className="chip" aria-label={`Remove ${t.name}`} style={{ background: "var(--gold-fill)", color: "var(--on-gold)" }} onClick={() => onChange(value.filter((v) => v.id !== t.id))}>{t.name} ×</button>
           ))}
         </div>
       )}
-      {busy && fresh.length === 0 && <p className="small muted" style={{ margin: "6px 0 0" }}><span className="spin" />Searching</p>}
+      {busy && fresh.length === 0 && <p className="small muted" style={{ margin: "6px 0 0" }}><span className="spin" aria-hidden="true" />Searching…</p>}
       {fresh.length > 0 && (
         <ul className="suggest card">
           {fresh.map((o) => (

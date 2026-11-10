@@ -6,9 +6,12 @@ export interface GlimpseImage { thumb: string; full: string; page: string; title
 type SerperRes = { ok: true; images: GlimpseImage[] } | { ok: false; status: number; msg?: string };
 
 /** One Serper call per distinct query per 30 days (Next's data cache, keyed by the query), so looking at the same title again costs nothing. */
-const cachedSerper = unstable_cache(async (q: string, apiKey: string): Promise<SerperRes> => {
+/** A failed answer is thrown, not returned: a returned value is cached, and one bad minute at Serper would then hide that query's images for a month. */
+class SerperError extends Error { constructor(public status: number, msg: string) { super(msg); } }
+const cachedSerper = unstable_cache(async (q: string): Promise<SerperRes> => {
+  const apiKey = process.env.SERPER_API_KEY ?? "";
   const r = await fetch("https://google.serper.dev/images", { method: "POST", headers: { "X-API-KEY": apiKey, "Content-Type": "application/json" }, body: JSON.stringify({ q, num: 12 }) });
-  if (!r.ok) return { ok: false, status: r.status, msg: (await r.text().catch(() => "")).slice(0, 120) };
+  if (!r.ok) throw new SerperError(r.status, (await r.text().catch(() => "")).slice(0, 120));
   const j = await r.json() as { images?: { title?: string; imageUrl: string; thumbnailUrl?: string; link?: string }[] };
   return { ok: true, images: (j.images ?? []).slice(0, 12).map((i) => ({ thumb: i.thumbnailUrl ?? i.imageUrl, full: i.imageUrl, page: i.link ?? i.imageUrl, title: i.title ?? "" })) };
 }, ["glimpse-serper"], { revalidate: 60 * 60 * 24 * 30 });
@@ -25,7 +28,7 @@ export async function GET(req: NextRequest) {
   if (serper) {
     try {
       // Serper returns real Google Images results. POST bodies are not cached by fetch, so cache by hand via a GET-shaped key below.
-      const r = await cachedSerper(q, serper);
+      const r = await cachedSerper(q).catch((e): SerperRes => { if (e instanceof SerperError) return { ok: false, status: e.status, msg: e.message }; throw e; });
       if (!r.ok) { console.error(`[error] glimpse: Serper answered ${r.status}${r.msg ? `: ${r.msg}` : ""}`); return NextResponse.json({ configured: true, images: [], error: "Image search is unavailable right now." }, { status: 502 }); }
       return NextResponse.json({ configured: true, images: r.images }, { headers: { "Cache-Control": "private, max-age=86400" } });
     } catch (e) {

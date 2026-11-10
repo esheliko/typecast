@@ -29,7 +29,7 @@ export default async function Setup() {
           <DetailOrder initial={profile.details} always />
         </SettingRow>
       </div>
-      <h2>Library</h2>
+      <h2>Import and sync</h2>
       <div className="card set"><LetterboxdPanel link={profile.letterboxd} />{cal.available && <CalendarFeed initial={cal.token} />}</div>
       {admin && <><h2>Users</h2>{users ? <div className="card set"><ManageUsers users={users} /></div> : <p className="muted small">Couldn&apos;t load users. Check that SUPABASE_SERVICE_ROLE_KEY is set.</p>}</>}
       <h2>Account</h2>

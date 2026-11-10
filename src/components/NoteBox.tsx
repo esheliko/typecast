@@ -8,6 +8,8 @@ export default function NoteBox({ type, id, initial, enabled }: { type: MediaTyp
   const { markRich } = useLib();
   const [text, setText] = useState(initial);
   const [saved, setSaved] = useState(true);
+  /** Nothing is said until the note is edited: "Saved" under an untouched box is noise. */
+  const [touched, setTouched] = useState(false);
   const [failed, setFailed] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const latest = useRef(initial);
@@ -46,7 +48,7 @@ export default function NoteBox({ type, id, initial, enabled }: { type: MediaTyp
   }, [flush]);
 
   function change(v: string) {
-    setText(v); setSaved(false); setFailed(false);
+    setText(v); setSaved(false); setFailed(false); setTouched(true);
     latest.current = v; dirty.current = true;
     clearTimeout(timer.current);
     timer.current = setTimeout(flush, 700);
@@ -54,10 +56,10 @@ export default function NoteBox({ type, id, initial, enabled }: { type: MediaTyp
   return (
     <div>
       <textarea id="note" aria-label="Notes" disabled={!enabled} value={text} onChange={(e) => change(e.target.value)} placeholder="Your thoughts, who recommended it, where you stopped" />
-      <p className="small muted" style={{ margin: "4px 0 0" }}>
+      <p className="small muted" role="status" style={{ margin: "4px 0 0", minHeight: "1.5em" }}>
         {!enabled ? "Mark this title Watching, Partly watched, To watch or Watched to keep notes."
           : failed ? <span className="err" role="alert">Could not save your note. <button type="button" onClick={flush} style={{ background: "none", border: 0, color: "inherit", textDecoration: "underline", cursor: "pointer", padding: 0 }}>Retry</button></span>
-          : saved ? "Saved" : "Saving…"}
+          : !touched ? "" : saved ? "Saved" : "Saving…"}
       </p>
     </div>
   );

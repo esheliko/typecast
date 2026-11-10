@@ -2,7 +2,7 @@
 import { useRef, useState } from "react";
 import { TitleRow } from "../ui";
 import MarkRow from "./MarkRow";
-import { KindFilter } from "../KindSeg";
+import { KindFilter, KindSeg } from "../KindSeg";
 import { useLib } from "./LibState";
 import { useRetained } from "@/lib/useRetained";
 import { creditSub } from "@/lib/episodes";
@@ -58,21 +58,18 @@ export default function PersonCredits({ known, mineKeys, name }: { known: Credit
   const rows = (list: CreditItem[]) => <div className="card"><ul className="rows">{list.map((k) => <li key={k.key}><TitleRow it={k} sub={creditSub(k.role ?? "", k.eps, k.since, k.date)} actor={name} role={k.role} small /></li>)}</ul></div>;
   return (
     <>
-      <div className="inline" style={{ marginTop: 18, alignItems: "center", gap: 8 }}>
-        <label className="l" htmlFor="p-sort" style={{ margin: 0 }}>Sort by</label>
-        <select id="p-sort" value={sort} onChange={(e) => { resetMine(); resetRest(); setSort(e.target.value as Sort); }}>
-          {SORTS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-        </select>
-        <label className="l" htmlFor="p-kind" style={{ margin: "0 0 0 8px" }}>Show</label>
-        <select id="p-kind" value={kind} onChange={(e) => { resetMine(); resetRest(); setKind(e.target.value as typeof kind); }}>
-          <option value="all">Films &amp; shows</option>
-          <option value="movie">Films</option>
-          <option value="tv">Shows</option>
-        </select>
+      <div className="bz-bar" style={{ marginTop: 18 }}>
+        {known.some((k) => k.type === "movie") && known.some((k) => k.type === "tv") && <KindSeg value={kind} onChange={(k) => { resetMine(); resetRest(); setKind(k); }} />}
+        <label className="pillsel" title="Sort order">
+          <svg className="pill-i" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M8 4v16m0 0-3-3m3 3 3-3M16 20V4m0 0-3 3m3-3 3 3" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+          <select aria-label="Sort by" value={sort} onChange={(e) => { resetMine(); resetRest(); setSort(e.target.value as Sort); }}>
+            {SORTS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+          </select>
+        </label>
       </div>
       {mineStable.length > 0 && <><h2>In your library</h2>{rows(mineStable)}</>}
       <h2>Known for</h2>
-      {restStable.length ? rows(restStable) : <p className="small muted">Nothing here.</p>}
+      {restStable.length ? rows(restStable) : <p className="small muted">{kind === "all" ? "No other credits found." : `No other ${kind === "tv" ? "series" : "films"} found.`}</p>}
       {!all && restAll.length > 30 && <button type="button" className="btn sm" style={{ marginTop: 12 }} onClick={() => setAll(true)}>Show all {restAll.length} titles</button>}
     </>
   );

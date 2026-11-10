@@ -37,7 +37,7 @@ export default function LibraryList({ items }: { items: LibItem[] }) {
   return (
     <>
       {items.length > 5 && <div className="field" style={{ marginTop: 12 }}><input type="search" aria-label="Filter library" placeholder="Filter your library" value={q} onChange={(e) => setQ(e.target.value)} /></div>}
-      {list.length === 0 ? <p className="muted" style={{ marginTop: 20 }}>Nothing matches.</p> : (
+      {list.length === 0 ? <p className="muted" style={{ marginTop: 20 }}>{q.trim() ? <>Nothing in this list matches “{q.trim()}”. <button type="button" className="linkish" onClick={() => setQ("")}>Clear the filter</button></> : "Nothing in this list yet."}</p> : (
         <div className="card" style={{ marginTop: 14 }}><ul className="rows">
           {list.map((l) => (
             <li key={l.key} className="row lib-row"><TitleLink className="row-link" k={l.key} it={l}>
@@ -47,7 +47,7 @@ export default function LibraryList({ items }: { items: LibItem[] }) {
                 <span className="row-sub">{l.year} · {typeLabel(l.type)}{l.progress ? ` · S${l.progress.s} E${l.progress.e}` : ""}</span>
                 <NewEpPill k={l.key} />
                 <RowBadge k={l.key} />
-                {l.rating > 0 && <span className="stars" aria-label={`${l.rating} of 5`}>{"★".repeat(l.rating) + "☆".repeat(5 - l.rating)}</span>}
+                {l.rating > 0 && <span className="stars" role="img" aria-label={`Rated ${l.rating} of 5`}>{"★".repeat(l.rating) + "☆".repeat(5 - l.rating)}</span>}
               </span>
             </TitleLink><StatusPill it={l} /><QuickMark it={l} variant="inline" /><GlimpseButton spec={titleSpec(l)} /><RelatedButton it={l} /></li>
           ))}

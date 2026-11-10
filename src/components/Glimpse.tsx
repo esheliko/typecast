@@ -66,9 +66,9 @@ export function GlimpseProvider({ children }: { children: React.ReactNode }) {
               </div>
             )}
             <div className="gl-body">
-              {(!cur || cur.state === "loading") && <p className="muted"><span className="spin" />Finding images</p>}
+              {(!cur || cur.state === "loading") && <p className="muted" role="status"><span className="spin" aria-hidden="true" />Finding images…</p>}
               {cur?.state === "error" && <p className="err">{cur.msg}</p>}
-              {cur?.state === "ok" && !cur.configured && <p className="small muted">Inline images need an image-search key (SERPER_API_KEY). Until then, open the results in Google Images.</p>}
+              {cur?.state === "ok" && !cur.configured && <p className="small muted">Image search is not set up here yet. Use “More in Google Images” below.</p>}
               {cur?.state === "ok" && cur.configured && cur.images.length === 0 && <p className="muted">No images found.</p>}
               {big && (
                 <figure className="gl-big">

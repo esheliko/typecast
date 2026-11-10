@@ -59,10 +59,10 @@ const iso = (t: number) => new Date(t).toISOString().slice(0, 10);
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const monthOf = (t: number, now: number) => { const d = new Date(t); return MONTHS[d.getUTCMonth()] + (new Date(now).getUTCFullYear() !== d.getUTCFullYear() ? ` ${d.getUTCFullYear()}` : ""); };
 
-/** "1h 52m" for a film, "45m eps" for a series. */
+/** "1h 52m" for a film, "45 min episodes" for a series. */
 export function lengthLabel(type: Item["type"], runtime: number | null): string | null {
   if (!runtime || runtime <= 0) return null;
-  if (type === "tv") return `${runtime}m eps`;
+  if (type === "tv") return `${runtime} min episodes`;
   const h = Math.floor(runtime / 60), m = runtime % 60;
   return h ? `${h}h${m ? ` ${m}m` : ""}` : `${m}m`;
 }

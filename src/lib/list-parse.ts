@@ -39,12 +39,13 @@ function parseLine(raw: string, mode: Plain): { entries: LbEntry[] } | { mode: P
   let rating = 0;
   const grab = (re: RegExp, f: (m: RegExpMatchArray) => number) => { const m = s.match(re); if (m) { rating = f(m); s = s.slice(0, m.index).trim(); } };
   grab(/\s*[-–—:|,]?\s*([★⭐]+)\s*$/, (m) => Math.min(5, [...m[1]].length));
-  if (!rating) grab(/\s*[-–—:|,]?\s*\(?(\d(?:\.\d)?)\s*\/\s*(5|10)\)?\s*$/, (m) => stars(String(m[2] === "10" ? parseFloat(m[1]) / 2 : m[1])));
+  if (!rating) grab(/\s*[-–—:|,]?\s*\(?(?<![\d.])(10|\d(?:\.\d)?)\s*\/\s*(5|10)\)?\s*$/, (m) => stars(String(m[2] === "10" ? parseFloat(m[1]) / 2 : m[1])));
   if (!rating) grab(/\s*[-–—:|,]?\s*\(?(\d(?:\.\d)?)\s*stars?\)?\s*$/i, (m) => stars(m[1]));
   let year: number | null = null;
   const y = s.match(/\s*[(\[]((?:18|19|20)\d\d)[)\]]\s*$/) ?? s.match(/\s*(?:,|\s[-–—])\s*((?:18|19|20)\d\d)\s*$/);
   if (y) { year = parseInt(y[1], 10); s = s.slice(0, y.index).trim(); }
-  if (!y) { const t = s.match(/^(.*\S\s+\S.*?)\s+((?:19|20)\d\d)$/); if (t) { s = t[1]; year = parseInt(t[2], 10); } }
+  if (!y) { const t = s.match(/^(.*\S\s+\S.*?)\s+((?:19|20)\d\d)$/); // A bare trailing number is only a year if a film could have come out then: "Blade Runner 2049" keeps its name.
+    if (t && parseInt(t[2], 10) <= new Date().getFullYear() + 1) { s = t[1]; year = parseInt(t[2], 10); } }
   s = s.replace(/\s*\([^()]*\)\s*$/, "").replace(/^["“'‘]+|["”'’]+$/g, "").trim();
   if (!/[\p{L}\p{N}]/u.test(s) || s.length < 1) return null;
   const isWatched = !wip && (watched ?? mode === "watched");

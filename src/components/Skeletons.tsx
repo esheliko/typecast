@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 /** Placeholders shaped like the real pages. Server-safe: no state, no data. */
 const bar = (w: number | string, h = 14, extra?: React.CSSProperties) => <div className="sk-b" style={{ width: w, height: h, ...extra }} />;
 
@@ -81,8 +83,9 @@ export function StatCardsSkeleton({ n = 3 }: { n?: number }) {
 export function StatsSkeleton() {
   return (
     <div className="page" aria-busy="true">
-      <div style={{ marginTop: 14 }}><ChipsSkeleton n={3} w={78} /></div>
-      <div className="stat-grid">{Array.from({ length: 3 }, (_, i) => <div key={i} className="stat">{bar("50%", 32)}{bar("70%", 12)}</div>)}</div>
+      <div className="page-head"><h1>Stats</h1><Link href="/library"><span aria-hidden="true">‹</span> Library</Link></div>
+      <ChipsSkeleton n={3} w={78} />
+      <div className="stat-grid three">{Array.from({ length: 3 }, (_, i) => <div key={i} className="stat">{bar("50%", 32)}{bar("70%", 12)}</div>)}</div>
       <StatCardsSkeleton n={4} />
     </div>
   );

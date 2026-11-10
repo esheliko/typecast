@@ -20,7 +20,7 @@ const enc = new TextEncoder();
 
 /** TEXT values: backslash, semicolon and comma are escaped, newlines become \n. */
 export function escapeText(s: string): string {
-  return String(s).replace(/\\/g, "\\\\").replace(/;/g, "\;").replace(/,/g, "\\,").replace(/\r\n|\r|\n/g, "\\n");
+  return String(s).replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\r\n|\r|\n/g, "\\n");
 }
 
 /** Lines are at most 75 octets; longer ones continue on the next line after CRLF and one space. Never splits a multi-byte character. */

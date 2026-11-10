@@ -2,12 +2,14 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@supabase/supabase-js";
 import { requireUser } from "@/lib/supabase/server";
+import { dbError, userMessage } from "@/lib/errors";
 import { normalizeDetails } from "@/lib/details";
 import { fetchAll } from "@/lib/paginate";
 import { parseItem, parseProfile, planItem, RESTORE_CHUNK, tally, type BackupItem, type Counts, type Plan } from "@/lib/backup";
 
 type Res = { ok: true } | { ok: false; error: string };
-const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
+/** Database and library errors are logged and replaced by a plain sentence (see lib/errors). */
+const msg = (e: unknown) => userMessage(e, "account-actions");
 
 /**
  * Change the signed-in user's password. The current password is re-checked first (on a throwaway client, so the
@@ -26,7 +28,7 @@ export async function changePassword(current: string, next: string, again: strin
     const { data, error: bad } = await check.auth.signInWithPassword({ email: user.email, password: current });
     if (bad || data.user?.id !== user.id) return { ok: false, error: "The current password is wrong." };
     const { error } = await sb.auth.updateUser({ password: next });
-    if (error) return { ok: false, error: error.message };
+    if (error) { console.error("[error] changePassword:", error.message); return { ok: false, error: "Could not change the password. Try again in a moment." }; }
     return { ok: true };
   } catch (e) { return { ok: false, error: msg(e) }; }
 }
@@ -65,9 +67,9 @@ export async function restoreChunk(raw: unknown, apply: boolean): Promise<Restor
         ...(i.added ? { added_at: iso(i.added) } : {}), ...(i.watchedAt ? { watched_at: iso(i.watchedAt) } : {}), updated_at: now,
       }]);
       // ignoreDuplicates: if the title appeared meanwhile, keep what is there.
-      if (adds.length) { const { error } = await sb.from("library_items").upsert(adds, { onConflict: "user_id,tmdb_type,tmdb_id", ignoreDuplicates: true }); if (error) throw new Error(error.message); }
+      if (adds.length) { const { error } = await sb.from("library_items").upsert(adds, { onConflict: "user_id,tmdb_type,tmdb_id", ignoreDuplicates: true }); if (error) throw dbError(error, "restoreChunk"); }
       const fills = items.flatMap((i, n) => { const p = plans[n]; return p.kind !== "fill" ? [] : [{ ...saved.get(`${i.type}:${i.id}`)!, ...p.fills, updated_at: now }]; });
-      if (fills.length) { const { error } = await sb.from("library_items").upsert(fills, { onConflict: "user_id,tmdb_type,tmdb_id" }); if (error) throw new Error(error.message); }
+      if (fills.length) { const { error } = await sb.from("library_items").upsert(fills, { onConflict: "user_id,tmdb_type,tmdb_id" }); if (error) throw dbError(error, "restoreChunk"); }
       if (adds.length || fills.length) revalidatePath("/", "layout");
     }
     return { ok: true, ...tally(plans) };
@@ -84,7 +86,7 @@ export async function restoreProfile(raw: unknown): Promise<Res> {
       { user_id: user.id, country: p.profile.country, services: p.profile.services, service_names: p.profile.serviceNames, detail_order: normalizeDetails(p.profile.details), updated_at: new Date().toISOString() },
       { onConflict: "user_id" },
     );
-    if (error) return { ok: false, error: error.message };
+    if (error) { console.error("[error] restoreProfile:", error.message); return { ok: false, error: "Could not restore your settings. Try again in a moment." }; }
     revalidatePath("/", "layout");
     return { ok: true };
   } catch (e) { return { ok: false, error: msg(e) }; }

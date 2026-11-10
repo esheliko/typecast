@@ -208,7 +208,7 @@ test.describe("behaviour (signed in)", () => {
     await expect(inRow(page, "Breaking Bad")).toBeVisible();
     await expect(inRow(page, "The Matrix")).toHaveCount(0);
     await box.fill("zzzzzz");
-    await expect(page.getByText("Nothing matches.")).toBeVisible();
+    await expect(page.getByText(/Nothing in this list matches/)).toBeVisible();
     await box.fill("");
     await expect(inRow(page, "The Matrix")).toBeVisible();
 
