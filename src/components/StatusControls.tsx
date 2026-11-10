@@ -47,7 +47,7 @@ export default function StatusControls({ item, lib }: { item: Item; lib: LibItem
           // Not in the library yet: say what you can do, one tap, on the same line (the menu keeps Watching / Partial).
           <div className="mc-quick" role="group" aria-label="Add to my library">
             <button type="button" className="chip sc mc-q none" onClick={() => pick("watchlist")}>
-              <StatusIcon kind="watchlist" size={16} /><span className="mc-cur-t">Watchlist</span>
+              <StatusIcon kind="watchlist" size={16} /><span className="mc-cur-t">Add to Watchlist</span>
             </button>
             <button type="button" className="chip sc mc-q watchedq" onClick={() => pick("watched")}>
               <StatusIcon kind="watched" size={16} /><span className="mc-cur-t">Watched</span>
@@ -57,7 +57,7 @@ export default function StatusControls({ item, lib }: { item: Item; lib: LibItem
             </button>
           </div>
         ) : (
-        <button type="button" className={`chip sc mc-cur ${cur ?? "none"}${cur === "watchlist" && priority === "must" ? " must" : ""}`} aria-expanded={open} aria-haspopup="true"
+        <button type="button" className={`chip sc mc-cur ${cur === "watched" ? cur : "none"}${cur === "watchlist" && priority === "must" ? " must" : ""}`} aria-expanded={open} aria-haspopup="true"
           aria-label={cur ? `${STATUS_LABEL[cur]}. Change` : "Add to my library"} onClick={() => setOpen((o) => !o)}>
           {curKind ? <StatusIcon kind={curKind} size={16} /> : <span aria-hidden="true">+</span>}
           <span className="mc-cur-t">{cur ? STATUS_LABEL[cur] : "Add to my library"}</span>

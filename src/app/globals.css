@@ -719,7 +719,7 @@ body:has(.wbar) .toast-slot { bottom: calc(146px + env(safe-area-inset-bottom, 0
 .mc-quick { display: flex; align-items: center; gap: 6px; min-width: 0; flex-wrap: nowrap; }
 .chip.sc.mc-more { padding: 8px 10px; }
 .chip.sc.mc-q { min-width: 0; padding: 8px 12px; font-weight: 600; }
-.chip.sc.mc-q.none { background: var(--gold-fill); color: var(--on-gold); }
+.chip.sc.mc-q.none { color: var(--on-gold); }
 .chip.sc.mc-q.watchedq:hover { background: var(--good); color: #fff; }
 .mc-menu { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
 .mc-menu .mc-row { margin-top: 10px; }
