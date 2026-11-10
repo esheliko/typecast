@@ -102,7 +102,11 @@ export function WhoApp({ brief, initialPos, today }: { brief: WhoBrief; initialP
 
   /* ----- trail: steps after the root and a cursor; going back keeps the later steps, a new step replaces them ----- */
   const current: Node = currentNode(trail);
-  const push = useCallback((n: Node) => setTrail((t) => pushNode(t, n, bid())), []);
+  // Opening a person from a title: that title is the one to compare first (their row is selected), not the top "You know them from".
+  const push = useCallback((n: Node) => setTrail((t) => {
+    const from = currentNode(t);
+    return pushNode(t, n.t === "person" && !n.hl && from.t === "title" ? { ...n, hl: from.key } : n, bid());
+  }), []);
   const openFromFinder = useCallback((f: { id: number; name: string; photo: string | null }, o?: { hl?: string }) => {
     opener.current = document.activeElement instanceof HTMLElement && document.activeElement.closest(".wx-finder") ? document.activeElement : null;
     setTrail(startTrail([{ t: "person", id: f.id, name: f.name, photo: f.photo, hl: o?.hl }], bid()));

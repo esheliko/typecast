@@ -53,7 +53,7 @@ export function PersonNode({ node }: { node: PNode }) {
   const [kind, setKind] = useState<Kind>("all");
   const [onlySeen, setOnlySeen] = useState(false);
   const [extras, setExtras] = useState(false);
-  // The row somebody chose on purpose: a click (selected), or a hover/focus (preview). The default is the title picked from "titles in common", else the top "You know them from" title.
+  // The row somebody chose on purpose: a click (selected), or a hover/focus (preview). The default is the title you came from (a title in the trail, or one picked from "titles in common"), else the top "You know them from" title.
   const [selected, setSelected] = useState<string | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const rowRefs = useRef(new Map<string, HTMLElement>());
