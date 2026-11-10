@@ -346,6 +346,10 @@ test.describe("signed in", () => {
     await expect(page.getByRole("heading", { name: "The Rookie" }).first()).toBeVisible();
     await expect(page.getByRole("button", { name: "Trivia" })).toBeVisible();
     await expect(page.getByPlaceholder(/look something up/i)).toHaveCount(0);
+    // Going back keeps the step (it is dimmed, not erased), the line of history is a recents chip, and the spoiler switch is always on screen.
+    await expect(page.locator(".wx-trail")).toContainText("Sara Rue");
+    await expect(page.locator(".wx-rchip[title*='Sara Rue']")).toBeVisible();
+    await expect(page.getByRole("switch", { name: /No spoilers/ })).toHaveAttribute("aria-checked", "true");
     await healthy(page, bad);
   });
 

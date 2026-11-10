@@ -5,25 +5,26 @@ import { Photo, SEEN_STATUS, Sk } from "./bits";
 import { useWho } from "./WhoContext";
 import { peopleHere, titlesForQuery, titlesWithPeople, type FoundTitle } from "@/lib/who-common";
 import { img } from "@/lib/img";
-import { whoApi, type Recent } from "@/lib/who-client";
-import { byGender, groupWhoFaces, guestsOnly, matchFaces, type GenderFilter } from "@/lib/who-scope";
+import { whoApi, type RecentTrail } from "@/lib/who-client";
+import { byCast, byGender, groupWhoFaces, matchFaces, type CastFilter, type GenderFilter } from "@/lib/who-scope";
+import { RecentRow } from "./Trail";
 import { roleLabel } from "@/lib/roster";
 import type { WhoFace, WhoRoster } from "@/lib/who-types";
 
 const PER_GROUP = 12;
 
 /** The left pane: finder input, filter chips, "recently opened", the face grid. The input filters and finds; it never answers. */
-export function Finder({ roster, loading, err, q, setQ, inputRef, recents, onOpen, onRetry }: {
+export function Finder({ roster, loading, err, q, setQ, inputRef, recents, onOpen, onRestore, onRetry }: {
   roster: WhoRoster | null; loading: boolean; err: boolean; q: string; setQ: (q: string) => void; inputRef: React.RefObject<HTMLInputElement | null>;
-  recents: Recent[]; onOpen: (f: { id: number; name: string; photo: string | null }, opts?: { hl?: string }) => void; onRetry: () => void;
+  recents: RecentTrail[]; onOpen: (f: { id: number; name: string; photo: string | null }, opts?: { hl?: string }) => void; onRestore: (r: RecentTrail) => void; onRetry: () => void;
 }) {
-  const { brief, pos, prefetchPerson } = useWho();
+  const { brief, pos, prefetchPerson, spoilers } = useWho();
   const [gender, setGender] = useState<GenderFilter>("all");
-  const [guests, setGuests] = useState(false);
+  const [cast, setCast] = useState<CastFilter>("all");
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const film = brief.type === "movie";
   const faces = useMemo(() => roster?.faces ?? [], [roster]);
-  const shown = useMemo(() => matchFaces(guests ? guestsOnly(byGender(faces, gender)) : byGender(faces, gender), q), [faces, gender, guests, q]);
+  const shown = useMemo(() => matchFaces(byCast(byGender(faces, gender), cast), q), [faces, gender, cast, q]);
   const groups = useMemo(() => groupWhoFaces(shown, roster?.scope ?? null).map((g) => (film && g.id === "guest" ? { ...g, label: "Also in the cast" } : g)), [shown, roster?.scope, film]);
   const query = q.trim();
 
@@ -95,27 +96,15 @@ export function Finder({ roster, loading, err, q, setQ, inputRef, recents, onOpe
         <div className="seg" role="group" aria-label="Gender">
           {([["all", "All"], ["f", "Women"], ["m", "Men"]] as const).map(([v, t]) => <button key={v} type="button" aria-pressed={gender === v} onClick={() => setGender(v)}>{t}</button>)}
         </div>
-        <div className="seg" role="group" aria-label="Guests">
-          <button type="button" aria-pressed={!guests} onClick={() => setGuests(false)}>All</button>
-          <button type="button" aria-pressed={guests} onClick={() => setGuests(true)}>{film ? "Not main cast" : "Guests only"}</button>
+        <div className="seg" role="group" aria-label="Cast">
+          {([["all", "All"], ["main", "Main cast"], ["guests", film ? "Others" : "Guests"]] as const).map(([v, t]) => <button key={v} type="button" aria-pressed={cast === v} onClick={() => setCast(v)}>{t}</button>)}
         </div>
         <span className="small muted wx-count" aria-live="polite">{roster ? (shown.length === total ? `${total} people` : `${shown.length} of ${total}`) : ""}</span>
       </div>
-      {roster?.note && <p className="small wx-scopenote" role="note">{roster.note}</p>}
+      {roster?.note && !spoilers && <p className="small wx-scopenote" role="note">{roster.note}</p>}
       {roster?.partial && <p className="small muted">TMDB had nothing for some seasons, so this list may be short.</p>}
 
-      {recents.length > 0 && (
-        <div className="wx-recent" aria-label="Recently opened">
-          <span className="mc-label">Recently opened</span>
-          <div className="wx-recent-row">
-            {recents.map((r) => (
-              <button key={r.id} type="button" className="wx-rchip" onClick={() => onOpen(r)} onMouseEnter={() => prefetchPerson(r.id)}>
-                <Photo path={r.photo} name={r.name} className="wx-rimg" /><span>{r.name}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+      <RecentRow recents={recents} onRestore={onRestore} onWarm={prefetchPerson} />
 
       {loading && !roster && !err && <GridSkeleton />}
       {err && <p className="small muted wx-soft" role="alert">Couldn&rsquo;t load who&rsquo;s in it. <button type="button" className="linkish" onClick={onRetry}>Try again</button></p>}

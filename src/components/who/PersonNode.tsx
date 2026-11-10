@@ -2,6 +2,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useLib } from "../cast/LibState";
 import { KindSeg } from "../KindSeg";
+import { GlimpseButton } from "../Glimpse";
 import { More, Photo, Section, SEEN_STATUS, Sk, Soft, useLimit, useSpans } from "./bits";
 import { Timeline, type AxisItem } from "./Timeline";
 import { defaultChoice, readoutChoice } from "@/lib/who-readout";
@@ -13,7 +14,8 @@ import { ageAt, fmtMonth, fmtRange, gapBetween, gapChip, lifeLine, readout } fro
 import { pairLabels } from "@/lib/who-common";
 import { whoApi } from "@/lib/who-client";
 import { showRunLabel } from "@/lib/who-spans";
-import { posLabel } from "@/lib/who-scope";
+import { posCode, posLabel, scopeKind } from "@/lib/who-scope";
+import { creditSpec } from "@/lib/glimpse";
 import type { PCredit, PersonData, Range, Span } from "@/lib/who-types";
 import type { SharedBrief } from "@/lib/who-data";
 
@@ -32,11 +34,10 @@ function whenOf(c: PCredit, spans: Record<string, Span | null>): When {
 
 /** Everything about one person, in one scroll column: no tabs. */
 export function PersonNode({ node }: { node: PNode }) {
-  const { brief, today, pos, faces, watched, push, setExact } = useWho();
+  const { brief, today, pos, clip, faces, watched, push, zoom } = useWho();
   const lib = useLib();
   const [data, setData] = useState<PersonData | null>(null);
   const [err, setErr] = useState(false);
-  const [lightbox, setLightbox] = useState<string | null>(null);
   const face = faces.get(node.id);
   const tv = brief.type === "tv";
 
@@ -51,12 +52,23 @@ export function PersonNode({ node }: { node: PNode }) {
   const [kind, setKind] = useState<Kind>("all");
   const [onlySeen, setOnlySeen] = useState(false);
   const [extras, setExtras] = useState(false);
-  const [override, setOverride] = useState<{ id: string; label: string; range: Range } | null>(null);
   // The readout compares the reference only with a row somebody chose on purpose: a click (selected), or a hover/focus (preview).
   const [selected, setSelected] = useState<string | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const rowRefs = useRef(new Map<string, HTMLElement>());
-  useEffect(() => { setOverride(null); setSelected(null); setPreview(null); setKind("all"); setOnlySeen(false); setExtras(false); }, [node.id, node.hl]);
+  const tlSec = useRef<HTMLElement>(null);
+  const tlSticky = useRef<HTMLDivElement>(null);
+  // The rows scroll under the sticky timeline: tell their scroll-margin how tall it is.
+  useEffect(() => {
+    const el = tlSticky.current, sec = tlSec.current;
+    if (!el || !sec || typeof ResizeObserver === "undefined") return;
+    const set = () => sec.style.setProperty("--wx-tl-h", `${el.offsetHeight}px`);
+    set();
+    const ro = new ResizeObserver(set);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [data]);
+  useEffect(() => { setSelected(null); setPreview(null); setKind("all"); setOnlySeen(false); setExtras(false); }, [node.id, node.hl]);
 
   const credits = useMemo(() => (data?.credits ?? []).filter((c) => c.key !== brief.key), [data, brief.key]);
   // "You know them from": what the user has seen of theirs, then what is on their list.
@@ -81,7 +93,7 @@ export function PersonNode({ node }: { node: PNode }) {
     const rest = [...filtered.filter((c) => c.type === "tv").map((c) => c.key), ...seenFirst];
     return [...new Set([...(tv ? [brief.key] : []), ...head, ...seenFirst.slice(0, 5), ...rest])];
   }, [filtered, seenFirst, limitHint, tv, brief.key]);
-  const cur = tv && pos ? { k: brief.key, pos, cids: face?.cids ?? [] } : null;
+  const cur = tv && clip ? { k: brief.key, pos: clip, cids: face?.cids ?? [] } : null;
   const { spans, failed } = useSpans(node.id, data ? orderedKeys : [], cur);
   const hereSpan = tv ? spans[brief.key] : undefined;
   // A regular has no episode list on TMDB: their own first credited air date up to where you are is still true, and nothing later is shown.
@@ -105,14 +117,15 @@ export function PersonNode({ node }: { node: PNode }) {
   const lim = useLimit(rows.length, 8);
   useEffect(() => { setLimitHint(lim.shown); }, [lim.shown]);
 
-  const ref = override ?? (watched.range ? { id: "watched", label: watched.label, range: watched.range } : null);
+  const upTo = clip ? ` (up to ${posCode(clip)})` : "";
+  const ref = watched.range ? { id: "watched", label: watched.label, range: watched.range } : null;
   const whenRow = (c: PCredit) => whenOf(c, spansEff);
   const rangeById = (id: string): { label: string; range: Range; approx: boolean } | null => {
     if (id === "watched") return watched.range ? { label: watched.label, range: watched.range, approx: false } : null;
     const c = rows.find((r) => r.key === id);
     if (!c) return null;
     const w = whenRow(c);
-    return w.kind === "range" ? { label: `${c.title}${c.key === brief.key ? ` (up to ${posLabel(pos)})` : ""}`, range: w.range, approx: !w.own } : null;
+    return w.kind === "range" ? { label: `${c.title}${c.key === brief.key ? upTo : ""}`, range: w.range, approx: !w.own } : null;
   };
 
   // Default choice on open: the title picked from "titles in common", else the top "You know them from" title, else nothing.
@@ -128,7 +141,6 @@ export function PersonNode({ node }: { node: PNode }) {
     const f = rangeById(chosen);
     return f ? readout(f, { label: ref.label, range: ref.range }) : "";
   })();
-  const hot = chosen;
   const marked = selected && usable(selected) ? selected : fallback;
   // The selected row is always on screen: when it is below the first rows, it follows them after a "…" gap, in its chronological place.
   const markedIdx = marked ? rows.findIndex((r) => r.key === marked) : -1;
@@ -148,8 +160,10 @@ export function PersonNode({ node }: { node: PNode }) {
   const axis: AxisItem[] = useMemo(() => rows.flatMap((c): AxisItem[] => {
     const w = whenOf(c, spansEff);
     if (w.kind !== "range") return [];
-    return [{ id: c.key, start: w.range.start, end: w.range.end, label: `${c.title} ${w.own ? fmtRange(w.range.start, w.range.end) : showRunLabel(w.range.start, w.range.end)}`, run: !w.own, seen: SEEN_STATUS.has(lib.get(c.key)?.status ?? "") }];
-  }), [rows, spansEff, lib]);
+    const now = tv && c.key === brief.key;
+    const dates = w.own ? fmtRange(w.range.start, w.range.end) : showRunLabel(w.range.start, w.range.end);
+    return [{ id: c.key, start: w.range.start, end: w.range.end, label: `${c.title} ${dates}${now && clip ? `, so far (up to ${posCode(clip)})` : ""}`, run: !w.own, seen: SEEN_STATUS.has(lib.get(c.key)?.status ?? ""), now, solo: now }];
+  }), [rows, spansEff, lib, tv, brief.key, clip]);
 
   const pick = (id: string) => {
     setSelected(id);
@@ -157,22 +171,15 @@ export function PersonNode({ node }: { node: PNode }) {
     // After the row has rendered (it may have just been revealed).
     setTimeout(() => rowRefs.current.get(id)?.scrollIntoView({ block: "center", behavior: "smooth" }), 30);
   };
-  const measure = (c: PCredit) => {
-    const w = whenRow(c);
-    if (w.kind !== "range") return;
-    if (selected === c.key) setSelected(null);
-    setOverride({ id: c.key, label: `${c.title}${c.key === brief.key ? ` (up to ${posLabel(pos)})` : ""}`, range: w.range });
-  };
-
   const life = data ? lifeLine(data.birthday, data.deathday, watched.at, watched.atLabel, today) : "";
-  const hereLabel = face ? (face.role ? (brief.type === "movie" ? `Plays ${roleLabel(face.role) || face.role} in ${brief.title}` : `${/themselves/i.test(roleLabel(face.role)) ? "" : "Plays "}${roleLabel(face.role)} in ${brief.title}`) : `In ${brief.title}`) : `Not listed in ${brief.title} up to ${posLabel(pos) || "here"}`;
+  const hereLabel = face ? (face.role ? (brief.type === "movie" ? `Plays ${roleLabel(face.role) || face.role} in ${brief.title}` : `${/themselves/i.test(roleLabel(face.role)) ? "" : "Plays "}${roleLabel(face.role)} in ${brief.title}`) : `In ${brief.title}`) : clip ? `Not listed in ${brief.title} up to ${posLabel(pos) || "here"}` : `Not listed in ${brief.title}`;
 
   const knownLim = useLimit(known.length, 5);
 
   return (
     <div className="wx-node wx-person" data-node={nodeId(node)}>
       <header className="wx-phead">
-        <button type="button" className="wx-pphoto" onClick={() => data?.photo ? setLightbox(data.photo) : undefined} aria-label={`Enlarge photo of ${node.name}`} disabled={!node.photo && !data?.photo}>
+        <button type="button" className="wx-pphoto" onClick={() => { const ph = data?.photo ?? node.photo; if (ph) zoom({ path: ph, name: node.name }); }} aria-label={`Enlarge photo of ${node.name}`} disabled={!node.photo && !data?.photo}>
           <Photo path={node.photo ?? data?.photo ?? null} name={node.name} w="w342" className="wx-pimg" eager />
         </button>
         <div className="wx-pmeta">
@@ -184,7 +191,7 @@ export function PersonNode({ node }: { node: PNode }) {
               <span className="mc-label">Other looks</span>
               <div className="wx-looks-row">
                 {data.images.map((p) => (
-                  <button key={p} type="button" className="wx-look" onClick={() => setLightbox(p)} aria-label={`Enlarge another photo of ${node.name}`}>
+                  <button key={p} type="button" className="wx-look" onClick={() => zoom({ path: p, name: node.name })} aria-label={`Enlarge another photo of ${node.name}`}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={img(p, "w185")} alt="" loading="lazy" decoding="async" />
                   </button>
@@ -199,8 +206,8 @@ export function PersonNode({ node }: { node: PNode }) {
       {err && <Soft>Couldn&rsquo;t load {node.name}&rsquo;s credits. <button type="button" className="linkish" onClick={() => { setErr(false); whoApi.person(node.id).then(setData).catch(() => setErr(true)); }}>Try again</button></Soft>}
 
       {/* 2. Here */}
-      <Section title="Here" note={tv ? `Episodes of ${brief.title} up to ${posLabel(pos) || "here"}.` : undefined}>
-        {!tv ? <p className="small" style={{ margin: 0 }}>{face ? `In this film${face.role ? ` as ${roleLabel(face.role) || face.role}` : ""}.` : "Not in this film's cast."}</p> : <HereEpisodes span={hereSpan} loading={!data || (hereSpan === undefined && !failed)} failed={failed && hereSpan === undefined} regular={face?.part === "main"} inScope={!!face} onSet={setExact} />}
+      <Section title="Here" note={tv ? (clip ? `Episodes of ${brief.title} up to ${posLabel(pos) || "here"}.` : `Episodes of ${brief.title}.`) : undefined}>
+        {!tv ? <p className="small" style={{ margin: 0 }}>{face ? `In this film${face.role ? ` as ${roleLabel(face.role) || face.role}` : ""}.` : "Not in this film's cast."}</p> : <HereEpisodes span={hereSpan} loading={!data || (hereSpan === undefined && !failed)} failed={failed && hereSpan === undefined} regular={face?.part === "main"} inScope={!!face} />}
       </Section>
 
       {/* 3. You know them from */}
@@ -212,46 +219,56 @@ export function PersonNode({ node }: { node: PNode }) {
           const st = lib.get(c.key)?.status;
           const g = w.kind === "range" && watched.range ? gapChip(gapBetween(w.range, watched.range), !w.own) : "";
           return (
-            <button key={c.key} type="button" className="wx-krow" onClick={() => push({ t: "title", key: c.key, title: c.title, year: c.year, poster: c.poster })}>
-              <Photo path={c.poster} name={c.title} w="w92" className="wx-kpos" />
-              <span className="wx-kmain"><b>{c.title}</b> <span className="muted">{c.year}</span>
-                <span className="small muted wx-kline">{[c.role && `as ${roleLabel(c.role) || c.role}`, whenText(c, w)].filter(Boolean).join(" · ")}{w.kind === "loading" && <Sk w={90} h={11} style={{ marginLeft: 4 }} />}</span>
-              </span>
-              <span className="wx-kright">
-                <span className={`ask-st ${st === "watchlist" ? "list" : "seen"}`}>{st === "watchlist" ? "On your list" : "Seen"}</span>
-                {g && <span className="wx-gap">{g} this</span>}
-              </span>
-            </button>
+            <div key={c.key} className="wx-krow">
+              <button type="button" className="wx-kbtn" onClick={() => push({ t: "title", key: c.key, title: c.title, year: c.year, poster: c.poster })}>
+                <Photo path={c.poster} name={c.title} w="w92" className="wx-kpos" />
+                <span className="wx-kmain"><b>{c.title}</b> <span className="muted">{c.year}</span>
+                  <span className="small muted wx-kline">{[c.role && `as ${roleLabel(c.role) || c.role}`, whenText(c, w)].filter(Boolean).join(" · ")}{w.kind === "loading" && <Sk w={90} h={11} style={{ marginLeft: 4 }} />}</span>
+                </span>
+                <span className="wx-kright">
+                  <span className={`ask-st ${st === "watchlist" ? "list" : "seen"}`}>{st === "watchlist" ? "On your list" : "Seen"}</span>
+                  {g && <span className="wx-gap">{g} this</span>}
+                </span>
+              </button>
+              <GlimpseButton spec={creditSpec(node.name, c.role, { title: c.title, year: c.year, type: c.type })} label={`See images of ${c.title}${c.role ? `, or ${node.name} as ${roleLabel(c.role) || c.role}` : ""}`} />
+            </div>
           );
         })}
         {data && <More total={known.length} {...knownLim} />}
       </Section>
 
-      {/* 4. Timeline */}
-      <Section title="Timeline" count={data ? rows.length : undefined}>
-        <div className="wx-tfilters">
-          <KindSeg value={kind} onChange={setKind} label="Films or series" />
-          <button type="button" className="chip" aria-pressed={onlySeen} onClick={() => setOnlySeen((v) => !v)}>Only what I&rsquo;ve seen</button>
-          <button type="button" className="chip" aria-pressed={extras} onClick={() => setExtras((v) => !v)}>Include talk shows and appearances as themselves</button>
+      {/* 4. Timeline: its header, filters and the axis stay in view while the titles scroll under them */}
+      <section className="wx-sec wx-tl" aria-label="Timeline" ref={tlSec}>
+        <div className="wx-tsticky" ref={tlSticky}>
+          <div className="wx-tfilters">
+            <h3 className="wx-h wx-tlh">Timeline{data && <span className="muted"> · {rows.length}</span>}</h3>
+            <KindSeg value={kind} onChange={setKind} label="Films or series" />
+            <button type="button" className="chip" aria-pressed={onlySeen} onClick={() => setOnlySeen((v) => !v)}>Only what I&rsquo;ve seen</button>
+            <button type="button" className="chip" aria-pressed={extras} onClick={() => setExtras((v) => !v)}>Talk shows &amp; self</button>
+          </div>
+          {!data && !err && <div className="sk-b wx-axis-sk" />}
+          {data && (
+            <>
+              <Timeline items={axis} refRange={ref?.range ?? null} refLabel={tv && clip ? "Watching · so far" : "Watching"} refSoFar={tv && scopeKind(pos) === "season" && !!clip} selected={marked} hot={preview} onPick={pick} onPreview={setPreview} />
+              <div className="wx-readout" aria-live="polite">
+                {readoutLine && <p title={readoutLine}>{readoutLine}.</p>}
+                {!ref && <p className="small muted">TMDB has no air date for what you are watching, so there is nothing to measure from.</p>}
+              </div>
+            </>
+          )}
         </div>
-        {!data && !err && <><div className="sk-b wx-axis-sk" /><RowsSk n={4} /></>}
+        {!data && !err && <RowsSk n={4} />}
         {data && (
           <>
-            <Timeline items={axis} refRange={ref?.range ?? null} refLabel={override ? override.label : "Watching"} selected={marked} hot={preview} onPick={pick} onPreview={setPreview} />
-            <div className="wx-readout" aria-live="polite">
-              {readoutLine && <p>{readoutLine}.</p>}
-              {!ref && <p className="small muted">TMDB has no air date for what you are watching, so there is nothing to measure from.</p>}
-              {override && <p className="small"><span className="muted">Measuring from </span><b>{override.label}</b> <button type="button" className="linkish" onClick={() => { setOverride(null); setSelected(null); }}>Reset to what you&rsquo;re watching</button></p>}
-            </div>
             {!rows.length && <p className="small muted">{credits.length ? "Nothing matches these filters." : "No other credits on TMDB."}</p>}
             <ol className="wx-trows">
               {visibleRows.map((c, i) => (
                 <Fragment key={c.key}>
                   {pinned && i === visibleRows.length - 1 && <li className="wx-gaprow" aria-hidden="true">&hellip;</li>}
-                  <TRow c={c} when={whenRow(c)} birthday={data.birthday} isRef={ref?.id === c.key} refRange={ref?.range ?? null} hot={hot === c.key}
+                  <TRow c={c} actor={node.name} when={whenRow(c)} birthday={data.birthday} refRange={ref?.range ?? null} sel={marked === c.key} hot={preview === c.key}
                     reg={(el) => { if (el) rowRefs.current.set(c.key, el); else rowRefs.current.delete(c.key); }}
-                    onOpen={() => push({ t: "title", key: c.key, title: c.title, year: c.year, poster: c.poster })} onMeasure={() => measure(c)} onSelect={() => pick(c.key)} onPreview={(on) => setPreview(on ? c.key : null)}
-                    isCur={c.key === brief.key} pos={pos} lib={lib.get(c.key)?.status} />
+                    onOpen={() => push({ t: "title", key: c.key, title: c.title, year: c.year, poster: c.poster })} onSelect={() => pick(c.key)} onPreview={(on) => setPreview(on ? c.key : null)}
+                    isCur={c.key === brief.key} upTo={clip ? posLabel(clip) : ""} lib={lib.get(c.key)?.status} />
                 </Fragment>
               ))}
             </ol>
@@ -259,12 +276,11 @@ export function PersonNode({ node }: { node: PNode }) {
             {failed && <Soft>Some dates couldn&rsquo;t be loaded. They are left blank, not guessed.</Soft>}
           </>
         )}
-      </Section>
+      </section>
 
       {/* 5. With this cast */}
       <WithCast pid={node.id} name={node.name} g={data?.g ?? faces.get(node.id)?.g ?? 0} />
 
-      {lightbox && <Lightbox path={lightbox} name={node.name} onClose={() => setLightbox(null)} />}
     </div>
   );
 }
@@ -279,9 +295,9 @@ function whenText(c: PCredit, w: When): string {
   return fmtRange(w.range.start, w.range.end);
 }
 
-/** The episodes of the show being watched this person is in (up to where you are). Each chip is itself the button; only the one set now is gold. */
-function HereEpisodes({ span, loading, failed, regular, inScope, onSet }: { span: Span | null | undefined; loading: boolean; failed: boolean; regular: boolean; inScope: boolean; onSet: (s: number, e: number) => void }) {
-  const { pos } = useWho();
+/** The episodes of the show being watched this person is in (up to where you are). Each chip opens that episode as the next step of the trail and never moves where you are; only the one you are on is gold. */
+function HereEpisodes({ span, loading, failed, regular, inScope }: { span: Span | null | undefined; loading: boolean; failed: boolean; regular: boolean; inScope: boolean }) {
+  const { pos, push } = useWho();
   const eps = span?.eps ?? [];
   const lim = useLimit(eps.length, 8);
   if (loading && span === undefined) return <div className="wx-chiprow" aria-hidden="true"><Sk w={120} h={44} /><Sk w={120} h={44} /></div>;
@@ -297,7 +313,7 @@ function HereEpisodes({ span, loading, failed, regular, inScope, onSet }: { span
             <li key={`${x.s}-${x.e}`}>
               {here
                 ? <span className="wx-epchip here" aria-current="true"><b>{name}</b> · You are here</span>
-                : <button type="button" className="wx-epchip" onClick={() => onSet(x.s, x.e)} title={`Set ${name} as where we are`} aria-label={`Set ${name} as where we are`}><b>{name}</b>{x.air ? ` · ${fmtMonth(x.air)}` : ""}</button>}
+                : <button type="button" className="wx-epchip" onClick={() => push({ t: "episode", s: x.s, e: x.e })} title={`Open ${name}`} aria-label={`Open ${name}`}><b>{name}</b>{x.air ? ` · ${fmtMonth(x.air)}` : ""}</button>}
             </li>
           );
         })}
@@ -307,18 +323,18 @@ function HereEpisodes({ span, loading, failed, regular, inScope, onSet }: { span
   );
 }
 
-function TRow({ c, when, birthday, isRef, refRange, hot, reg, onOpen, onMeasure, onSelect, onPreview, isCur, pos, lib }: {
-  c: PCredit; when: When; birthday: string; isRef: boolean; refRange: Range | null; hot: boolean; reg: (el: HTMLElement | null) => void;
-  onOpen: () => void; onMeasure: () => void; onSelect: () => void; onPreview: (on: boolean) => void; isCur: boolean; pos: ReturnType<typeof useWho>["pos"]; lib?: string;
+function TRow({ c, actor, when, birthday, refRange, sel, hot, reg, onOpen, onSelect, onPreview, isCur, upTo, lib }: {
+  c: PCredit; actor: string; when: When; birthday: string; refRange: Range | null; sel: boolean; hot: boolean; reg: (el: HTMLElement | null) => void;
+  onOpen: () => void; onSelect: () => void; onPreview: (on: boolean) => void; isCur: boolean; upTo: string; lib?: string;
 }) {
   const range = when.kind === "range" ? when.range : null;
   const own = when.kind === "range" && when.own;
   const age = range && own ? ageAt(birthday, range.start) : null;
-  const gap = range && refRange && !isRef ? gapChip(gapBetween(range, refRange), !own) : "";
+  const gap = range && refRange ? gapChip(gapBetween(range, refRange), !own) : "";
   const seen = SEEN_STATUS.has(lib ?? "");
-  const role = [c.role && `as ${roleLabel(c.role) || c.role}`, isCur ? `up to ${posLabel(pos)}` : "", age != null ? `age ${age}` : ""].filter(Boolean).join(" · ");
+  const role = [c.role && `as ${roleLabel(c.role) || c.role}`, isCur && upTo ? `up to ${upTo}` : "", age != null ? `age ${age}` : ""].filter(Boolean).join(" · ");
   return (
-    <li ref={reg} className={`wx-trow${hot ? " hot" : ""}${isRef ? " isref" : ""}`} data-key={c.key}
+    <li ref={reg} className={`wx-trow${sel ? " sel" : ""}${hot ? " hot" : ""}`} data-key={c.key}
       onMouseEnter={() => onPreview(true)} onMouseLeave={() => onPreview(false)} onFocus={() => onPreview(true)} onBlur={() => onPreview(false)}
       onClick={(ev) => { if (!(ev.target as HTMLElement).closest("button")) onSelect(); }}>
       {when.kind === "loading" ? <span className="wx-tdates"><Sk w={74} h={13} /></span>
@@ -332,11 +348,9 @@ function TRow({ c, when, birthday, isRef, refRange, hot, reg, onOpen, onMeasure,
       </span>
       <span className="small muted wx-trole" title={role}>{role}</span>
       <span className="wx-tgap">
-        {when.kind === "loading" ? <Sk w={90} h={22} style={{ borderRadius: 999 }} /> : gap ? <span className="wx-gap">{gap}</span> : isRef ? <span className="wx-gap ref">Reference</span> : null}
+        {when.kind === "loading" ? <Sk w={90} h={22} style={{ borderRadius: 999 }} /> : gap ? <span className="wx-gap">{gap}</span> : null}
       </span>
-      <button type="button" className="wx-measure" onClick={onMeasure} disabled={when.kind !== "range"} aria-pressed={isRef} aria-label={`Measure from ${c.title}`} title={isRef ? "Measuring every gap from this row" : "Measure every gap from this row"}>
-        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M4 12h16M7 8l-3 4 3 4M17 8l3 4-3 4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
-      </button>
+      <span className="wx-tgl"><GlimpseButton spec={creditSpec(actor, c.role, { title: c.title, year: c.year, type: c.type })} label={`See images of ${c.title}${c.role ? `, or ${actor} as ${roleLabel(c.role) || c.role}` : ""}`} /></span>
     </li>
   );
 }
@@ -401,22 +415,5 @@ function WithCast({ pid, name, g }: { pid: number; name: string; g: number }) {
         {list && <More total={list.length} {...lim} />}
       </div>
     </Section>
-  );
-}
-
-function Lightbox({ path, name, onClose }: { path: string; name: string; onClose: () => void }) {
-  const btn = useRef<HTMLButtonElement>(null);
-  useEffect(() => {
-    btn.current?.focus();
-    const k = (ev: KeyboardEvent) => { if (ev.key === "Escape") { ev.preventDefault(); ev.stopPropagation(); onClose(); } };
-    window.addEventListener("keydown", k, true);
-    return () => window.removeEventListener("keydown", k, true);
-  }, [onClose]);
-  return (
-    <div className="wx-lightbox" role="dialog" aria-modal="true" aria-label={`Photo of ${name}`} onClick={(ev) => { if (ev.target === ev.currentTarget) onClose(); }}>
-      <button ref={btn} type="button" className="back wx-lbx" onClick={onClose}><span aria-hidden="true">&#215;</span> Close</button>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={img(path, "w780")} alt={`${name}`} />
-    </div>
   );
 }

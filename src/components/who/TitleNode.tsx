@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useLib } from "../cast/LibState";
 import QuickMark from "../cast/QuickMark";
 import { TitleLink } from "../Modal";
-import { More, Photo, Section, Sk, Soft, useLimit, useSpans } from "./bits";
+import { More, Photo, Section, Sk, Soft, useLimit, useSpans, ZoomBtn } from "./bits";
 import { nodeId, useWho, type Node } from "./WhoContext";
 import { typeLabel } from "@/lib/img";
 import { roleLabel } from "@/lib/roster";
@@ -43,7 +43,7 @@ export function TitleNode({ node }: { node: TNode }) {
   return (
     <div className="wx-node" data-node={nodeId(node)}>
       <header className="wx-thead">
-        <Photo path={node.poster} name={node.title} w="w185" className="wx-tposter" eager />
+        <ZoomBtn path={node.poster} name={node.title} className="wx-tposterb"><Photo path={node.poster} name={node.title} w="w185" className="wx-tposter" eager /></ZoomBtn>
         <div className="wx-pmeta">
           <h2 className="wx-pname" tabIndex={-1} data-focus-target>{node.title}</h2>
           <p className="small muted" style={{ margin: "2px 0 8px" }}>{[typeLabel(type), data ? (type === "movie" ? fmtRange(data.brief.first, data.brief.first) : self ? node.year : range?.start ? fmtRange(range.start, range.end) : node.year) : node.year, data?.brief.genres.slice(0, 2).join(", ")].filter(Boolean).join(" · ")}</p>

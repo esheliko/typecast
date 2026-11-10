@@ -8,16 +8,21 @@ import { PersonNode } from "./PersonNode";
 import { PositionControl } from "./PositionControl";
 import { RootNode } from "./RootNode";
 import { TitleNode } from "./TitleNode";
-import { Photo } from "./bits";
-import { nodeId, nodeLabel, WhoProvider, type Node, type Watched } from "./WhoContext";
+import { EpisodeNode } from "./EpisodeNode";
+import { Dock, Trail } from "./Trail";
+import { Lightbox, Photo, ZoomBtn } from "./bits";
+import { nodeId, WhoProvider, type Node, type Watched } from "./WhoContext";
 import { lockScroll } from "@/lib/scroll-lock";
 import { day } from "@/lib/who-dates";
-import { posKey, pushRecent, readRecent, whoApi, type Recent } from "@/lib/who-client";
-import { posLabel, scopeKind, urlKey } from "@/lib/who-scope";
+import { posKey, readRecent, saveRecent, whoApi, type RecentTrail } from "@/lib/who-client";
+import { posCode, posLabel, scopeKind, urlKey } from "@/lib/who-scope";
+import { currentNode, emptyTrail, jumpTo, pushNode, startTrail } from "@/lib/who-trail";
 import type { WhoBrief } from "@/lib/who-data";
 import type { Pos, WhoRoster } from "@/lib/who-types";
 
-const ROOT: Node = { t: "root" };
+const SPOIL_KEY = "typecast.ask.spoilers";
+const safe = <T,>(f: () => T, d: T): T => { try { return f(); } catch { return d; } };
+const bid = () => Math.random().toString(36).slice(2, 9);
 
 /** The /who page: top bar, the finder (left) and the node you opened (right), joined by a trail. Position lives in the watch cookie when there is a watch, else the URL. */
 export function WhoApp({ brief, initialPos, today }: { brief: WhoBrief; initialPos: Pos | null; today: string }) {
@@ -28,24 +33,31 @@ export function WhoApp({ brief, initialPos, today }: { brief: WhoBrief; initialP
   const [roster, setRoster] = useState<WhoRoster | null>(null);
   const [rosterErr, setRosterErr] = useState(false);
   const [retry, setRetry] = useState(0);
-  const [stack, setStack] = useState<Node[]>([]);
-  const [rootOpen, setRootOpen] = useState(false);
+  const [trail, setTrail] = useState(() => emptyTrail(bid()));
+  /** Phones: whether the details cover the finder. (Wide screens always show them.) */
+  const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
-  const [recents, setRecents] = useState<Recent[]>([]);
+  const [recents, setRecents] = useState<RecentTrail[]>([]);
+  const [zoomed, setZoomed] = useState<{ path: string; name: string; size?: string } | null>(null);
+  /** The page-wide spoiler switch: true = spoilers allowed. Off (the default) keeps everything inside where you are. */
+  const [spoilers, setSpoilers] = useState(false);
   const input = useRef<HTMLInputElement>(null);
   const pane = useRef<HTMLDivElement>(null);
   const opener = useRef<HTMLElement | null>(null);
   const reqId = useRef(0);
 
-  useEffect(() => { setRecents(readRecent()); }, []);
+  useEffect(() => { setRecents(readRecent()); setSpoilers(safe(() => localStorage.getItem(SPOIL_KEY) === "1", false)); }, []);
+  const toggleSpoilers = () => { const v = !spoilers; setSpoilers(v); safe(() => localStorage.setItem(SPOIL_KEY, v ? "1" : "0"), undefined); };
   useEffect(() => { const un = lockScroll(); return un; }, []);
 
   /* ----- roster, for the position. Late answers for an older position are ignored. ----- */
-  const pk = posKey(pos);
+  // With spoilers allowed the whole series is in scope, whatever the position says.
+  const rpos: Pos | null = tv && spoilers ? { s: null, e: null } : pos;
+  const pk = posKey(rpos);
   useEffect(() => {
     const id = ++reqId.current;
     setRosterErr(false);
-    whoApi.roster(urlKey(brief.key), pos).then((r) => { if (id === reqId.current) setRoster(r); }).catch(() => { if (id === reqId.current) setRosterErr(true); });
+    whoApi.roster(urlKey(brief.key), rpos).then((r) => { if (id === reqId.current) setRoster(r); }).catch(() => { if (id === reqId.current) setRosterErr(true); });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [brief.key, pk, retry]);
   const rosterFresh = roster && roster.key === brief.key && posKey(roster.pos) === pk ? roster : null;
@@ -88,21 +100,23 @@ export function WhoApp({ brief, initialPos, today }: { brief: WhoBrief; initialP
     return { label: `${brief.title} ${posLabel(pos)}`, range: null, at: "", atLabel: "" };
   }, [tv, brief, pos, seasonEps]);
 
-  /* ----- trail ----- */
-  const current: Node = stack[stack.length - 1] ?? ROOT;
-  const trail: Node[] = [ROOT, ...stack];
-  const push = useCallback((n: Node) => setStack((s) => (nodeId(s[s.length - 1] ?? ROOT) === nodeId(n) ? s : [...s, n].slice(-14))), []);
+  /* ----- trail: steps after the root and a cursor; going back keeps the later steps, a new step replaces them ----- */
+  const current: Node = currentNode(trail);
+  const push = useCallback((n: Node) => setTrail((t) => pushNode(t, n, bid())), []);
   const openFromFinder = useCallback((f: { id: number; name: string; photo: string | null }, o?: { hl?: string }) => {
     opener.current = document.activeElement instanceof HTMLElement && document.activeElement.closest(".wx-finder") ? document.activeElement : null;
-    setStack([{ t: "person", id: f.id, name: f.name, photo: f.photo, hl: o?.hl }]);
+    setTrail(startTrail([{ t: "person", id: f.id, name: f.name, photo: f.photo, hl: o?.hl }], bid()));
+    setOpen(true);
   }, []);
+  const restore = useCallback((r: RecentTrail) => { setTrail(startTrail(r.nodes, r.id)); setOpen(true); }, []);
   const back = useCallback(() => {
-    if (stack.length) setStack((s) => s.slice(0, -1)); else setRootOpen(false);
-  }, [stack.length]);
-  const jump = (i: number) => { setStack((s) => s.slice(0, i)); if (i === 0) setRootOpen(true); };
+    if (trail.cur > 0) setTrail((t) => jumpTo(t, t.cur - 1)); else setOpen(false);
+  }, [trail.cur]);
+  const jump = (i: number) => setTrail((t) => jumpTo(t, i));
   const prefetchPerson = useCallback((id: number) => { void whoApi.person(id).catch(() => {}); }, []);
 
-  useEffect(() => { if (current.t === "person") setRecents(pushRecent({ id: current.id, name: current.name, photo: current.photo })); }, [current.t === "person" ? current.id : 0]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Every line of history is remembered under "Recently opened" (the same branch is updated in place as it grows).
+  useEffect(() => { if (trail.nodes.length) setRecents(saveRecent({ id: trail.branch, k: brief.key, nodes: trail.nodes })); }, [trail.nodes, trail.branch, brief.key]);
 
   // Move focus to the node's heading when it changes (and back to the tile you came from when you leave it).
   const lastId = useRef("root");
@@ -128,12 +142,12 @@ export function WhoApp({ brief, initialPos, today }: { brief: WhoBrief; initialP
       if (ev.key === "/" && !typing && !ev.metaKey && !ev.ctrlKey && !ev.altKey) { ev.preventDefault(); input.current?.focus(); input.current?.select(); return; }
       if (ev.key === "Escape") {
         if (t === input.current && input.current?.value) { ev.preventDefault(); setQ(""); return; }
-        if (stack.length || rootOpen) { ev.preventDefault(); back(); }
+        if (trail.cur > 0 || open) { ev.preventDefault(); back(); }
       }
     };
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
-  }, [stack.length, rootOpen, back]);
+  }, [trail.cur, open, back]);
 
   const close = () => {
     const same = typeof document !== "undefined" && document.referrer.startsWith(window.location.origin) && window.history.length > 1;
@@ -141,53 +155,52 @@ export function WhoApp({ brief, initialPos, today }: { brief: WhoBrief; initialP
   };
 
   const faces = useMemo(() => new Map((rosterFresh?.faces ?? roster?.faces ?? []).map((f) => [f.id, f])), [rosterFresh, roster]);
-  const ctx = useMemo(() => ({ brief, today, pos, scope: scopeKind(pos), faces, watched, push, setExact, prefetchPerson }), [brief, today, pos, faces, watched, push, setExact, prefetchPerson]);
-  const nodeOpen = stack.length > 0 || rootOpen;
+  const clip = tv && !spoilers ? pos : null;
+  const rootLabel = tv ? [brief.title, posCode(pos)].filter(Boolean).join(" ") : brief.title;
+  const zoom = useCallback((p: { path: string; name: string; size?: string }) => setZoomed(p), []);
+  const ctx = useMemo(() => ({ brief, today, pos, scope: scopeKind(pos), clip, spoilers, rootLabel, faces, watched, push, setExact, zoom, prefetchPerson }), [brief, today, pos, clip, spoilers, rootLabel, faces, watched, push, setExact, zoom, prefetchPerson]);
+  const roster4finder = rosterFresh ?? roster;
 
   return (
     <WhoProvider value={ctx}>
       <div className="wx" role="main" aria-label={`Who's that? ${brief.title}`}>
         <header className="wx-top">
-          <Photo path={brief.poster} name={brief.title} w="w92" className="wx-poster" eager />
+          <ZoomBtn path={brief.poster} name={brief.title} className="wx-posterb"><Photo path={brief.poster} name={brief.title} w="w92" className="wx-poster" eager /></ZoomBtn>
           <div className="wx-ttl">
             <span className="wbar-k"><span className="live-dot" aria-hidden="true" />Who&rsquo;s that?</span>
             <b className="wx-title">{brief.title}</b>
             <span className="small muted">{[brief.year, tv ? posLabel(pos) : "Film"].filter(Boolean).join(" · ")}</span>
           </div>
           {tv && pos && <PositionControl brief={brief} pos={pos} onChange={changePos} />}
-          <button type="button" className="back wx-close" onClick={close}><span aria-hidden="true">&#215;</span> Close</button>
+          <div className="wx-topr">
+            <button type="button" role="switch" aria-checked={!spoilers} className="wx-nospoil" onClick={toggleSpoilers}
+              title={spoilers ? "Spoilers are shown: the whole series, past where you are" : "Spoilers are hidden: everything stops at where you are"}>
+              <span className="wx-sw" aria-hidden="true" /><span>No spoilers</span>
+            </button>
+            <button type="button" className="back wx-close" onClick={close}><span aria-hidden="true">&#215;</span> Close</button>
+          </div>
         </header>
         <div className="wx-main">
           <div className="wx-left" aria-label="Finder">
-            <Finder roster={rosterFresh ?? roster} loading={!roster && !rosterErr} err={rosterErr && !roster} q={q} setQ={setQ} inputRef={input} recents={recents}
-              onOpen={openFromFinder} onRetry={() => setRetry((n) => n + 1)} />
-            <button type="button" className="chip wx-about" onClick={() => { setStack([]); setRootOpen(true); }}>About {brief.title}</button>
+            <Finder roster={roster4finder} loading={!roster && !rosterErr} err={rosterErr && !roster} q={q} setQ={setQ} inputRef={input} recents={recents.filter((r) => r.k === brief.key)}
+              onOpen={openFromFinder} onRestore={restore} onRetry={() => setRetry((n) => n + 1)} />
           </div>
-          <aside className={`wx-right${rosterFresh ? "" : " loading"}`} data-open={nodeOpen} aria-label="Details" ref={pane} aria-busy={!rosterFresh}>
+          <aside className={`wx-right${rosterFresh ? "" : " loading"}`} data-open={open} aria-label="Details" ref={pane} aria-busy={!rosterFresh}>
             <div className="wx-trailbar">
-              <button type="button" className="back wx-back" onClick={back}><span aria-hidden="true">&#8249;</span> Back</button>
-              <nav className="wx-trail" aria-label="Trail">
-                <ol>
-                  {trail.map((n, i) => {
-                    const last = i === trail.length - 1;
-                    return (
-                      <li key={`${i}-${nodeId(n)}`}>
-                        {last ? <span aria-current="step" className="wx-tcur">{nodeLabel(n)}</span> : <button type="button" className="wx-tstep" onClick={() => jump(i)}>{nodeLabel(n)}</button>}
-                        {!last && <span className="wx-sep" aria-hidden="true">›</span>}
-                      </li>
-                    );
-                  })}
-                </ol>
-              </nav>
+              <Trail nodes={trail.nodes} cur={trail.cur} onJump={jump} />
+              <button type="button" className="back wx-xclose" onClick={() => setOpen(false)}><span aria-hidden="true">&#215;</span> Close</button>
             </div>
             <div className="wx-nodebody">
               {current.t === "root" && <RootNode />}
               {current.t === "person" && <PersonNode key={current.id} node={current} />}
               {current.t === "title" && <TitleNode key={current.key} node={current} />}
               {current.t === "pair" && <PairNode key={nodeId(current)} node={current} />}
+              {current.t === "episode" && <EpisodeNode key={nodeId(current)} node={current} />}
             </div>
           </aside>
+          {!open && <Dock node={current} onOpen={() => setOpen(true)} />}
         </div>
+        {zoomed && <Lightbox path={zoomed.path} name={zoomed.name} size={zoomed.size} onClose={() => setZoomed(null)} />}
       </div>
     </WhoProvider>
   );

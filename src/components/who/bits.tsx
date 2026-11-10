@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { img } from "@/lib/img";
 import { posKey, whoApi } from "@/lib/who-client";
+import { useWho } from "./WhoContext";
 import type { Pos, Span } from "@/lib/who-types";
 
 /** Small pieces the /who panes share: photos, skeleton bars, section headings and the lazily loaded dates. */
@@ -11,12 +12,35 @@ export function Photo({ path, name, w = "w185", className = "wx-ph", eager }: { 
   return path ? <img className={className} src={img(path, w)} alt="" loading={eager ? "eager" : "lazy"} decoding="async" /> : <span className={`${className} wx-noph`} aria-hidden="true">{name.charAt(0)}</span>;
 }
 
+/** A photo that opens full size when pressed (the page-wide viewer). Do not put it inside another button or link. */
+export function ZoomBtn({ path, name, size = "w780", className = "", children }: { path: string | null | undefined; name: string; size?: string; className?: string; children: React.ReactNode }) {
+  const { zoom } = useWho();
+  return <button type="button" className={`wx-zoom ${className}`} onClick={() => path && zoom({ path, name, size })} aria-label={`Enlarge photo of ${name}`} disabled={!path}>{children}</button>;
+}
+
+export function Lightbox({ path, name, size = "w780", onClose }: { path: string; name: string; size?: string; onClose: () => void }) {
+  const btn = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    btn.current?.focus();
+    const k = (ev: KeyboardEvent) => { if (ev.key === "Escape") { ev.preventDefault(); ev.stopPropagation(); onClose(); } };
+    window.addEventListener("keydown", k, true);
+    return () => window.removeEventListener("keydown", k, true);
+  }, [onClose]);
+  return (
+    <div className="wx-lightbox" role="dialog" aria-modal="true" aria-label={`Photo of ${name}`} onClick={(ev) => { if (ev.target === ev.currentTarget) onClose(); }}>
+      <button ref={btn} type="button" className="back wx-lbx" onClick={onClose}><span aria-hidden="true">&#215;</span> Close</button>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={img(path, size)} alt={name} />
+    </div>
+  );
+}
+
 export const Sk = ({ w, h = 14, style }: { w: number | string; h?: number; style?: React.CSSProperties }) => <span className="sk-b wx-sk" style={{ width: w, height: h, ...style }} aria-hidden="true" />;
 
-export function Section({ id, title, count, note, children }: { id?: string; title: string; count?: number | string; note?: React.ReactNode; children: React.ReactNode }) {
+export function Section({ id, title, count, note, bare, children }: { id?: string; title: string; bare?: boolean; count?: number | string; note?: React.ReactNode; children: React.ReactNode }) {
   return (
     <section className="wx-sec" aria-label={title} id={id}>
-      <h3 className="wx-h">{title}{count != null && <span className="muted"> · {count}</span>}</h3>
+      <h3 className={bare ? "sr-only" : "wx-h"}>{title}{count != null && <span className="muted"> · {count}</span>}</h3>
       {note && <p className="small muted wx-secnote">{note}</p>}
       {children}
     </section>

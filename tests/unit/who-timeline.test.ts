@@ -43,3 +43,23 @@ test("a re-measure moves the marker, not the credits", () => {
   assert.deepEqual(one.marks.map((m) => m.x0), two.marks.map((m) => m.x0));
   assert.notEqual(one.ref!.x0, two.ref!.x0);
 });
+
+test("close dots merge into one dot sized by how many it stands for; far ones and the watched show stay alone", async () => {
+  const { dotSize } = await import("../../src/lib/who-timeline");
+  const l = layoutTimeline([
+    { id: "a", start: "2008-01-10", end: "2008-01-10" },
+    { id: "b", start: "2008-02-10", end: "2008-02-10" },
+    { id: "c", start: "2008-03-10", end: "2008-03-10" },
+    { id: "far", start: "2019-06-01", end: "2019-06-01" },
+    { id: "now", start: "2008-02-01", end: "2008-02-01", solo: true },
+  ], null);
+  const merged = l.marks.find((m) => m.ids.length > 1)!;
+  assert.deepEqual(merged.ids, ["a", "b", "c"]);
+  assert.equal(merged.n, 3);
+  assert.equal(merged.dot, true);
+  assert.ok(dotSize(3) > dotSize(1) && dotSize(9) > dotSize(3) && dotSize(1000) <= 34);
+  assert.equal(l.marks.find((m) => m.id === "far")!.n, 1);
+  assert.equal(l.marks.find((m) => m.id === "now")!.n, 1, "the show being watched is never merged");
+  assert.equal(l.marks.flatMap((m) => m.ids).sort().join(), ["a", "b", "c", "far", "now"].join());
+  assert.ok(l.marks.every((m) => m.x0 >= 0 && m.x1 <= 1.0001));
+});

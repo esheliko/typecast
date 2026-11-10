@@ -42,6 +42,13 @@ export function posLabel(pos: Pos | null): string {
   return pos.e == null ? s : `${s} E${pos.e}`;
 }
 
+/** "S2E8", "S2", "Specials E3" or "" (not set): the short way to say where you are. */
+export function posCode(pos: Pos | null): string {
+  if (!pos || pos.s == null) return "";
+  if (pos.s === 0) return pos.e == null ? "Specials" : `Specials E${pos.e}`;
+  return pos.e == null ? `S${pos.s}` : `S${pos.s}E${pos.e}`;
+}
+
 /** The two forms of a title key: "tv:79744" (everywhere in the app) and "tv-79744" (in the URL). */
 export function parseUrlKey(v: string | null | undefined): { type: "movie" | "tv"; id: number } | null {
   const m = /^(movie|tv)[-:](\d{1,9})$/.exec(v ?? "");
@@ -162,6 +169,10 @@ export function byGender(faces: WhoFace[], f: GenderFilter): WhoFace[] {
   return faces.filter((x) => x.g === want);
 }
 export const guestsOnly = (faces: WhoFace[]) => faces.filter((f) => f.part !== "main");
+export const mainCastOnly = (faces: WhoFace[]) => faces.filter((f) => f.part === "main");
+export type CastFilter = "all" | "main" | "guests";
+/** All / Main cast / Guests (everyone who is not main cast). */
+export const byCast = (faces: WhoFace[], f: CastFilter): WhoFace[] => (f === "main" ? mainCastOnly(faces) : f === "guests" ? guestsOnly(faces) : faces);
 
 const norm = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 const words = (s: string) => norm(s).split(" ").filter(Boolean);

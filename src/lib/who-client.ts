@@ -1,6 +1,7 @@
 import type { SharedBrief, TitleNode, WhoBrief, WhoEp, WhoEpDetail } from "./who-data";
 import type { FoundTitle, Shared } from "./who-common";
 import type { PersonData, Pos, Span, WhoRoster } from "./who-types";
+import { cleanRecents, upsertRecent, type RecentTrail } from "./who-trail";
 
 /**
  * Browser side of /who: one in-memory cache for the whole session (a request is made once; a failed one is forgotten so it can be retried),
@@ -40,17 +41,16 @@ export const whoApi = {
   common: (query: string, k: string, pos: Pos | null) => getJson<{ titles: FoundTitle[] }>(`/api/who/common?${q({ q: query, k, s: pos?.s, e: pos?.e })}`),
 };
 
-export type { WhoBrief };
+export type { WhoBrief, RecentTrail };
 
-/* ---------- recently opened people (this session) ---------- */
+/* ---------- recently opened (this session): one entry per branch of history ---------- */
 
-export interface Recent { id: number; name: string; photo: string | null }
-const RECENT_KEY = "typecast.who.recent";
+const RECENT_KEY = "typecast.who.recent2";
 const safe = <T,>(f: () => T, d: T): T => { try { return f(); } catch { return d; } };
 
-export const readRecent = (): Recent[] => safe(() => { const v = JSON.parse(sessionStorage.getItem(RECENT_KEY) ?? "[]"); return Array.isArray(v) ? v.slice(0, 8) : []; }, []);
-export function pushRecent(r: Recent): Recent[] {
-  const next = [r, ...readRecent().filter((x) => x.id !== r.id)].slice(0, 8);
+export const readRecent = (): RecentTrail[] => safe(() => cleanRecents(JSON.parse(sessionStorage.getItem(RECENT_KEY) ?? "[]")), []);
+export function saveRecent(r: RecentTrail): RecentTrail[] {
+  const next = upsertRecent(readRecent(), r);
   safe(() => sessionStorage.setItem(RECENT_KEY, JSON.stringify(next)), undefined);
   return next;
 }

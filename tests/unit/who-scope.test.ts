@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { buildAllRoster, buildRoster, byGender, groupWhoFaces, guestsOnly, inScope, matchFaces, posFromParams, posLabel, scopeKind, scopeNote, episodesLabel } from "../../src/lib/who-scope";
+import { buildAllRoster, buildRoster, byGender, groupWhoFaces, byCast, guestsOnly, inScope, mainCastOnly, posCode, matchFaces, posFromParams, posLabel, scopeKind, scopeNote, episodesLabel } from "../../src/lib/who-scope";
 import type { SeasonData, SeasonPerson, WhoFace } from "../../src/lib/who-types";
 
 const P = (id: number, name: string, g: 0 | 1 | 2 | 3 = 1, role = ""): SeasonPerson => ({ id, name, photo: null, g, role });
@@ -139,4 +139,17 @@ test("the same part with a note ('(voice)') is one role", () => {
   const sd: SeasonData = { n: 1, air: "", regulars: [], episodes: [], agg: [agg(1, "Sara", 3, 1, "Nell Forester / Nell Forester (voice)")] };
   const s2: SeasonData = { n: 2, air: "", regulars: [], episodes: [{ e: 8, name: "", air: "", runtime: null, still: null, guests: [P(1, "Sara", 1, "Nell Forester")] }], agg: [] };
   assert.equal(buildRoster([sd, s2], { s: 2, e: 8 })[0].role, "Nell Forester");
+});
+
+test("All / Main cast / Guests, and the short position code", () => {
+  const faces = [{ id: 1, part: "main" }, { id: 2, part: "guest" }, { id: 3, part: "episode" }, { id: 4, part: "earlier" }] as unknown as Parameters<typeof byCast>[0];
+  assert.deepEqual(byCast(faces, "all").length, 4);
+  assert.deepEqual(byCast(faces, "main").map((f) => f.id), [1]);
+  assert.deepEqual(byCast(faces, "guests").map((f) => f.id), [2, 3, 4]);
+  assert.deepEqual(mainCastOnly(faces).map((f) => f.id), [1]);
+  assert.equal(posCode({ s: 2, e: 8 }), "S2E8");
+  assert.equal(posCode({ s: 2, e: null }), "S2");
+  assert.equal(posCode({ s: 0, e: 3 }), "Specials E3");
+  assert.equal(posCode({ s: null, e: null }), "");
+  assert.equal(posCode(null), "");
 });

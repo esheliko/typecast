@@ -3,15 +3,8 @@ import { createContext, useContext } from "react";
 import type { WhoBrief } from "@/lib/who-data";
 import type { Pos, Range, ScopeKind, WhoFace } from "@/lib/who-types";
 
-/** One step of the trail. The first thing you see (nothing selected) is the "This title" root. */
-export type Node =
-  | { t: "root" }
-  | { t: "person"; id: number; name: string; photo: string | null; /** Title key to highlight in the person's timeline. */ hl?: string }
-  | { t: "title"; key: string; title: string; year: string; poster: string | null }
-  | { t: "pair"; a: { id: number; name: string; photo: string | null }; b: { id: number; name: string; photo: string | null } };
-
-export const nodeLabel = (n: Node) => (n.t === "root" ? "This title" : n.t === "person" ? n.name : n.t === "title" ? n.title : `${n.a.name} & ${n.b.name}`);
-export const nodeId = (n: Node) => (n.t === "root" ? "root" : n.t === "person" ? `p${n.id}` : n.t === "title" ? n.key : `pair${n.a.id}-${n.b.id}`);
+import type { Node } from "@/lib/who-trail";
+export { nodeId, nodeLabel, type Node } from "@/lib/who-trail";
 
 /** What is being watched, as a date: the reference every gap is measured against until a row is chosen instead. */
 export interface Watched { label: string; range: Range | null; /** Date for ages, and how to say it ("in this episode"). */ at: string; atLabel: string }
@@ -22,12 +15,20 @@ export interface WhoCtx {
   today: string;
   pos: Pos | null;
   scope: ScopeKind | null;
+  /** The position that cuts data off (nothing after it is shown): null while spoilers are allowed or for a film. */
+  clip: Pos | null;
+  /** The page-wide spoiler switch. true = spoilers allowed (everything is in scope, the whole series). */
+  spoilers: boolean;
+  /** "This title" as a name: "The Rookie S2E8". */
+  rootLabel: string;
   faces: Map<number, WhoFace>;
   watched: Watched;
   /** Open a node from inside the right pane (adds a step to the trail). */
   push: (n: Node) => void;
   /** "We're on this one": set an exact episode. */
   setExact: (s: number, e: number) => void;
+  /** Open a photo full size (the same viewer for every photo on the page). `size` is a TMDB image size. */
+  zoom: (p: { path: string; name: string; size?: string }) => void;
   /** Turn on (and warm up) a person's data, e.g. on hover. */
   prefetchPerson: (id: number) => void;
 }

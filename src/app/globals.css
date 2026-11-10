@@ -861,7 +861,18 @@ body:has(.wbar) .toast-slot { bottom: calc(146px + env(safe-area-inset-bottom, 0
 .wx-poster { width: 38px; height: 57px; flex: none; border-radius: 6px; object-fit: cover; background: var(--chip); }
 .wx-ttl { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
 .wx-title { font: 700 22px/1.1 var(--display); letter-spacing: .04em; text-transform: uppercase; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 34ch; }
-.wx-close { margin-left: auto; min-height: 44px; }
+.wx-posterb { flex: none; padding: 0; border-radius: 6px; line-height: 0; }
+.wx-posterb:hover .wx-poster { outline: 2px solid var(--gold-fill); }
+.wx-topr { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.wx-close { min-height: 44px; }
+.wx-nospoil { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 4px 14px 4px 10px; border-radius: 999px; background: var(--chip); border: 1px solid transparent; font-weight: 600; font-size: 13.5px; color: var(--ink); white-space: nowrap; }
+.wx-nospoil:hover { border-color: var(--gold-fill); }
+.wx-nospoil[aria-checked="true"] { background: color-mix(in srgb, var(--gold-fill) 18%, var(--chip)); border-color: color-mix(in srgb, var(--gold-fill) 55%, transparent); }
+.wx-sw { position: relative; flex: none; width: 34px; height: 20px; border-radius: 999px; background: var(--line); transition: background .15s ease; }
+.wx-sw::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: var(--surface); box-shadow: 0 1px 3px rgb(0 0 0 / .35); transition: transform .15s ease; }
+.wx-nospoil[aria-checked="true"] .wx-sw { background: var(--gold-fill); }
+.wx-nospoil[aria-checked="true"] .wx-sw::after { transform: translateX(14px); background: var(--on-gold); }
+@media (prefers-reduced-motion: reduce) { .wx-sw, .wx-sw::after { transition: none; } }
 .wx-pos-sk { width: 380px; max-width: 100%; height: 44px; border-radius: 999px; }
 .wx-pos { display: flex; align-items: center; gap: 8px 10px; flex-wrap: wrap; }
 .wx-pos-l { font: 600 11px/1.2 var(--body); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
@@ -882,11 +893,10 @@ body:has(.wbar) .toast-slot { bottom: calc(146px + env(safe-area-inset-bottom, 0
 .wx-epm b { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wx-epsk { cursor: default; }
 
-.wx-main { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(0, 55fr) minmax(0, 45fr); }
+.wx-main { position: relative; flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(0, 55fr) minmax(0, 45fr); }
 .wx-left { min-width: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 max(20px, env(safe-area-inset-left, 0px)) 40px 20px; }
 .wx-right { min-width: 0; overflow-y: auto; overscroll-behavior: contain; background: var(--surface); border-left: 1px solid var(--line); position: relative; }
 .wx-right.loading .wx-node { opacity: .98; }
-.wx-about { margin-top: 10px; min-height: 44px; }
 
 .wx-find { position: sticky; top: 0; z-index: 3; padding: 14px 0 8px; background: var(--bg); }
 .wx-find input { width: 100%; min-height: 48px; border-radius: 999px; padding: 10px 44px 10px 18px; font-size: 16px; background: var(--surface); border: 1px solid var(--line); }
@@ -900,17 +910,24 @@ body:has(.wbar) .toast-slot { bottom: calc(146px + env(safe-area-inset-bottom, 0
 
 .wx-recent { margin: 10px 0 4px; }
 .wx-recent-row { display: flex; gap: 8px; overflow-x: auto; padding: 6px 0 4px; scrollbar-width: thin; }
-.wx-rchip { flex: none; display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 4px 14px 4px 4px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); font-size: 13px; font-weight: 600; white-space: nowrap; }
+.wx-rchip { flex: none; display: inline-flex; align-items: center; min-height: 44px; padding: 4px 8px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); }
 .wx-rchip:hover { border-color: var(--gold-fill); }
-.wx-rimg { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; background: var(--chip); }
-.wx-rimg.wx-noph { display: inline-flex; align-items: center; justify-content: center; font: 700 15px var(--display); color: var(--muted); }
+.wx-rchip .wx-pic + .wx-pic, .wx-rchip .wx-pic + .wx-pair2 { margin-left: -9px; }
+.wx-rchip .wx-pic { box-shadow: 0 0 0 2px var(--surface); }
+
+/* a node's small round picture: the trail, the recents and the phone dock all use it, one size, so nothing shifts */
+.wx-pic { width: 28px; height: 28px; flex: none; border-radius: 50%; object-fit: cover; background: var(--chip); display: block; }
+.wx-pic.wx-noph { display: inline-flex; align-items: center; justify-content: center; font: 700 13px var(--display); color: var(--muted); }
+.wx-pair2 { position: relative; display: inline-block; width: 34px; height: 28px; background: none; }
+.wx-pair2 .wx-pic { position: absolute; top: 0; width: 22px; height: 22px; box-shadow: 0 0 0 2px var(--surface); }
+.wx-pair2 .wx-pa { left: 0; top: 0; } .wx-pair2 .wx-pb { right: 0; top: 6px; }
 
 .wx-group { margin: 18px 0 8px; }
 .wx-gh { margin: 0 0 10px; font: 700 16px/1.2 var(--display); letter-spacing: .06em; text-transform: uppercase; color: var(--ink); display: block; }
 .wx-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); gap: 14px 10px; }
 .wx-tile { display: flex; flex-direction: column; gap: 1px; width: 100%; min-width: 0; text-align: left; font-size: 12px; line-height: 1.3; padding: 0; border-radius: 10px; }
 .wx-ph { width: 100%; aspect-ratio: 2 / 3; border-radius: 10px; object-fit: cover; background: var(--chip); display: block; margin-bottom: 5px; transition: transform .12s ease, box-shadow .12s ease; }
-.wx-ph.wx-noph, .wx-pimg.wx-noph, .wx-tposter.wx-noph, .wx-wimg.wx-noph, .wx-cimg.wx-noph, .wx-kpos.wx-noph, .wx-cpos.wx-noph { display: flex; align-items: center; justify-content: center; font: 700 30px var(--display); color: var(--muted); }
+.wx-ph.wx-noph, .wx-filmposter.wx-noph, .wx-pimg.wx-noph, .wx-tposter.wx-noph, .wx-wimg.wx-noph, .wx-cimg.wx-noph, .wx-kpos.wx-noph, .wx-cpos.wx-noph { display: flex; align-items: center; justify-content: center; font: 700 30px var(--display); color: var(--muted); }
 .wx-tile:hover .wx-ph, .wx-tile:focus-visible .wx-ph { outline: 2px solid var(--gold-fill); outline-offset: 1px; }
 .wx-tile:focus-visible { outline: none; }
 .wx-pop { position: fixed; z-index: 60; display: flex; flex-direction: column; gap: 2px; padding: 8px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); box-shadow: 0 10px 30px rgba(0, 0, 0, .35); pointer-events: none; }
@@ -941,14 +958,21 @@ body:has(.wbar) .toast-slot { bottom: calc(146px + env(safe-area-inset-bottom, 0
 .wx-cimg { width: 44px; height: 44px; border-radius: 8px; object-fit: cover; background: var(--chip); flex: none; }
 
 /* right pane */
-.wx-trailbar { position: sticky; top: 0; z-index: 4; display: flex; align-items: center; gap: 10px; padding: 12px 20px; background: var(--surface); border-bottom: 1px solid var(--line); min-height: 58px; }
-.wx-back { display: none; min-height: 44px; flex: none; }
-.wx-trail ol { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 2px 0; font-size: 13.5px; }
-.wx-trail li { display: inline-flex; align-items: center; }
-.wx-tstep { padding: 10px 6px; min-height: 44px; display: inline-flex; align-items: center; color: var(--gold); font-weight: 600; border-radius: 8px; max-width: 22ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.wx-tstep:hover { text-decoration: underline; }
-.wx-tcur { padding: 10px 6px; font-weight: 700; max-width: 26ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.wx-sep { color: var(--muted); padding: 0 2px; }
+.wx-trailbar { position: sticky; top: 0; z-index: 4; display: flex; align-items: center; gap: 10px; padding: 0 20px; background: var(--surface); border-bottom: 1px solid var(--line); height: var(--wx-tb); }
+.wx-right { --wx-tb: 58px; }
+.wx-xclose { display: none; min-height: 44px; flex: none; }
+.wx-trail { position: relative; flex: 1 1 auto; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.wx-trail::-webkit-scrollbar { display: none; }
+.wx-trail ol { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: nowrap; align-items: center; width: max-content; }
+.wx-trail li { display: inline-flex; align-items: center; flex: none; }
+/* every step is the same size whether it is showing or not (a border is always there), so choosing one never moves the others */
+.wx-tstep { display: inline-flex; align-items: center; gap: 7px; flex: none; width: 150px; min-height: 44px; padding: 0 12px 0 6px; border-radius: 999px; border: 1.5px solid transparent; font-size: 13.5px; font-weight: 600; text-align: left; }
+.wx-tstep:hover { background: var(--chip); }
+.wx-tstep.cur { border-color: var(--gold-fill); background: color-mix(in srgb, var(--gold-fill) 14%, transparent); }
+.wx-tstep.ahead { opacity: .6; }
+.wx-tstep.ahead:hover { opacity: 1; }
+.wx-tl { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wx-sep { color: var(--muted); padding: 0 1px; flex: none; }
 .wx-nodebody { padding: 18px 20px 60px; }
 .wx-node { display: flex; flex-direction: column; gap: 4px; }
 .wx-node [data-focus-target]:focus { outline: none; }
@@ -983,7 +1007,9 @@ button.wx-epchip:hover { border-color: var(--gold-fill); }
 .wx-epchip.here { background: var(--gold-fill); color: var(--on-gold); border-color: var(--gold-fill); font-weight: 600; }
 
 .wx-krow, .wx-wrow { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 64px; padding: 6px 10px 6px 6px; margin-bottom: 6px; border-radius: 12px; background: var(--bg); border: 1px solid var(--line); text-align: left; }
-.wx-krow:hover, .wx-wrow:hover { border-color: var(--gold-fill); }
+.wx-krow .wx-kbtn { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 12px; text-align: left; padding: 0; border-radius: 8px; }
+.wx-krow .gl-b { margin-left: -4px; }
+.wx-krow:hover, .wx-krow:focus-within, .wx-wrow:hover { border-color: var(--gold-fill); }
 .wx-kpos { width: 38px; height: 57px; flex: none; border-radius: 6px; object-fit: cover; background: var(--chip); }
 .wx-kmain, .wx-wmain { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; line-height: 1.3; }
 .wx-kline, .wx-wline { display: flex; flex-wrap: wrap; align-items: center; gap: 0 4px; }
@@ -996,33 +1022,49 @@ button.wx-epchip:hover { border-color: var(--gold-fill); }
 .wx-rowsk { display: block; }
 .wx-rowsk .wx-krow { pointer-events: none; }
 
-.wx-tfilters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 2px 0 12px; }
+.wx-tfilters { display: flex; flex-wrap: nowrap; align-items: center; gap: 8px; margin: 0; padding: 4px 0; overflow-x: auto; scrollbar-width: none; }
+.wx-tfilters::-webkit-scrollbar { display: none; }
+.wx-tfilters > * { flex: none; }
 .wx-tfilters .chip, .wx-tfilters .seg button { min-height: 44px; }
-.wx-axis { margin: 4px 0 6px; padding: 10px 12px 4px; border-radius: 14px; background: var(--bg); border: 1px solid var(--line); }
-.wx-axis-sk { height: 110px; border-radius: 14px; margin-bottom: 12px; }
-.wx-axis-plot { position: relative; margin: 0 10px; }
-.wx-axis-lanes { position: relative; margin-top: 18px; }
+.wx-tlh { margin: 0 6px 0 0; white-space: nowrap; }
+/* the timeline's header, filters, axis and readout stay under the trail while the titles scroll; kept compact (one filter row, small marks, a one-line readout) */
+.wx-tsticky { position: sticky; top: var(--wx-tb, 58px); z-index: 3; margin: 0 -20px 8px; padding: 2px 20px 6px; background: var(--surface); border-bottom: 1px solid var(--line); box-shadow: 0 6px 10px -8px rgb(0 0 0 / .35); }
+.wx-tl { --wx-tl-h: 150px; }
+.wx-axis { margin: 2px 0 4px; padding: 4px 10px 0; border-radius: 12px; background: var(--bg); border: 1px solid var(--line); }
+.wx-axis-sk { height: 80px; border-radius: 12px; margin: 2px 0 8px; }
+.wx-axis-plot { position: relative; margin: 0 8px; }
+.wx-axis-lanes { position: relative; }
+.wx-refrow { position: relative; height: 16px; margin-bottom: 3px; }
 .wx-gridline { position: absolute; top: -4px; bottom: -4px; width: 1px; background: var(--line); }
-.wx-refmark { position: absolute; top: -18px; bottom: -4px; background: color-mix(in srgb, var(--gold-fill) 30%, transparent); border-left: 2px solid var(--gold-fill); border-right: 2px solid var(--gold-fill); z-index: 1; pointer-events: none; }
-.wx-reflab { position: absolute; top: 0; left: 4px; font: 600 10.5px var(--mono); letter-spacing: .04em; text-transform: uppercase; color: var(--gold); white-space: nowrap; }
-.wx-reflab.flip { left: auto; right: calc(100% + 4px); }
-.wx-mark { position: absolute; z-index: 2; height: 14px; margin-top: 2px; border-radius: 7px; background: var(--muted); opacity: .85; padding: 0; min-width: 8px; transition: transform .1s ease; }
-.wx-mark::after { content: ""; position: absolute; inset: -14px -4px; }
-.wx-mark.dot { border-radius: 50%; width: 12px !important; min-width: 12px; height: 12px; margin-left: -2px; margin-top: 3px; }
+.wx-refmark { position: absolute; top: -2px; bottom: -2px; background: color-mix(in srgb, var(--gold-fill) 13%, transparent); border-left: 1px solid color-mix(in srgb, var(--gold-fill) 70%, transparent); z-index: 1; pointer-events: none; }
+/* what you are watching: a gold bar of its own above the credits; its length is what you know so far, so a season's end fades out */
+.wx-refbar { position: absolute; top: 3px; height: 10px; border-radius: 5px; background: var(--gold-fill); }
+.wx-refbar.sofar { background: linear-gradient(90deg, var(--gold-fill) 0 45%, color-mix(in srgb, var(--gold-fill) 12%, transparent)); border-right: 2px dashed var(--gold-fill); border-radius: 5px 2px 2px 5px; }
+.wx-reflab { position: absolute; top: 1px; margin-left: 6px; font: 600 10.5px/14px var(--mono); letter-spacing: .04em; text-transform: uppercase; color: var(--gold); white-space: nowrap; }
+.wx-reflab.flip { margin-left: 0; margin-right: 6px; }
+.wx-mark { position: absolute; z-index: 2; border-radius: 5px; background: var(--muted); opacity: .85; padding: 0; min-width: 8px; display: inline-flex; align-items: center; justify-content: center; }
+.wx-mark::after { content: ""; position: absolute; inset: -8px -4px; }
+.wx-mark.dot { border-radius: 50%; min-width: 0; }
+.wx-mark.merged { opacity: .95; }
+.wx-mn { position: relative; z-index: 1; font: 700 10.5px/1 var(--mono); color: var(--bg); }
 .wx-mark.seen { background: var(--good); opacity: 1; }
-.wx-mark.sel { transform: scale(1.5); opacity: 1; z-index: 3; box-shadow: 0 0 0 2px var(--bg); }
-.wx-tip { position: absolute; z-index: 5; transform: translate(-50%, calc(-100% - 4px)); max-width: 260px; width: max-content; padding: 5px 9px; border-radius: 8px; background: var(--ink); color: var(--bg); font-size: 12px; line-height: 1.3; pointer-events: none; box-shadow: 0 4px 14px rgba(0, 0, 0, .3); }
 .wx-mark.run { background: repeating-linear-gradient(135deg, var(--muted) 0 3px, transparent 3px 6px); opacity: .8; }
 .wx-mark.run.seen { background: repeating-linear-gradient(135deg, var(--good) 0 3px, transparent 3px 6px); }
+/* the show being watched is gold, and only as long as what you know so far: its end fades instead of claiming the full run */
+.wx-mark.now { background: linear-gradient(90deg, var(--gold-fill) 0 50%, color-mix(in srgb, var(--gold-fill) 15%, transparent)); border-right: 2px dashed var(--gold-fill); border-radius: 5px 2px 2px 5px; opacity: 1; }
+.wx-mark.sel { opacity: 1; z-index: 3; box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--ink); }
 .wx-mark.hot, .wx-mark:hover, .wx-mark:focus-visible { opacity: 1; outline: 2px solid var(--gold-fill); outline-offset: 2px; }
-.wx-ticks { position: relative; height: 22px; margin-top: 6px; }
+.wx-tip { position: absolute; z-index: 5; display: flex; flex-direction: column; gap: 1px; transform: translate(-50%, calc(-100% - 4px)); max-width: 260px; width: max-content; padding: 5px 9px; border-radius: 8px; background: var(--ink); color: var(--bg); font-size: 12px; line-height: 1.3; pointer-events: none; box-shadow: 0 4px 14px rgba(0, 0, 0, .3); }
+.wx-tipn { opacity: .75; font-size: 11px; }
+.wx-ticks { position: relative; height: 18px; margin-top: 3px; }
 .wx-ticks span { position: absolute; transform: translateX(-50%); font: 500 11px var(--mono); color: var(--muted); }
-.wx-readout { margin: 8px 0 10px; min-height: 42px; }
-.wx-readout p { margin: 0 0 4px; font-size: 14.5px; line-height: 1.4; }
+.wx-readout { margin: 2px 0 0; min-height: 1.4em; }
+.wx-readout p { margin: 0; font-size: 14px; line-height: 1.4; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 1; }
 .wx-trows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
-.wx-trow { display: grid; grid-template-columns: 92px minmax(0, 1.7fr) minmax(0, 1fr) auto 44px; gap: 0 8px; align-items: center; min-height: 46px; padding: 1px 4px 1px 8px; border-radius: 10px; background: var(--bg); border: 1px solid var(--line); scroll-margin: 70px; cursor: default; }
-.wx-trow.hot { border-color: var(--gold-fill); box-shadow: 0 0 0 1px var(--gold-fill) inset; }
-.wx-trow.isref { background: color-mix(in srgb, var(--gold-fill) 14%, var(--bg)); box-shadow: inset 4px 0 0 var(--gold-fill); }
+.wx-trow { display: grid; grid-template-columns: 92px minmax(0, 1.7fr) minmax(0, 1fr) auto 44px; gap: 0 8px; align-items: center; min-height: 46px; padding: 1px 4px 1px 8px; border-radius: 10px; background: var(--bg); border: 1px solid var(--line); scroll-margin: calc(var(--wx-tb, 58px) + var(--wx-tl-h, 150px) + 10px) 0 12px; cursor: default; }
+.wx-trow.hot { border-color: color-mix(in srgb, var(--gold-fill) 60%, var(--line)); }
+/* the chosen row keeps its border and a faint gold wash, so hovering another row only adds a lighter outline and never takes the highlight away */
+.wx-trow.sel { border-color: var(--gold-fill); background: color-mix(in srgb, var(--gold-fill) 11%, var(--bg)); box-shadow: 0 0 0 1px var(--gold-fill) inset; }
 .wx-tdates { min-height: 44px; display: flex; align-items: center; text-align: left; font-size: 12.5px; line-height: 1.2; padding: 0; border-radius: 6px; }
 button.wx-tdates:disabled { cursor: default; }
 .wx-tline { min-width: 0; display: flex; align-items: center; gap: 6px; overflow: hidden; }
@@ -1033,10 +1075,7 @@ button.wx-tdates:disabled { cursor: default; }
 .wx-trole { font-size: 12px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wx-tgap { display: flex; justify-content: flex-end; }
 .wx-tgap .wx-gap { font-size: 11.5px; letter-spacing: 0; padding: 1px 8px; }
-.wx-measure { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; padding: 0; border-radius: 50%; background: transparent; color: var(--muted); }
-.wx-measure:hover:not(:disabled) { background: var(--chip); color: var(--ink); }
-.wx-measure[aria-pressed="true"] { background: var(--gold-fill); color: var(--on-gold); }
-.wx-measure:disabled { opacity: .35; cursor: default; }
+.wx-tgl { display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; }
 
 .wx-wline { gap: 0; }
 .wx-pairhead { position: relative; display: flex; gap: 16px; align-items: flex-start; }
@@ -1054,12 +1093,17 @@ button.wx-tdates:disabled { cursor: default; }
 .wx-billed:hover .wx-ph, .wx-billed:focus-visible .wx-ph { outline: 2px solid var(--gold-fill); outline-offset: 1px; }
 
 .wx-epcard { display: flex; gap: 14px; align-items: flex-start; padding: 12px; border-radius: 14px; background: var(--bg); border: 1px solid var(--line); }
+.wx-zoom { padding: 0; line-height: 0; border-radius: 10px; flex: none; cursor: zoom-in; }
+.wx-zoom:disabled { cursor: default; }
+.wx-zoom:hover:not(:disabled) img, .wx-zoom:focus-visible img { outline: 2px solid var(--gold-fill); }
+.wx-tposterb { border-radius: 12px; }
+.wx-filmposterb { border-radius: 10px; }
+.wx-filmposter { width: 110px; aspect-ratio: 2 / 3; border-radius: 10px; object-fit: cover; background: var(--chip); display: block; }
 .wx-epstill { width: 160px; aspect-ratio: 16 / 9; flex: none; border-radius: 10px; object-fit: cover; background: var(--chip); }
 .wx-epinfo { min-width: 0; flex: 1 1 auto; }
 .wx-eptitle { margin: 2px 0 0; font: 700 20px/1.15 var(--display); letter-spacing: .03em; text-transform: uppercase; color: var(--ink); display: block; }
 .wx-sumb { margin-top: 10px; min-height: 44px; }
 .wx-summary { margin: 10px 0 0; font-size: 14.5px; line-height: 1.5; }
-.wx-spoil { margin-left: 8px; min-height: 44px; }
 .wx-facts { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; align-items: start; }
 .wx-fact { border-radius: 12px; background: var(--bg); border: 1px solid var(--line); overflow: hidden; }
 .wx-fact.open { grid-column: 1 / -1; border-color: var(--gold-fill); }
@@ -1084,26 +1128,38 @@ button.wx-tdates:disabled { cursor: default; }
 @media (hover: hover) { .wx-fact .wx-factb:hover { background: var(--chip); } }
 @media (prefers-reduced-motion: reduce) { .wx-trow { scroll-behavior: auto; } }
 
+/* phones: the way back to the details after closing them (also what resumes where you left off) */
+.wx-dock { display: none; }
+
 /* below 1000px the panes stack: the finder first, the node opens over it with a Back row */
 @media (max-width: 999px) {
   .wx-main { grid-template-columns: minmax(0, 1fr); }
   .wx-left { padding: 0 16px 90px; }
   .wx-right { position: absolute; inset: 0; z-index: 6; border-left: 0; transform: translateX(0); }
   .wx-right[data-open="false"] { display: none; }
-  .wx-back { display: inline-flex; }
-  .wx-trailbar { padding: 6px 12px; }
+  .wx-xclose { display: inline-flex; }
+  .wx-trailbar { padding: 0 8px 0 10px; }
+  .wx-right { --wx-tb: 56px; }
+  .wx-tsticky { margin: 0 -16px 8px; padding: 2px 16px 6px; }
+  .wx-readout p { -webkit-line-clamp: 2; }
+  .wx-readout { min-height: 2.8em; }
+  .wx-dock { position: absolute; z-index: 5; left: 12px; right: 12px; bottom: calc(10px + env(safe-area-inset-bottom, 0px)); display: flex; align-items: center; gap: 10px; min-height: 56px; padding: 6px 16px 6px 10px; border-radius: 999px; background: var(--surface); border: 1.5px solid var(--gold-fill); box-shadow: 0 8px 24px rgb(0 0 0 / .35); text-align: left; }
+  .wx-dock .wx-pic { width: 36px; height: 36px; }
+  .wx-dockt { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; line-height: 1.2; }
+  .wx-dockt b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; }
+  .wx-dockgo { flex: none; color: var(--gold); font-size: 16px; }
   .wx-nodebody { padding: 14px 16px 80px; }
   .wx-title { max-width: 22ch; font-size: 19px; }
   .wx-top { padding-bottom: 8px; gap: 10px 12px; }
   .wx-pos { width: 100%; order: 5; }
-  .wx-close { order: 2; }
+  .wx-topr { order: 2; }
   .wx-eplist { position: fixed; left: 8px; right: 8px; top: auto; bottom: 8px; width: auto; max-height: 70vh; }
   .wx-trow { grid-template-columns: 84px minmax(0, 1fr) auto 44px; grid-template-areas: "d t t m" "d r g m"; padding-top: 2px; padding-bottom: 2px; }
   .wx-tdates { grid-area: d; align-self: stretch; }
   .wx-tline { grid-area: t; }
   .wx-trole { grid-area: r; }
   .wx-tgap { grid-area: g; }
-  .wx-measure { grid-area: m; }
+  .wx-tgl { grid-area: m; }
   .wx-ttitle { min-height: 30px; }
   .wx-epstill { width: 120px; }
   .wx-pname { font-size: 24px; }

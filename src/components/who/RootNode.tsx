@@ -1,40 +1,24 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import { FactView } from "../Watching";
-import { Section, Sk, Soft } from "./bits";
+import { EpisodeCard } from "./EpisodeCard";
+import { Section, Sk, ZoomBtn, Photo } from "./bits";
 import { useWho } from "./WhoContext";
-import { img } from "@/lib/img";
 import { fmtDay } from "@/lib/who-dates";
-import { whoApi } from "@/lib/who-client";
 import { factButtons } from "@/lib/watching";
 import { posLabel, scopeKind, urlKey } from "@/lib/who-scope";
 import type { Answer } from "@/lib/answer";
-import type { WhoEpDetail } from "@/lib/who-data";
 
-const SPOIL_KEY = "typecast.ask.spoilers";
-const safe = <T,>(f: () => T, d: T): T => { try { return f(); } catch { return d; } };
-
-/** "This title": the episode (or film) you are on, then the facts as tappable cards that open in place. There is no question box. */
+/** "This title" (named by the title and where you are, "The Rookie S2E8"): the episode or film you are on, then the facts as tappable cards that open in place. No question box. */
 export function RootNode() {
-  const { brief, pos } = useWho();
+  const { brief, pos, spoilers, rootLabel } = useWho();
   const tv = brief.type === "tv";
   const exact = tv && scopeKind(pos) === "exact";
-  const [ep, setEp] = useState<WhoEpDetail | null | undefined>(undefined);
   const [summary, setSummary] = useState(false);
-  useEffect(() => {
-    setSummary(false);
-    if (!exact || !pos || pos.s == null || pos.e == null) { setEp(undefined); return; }
-    let live = true;
-    setEp(undefined);
-    whoApi.season(brief.id, pos.s, pos.e).then((r) => { if (live) setEp(r.detail); }).catch(() => { if (live) setEp(null); });
-    return () => { live = false; };
-  }, [brief.id, exact, pos]);
 
-  const [spoilers, setSpoilers] = useState(() => safe(() => localStorage.getItem(SPOIL_KEY) === "1", false));
   const [facts, setFacts] = useState<Record<string, Answer | "loading">>({});
   const [open, setOpen] = useState<Record<string, boolean>>({});
-  useEffect(() => { setFacts({}); setOpen({}); }, [brief.key, pos?.s, pos?.e, spoilers]);
-  const toggleSpoilers = () => { const v = !spoilers; setSpoilers(v); safe(() => localStorage.setItem(SPOIL_KEY, v ? "1" : "0"), undefined); };
+  useEffect(() => { setFacts({}); setOpen({}); setSummary(false); }, [brief.key, pos?.s, pos?.e, spoilers]);
   const ask = async (label: string, q: string) => {
     const isOpen = !!open[label];
     setOpen((o) => ({ ...o, [label]: !isOpen }));
@@ -51,36 +35,15 @@ export function RootNode() {
   return (
     <div className="wx-node" data-node="root">
       <header className="wx-thead">
-        <h2 className="wx-pname" tabIndex={-1} data-focus-target>{brief.title}</h2>
+        <h2 className="wx-pname" tabIndex={-1} data-focus-target>{rootLabel}</h2>
       </header>
 
-      <p className="small muted wx-hint">Tap a face to see where you know them from.</p>
-
-      <Section title={tv ? (exact ? "This episode" : "Where you are") : "This film"}>
-        {tv && exact && ep === undefined && <div className="wx-epcard" aria-hidden="true"><span className="sk-b wx-epstill" /><span style={{ flex: 1 }}><Sk w="60%" h={18} /><Sk w="40%" h={12} style={{ marginTop: 8 }} /><Sk w="70%" h={12} style={{ marginTop: 8 }} /></span></div>}
-        {tv && exact && ep === null && <Soft>TMDB has no details for {posLabel(pos)}.</Soft>}
-        {tv && exact && ep && (
-          <div className="wx-epcard">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            {ep.still ? <img className="wx-epstill" src={img(ep.still, "w300")} alt="" loading="lazy" /> : <span className="wx-epstill wx-noph" aria-hidden="true" />}
-            <div className="wx-epinfo">
-              <span className="mc-label">{posLabel(pos)}</span>
-              <h3 className="wx-eptitle">{ep.name || `Episode ${ep.e}`}</h3>
-              <p className="small muted" style={{ margin: "2px 0 6px" }}>{[ep.air && `Aired ${fmtDay(ep.air)}`, ep.runtime && `${ep.runtime} min`].filter(Boolean).join(" · ")}</p>
-              {ep.directors.length > 0 && <p className="small" style={{ margin: "0 0 2px" }}><span className="muted">Directed by</span> {ep.directors.join(", ")}</p>}
-              {ep.writers.length > 0 && <p className="small" style={{ margin: 0 }}><span className="muted">Written by</span> {ep.writers.join(", ")}</p>}
-              {ep.overview && (
-                <>
-                  <button type="button" className="chip wx-sumb" aria-expanded={summary} onClick={() => setSummary((v) => !v)}>{summary ? "Hide summary" : "Show summary"}</button>
-                  {summary && <p className="wx-summary">{ep.overview}</p>}
-                </>
-              )}
-            </div>
-          </div>
-        )}
-        {tv && !exact && <p className="small" style={{ margin: 0 }}>{pos?.s == null ? "The season is not set." : `${posLabel(pos)}: the episode is not set.`} Pick an episode above, or set one from a person&rsquo;s episode list.</p>}
+      <section className="wx-sec" aria-label={tv ? "Where you are" : "The film"}>
+        {tv && exact && <EpisodeCard key={`${pos!.s}-${pos!.e}`} s={pos!.s!} e={pos!.e!} />}
+        {tv && !exact && <p className="small" style={{ margin: 0 }}>{pos?.s == null ? "The season is not set." : `${posLabel(pos)}: the episode is not set.`} Pick an episode above.</p>}
         {!tv && (
           <div className="wx-epcard">
+            <ZoomBtn path={brief.poster} name={brief.title} className="wx-filmposterb"><Photo path={brief.poster} name={brief.title} w="w342" className="wx-filmposter" /></ZoomBtn>
             <div className="wx-epinfo">
               <p className="small muted" style={{ margin: "0 0 6px" }}>{[brief.first && `Released ${fmtDay(brief.first)}`, brief.runtime && `${brief.runtime} min`, brief.genres.slice(0, 3).join(", ")].filter(Boolean).join(" · ")}</p>
               {brief.overview && (
@@ -92,9 +55,9 @@ export function RootNode() {
             </div>
           </div>
         )}
-      </Section>
+      </section>
 
-      <Section title="About this title" note={<>Tap a card to open it. <button type="button" className="chip wx-spoil" aria-pressed={spoilers} onClick={toggleSpoilers}>{spoilers ? "Spoilers OK" : "No spoilers"}</button></>}>
+      <Section title="About this title" note="Tap a card to open it.">
         <ul className="wx-facts">
           {buttons.map((b) => {
             const isOpen = !!open[b.label], f = facts[b.label];

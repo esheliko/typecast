@@ -54,7 +54,7 @@ export function PairNode({ node }: { node: PNode }) {
         <span className="wx-amp" aria-hidden="true">&amp;</span>
       </header>
       <Section title="In both" count={titles ? rows.length : undefined} note="Titles they were both in, newest first, with each person's own dates.">
-        <div className="wx-tfilters"><button type="button" className="chip" aria-pressed={extras} onClick={() => setExtras((v) => !v)}>Include talk shows and appearances as themselves</button></div>
+        <div className="wx-tfilters"><button type="button" className="chip" aria-pressed={extras} onClick={() => setExtras((v) => !v)}>Talk shows &amp; self</button></div>
         {!titles && !err && <div className="wx-rowsk" aria-hidden="true">{[0, 1, 2].map((i) => <Sk key={i} w="85%" h={56} style={{ marginBottom: 8 }} />)}</div>}
         {err && <Soft>Couldn&rsquo;t compare them just now.</Soft>}
         {titles && !rows.length && <p className="small muted" style={{ margin: 0 }}>{titles.length ? "Only talk shows and appearances as themselves." : "No other title in common."}</p>}
