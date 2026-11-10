@@ -6,6 +6,7 @@ import { GlimpseButton } from "../Glimpse";
 import { More, Photo, Section, SEEN_STATUS, Sk, Soft, useLimit, useSpans } from "./bits";
 import { Timeline, type AxisItem } from "./Timeline";
 import { defaultChoice } from "@/lib/who-readout";
+import { rankByRecognition } from "@/lib/who-known";
 import { nodeId, useWho, type Node } from "./WhoContext";
 import { img } from "@/lib/img";
 import { roleLabel } from "@/lib/roster";
@@ -111,7 +112,8 @@ export function PersonNode({ node }: { node: PNode }) {
       key: brief.key, type: "tv", id: brief.id, title: brief.title, year: brief.year, poster: brief.poster, role: face.role, date: spansEff[brief.key]?.start ?? ownStart, eps: face.n, cids: face.cids, extra: false, votes: 0,
     } : null;
     const base = own && !(onlySeen && !SEEN_STATUS.has(lib.get(brief.key)?.status ?? "")) && (kind === "all" || kind === "tv") && spansEff[brief.key] !== null ? [own, ...filtered] : filtered;
-    return [...base].sort((a, b) => (b.date || b.year).localeCompare(a.date || a.year));
+    // Most recognisable first (part, fame of the title, what you have seen), not by date: the axis above still shows the dates.
+    return rankByRecognition(base, (k) => lib.get(k), tv && face ? brief.key : undefined);
   }, [data, filtered, tv, face, brief, spansEff, ownStart, onlySeen, kind, lib]);
 
   const lim = useLimit(rows.length, 8);
@@ -127,7 +129,7 @@ export function PersonNode({ node }: { node: PNode }) {
   };
   const fallback = defaultChoice({ highlighted: node.hl, known: known.map((c) => c.key), usable });
   const marked = selected && usable(selected) ? selected : fallback;
-  // The selected row is always on screen: when it is below the first rows, it follows them after a "…" gap, in its chronological place.
+  // The selected row is always on screen: when it is below the first rows, it follows them after a "…" gap, in its ranked place.
   const markedIdx = marked ? rows.findIndex((r) => r.key === marked) : -1;
   const pinned = !lim.all && markedIdx >= lim.shown;
   const visibleRows = pinned ? [...rows.slice(0, lim.shown), rows[markedIdx]] : rows.slice(0, lim.shown);

@@ -36,6 +36,29 @@ export function partWeight(role: string, eps: number, order = -1): number {
 /** Popularity from the vote count, 0..1 on a log scale (about 50 votes is ~0.3, 5000 is ~0.8, 20000+ is 1). */
 export function fame(votes: number): number { return Math.min(1, Math.log10(Math.max(votes, 0) + 10) / 4.3); }
 
+/** How well a face from this title is likely to be recognised, ignoring what you have seen: part size x how famous the title is. */
+export function recognition(role: string, eps: number, votes: number, order = -1): number {
+  return (0.1 + partWeight(role, eps, order)) * (0.3 + fame(votes));
+}
+
+/** A credit as the timeline rows have it. */
+export interface RankCredit { key: string; date: string; year: string; role: string; eps: number; votes: number; order?: number }
+
+/**
+ * Order a person's credits by how likely you are to recognise them in each (same signals as pickSeenIn): the part they played, how famous the
+ * title is, and a boost when you have seen it. Ties go to the newer title. `first` (the show being watched) always leads. Does not change the input.
+ */
+export function rankByRecognition<T extends RankCredit>(rows: T[], mark: (key: string) => KnownMark | undefined, first?: string): T[] {
+  const score = (c: T) => {
+    const m = mark(c.key);
+    const sw = m ? SEEN_WEIGHT[m.status] ?? 0 : 0;
+    return recognition(c.role, c.eps, c.votes, c.order) * (1 + sw) * (m?.rich ? 1.2 : 1);
+  };
+  const when = (c: T) => c.date || c.year;
+  return rows.map((c) => ({ c, s: c.key === first ? Infinity : score(c) }))
+    .sort((a, b) => (b.s === a.s ? when(b.c).localeCompare(when(a.c)) : b.s - a.s)).map((x) => x.c);
+}
+
 export interface Pick { key: string; title: string; year: string; character: string; score: number }
 
 /**

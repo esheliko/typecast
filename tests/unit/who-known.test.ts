@@ -50,3 +50,19 @@ test("a bit part in a bigger film loses to a recurring series role", () => {
   ];
   assert.equal(pickSeenIn(top, "x", seen("movie:1", "tv:2"))!.key, "tv:2");
 });
+
+test("rankByRecognition: part and fame beat date; seen titles rise; the watched show leads", async () => {
+  const { rankByRecognition } = await import("../../src/lib/who-known");
+  const rows = [
+    { key: "movie:new", date: "2024-01-01", year: "2024", role: "Waiter", eps: 0, votes: 50 },
+    { key: "tv:hit", date: "2008-01-20", year: "2008", role: "Walter White", eps: 62, votes: 15000 },
+    { key: "movie:old", date: "1999-05-01", year: "1999", role: "Ann", eps: 0, votes: 9000, order: 1 },
+    { key: "tv:now", date: "2020-01-01", year: "2020", role: "Sam", eps: 3, votes: 0 },
+  ];
+  const keys = (r: typeof rows) => r.map((x) => x.key);
+  assert.deepEqual(keys(rankByRecognition(rows, () => undefined)), ["tv:hit", "movie:old", "tv:now", "movie:new"]);
+  assert.equal(rankByRecognition(rows, () => undefined, "tv:now")[0].key, "tv:now");
+  const seenNew = rankByRecognition(rows, (k) => (k === "movie:old" ? { status: "watched", rich: false } : undefined));
+  assert.equal(seenNew[0].key, "movie:old");
+  assert.equal(rows[0].key, "movie:new", "input untouched");
+});
