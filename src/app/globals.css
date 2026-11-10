@@ -1021,18 +1021,19 @@ button.wx-epchip:hover { border-color: var(--gold-fill); }
 .wx-readout { margin: 8px 0 10px; min-height: 42px; }
 .wx-readout p { margin: 0 0 4px; font-size: 14.5px; line-height: 1.4; }
 .wx-trows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
-.wx-trow { display: grid; grid-template-columns: 108px minmax(0, 1.35fr) minmax(0, 1fr) auto 44px; gap: 0 10px; align-items: center; min-height: 46px; padding: 1px 4px 1px 8px; border-radius: 10px; background: var(--bg); border: 1px solid var(--line); scroll-margin: 70px; cursor: default; }
+.wx-trow { display: grid; grid-template-columns: 92px minmax(0, 1.7fr) minmax(0, 1fr) auto 44px; gap: 0 8px; align-items: center; min-height: 46px; padding: 1px 4px 1px 8px; border-radius: 10px; background: var(--bg); border: 1px solid var(--line); scroll-margin: 70px; cursor: default; }
 .wx-trow.hot { border-color: var(--gold-fill); box-shadow: 0 0 0 1px var(--gold-fill) inset; }
 .wx-trow.isref { background: color-mix(in srgb, var(--gold-fill) 14%, var(--bg)); box-shadow: inset 4px 0 0 var(--gold-fill); }
 .wx-tdates { min-height: 44px; display: flex; align-items: center; text-align: left; font-size: 12.5px; line-height: 1.2; padding: 0; border-radius: 6px; }
 button.wx-tdates:disabled { cursor: default; }
 .wx-tline { min-width: 0; display: flex; align-items: center; gap: 6px; overflow: hidden; }
-.wx-kind { font-size: 10.5px; padding: 1px 7px; flex: none; }
+.wx-kind { font-size: 10px; padding: 0 6px; flex: none; }
 .wx-tline .ask-st { flex: none; white-space: nowrap; }
 .wx-ttitle { font-weight: 700; font-size: 14.5px; text-align: left; padding: 0; min-height: 44px; border-radius: 6px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wx-ttitle:hover { color: var(--gold); text-decoration: underline; }
-.wx-trole { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wx-trole { font-size: 12px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wx-tgap { display: flex; justify-content: flex-end; }
+.wx-tgap .wx-gap { font-size: 11.5px; letter-spacing: 0; padding: 1px 8px; }
 .wx-measure { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; padding: 0; border-radius: 50%; background: transparent; color: var(--muted); }
 .wx-measure:hover:not(:disabled) { background: var(--chip); color: var(--ink); }
 .wx-measure[aria-pressed="true"] { background: var(--gold-fill); color: var(--on-gold); }

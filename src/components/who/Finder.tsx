@@ -217,7 +217,7 @@ function Tile({ f, known, eager, onOpen, onPop }: { f: WhoFace; known?: [string,
         <Photo path={f.photo} name={f.name} eager={eager} className="wx-ph" />
         <b className="wx-nm">{f.name}</b>
         <span className="small muted wx-rl">{role || " "}</span>
-        <span className="small muted wx-meta">
+        <span className="small muted wx-meta" title={[n > 0 ? `${n} episode${n === 1 ? "" : "s"}` : "", seen ? `Seen in ${seen[1]}` : best ? `Best known: ${best[1]}` : ""].filter(Boolean).join(" · ") || undefined}>
           {n > 0 && <span title={`${n} episode${n === 1 ? "" : "s"}`}>x{n}</span>}
           {n > 0 && (seen || best) && " · "}
           {seen ? <span className="wx-seen">Seen in {seen[1]}</span> : best ? `Best known: ${best[1]}` : null}

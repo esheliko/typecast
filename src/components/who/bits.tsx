@@ -67,8 +67,8 @@ export function useSpans(pid: number, keys: string[], cur: { k: string; pos: Pos
       for (let c = next++; c < chunks.length; c = next++) {
         try {
           const r = await whoApi.spans(pid, chunks[c], curRef.current);
-          if (alive && store.current === st) { Object.assign(st.data, r); bump((n) => n + 1); }
-        } catch { if (alive) { chunks[c].forEach((k) => { st.data[k] = null; }); setFailed(true); bump((n) => n + 1); } }
+          if (alive && store.current === st) { st.data = { ...st.data, ...r }; bump((n) => n + 1); }
+        } catch { if (alive) { st.data = { ...st.data, ...Object.fromEntries(chunks[c].map((k) => [k, null])) }; setFailed(true); bump((n) => n + 1); } }
       }
     };
     void Promise.all([run(), run()]);

@@ -379,10 +379,10 @@ function WithCast({ pid, name, g }: { pid: number; name: string; g: number }) {
             <button key={s.id} type="button" className="wx-wrow" onClick={() => push({ t: "pair", a: { id: pid, name, photo: faces.get(pid)?.photo ?? null }, b: { id: f.id, name: f.name, photo: f.photo } })}>
               <Photo path={f.photo} name={f.name} className="wx-wimg" />
               <span className="wx-wmain">
-                <b>{f.name}</b> <span className="muted">· {s.total} title{s.total === 1 ? "" : "s"} together</span>
+                <span className="wx-wline"><b>{f.name}</b><span className="muted">&nbsp;· {s.total} title{s.total === 1 ? "" : "s"} together</span></span>
                 {s.titles.slice(0, 2).map((t) => (
                   <span key={t.key} className="small wx-wline"><span className="wx-wt">{t.title}</span>
-                    <span className="muted"> · {la} {yearOf(t.a)} · {lb} {yearOf(t.b)}</span></span>
+                    <span className="muted">&nbsp;· {la} {yearOf(t.a)} · {lb} {yearOf(t.b)}</span></span>
                 ))}
                 {s.total > 2 && <span className="small muted wx-wline">+{s.total - 2} more</span>}
               </span>
