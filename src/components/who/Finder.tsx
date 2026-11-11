@@ -85,9 +85,10 @@ export function Finder({ roster, loading, err, q, setQ, inputRef, recents, onOpe
   const thenSpecs = useMemo(() => new Map(visible.map((f) => [f.id, castSpec(f.name, f.role, { title: brief.title, year: brief.year, type: brief.type, key: brief.key }, "Acting", f.id).tabs[0].q])), [visible, brief]);
   const askedThen = useRef(new Set<number>());
   useEffect(() => {
-    if (!then || !old || !thenOk) return;
+    // Fetched ahead for every face shown, whether or not "Then" is on, so the switch and the hover pop show them at once.
+    if (!old || !thenOk) return;
     const asked = askedThen.current;
-    const need = visible.filter((f) => !asked.has(f.id)).slice(0, 24);
+    const need = visible.filter((f) => !asked.has(f.id));
     if (!need.length) return;
     need.forEach((f) => asked.add(f.id));
     let live = true;
@@ -97,15 +98,16 @@ export function Finder({ roster, loading, err, q, setQ, inputRef, recents, onOpe
           try {
             const r = await getJson<{ configured?: boolean; images?: GlimpseImage[] }>(`/api/glimpse?q=${encodeURIComponent(thenSpecs.get(f.id) ?? "")}`);
             if (r.configured === false) { if (live) setThenOk(false); return; }
-            if (live) setThenImg((m) => ({ ...m, [f.id]: r.images?.[0]?.thumb ?? null }));
+            const url = r.images?.[0]?.thumb ?? null;
+            if (url) { const pre = new Image(); pre.referrerPolicy = "no-referrer"; pre.src = url; }
+            setThenImg((m) => ({ ...m, [f.id]: url }));
           } catch { asked.delete(f.id); }
         }));
         if (!live) { need.slice(i + 3).forEach((f) => asked.delete(f.id)); break; }
       }
     })();
     return () => { live = false; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [then, old, thenOk, visible, thenSpecs]);
+  }, [old, thenOk, visible, thenSpecs]);
   const showThen = then && old && thenOk;
 
   useLayoutEffect(() => {
@@ -149,6 +151,7 @@ export function Finder({ roster, loading, err, q, setQ, inputRef, recents, onOpe
   const total = faces.length;
   return (
     <div className="wx-finder">
+      <div className="wx-stick">
       <div className="wx-find">
         <input ref={inputRef} type="search" value={q} onChange={(ev) => setQ(ev.target.value)} aria-label="Find in this cast"
           placeholder={film ? "Find by actor, character or another title…" : "Find by actor, character, or a title they were in…"} enterKeyHint="search" autoComplete="off" spellCheck={false} />
@@ -167,6 +170,7 @@ export function Finder({ roster, loading, err, q, setQ, inputRef, recents, onOpe
           </div>
         )}
         <span className="small muted wx-count" aria-live="polite">{roster ? (shown.length === total ? `${total} people` : `${shown.length} of ${total}`) : ""}</span>
+      </div>
       </div>
       {roster?.note && !spoilers && <p className="small wx-scopenote" role="note">{roster.note}</p>}
       {roster?.partial && <p className="small muted">TMDB had nothing for some seasons, so this list may be short.</p>}
@@ -218,22 +222,34 @@ export function Finder({ roster, loading, err, q, setQ, inputRef, recents, onOpe
         </section>
       ) : null)}
 
-      {pop && <Pop f={pop.f} r={pop.r} />}
+      {pop && <Pop f={pop.f} r={pop.r} then={old && thenOk ? thenImg[pop.f.id] : undefined} year={brief.year} />}
     </div>
   );
 }
 
 /** The larger photo beside a tile: to its right, or its left near the edge, always inside the window. */
-function Pop({ f, r }: { f: WhoFace; r: DOMRect }) {
-  const W = 220, H = Math.round(W * 1.5) + 54;
+function Pop({ f, r, then, year }: { f: WhoFace; r: DOMRect; then?: string | null; year?: string }) {
+  const W = then ? 400 : 220, H = Math.round(W * 1.5) + 54;
   let left = r.right + 10;
   if (left + W > window.innerWidth - 8) left = r.left - W - 10;
   left = Math.max(8, left);
   const top = Math.min(Math.max(8, r.top + r.height / 2 - H / 2), Math.max(8, window.innerHeight - H - 8));
   return (
     <div className="wx-pop" style={{ left, top, width: W }} aria-hidden="true">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      {f.photo ? <img src={img(f.photo, "w342")} alt="" /> : <span className="wx-noph wx-popph">{f.name.charAt(0)}</span>}
+      <div className={then ? "wx-popduo" : undefined}>
+        <figure>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          {f.photo ? <img src={img(f.photo, "w342")} alt="" /> : <span className="wx-noph wx-popph">{f.name.charAt(0)}</span>}
+          {then && <figcaption>Now</figcaption>}
+        </figure>
+        {then && (
+          <figure>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img className="wx-popthen" src={then} alt="" referrerPolicy="no-referrer" />
+            <figcaption>Then{year ? ` · ${year}` : ""}</figcaption>
+          </figure>
+        )}
+      </div>
       <b>{f.name}</b>
       {f.role && <span className="small muted">{roleLabel(f.role)}</span>}
     </div>

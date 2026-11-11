@@ -37,3 +37,7 @@
 - **No spoilers switch:** off = switch off, text "No spoilers" (everything stops at where you are). Pressed = coloured, switch on, text "Show spoilers" (whole series). `aria-checked` is true when spoilers are shown.
 - **Position control:** the episode picker and "Next" (next aired episode, else the next aired season's first) share one pill; each half has its own hover and pressed state.
 - **Trail:** opening the step right before the one showing (only one back) is treated as Back (`pushNode`).
+
+## Finder bar and Then photos (round 4)
+- The search box and the All/Women/Men, All/Main/Guests, Now/Then chips sit in one sticky block (`.wx-stick`), so the chip bar stays visible under the search bar while the grid scrolls.
+- "Then" photos are fetched ahead (and preloaded into the browser cache) for every face shown on an older title, whether or not the Now/Then switch is on. The hover pop (`Pop`) shows Now and Then side by side when a Then photo exists.

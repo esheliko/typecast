@@ -880,7 +880,8 @@ body:has(.modal) .toast-slot { bottom: calc(84px + env(safe-area-inset-bottom, 0
 .wx-right { min-width: 0; overflow-y: auto; overscroll-behavior: contain; background: var(--surface); border-left: 1px solid var(--line); position: relative; }
 .wx-right.loading .wx-node { opacity: .98; }
 
-.wx-find { position: sticky; top: 0; z-index: 3; padding: 14px 0 8px; background: var(--bg); }
+.wx-stick { position: sticky; top: 0; z-index: 3; background: var(--bg); padding-bottom: 2px; }
+.wx-find { position: relative; padding: 14px 0 8px; }
 .wx-find input { width: 100%; min-height: 48px; border-radius: 999px; padding: 10px 44px 10px 18px; font-size: 16px; background: var(--surface); border: 1px solid var(--line); }
 .wx-kbd { position: absolute; right: 16px; top: 50%; margin-top: 3px; transform: translateY(-50%); font: 600 12px var(--mono); color: var(--muted); border: 1px solid var(--line); border-radius: 5px; padding: 0 6px; background: var(--chip); }
 .wx-find input:focus ~ .wx-kbd { display: none; }
@@ -915,6 +916,10 @@ body:has(.modal) .toast-slot { bottom: calc(84px + env(safe-area-inset-bottom, 0
 .wx-pop { position: fixed; z-index: 60; display: flex; flex-direction: column; gap: 2px; padding: 8px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); box-shadow: 0 10px 30px rgba(0, 0, 0, .35); pointer-events: none; }
 .wx-pop img, .wx-popph { width: 100%; aspect-ratio: 2 / 3; border-radius: 10px; object-fit: cover; background: var(--chip); display: flex; align-items: center; justify-content: center; font: 700 40px var(--display); color: var(--muted); }
 .wx-pop b { font-size: 14px; margin-top: 4px; }
+.wx-popduo { display: flex; gap: 8px; }
+.wx-popduo figure { flex: 1 1 0; min-width: 0; margin: 0; }
+.wx-popduo figcaption { font-size: 11px; font-weight: 600; color: var(--muted); text-align: center; margin-top: 3px; }
+.wx-popthen { object-position: 50% 20%; }
 @media (hover: hover) and (prefers-reduced-motion: no-preference) { .wx-tile:hover .wx-ph, .wx-tile:focus-visible .wx-ph { transform: translateY(-3px); box-shadow: 0 6px 14px rgba(0, 0, 0, .28); } }
 .wx-tile b { font-size: 13px; }
 .wx-nm, .wx-rl { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
