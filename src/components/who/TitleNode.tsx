@@ -3,21 +3,24 @@ import { useEffect, useMemo, useState } from "react";
 import { useLib } from "../cast/LibState";
 import QuickMark from "../cast/QuickMark";
 import { TitleLink } from "../Modal";
+import { GlimpseButton } from "../Glimpse";
+import { castSpec, scopeSpec } from "@/lib/glimpse";
 import { More, Photo, Section, Sk, Soft, useLimit, useSpans, ZoomBtn } from "./bits";
 import { nodeId, useWho, type Node } from "./WhoContext";
 import { typeLabel } from "@/lib/img";
 import { roleLabel } from "@/lib/roster";
-import { fmtRange, gapBetween, gapChip, readout } from "@/lib/who-dates";
+import { fmtRange, readout } from "@/lib/who-dates";
 import { whoApi } from "@/lib/who-client";
 import { markLabel, type Item } from "@/lib/types";
 import { urlKey } from "@/lib/who-scope";
+import type { GlimpseSpec } from "@/lib/glimpse";
 import type { TitleNode as TitleData } from "@/lib/who-data";
 
 type TNode = Extract<Node, { t: "title" }>;
 
 /** Another title as a node: your mark, where it sits against what you are watching, who from this cast is in it, and its top billed. */
 export function TitleNode({ node }: { node: TNode }) {
-  const { watched, faces, push, brief: cur, spoilers } = useWho();
+  const { watched, faces, push, brief: cur, spoilers, clip } = useWho();
   // The show being watched: its end date and later episodes would give things away, so only its start year is shown.
   const self = node.key === cur.key;
   const lib = useLib();
@@ -39,6 +42,7 @@ export function TitleNode({ node }: { node: TNode }) {
 
   const fromCast = useMemo(() => (data ? data.cast.filter(([pid]) => faces.has(pid)).map(([pid, role, n]) => ({ f: faces.get(pid)!, role, n })) : []), [data, faces]);
   const lim = useLimit(fromCast.length, 5);
+  const spec = (name: string, role: string, pid: number) => scopeSpec(castSpec(name, role, { title: node.title, year: node.year, type, key: node.key }, "Acting", pid), { key: cur.key, title: cur.title, clip, spoilers });
 
   return (
     <div className="wx-node" data-node={nodeId(node)}>
@@ -65,7 +69,7 @@ export function TitleNode({ node }: { node: TNode }) {
         {!data && !err && <div className="wx-rowsk" aria-hidden="true"><Sk w="80%" h={44} /><Sk w="70%" h={44} style={{ marginTop: 8 }} /></div>}
         {data && !fromCast.length && <p className="small muted" style={{ margin: 0 }}>No one from the cast here is in this title.</p>}
         {fromCast.slice(0, lim.shown).map(({ f, role }) => (
-          <CastRow key={f.id} f={f} role={role} titleKey={node.key} type={type} release={data?.brief.first ?? ""} hideDates={self}
+          <CastRow key={f.id} f={f} role={role} spec={spec(f.name, role, f.id)} titleKey={node.key} type={type} release={data?.brief.first ?? ""} hideDates={self}
             onOpen={() => push({ t: "person", id: f.id, name: f.name, photo: f.photo, hl: node.key })} />
         ))}
         {data && <More total={fromCast.length} {...lim} />}
@@ -91,20 +95,22 @@ export function TitleNode({ node }: { node: TNode }) {
 }
 
 /** One person of the watched cast within another title: their part, their own dates there, and the gap to what you are watching. */
-function CastRow({ f, role, titleKey, type, release, hideDates, onOpen }: { f: { id: number; name: string; photo: string | null }; role: string; titleKey: string; type: "movie" | "tv"; release: string; hideDates?: boolean; onOpen: () => void }) {
-  const { watched } = useWho();
+function CastRow({ f, role, spec, titleKey, type, release, hideDates, onOpen }: { f: { id: number; name: string; photo: string | null }; role: string; spec: GlimpseSpec; titleKey: string; type: "movie" | "tv"; release: string; hideDates?: boolean; onOpen: () => void }) {
   const { spans } = useSpans(f.id, type === "tv" && !hideDates ? [titleKey] : [], null);
   const s = spans[titleKey];
   const range = type === "movie" ? (release ? { start: release, end: release } : null) : s && s.kind === "own" ? { start: s.start, end: s.end } : null;
   const loading = type === "tv" && !hideDates && s === undefined;
   return (
+    <div className="wx-wrowx">
     <button type="button" className="wx-wrow" onClick={onOpen}>
       <Photo path={f.photo} name={f.name} className="wx-wimg" />
       <span className="wx-wmain"><b>{f.name}</b>
         <span className="small muted wx-wline">{role ? `as ${roleLabel(role) || role}` : " "}</span>
-        <span className="small wx-wline">{hideDates ? null : loading ? <Sk w={110} h={12} /> : range ? <><b>{fmtRange(range.start, range.end)}</b>{watched.range && <span className="wx-gap" style={{ marginLeft: 8 }}>{gapChip(gapBetween(range, watched.range))}</span>}</> : <span className="muted">{s?.kind === "run" ? "during the show's run" : "date unknown"}</span>}</span>
+        <span className="small wx-wline">{hideDates ? null : loading ? <Sk w={110} h={12} /> : range ? <><b>{fmtRange(range.start, range.end)}</b></> : <span className="muted">{s?.kind === "run" ? "during the show's run" : "date unknown"}</span>}</span>
       </span>
       <span className="wx-go" aria-hidden="true">›</span>
     </button>
+    <span className="wx-wg"><GlimpseButton spec={spec} label={`About ${f.name}${role ? ` as ${roleLabel(role) || role}` : ""}: the character, episodes and images`} /></span>
+    </div>
   );
 }

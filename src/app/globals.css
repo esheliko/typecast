@@ -997,6 +997,11 @@ button.wx-epchip:hover { border-color: var(--gold-fill); }
 .wx-krow, .wx-wrow { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 64px; padding: 6px 10px 6px 6px; margin-bottom: 6px; border-radius: 12px; background: var(--bg); border: 1px solid var(--line); text-align: left; }
 .wx-krow .wx-kbtn { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 12px; text-align: left; padding: 0; border-radius: 8px; }
 .wx-krow .gl-b { margin-left: -4px; }
+.wx-wrowx { position: relative; }
+.wx-wrowx .wx-wrow { padding-right: 78px; }
+.wx-wrowx .wx-go { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); }
+.wx-wg { position: absolute; right: 34px; top: 50%; transform: translateY(-50%); }
+.wx-topgrid li { position: relative; }
 .wx-krow:hover, .wx-krow:focus-within, .wx-wrow:hover { border-color: var(--gold-fill); }
 .wx-kpos { width: 38px; height: 57px; flex: none; border-radius: 6px; object-fit: cover; background: var(--chip); }
 .wx-kmain, .wx-wmain { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; line-height: 1.3; }
