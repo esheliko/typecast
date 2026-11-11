@@ -8,7 +8,10 @@ on:
   workflow_dispatch:
 concurrency:
   group: ci-${{ github.event_name }}-${{ github.ref }} # a manual run must not cancel the push run the Deploy Manager is waiting for
-  cancel-in-progress: true
+  # On main a running CI is NEVER cancelled by a newer push (the newest queued run waits behind it, older queued runs are dropped by GitHub, so runs stay
+  # serialized and the shared smoke test account is never used twice at once). With cancel-in-progress on pushes, a burst of pushes cancelled every run:
+  # 2026-11-11 eight commits in an hour got no verdict at all, so a red main went unnoticed. Pull requests still cancel superseded runs.
+  cancel-in-progress: ${{ github.event_name != 'push' }}
 permissions:
   contents: read
 jobs:

@@ -84,3 +84,6 @@ The supervisor has nothing to refresh there. `scripts/dashboard-data.mjs` is gon
   Fixes: (1) the manager starts on CI `requested` too and stays alive polling until it deploys; (2) the CI hold is capped at 12 min from the OLDEST pending commit. Guarantee: a change is live
   at most ~12 min after it was pushed, unless CI has shown the head red (then the owner is told). Trade-off: a commit can go live while its CI is still running; a red verdict afterwards
   goes to the owner as usual. Never rely on the cron.
+- 2026-11-11 (18:50 IST): after the 12-min cap fix, deploys were on time but eight commits in a row got NO CI verdict (each push cancelled the previous run), so a red main would have gone unnoticed
+  for the whole burst. CI no longer cancels a running push run on main (`cancel-in-progress` only for non-push events): the running one finishes, the newest queued one waits, older queued ones are
+  dropped, so a verdict lands about every 10 min even in a burst and runs stay serialized for the shared smoke account.
