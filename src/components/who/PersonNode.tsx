@@ -98,12 +98,21 @@ export function PersonNode({ node }: { node: PNode }) {
   const { spans, failed } = useSpans(node.id, data ? orderedKeys : [], cur);
   const hereSpan = tv ? spans[brief.key] : undefined;
   // A regular has no episode list on TMDB: their own first credited air date up to where you are is still true, and nothing later is shown.
+  // With spoilers allowed the whole series is in scope: the bar runs to the series' last episode and counts every episode.
   const ownStart = data?.credits.find((c) => c.key === brief.key)?.date ?? "";
+  const totalEps = useMemo(() => brief.seasons.filter((x) => x.n > 0).reduce((a, x) => a + x.eps, 0), [brief.seasons]);
   const spansEff = useMemo(() => {
-    if (!(tv && face?.part === "main" && hereSpan === null && ownStart && watched.range)) return spans;
+    if (!(tv && face?.part === "main" && ownStart)) return spans;
+    if (spoilers) {
+      if (hereSpan === undefined || (hereSpan && hereSpan.eps.length > 0)) return spans;
+      const start = hereSpan && hereSpan.start < ownStart ? hereSpan.start : ownStart;
+      const end = brief.last && brief.last >= start ? brief.last : start;
+      return { ...spans, [brief.key]: { key: brief.key, kind: "own" as const, start, end, n: totalEps, eps: [] } };
+    }
+    if (hereSpan !== null || !watched.range) return spans;
     const end = watched.range.end >= ownStart ? watched.range.end : ownStart;
     return { ...spans, [brief.key]: { key: brief.key, kind: "own" as const, start: ownStart, end, n: 0, eps: [] } };
-  }, [spans, tv, face?.part, hereSpan, ownStart, watched.range, brief.key]);
+  }, [spans, tv, face?.part, hereSpan, ownStart, watched.range, brief.key, brief.last, spoilers, totalEps]);
 
   // The row for the show being watched: only what has aired up to the position.
   const rows = useMemo(() => {
