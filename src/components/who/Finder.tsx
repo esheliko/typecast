@@ -12,13 +12,13 @@ import { GlimpseButton } from "../Glimpse";
 import { castSpec, scopeSpec } from "@/lib/glimpse";
 import { getJson } from "@/lib/who-client";
 import { isOldTitle } from "@/lib/then-photo";
+import { useThen } from "./useThen";
 import type { GlimpseImage } from "@/app/api/glimpse/route";
 import { roleLabel } from "@/lib/roster";
 import { pickSeenIn, seenInText, type KnownTitle } from "@/lib/who-known";
 import type { WhoFace, WhoRoster } from "@/lib/who-types";
 
 const PER_GROUP = 12;
-const THEN_KEY = "typecast.who.then";
 /** How many faces a group shows before "Show more": about PER_GROUP, rounded up to whole rows of the grid as it is laid out now. */
 const perGroup = (cols: number) => (cols > 0 ? cols * Math.max(1, Math.ceil(PER_GROUP / cols)) : PER_GROUP);
 
@@ -77,11 +77,9 @@ export function Finder({ roster, loading, err, q, setQ, inputRef, recents, onOpe
   // "Then" photos: how each person looked in this title (the Glimpse "In the role" image search, cached 30 days server-side). Opt-in, only for older titles,
   // only the faces on screen, a few at a time. The tile keeps its box, so nothing moves; a face with no image keeps the profile photo.
   const old = isOldTitle(brief.first, new Date().getFullYear());
-  const [then, setThen] = useState(false);
+  const [then, flipThen] = useThen();
   const [thenOk, setThenOk] = useState(true);
   const [thenImg, setThenImg] = useState<Record<number, string | null>>({});
-  useEffect(() => { try { if (localStorage.getItem(THEN_KEY) === "1") setThen(true); } catch { /* private mode */ } }, []);
-  const flipThen = (v: boolean) => { setThen(v); try { localStorage.setItem(THEN_KEY, v ? "1" : "0"); } catch { /* ignore */ } };
   const thenSpecs = useMemo(() => new Map(visible.map((f) => [f.id, castSpec(f.name, f.role, { title: brief.title, year: brief.year, type: brief.type, key: brief.key }, "Acting", f.id).tabs[0].q])), [visible, brief]);
   const askedThen = useRef(new Set<number>());
   useEffect(() => {

@@ -1198,3 +1198,9 @@ main:focus { outline: none; }
 .wx-thenw { position: relative; display: block; }
 .wx-thenw .wx-then { object-position: 50% 20%; margin-bottom: 5px; }
 .wx-thenb { position: absolute; left: 5px; bottom: 10px; padding: 1px 6px; border-radius: 999px; font: 600 10.5px/1.4 var(--sans, inherit); color: #fff; background: rgba(0, 0, 0, .6); pointer-events: none; }
+
+/* Details pane: the Glimpse button sits inline after "Plays X in Title"; the "Then" photo keeps the profile photo's box. */
+.wx-hereg { display: inline-block; vertical-align: middle; margin-left: 4px; }
+.wx-hereg .gl-b { width: 32px; height: 32px; }
+.wx-pphoto .wx-thenw { width: 100%; }
+.wx-pphoto .wx-thenb { bottom: 8px; }

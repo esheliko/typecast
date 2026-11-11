@@ -16,7 +16,11 @@ import { pairLabels } from "@/lib/who-common";
 import { whoApi } from "@/lib/who-client";
 import { showRunLabel } from "@/lib/who-spans";
 import { posCode, posLabel, scopeKind } from "@/lib/who-scope";
-import { creditSpec, scopeSpec } from "@/lib/glimpse";
+import { castSpec, creditSpec, scopeSpec } from "@/lib/glimpse";
+import { getJson } from "@/lib/who-client";
+import { isOldTitle } from "@/lib/then-photo";
+import { useThen } from "./useThen";
+import type { GlimpseImage } from "@/app/api/glimpse/route";
 import type { PCredit, PersonData, Range, Span } from "@/lib/who-types";
 import type { SharedBrief } from "@/lib/who-data";
 
@@ -172,16 +176,38 @@ export function PersonNode({ node }: { node: PNode }) {
 
   const knownLim = useLimit(known.length, 5);
 
+  // Same as the cast faces: the character note for this person in the watched title, and the opt-in "Then" photo (shares the Finder's switch and the 30-day image cache).
+  const [thenOn] = useThen();
+  const old = isOldTitle(brief.first, new Date().getFullYear());
+  const hereQ = face ? castSpec(node.name, face.role, { title: brief.title, year: brief.year, type: brief.type, key: brief.key }, "Acting", node.id) : null;
+  const hereSpec = hereQ ? scopeSpec(hereQ, { key: brief.key, title: brief.title, clip, spoilers }) : null;
+  const thenQ = hereQ?.tabs[0].q;
+  const [thenImg, setThenImg] = useState<string | null>(null);
+  useEffect(() => {
+    setThenImg(null);
+    if (!thenOn || !old || !thenQ) return;
+    let live = true;
+    getJson<{ configured?: boolean; images?: GlimpseImage[] }>(`/api/glimpse?q=${encodeURIComponent(thenQ)}`)
+      .then((r) => { if (live) setThenImg(r.images?.[0]?.thumb ?? null); }).catch(() => {});
+    return () => { live = false; };
+  }, [thenOn, old, thenQ]);
+  const [thenBad, setThenBad] = useState(false);
+  useEffect(() => { setThenBad(false); }, [thenImg]);
+  const showThen = !!thenImg && !thenBad;
+
   return (
     <div className="wx-node wx-person" data-node={nodeId(node)}>
       <header className="wx-phead">
         <button type="button" className="wx-pphoto" onClick={() => { const ph = data?.photo ?? node.photo; if (ph) zoom({ path: ph, name: node.name }); }} aria-label={`Enlarge photo of ${node.name}`} disabled={!node.photo && !data?.photo}>
-          <Photo path={node.photo ?? data?.photo ?? null} name={node.name} w="w342" className="wx-pimg" eager />
+          {showThen ? (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <span className="wx-thenw"><img className="wx-pimg wx-then" src={thenImg!} alt="" decoding="async" referrerPolicy="no-referrer" onError={() => setThenBad(true)} />{brief.year && <span className="wx-thenb">{brief.year}</span>}</span>
+          ) : <Photo path={node.photo ?? data?.photo ?? null} name={node.name} w="w342" className="wx-pimg" eager />}
         </button>
         <div className="wx-pmeta">
           <h2 className="wx-pname" tabIndex={-1} data-focus-target>{node.name}</h2>
           {data ? (life && <p className="wx-life">{life}</p>) : <Sk w="75%" h={14} style={{ margin: "4px 0 6px" }} />}
-          <p className="wx-here small">{hereLabel}</p>
+          <p className="wx-here small">{hereLabel}{hereSpec && <span className="wx-hereg"> <GlimpseButton spec={hereSpec} label={`About ${node.name}${face?.role ? ` as ${roleLabel(face.role) || face.role}` : ""}: the character, episodes and images`} /></span>}</p>
           {data && data.images.length > 0 && (
             <div className="wx-looks" aria-label="Other looks">
               <span className="mc-label">Other looks</span>
