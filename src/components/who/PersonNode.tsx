@@ -16,7 +16,7 @@ import { pairLabels } from "@/lib/who-common";
 import { whoApi } from "@/lib/who-client";
 import { showRunLabel } from "@/lib/who-spans";
 import { posCode, posLabel, scopeKind } from "@/lib/who-scope";
-import { creditSpec } from "@/lib/glimpse";
+import { creditSpec, scopeSpec } from "@/lib/glimpse";
 import type { PCredit, PersonData, Range, Span } from "@/lib/who-types";
 import type { SharedBrief } from "@/lib/who-data";
 
@@ -35,7 +35,7 @@ function whenOf(c: PCredit, spans: Record<string, Span | null>): When {
 
 /** Everything about one person, in one scroll column: no tabs. */
 export function PersonNode({ node }: { node: PNode }) {
-  const { brief, today, pos, clip, faces, watched, push, zoom } = useWho();
+  const { brief, today, pos, clip, spoilers, faces, watched, push, zoom } = useWho();
   const lib = useLib();
   const [data, setData] = useState<PersonData | null>(null);
   const [err, setErr] = useState(false);
@@ -216,7 +216,7 @@ export function PersonNode({ node }: { node: PNode }) {
                   <span className={`ask-st ${st === "watchlist" ? "list" : "seen"}`}>{st === "watchlist" ? "On your list" : "Seen"}</span>
                 </span>
               </button>
-              <GlimpseButton spec={creditSpec(node.name, c.role, { title: c.title, year: c.year, type: c.type })} label={`See images of ${c.title}${c.role ? `, or ${node.name} as ${roleLabel(c.role) || c.role}` : ""}`} />
+              <GlimpseButton spec={scopeSpec(creditSpec(node.name, c.role, { title: c.title, year: c.year, type: c.type, key: c.key }, node.id), { key: brief.key, title: brief.title, clip, spoilers })} label={`About ${node.name}${c.role ? ` as ${roleLabel(c.role) || c.role}` : ""} in ${c.title}: the role, episodes and images`} />
             </div>
           );
         })}
@@ -247,7 +247,7 @@ export function PersonNode({ node }: { node: PNode }) {
               {visibleRows.map((c, i) => (
                 <Fragment key={c.key}>
                   {pinned && i === visibleRows.length - 1 && <li className="wx-gaprow" aria-hidden="true">&hellip;</li>}
-                  <TRow c={c} actor={node.name} when={whenRow(c)} eps={epsIn(c, spansEff[c.key])} sel={marked === c.key} hot={preview === c.key}
+                  <TRow c={c} actor={node.name} actorId={node.id} when={whenRow(c)} eps={epsIn(c, spansEff[c.key])} sel={marked === c.key} hot={preview === c.key}
                     reg={(el) => { if (el) rowRefs.current.set(c.key, el); else rowRefs.current.delete(c.key); }}
                     onOpen={() => push({ t: "title", key: c.key, title: c.title, year: c.year, poster: c.poster })} onSelect={() => pick(c.key)} onPreview={(on) => setPreview(on ? c.key : null)}
                     isCur={c.key === brief.key} upTo={clip ? posLabel(clip) : ""} lib={lib.get(c.key)?.status} />
@@ -311,10 +311,11 @@ function HereEpisodes({ span, loading, failed, regular, inScope }: { span: Span 
   );
 }
 
-function TRow({ c, actor, when, eps, sel, hot, reg, onOpen, onSelect, onPreview, isCur, upTo, lib }: {
-  c: PCredit; actor: string; when: When; eps: number; sel: boolean; hot: boolean; reg: (el: HTMLElement | null) => void;
+function TRow({ c, actor, actorId, when, eps, sel, hot, reg, onOpen, onSelect, onPreview, isCur, upTo, lib }: {
+  c: PCredit; actor: string; actorId: number; when: When; eps: number; sel: boolean; hot: boolean; reg: (el: HTMLElement | null) => void;
   onOpen: () => void; onSelect: () => void; onPreview: (on: boolean) => void; isCur: boolean; upTo: string; lib?: string;
 }) {
+  const { brief, clip, spoilers } = useWho();
   const own = when.kind === "range" && when.own;
   const seen = SEEN_STATUS.has(lib ?? "");
   const role = [c.role && `as ${roleLabel(c.role) || c.role}`, isCur && upTo ? `up to ${upTo}` : "", eps ? epsLabel(eps) : ""].filter(Boolean).join(" · ");
@@ -332,7 +333,7 @@ function TRow({ c, actor, when, eps, sel, hot, reg, onOpen, onSelect, onPreview,
         {seen && <span className="ask-st seen" title="You have seen this">&#10003; Seen</span>}
       </span>
       <span className="small muted wx-trole" title={role}>{role}</span>
-      <span className="wx-tgl"><GlimpseButton spec={creditSpec(actor, c.role, { title: c.title, year: c.year, type: c.type })} label={`See images of ${c.title}${c.role ? `, or ${actor} as ${roleLabel(c.role) || c.role}` : ""}`} /></span>
+      <span className="wx-tgl"><GlimpseButton spec={scopeSpec(creditSpec(actor, c.role, { title: c.title, year: c.year, type: c.type, key: c.key }, actorId), { key: brief.key, title: brief.title, clip, spoilers })} label={`About ${actor}${c.role ? ` as ${roleLabel(c.role) || c.role}` : ""} in ${c.title}: the role, episodes and images`} /></span>
     </li>
   );
 }

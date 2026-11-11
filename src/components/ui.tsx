@@ -22,7 +22,7 @@ export function Avatar({ photo, name }: { photo: string | null; name: string }) 
 }
 
 /** `actor` (+ their `role`) makes the images button start with that person in the title. */
-export function TitleRow({ it, sub, small, actor, role }: { it: Item; sub?: string; small?: boolean; actor?: string; role?: string }) {
+export function TitleRow({ it, sub, small, actor, role, actorId }: { it: Item; sub?: string; small?: boolean; actor?: string; role?: string; actorId?: number }) {
   return (
     <div className="row mark-row">
       <TitleLink className="row-link" k={it.key} it={it}>
@@ -34,7 +34,7 @@ export function TitleRow({ it, sub, small, actor, role }: { it: Item; sub?: stri
         <LivePill k={it.key} />
       </TitleLink>
       <QuickMark it={it} variant="inline" />
-      <GlimpseButton spec={actor ? creditSpec(actor, role, it) : titleSpec(it)} label={actor ? `See images of ${actor} in ${it.title}` : undefined} />
+      <GlimpseButton spec={actor ? creditSpec(actor, role, it, actorId) : titleSpec(it)} label={actor ? `About ${actor} in ${it.title}: the role and images` : undefined} />
       <RelatedButton it={it} />
     </div>
   );

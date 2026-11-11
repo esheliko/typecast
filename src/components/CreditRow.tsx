@@ -18,7 +18,7 @@ export function CreditRow({ c, title, pending, tv, light, hidden }: {
   const eps = tv ? epsLabel(c.eps, tv.episodes) : "";
   return (
     <li className={`credit has-gl${light ? " extra" : ""}`} hidden={hidden} data-q={`${c.name} ${c.role}`.toLowerCase()}>
-      <span className="credit-gl"><GlimpseButton spec={castSpec(c.name, c.role, title)} label={title && c.role ? `See ${c.name} as ${c.role}` : `See images of ${c.name}`} /></span>
+      <span className="credit-gl"><GlimpseButton spec={castSpec(c.name, c.role, title, undefined, c.id)} label={title && c.role ? `About ${c.name} as ${c.role}: the role and images` : undefined} /></span>
       <details>
         <summary className="credit-main">
           <Avatar photo={c.photo} name={c.name} />
@@ -29,7 +29,7 @@ export function CreditRow({ c, title, pending, tv, light, hidden }: {
           {tv && c.credits && c.credits.length > 0 && <Appearances tv={tv.id} credits={c.credits} eps={c.eps} />}
           {!light && c.top.length === 0 && <span className="muted small">{pending ? "Finding their other credits…" : "No other credits found."}</span>}
           {c.top.length > 0 && tv && <div className="apps-head" style={{ marginTop: 10 }}>Also known for</div>}
-          <PersonProvider id={c.id}><TopCredits items={c.top} actor={c.name} /></PersonProvider>
+          <PersonProvider id={c.id}><TopCredits items={c.top} actor={c.name} actorId={c.id} /></PersonProvider>
         </div>
       </details>
       <div className="marks">
@@ -44,7 +44,7 @@ export function CreditRow({ c, title, pending, tv, light, hidden }: {
 export function CrewRow({ c, plain }: { c: CastMember; plain?: boolean }) {
   return (
     <li className="credit has-gl">
-      <span className="credit-gl"><GlimpseButton spec={personSpec(c.name, c.role)} label={`See images of ${c.name}`} /></span>
+      <span className="credit-gl"><GlimpseButton spec={personSpec(c.name, c.role, c.id)} /></span>
       <PersonLink className="credit-main" pid={c.id} it={c}>
         <Avatar photo={c.photo} name={c.name} />
         <span className="credit-line"><span className="nm">{c.name}</span>{!plain && c.role && <><span className="dots" /><span className="role">{c.role}</span></>}</span>

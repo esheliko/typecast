@@ -78,7 +78,7 @@ function CastBlock({ part, t, lib, people, first, last, pending }: CastProps & {
   for (const c of people) for (const h of c.hits) links.set(h.key, [...(links.get(h.key) ?? []), c.name]);
   const linked = last ? [...links.entries()].sort((a, b) => b[1].length - a[1].length).slice(0, 8) : [];
   const tv = t.show ? { id: t.id, episodes: t.show.episodes } : undefined;
-  const ttl = { title: t.title, year: t.year, type: t.type };
+  const ttl = { title: t.title, year: t.year, type: t.type, key: t.key };
   // A series' long tail of guest parts is not listed, but the search box finds anyone who appeared.
   const extras = last && t.extras?.length ? t.extras : [];
   const list = (

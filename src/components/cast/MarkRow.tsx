@@ -10,7 +10,7 @@ import type { Item } from "@/lib/types";
 
 /** A title in a list: tap the name for its details, or tap Watched / To watch / Must watch right there without leaving the list. */
 /** `extra` is appended to the line under the title but, unlike `sub`, is not part of the image search. */
-export default function MarkRow({ it, sub, small, actor, extra }: { it: Item; sub?: string; small?: boolean; actor?: string; extra?: string }) {
+export default function MarkRow({ it, sub, small, actor, extra, actorId }: { it: Item; sub?: string; small?: boolean; actor?: string; extra?: string; actorId?: number }) {
   return (
     <div className="row mark-row">
       <TitleLink k={it.key} it={it} className="row-link">
@@ -21,7 +21,7 @@ export default function MarkRow({ it, sub, small, actor, extra }: { it: Item; su
         </span>
       </TitleLink>
       <QuickMark it={it} variant="inline" />
-      <GlimpseButton spec={actor ? creditSpec(actor, sub, it) : titleSpec(it)} label={actor && sub ? `See images of ${it.title}, or ${actor} as ${sub}` : undefined} />
+      <GlimpseButton spec={actor ? creditSpec(actor, sub, it, actorId) : titleSpec(it)} label={actor ? `About ${actor}${sub ? ` as ${sub}` : ""} in ${it.title}: the role and images` : undefined} />
       <RelatedButton it={it} />
     </div>
   );

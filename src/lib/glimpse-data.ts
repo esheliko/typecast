@@ -1,0 +1,97 @@
+import { getAppearances, tmdb } from "./tmdb";
+import { getArticle, getWikiFacts } from "./wiki";
+import { loadBrief, loadWhoPerson } from "./who-data";
+import { ageAt } from "./who-dates";
+import { charOf } from "./glimpse";
+import { characterBlurb, clipEps, clipSeasons, lifeFacts, presenceLine, safeBio, type Ep } from "./glimpse-info";
+import { posLabel } from "./who-scope";
+import { plural, showLine } from "./episodes";
+import type { MediaType } from "./types";
+import type { Pos } from "./who-types";
+
+/** Server side of the Glimpse About part: a title's summary, a person's summary, or a person's part in a title. Read-only TMDB + Wikipedia work, soft failures. */
+export interface AboutTitle { name: string; year: string; kind: "film" | "series"; overview: string; line: string }
+export interface AboutPerson { name: string; line: string; bio: string }
+export interface AboutRole {
+  character: string;
+  /** A short note on the character from the title's Wikipedia cast list. */
+  summary: string | null; source: { label: string; url: string } | null;
+  /** True when the note was cut short (or left out) so it does not give the story away. */
+  short: boolean;
+  episodes: Ep[]; seasons: number[]; line: string;
+  /** A regular is listed by season, not by episode: each season they are in, its size and first air date (`upTo` = only that many episodes so far). */
+  seasonRows: { n: number; eps: number; air: string; upTo?: number }[];
+  /** Why the list stops where it does: "Up to S2 E8 only" under the spoiler rules. */
+  note: string | null;
+}
+export interface GlimpseAbout { title?: AboutTitle; person?: AboutPerson; role?: AboutRole }
+
+export interface AboutQuery { type?: MediaType; id?: number; pid?: number; char?: string; clip: Pos | null; nospoil: boolean; hide?: string }
+
+const within = <T,>(p: Promise<T>, ms: number): Promise<T | null> => Promise.race([p.catch(() => null), new Promise<null>((r) => setTimeout(() => r(null), ms))]);
+
+async function aboutTitle(type: MediaType, id: number, q: AboutQuery): Promise<AboutTitle> {
+  const b = await loadBrief(type, id);
+  // While spoilers are off, only what the premise says: no season counts or "ended" (how far it goes is a spoiler too).
+  const line = q.nospoil
+    ? [b.year, b.genres.slice(0, 3).join(", ")].filter(Boolean).join(" · ")
+    : type === "tv"
+      ? [showLine({ first: b.first, last: b.last, seasons: b.seasons.filter((s) => s.n > 0).length, episodes: b.seasons.reduce((n, s) => n + (s.n > 0 ? s.eps : 0), 0), status: b.status, next: null, latest: null }), b.genres.slice(0, 3).join(", ")].filter(Boolean).join(" · ")
+      : [b.year, b.runtime ? `${b.runtime} min` : "", b.genres.slice(0, 3).join(", ")].filter(Boolean).join(" · ");
+  return { name: b.title, year: b.year, kind: type === "tv" ? "series" : "film", overview: b.overview, line };
+}
+
+async function aboutPerson(pid: number, q: AboutQuery): Promise<AboutPerson> {
+  const d = await tmdb(`/person/${pid}`, {}, 24 * 3600);
+  const today = new Date().toISOString().slice(0, 10);
+  const facts = { birthday: d.birthday ?? "", deathday: d.deathday ?? "", place: d.place_of_birth ?? "" };
+  return { name: d.name ?? "", line: lifeFacts(facts, facts.deathday ? null : ageAt(facts.birthday, today)), bio: safeBio(d.biography ?? "", { hide: q.hide, nospoil: q.nospoil }) };
+}
+
+async function aboutRole(type: MediaType, id: number, pid: number, q: AboutQuery): Promise<{ role: AboutRole | null; person: AboutPerson | null }> {
+  const key = `${type}:${id}`;
+  const [brief, p] = await Promise.all([loadBrief(type, id), loadWhoPerson(pid)]);
+  const credit = p.credits.find((c) => c.key === key);
+  const character = (q.char || charOf(credit?.role) || "").trim();
+  if (!credit && !character) return { role: null, person: await aboutPerson(pid, q).catch(() => null) };
+
+  // The character note: a paragraph of the Wikipedia cast list. A slow answer is skipped (it is cached for next time).
+  const blurb = within((async () => {
+    const wf = await getWikiFacts(brief.imdbId);
+    const art = await getArticle(wf?.article ?? null);
+    const hit = art && character ? characterBlurb(art.sections, character, p.name, q.nospoil ? 1 : 3) : null;
+    return hit && art ? { ...hit, label: art.title, url: art.url } : null;
+  })(), 5000);
+
+  let episodes: Ep[] = []; let seasons: number[] = []; let total = 0; let note: string | null = null;
+  if (type === "tv" && credit?.cids.length) {
+    const a = await getAppearances(id, credit.cids, credit.eps).catch(() => null);
+    if (a) {
+      total = a.total;
+      episodes = clipEps(a.episodes.filter((x) => x.s > 0).map((x): Ep => ({ s: x.s, e: x.e, name: x.name, air: x.air })), q.clip);
+      seasons = clipSeasons(a.seasons, q.clip);
+      if (q.clip) note = q.clip.s == null ? "The season is not set, so this covers the whole series." : `Up to ${posLabel(q.clip)} only, so nothing later is told.`;
+    }
+  }
+  const w = await blurb;
+  const upTo = q.clip && q.clip.s != null ? posLabel(q.clip) : undefined;
+  const line = type === "tv" ? presenceLine({ episodes, seasons, total: q.clip ? 0 : total }, upTo) : "";
+  const role: AboutRole = {
+    character, summary: w?.text ?? null, source: w ? { label: `Wikipedia: ${w.label}`, url: w.url } : null, short: !!w && q.nospoil,
+    episodes, seasons, line: line || (type === "tv" && credit?.eps ? plural(credit.eps, "episode") : ""), note,
+    seasonRows: !episodes.length ? brief.seasons.filter((s) => seasons.includes(s.n) && s.n > 0).map((s) => ({ n: s.n, eps: s.eps, air: s.air, ...(q.clip && q.clip.s === s.n && q.clip.e != null ? { upTo: q.clip.e } : {}) })) : [],
+  };
+  return { role, person: null };
+}
+
+export async function loadAbout(q: AboutQuery): Promise<GlimpseAbout> {
+  const { type, id, pid } = q;
+  if (type && id && pid) {
+    const [r, t] = await Promise.all([aboutRole(type, id, pid, q), aboutTitle(type, id, q).catch(() => null)]);
+    // Without a note on the character, the title (and the person) fill the gap.
+    return { ...(r.role ? { role: r.role } : {}), ...(t && !r.role?.summary ? { title: t } : {}), ...(r.person ? { person: r.person } : {}) };
+  }
+  if (type && id) return { title: await aboutTitle(type, id, q) };
+  if (pid) return { person: await aboutPerson(pid, q) };
+  return {};
+}

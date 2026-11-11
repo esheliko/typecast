@@ -36,7 +36,7 @@ function sorted(list: CreditItem[], sort: Sort, rel: Map<string, number>): Credi
  * opens, so unmarking something does not send it to the other section. Each section is sorted by release date (newest first)
  * unless you pick another order. "Known for" is the 30 best-known titles (or all, via "Show all"), then sorted.
  */
-export default function PersonCredits({ known, mineKeys, name }: { known: CreditItem[]; mineKeys: string[]; name: string }) {
+export default function PersonCredits({ known, mineKeys, name, personId }: { known: CreditItem[]; mineKeys: string[]; name: string; personId?: number }) {
   const { get } = useLib();
   const [sort, setSort] = useState<Sort>("release");
   const [kind, setKind] = useState<"all" | "movie" | "tv">("all");
@@ -55,7 +55,7 @@ export default function PersonCredits({ known, mineKeys, name }: { known: Credit
   const rest = sorted(all ? restAll : restAll.slice(0, 30), sort, rel.current);
   const [mineStable, resetMine] = useRetained(mine);
   const [restStable, resetRest] = useRetained(rest);
-  const rows = (list: CreditItem[]) => <div className="card"><ul className="rows">{list.map((k) => <li key={k.key}><TitleRow it={k} sub={creditSub(k.role ?? "", k.eps, k.since, k.date)} actor={name} role={k.role} small /></li>)}</ul></div>;
+  const rows = (list: CreditItem[]) => <div className="card"><ul className="rows">{list.map((k) => <li key={k.key}><TitleRow it={k} sub={creditSub(k.role ?? "", k.eps, k.since, k.date)} actor={name} actorId={personId} role={k.role} small /></li>)}</ul></div>;
   return (
     <>
       <div className="bz-bar" style={{ marginTop: 18 }}>
@@ -104,10 +104,10 @@ export function RelatedRows({ items }: { items: (Item & { rel?: string })[] }) {
  * A cast member's best-known other credits, inside their row on a title. Titles you have watched come first (then the rest in
  * TMDB's order). A title's place is decided the first time it is shown, so marking one never makes the rows jump.
  */
-export function TopCredits({ items, actor }: { items: (Item & { role?: string; eps?: number })[]; actor: string }) {
+export function TopCredits({ items, actor, actorId }: { items: (Item & { role?: string; eps?: number })[]; actor: string; actorId?: number }) {
   const { get } = useLib();
   const rank = useRef<Map<string, number>>(new Map());
   for (const k of items) if (!rank.current.has(k.key)) rank.current.set(k.key, get(k.key)?.status === "watched" ? 0 : 1);
   const ordered = items.map((k, i) => [k, i] as const).sort((a, b) => rank.current.get(a[0].key)! - rank.current.get(b[0].key)! || a[1] - b[1]).map(([k]) => k);
-  return <KindFilter items={ordered} style={{ margin: "4px 0" }}>{(shown) => shown.map((k) => <MarkRow key={k.key} it={k} sub={k.role} extra={k.eps ? `${k.eps} ep${k.eps === 1 ? "" : "s"}` : undefined} actor={actor} small />)}</KindFilter>;
+  return <KindFilter items={ordered} style={{ margin: "4px 0" }}>{(shown) => shown.map((k) => <MarkRow key={k.key} it={k} sub={k.role} extra={k.eps ? `${k.eps} ep${k.eps === 1 ? "" : "s"}` : undefined} actor={actor} actorId={actorId} small />)}</KindFilter>;
 }
