@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { cache, Suspense } from "react";
+import { cache, Fragment, Suspense } from "react";
 import { notFound } from "next/navigation";
 import { AwardChips, AwardsSection } from "@/components/Awards";
 import CastFilter from "@/components/CastFilter";
@@ -261,7 +261,11 @@ export default async function TitleView({ t, origin, focus }: { t: Title; origin
   // Only this title's row and the profile gate the first paint; the whole library (cast "you know them from") streams in behind the cast.
   const libP = getLibrary().catch((): LibItem[] => []);
   const [mine, profile] = await Promise.all([getLibraryItem(t.key), getProfile()]);
-  const meta = [t.show ? "" : t.year, typeLabel(t.type), t.runtime ? `${t.runtime} min${t.type === "tv" ? " per episode" : ""}` : "", t.genres.slice(0, 3).join(", ")].filter(Boolean).join(" · ");
+  const rest = [typeLabel(t.type), t.runtime ? `${t.runtime} min${t.type === "tv" ? " per episode" : ""}` : "", t.genres.slice(0, 3).join(", ")].filter(Boolean);
+  // The year alone is shown; the exact release date appears on hover.
+  const exact = fmtDate(t.show ? t.show.first : t.release ?? "");
+  const yearEl = t.show || !t.year ? null : <span title={exact || undefined}>{t.year}</span>;
+  const meta = [yearEl, ...rest].filter(Boolean);
   const gaps = missingCrew(t.crewBy).length > 0 && !!t.imdbId;
   const today = todayFor(profile.country);
   return (
@@ -271,7 +275,7 @@ export default async function TitleView({ t, origin, focus }: { t: Title; origin
         {t.poster && <img className="sh-poster" src={img(t.poster, "w185")} alt="" />}
         <div style={{ minWidth: 0 }}>
           <h1 className="sh-title">{t.title} <RelatedButton it={t} /> <GlimpseButton spec={titleSpec(t)} /> {t.imdbId && <a className="imdb-link" href={`https://www.imdb.com/title/${t.imdbId}/`} target="_blank" rel="noopener noreferrer" aria-label="Open on IMDb" title="Open on IMDb">IMDb ↗</a>}</h1>
-          <div className="sh-meta">{meta}</div>
+          <div className="sh-meta">{meta.map((x, i) => <Fragment key={i}>{i ? " · " : null}{x}</Fragment>)}</div>
           {t.show && <ShowFacts t={t} today={today} />}
           {t.release && <ReleaseLine date={releaseFor(t.releaseBy, profile.country, t.release)} k={t.key} today={today} />}
           {mine?.newEp && <div style={{ margin: "4px 0 2px" }}><NewEpPill k={t.key} detail={newEpDetail(mine.newEp)} /></div>}

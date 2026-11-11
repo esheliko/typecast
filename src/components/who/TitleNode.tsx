@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { useLib } from "../cast/LibState";
 import QuickMark from "../cast/QuickMark";
 import { TitleLink } from "../Modal";
@@ -9,7 +9,8 @@ import { More, Photo, Section, Sk, Soft, useLimit, useSpans, ZoomBtn } from "./b
 import { nodeId, useWho, type Node } from "./WhoContext";
 import { typeLabel } from "@/lib/img";
 import { roleLabel } from "@/lib/roster";
-import { fmtRange, readout } from "@/lib/who-dates";
+import { fmtRange } from "@/lib/who-dates";
+import { fmtDate } from "@/lib/episodes";
 import { whoApi } from "@/lib/who-client";
 import { markLabel, type Item } from "@/lib/types";
 import { urlKey } from "@/lib/who-scope";
@@ -18,9 +19,13 @@ import type { TitleNode as TitleData } from "@/lib/who-data";
 
 type TNode = Extract<Node, { t: "title" }>;
 
-/** Another title as a node: your mark, where it sits against what you are watching, who from this cast is in it, and its top billed. */
+// Header dates show years only (no release month).
+const yr = (d: string | null | undefined) => (d ?? "").slice(0, 4);
+const years = (a: string, b: string) => (yr(a) && yr(b) && yr(a) !== yr(b) ? `${yr(a)}-${yr(b)}` : yr(a));
+
+/** Another title as a node: your mark, a short description, who from this cast is in it, and its top billed. */
 export function TitleNode({ node }: { node: TNode }) {
-  const { watched, faces, push, brief: cur, spoilers, clip } = useWho();
+  const { faces, push, brief: cur, spoilers, clip } = useWho();
   // The show being watched: its end date and later episodes would give things away, so only its start year is shown.
   const self = node.key === cur.key;
   const lib = useLib();
@@ -38,7 +43,6 @@ export function TitleNode({ node }: { node: TNode }) {
   const it: Item = { key: node.key, type, id, title: node.title, year: node.year, poster: node.poster };
   const m = lib.get(node.key);
   const range = data ? { start: data.brief.first, end: data.brief.last || data.brief.first } : null;
-  const placed = !self && range?.start && watched.range ? readout({ label: node.title, range }, { label: watched.label, range: watched.range }) : "";
 
   const fromCast = useMemo(() => (data ? data.cast.filter(([pid]) => faces.has(pid)).map(([pid, role, n]) => ({ f: faces.get(pid)!, role, n })) : []), [data, faces]);
   const lim = useLimit(fromCast.length, 5);
@@ -50,7 +54,7 @@ export function TitleNode({ node }: { node: TNode }) {
         <ZoomBtn path={node.poster} name={node.title} className="wx-tposterb"><Photo path={node.poster} name={node.title} w="w185" className="wx-tposter" eager /></ZoomBtn>
         <div className="wx-pmeta">
           <h2 className="wx-pname" tabIndex={-1} data-focus-target>{node.title}</h2>
-          <p className="small muted" style={{ margin: "2px 0 8px" }}>{[typeLabel(type), data ? (type === "movie" ? fmtRange(data.brief.first, data.brief.first) : self ? node.year : range?.start ? fmtRange(range.start, range.end) : node.year) : node.year, data?.brief.genres.slice(0, 2).join(", ")].filter(Boolean).join(" · ")}</p>
+          <p className="small muted" style={{ margin: "2px 0 8px" }}>{[typeLabel(type), <span key="y" title={data ? fmtDate(data.brief.first) || undefined : undefined}>{data ? (type === "movie" || self ? yr(data.brief.first) || node.year : range?.start ? years(range.start, range.end) : node.year) : node.year}</span>, data?.brief.genres.slice(0, 2).join(", ")].filter((x) => x && (typeof x !== "object" || x.props.children)).map((x, i) => <Fragment key={i}>{i ? " · " : null}{x}</Fragment>)}</p>
           <div className="wx-mark-row">
             <QuickMark it={it} variant="inline" />
             <span className="small muted">{m ? markLabel(m.status, m.priority) : "Not marked"}</span>
@@ -61,8 +65,8 @@ export function TitleNode({ node }: { node: TNode }) {
 
       {err && <Soft>Couldn&rsquo;t load this title just now. <button type="button" className="linkish" onClick={() => { setErr(false); whoApi.title(urlKey(node.key)).then(setData).catch(() => setErr(true)); }}>Try again</button></Soft>}
 
-      <Section title="Against what you're watching">
-        {self ? <p className="small muted" style={{ margin: 0 }}>This is what you are watching.</p> : !data && !err ? <Sk w="90%" h={16} /> : placed ? <p className="wx-place">{placed}.</p> : <p className="small muted" style={{ margin: 0 }}>No dates to compare.</p>}
+      <Section title="About">
+        {!data && !err ? <Sk w="90%" h={16} /> : data?.brief.overview ? <p className="wx-place">{data.brief.overview}</p> : <p className="small muted" style={{ margin: 0 }}>No description available.</p>}
       </Section>
 
       <Section title="From this cast" count={data ? fromCast.length : undefined} note={spoilers ? "People from the whole series you are watching who are also in this title." : "People in what you are watching (up to where you are) who are also in this title."}>
