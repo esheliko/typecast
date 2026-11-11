@@ -186,31 +186,31 @@ test.describe("behaviour (signed in)", () => {
 
   test("Library: filter chips, text filter and sort narrow and order the list", async ({ page }) => {
     await page.goto("/library");
-    await expect(inRow(page, "The Matrix").first()).toBeVisible({ timeout: 20_000 }); // .first(): the row can render twice for a moment on first load
+    await expect(inRow(page, "The Matrix").first()).toBeVisible({ timeout: 20_000 }); // .first() on every visibility check here: a row can render twice for a moment after load or a filter change (strict-mode violation in CI at 87a2811)
     const chips = page.getByRole("group", { name: "Filter" });
 
     await chips.getByRole("button", { name: /^Watched\b/ }).click();
     await expect(page).toHaveURL(/f=watched/);
-    await expect(inRow(page, "The Matrix")).toBeVisible();
-    await expect(inRow(page, "Game of Thrones")).toBeVisible();
+    await expect(inRow(page, "The Matrix").first()).toBeVisible();
+    await expect(inRow(page, "Game of Thrones").first()).toBeVisible();
     await expect(inRow(page, "Pulp Fiction")).toHaveCount(0);
     await expect(inRow(page, "Breaking Bad")).toHaveCount(0);
 
     await chips.getByRole("button", { name: /^To watch\b/ }).click();
-    await expect(inRow(page, "Pulp Fiction")).toBeVisible();
-    await expect(inRow(page, "Stranger Things")).toBeVisible();
+    await expect(inRow(page, "Pulp Fiction").first()).toBeVisible();
+    await expect(inRow(page, "Stranger Things").first()).toBeVisible();
     await expect(inRow(page, "The Matrix")).toHaveCount(0);
 
     await chips.getByRole("button", { name: /^All\b/ }).click();
     await expect(page).not.toHaveURL(/f=/);
     const box = page.getByLabel("Filter library");
     await box.fill("break");
-    await expect(inRow(page, "Breaking Bad")).toBeVisible();
+    await expect(inRow(page, "Breaking Bad").first()).toBeVisible();
     await expect(inRow(page, "The Matrix")).toHaveCount(0);
     await box.fill("zzzzzz");
     await expect(page.getByText(/Nothing in this list matches/)).toBeVisible();
     await box.fill("");
-    await expect(inRow(page, "The Matrix")).toBeVisible();
+    await expect(inRow(page, "The Matrix").first()).toBeVisible();
 
     await page.getByLabel("Sort library").selectOption("title");
     await expect(page).toHaveURL(/s=title/);
