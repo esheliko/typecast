@@ -69,7 +69,7 @@ export function WhoApp({ brief, initialPos, today }: { brief: WhoBrief; initialP
     const u = new URLSearchParams({ k: urlKey(brief.key) });
     if (p.s != null) u.set("s", String(p.s));
     if (p.s != null && p.e != null) u.set("e", String(p.e));
-    try { window.history.replaceState(window.history.state, "", `/who?${u}`); } catch { /* the URL is a convenience */ }
+    try { window.history.replaceState(window.history.state, "", `/watching?${u}`); } catch { /* the URL is a convenience */ }
     const w = wc?.watch;
     if (w && w.key === brief.key) {
       const exact = p.s != null && p.s > 0 && p.e != null && p.e > 0;

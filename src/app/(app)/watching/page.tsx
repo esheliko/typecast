@@ -30,7 +30,7 @@ export default async function WhoPage({ searchParams }: { searchParams: Promise<
       <div className="wx wx-start"><div className="wx-startbox">
         <h1 className="wx-startt">Couldn&rsquo;t load that title</h1>
         <p className="muted">TMDB did not answer. Try again in a moment.</p>
-        <Link className="btn" href="/who">Start again</Link>
+        <Link className="btn" href="/watching">Start again</Link>
       </div></div>
     );
   }

@@ -33,7 +33,7 @@ export function WhoStart() {
         <ul className="wx-startlist">
           {titles.map((t) => (
             <li key={t.key}>
-              <Link className="wx-starthit" href={`/who?k=${urlParam(t.key)}`}>
+              <Link className="wx-starthit" href={`/watching?k=${urlParam(t.key)}`}>
                 <Photo path={t.poster} name={t.title} w="w92" className="wx-kpos" />
                 <span><b>{t.title}</b> <span className="muted">{t.year}</span><span className="small muted wx-kline">{typeLabel(t.type)}</span></span>
               </Link>
