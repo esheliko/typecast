@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { fandomNote, pickFandomPage, characterBlurb, clipEps, clipSeasons, firstSentences, lifeFacts, presenceLine, safeBio } from "../../src/lib/glimpse-info";
+import { fandomNote, pickFandomPage, characterBlurb, minorRole, clipEps, clipSeasons, firstSentences, lifeFacts, presenceLine, safeBio } from "../../src/lib/glimpse-info";
 import { parseSections } from "../../src/lib/wiki-text";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -53,6 +53,12 @@ const article = parseSections([
   test("a sub-section named after the character is used", () => {
     const secs = parseSections(["Intro.", "== Characters ==", "=== Nell Forester ===", "Nell is a sharp-tongued nurse who joins the team in the pilot episode."].join("\n"));
     expect(characterBlurb(secs, "Nell Forester", "Sara Rue", 1)?.text).toMatch(/sharp-tongued/);
+  });
+
+  test("a minor part found by surname under another first name and role name", () => {
+    const secs = parseSections(["Intro.", "== Cast ==", "Also appearing are Hy Pyke as Taffey Lewis, Robert Okazaki as Howie Lee, and Kimiko Hiroshige as the cityspeak announcer."].join("\n"));
+    expect(characterBlurb(secs, "Sushi Master", "Bob Okazaki", 1)?.text).toBe("Robert Okazaki as Howie Lee.");
+    expect(minorRole(secs, "Nobody Else")).toBeNull();
   });
 
 // presenceLine / lifeFacts / firstSentences

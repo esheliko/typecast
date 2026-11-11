@@ -72,12 +72,30 @@ export function characterBlurb(secs: Section[], character: string, actor: string
       if (!best || score > best.score) best = { score, text: p, section: sec.name };
     }
   }
-  if (!best) return null;
+  if (!best) return minorRole(secs, actor);
   let t = best.text;
   const colon = t.indexOf(":");
   if (colon > 0 && colon < 90 && (mentions(t.slice(0, colon), actor) || (ch && mentions(t.slice(0, colon), ch)))) t = t.slice(colon + 1).trim();
   const out = firstSentences(t, max);
   return out.length > 20 ? { text: out, section: best.section } : null;
+}
+
+/**
+ * Small parts are one clause in a run-on cast line ("Hy Pyke as Taffey Lewis, Robert Okazaki as Howie Lee, ..."), often under another
+ * first name or role name than TMDB uses ("Bob" vs "Robert", "Sushi Master" vs "Howie Lee"). Match on the actor's surname in an
+ * "<Given name> <Surname> as <role>" clause and give back just that clause, so the panel has something true instead of nothing.
+ */
+export function minorRole(secs: Section[], actor: string): { text: string; section: string } | null {
+  const last = actor.trim().split(/\s+/).pop() ?? "";
+  if (norm(last).length < 4) return null;
+  const name = String.raw`(?:[A-Z][\w.'’-]+\s+){1,3}`;
+  const re = new RegExp(`(${name}${last.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})\\s+as\\s+([^;.\\n]+?)(?=,\\s+(?:and\\s+)?${name}as\\s|;|\\.\\s|\\n|$)`);
+  for (const sec of secs) {
+    if (!/\b(cast|characters?)\b/i.test(sec.name)) continue;
+    const m = re.exec(sec.text);
+    if (m && m[2].trim().length > 2) return { text: `${m[1].trim()} as ${m[2].trim()}.`, section: sec.name };
+  }
+  return null;
 }
 
 /** "In 24 episodes · seasons 1-3 · first 9 Oct 2011, latest 2 May 2013" (what we can say about where someone appears). */

@@ -117,8 +117,8 @@ async function loadAboutRaw(q: AboutQuery): Promise<GlimpseAbout> {
   const { type, id, pid } = q;
   if (type && id && pid) {
     const [r, t] = await Promise.all([aboutRole(type, id, pid, q), aboutTitle(type, id, q).catch(() => null)]);
-    // Without a note on the character, the title (and the person) fill the gap.
-    return { ...(r.role ? { role: r.role } : {}), ...(t && !r.role?.summary ? { title: t } : {}), ...(r.person ? { person: r.person } : {}) };
+    // A character's panel is about the character: the film's own summary is only the fallback when there is no role at all.
+    return { ...(r.role ? { role: r.role } : {}), ...(t && !r.role ? { title: t } : {}), ...(r.person ? { person: r.person } : {}) };
   }
   if (type && id) return { title: await aboutTitle(type, id, q) };
   if (pid) return { person: await aboutPerson(pid, q) };
