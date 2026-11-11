@@ -81,30 +81,41 @@ export function Finder({ roster, loading, err, q, setQ, inputRef, recents, onOpe
   const [thenOk, setThenOk] = useState(true);
   const [thenImg, setThenImg] = useState<Record<number, string | null>>({});
   const thenSpecs = useMemo(() => new Map(visible.map((f) => [f.id, castSpec(f.name, f.role, { title: brief.title, year: brief.year, type: brief.type, key: brief.key }, "Acting", f.id).tabs[0].q])), [visible, brief]);
+  // A queue that outlives the effect: when the grid re-measures (`visible` changes) while lookups are running, nothing queued is lost or fetched twice.
   const askedThen = useRef(new Set<number>());
+  const thenQueue = useRef<{ id: number; q: string }[]>([]);
+  const thenBusy = useRef(0);
+  const pumpThen = useRef<() => void>(() => {});
+  pumpThen.current = () => {
+    while (thenBusy.current < 3 && thenQueue.current.length) {
+      const job = thenQueue.current.shift()!;
+      thenBusy.current++;
+      (async () => {
+        // Retried twice: image search can fail for a moment (rate limit), and a face must not stay without its photo for that.
+        for (let a = 0; a < 3; a++) {
+          try {
+            const r = await getJson<{ configured?: boolean; images?: GlimpseImage[] }>(`/api/glimpse?q=${encodeURIComponent(job.q)}`);
+            if (r.configured === false) { thenQueue.current = []; setThenOk(false); return; }
+            const url = r.images?.[0]?.thumb ?? null;
+            if (url) { const pre = new Image(); pre.referrerPolicy = "no-referrer"; pre.src = url; }
+            setThenImg((m) => ({ ...m, [job.id]: url }));
+            return;
+          } catch { await new Promise((ok) => setTimeout(ok, 700 * (a + 1))); }
+        }
+        askedThen.current.delete(job.id); // still failing: a later change of the visible faces asks again
+      })().finally(() => { thenBusy.current--; pumpThen.current(); });
+    }
+  };
   useEffect(() => {
     // Fetched ahead for every face shown, whether or not "Then" is on, so the switch and the hover pop show them at once.
     if (!old || !thenOk) return;
     const asked = askedThen.current;
-    const need = visible.filter((f) => !asked.has(f.id));
-    if (!need.length) return;
-    need.forEach((f) => asked.add(f.id));
-    let live = true;
-    (async () => {
-      for (let i = 0; i < need.length; i += 3) {
-        await Promise.all(need.slice(i, i + 3).map(async (f) => {
-          try {
-            const r = await getJson<{ configured?: boolean; images?: GlimpseImage[] }>(`/api/glimpse?q=${encodeURIComponent(thenSpecs.get(f.id) ?? "")}`);
-            if (r.configured === false) { if (live) setThenOk(false); return; }
-            const url = r.images?.[0]?.thumb ?? null;
-            if (url) { const pre = new Image(); pre.referrerPolicy = "no-referrer"; pre.src = url; }
-            setThenImg((m) => ({ ...m, [f.id]: url }));
-          } catch { asked.delete(f.id); }
-        }));
-        if (!live) { need.slice(i + 3).forEach((f) => asked.delete(f.id)); break; }
-      }
-    })();
-    return () => { live = false; };
+    for (const f of visible) {
+      if (asked.has(f.id)) continue;
+      asked.add(f.id);
+      thenQueue.current.push({ id: f.id, q: thenSpecs.get(f.id) ?? "" });
+    }
+    pumpThen.current();
   }, [old, thenOk, visible, thenSpecs]);
   const showThen = then && old && thenOk;
 
