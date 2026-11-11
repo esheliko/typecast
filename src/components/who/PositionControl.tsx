@@ -191,15 +191,15 @@ export function FilmClock({ briefKey }: { briefKey: string }) {
   return (
     <div className="wx-pos" role="group" aria-label="How far in">
       <span className="wx-pos-l">How far in</span>
-      <span className="ask-step">
-        <button type="button" onClick={() => wc.save(shiftWatch(w, -5))} aria-label="5 minutes less">&minus;5</button>
-        <b>{whereLabel(w, now)}</b>
-        <button type="button" onClick={() => wc.save(shiftWatch(w, 5))} aria-label="5 minutes more">+5</button>
+      <span className={`ask-step${paused ? " paused" : ""}`}>
         <button type="button" onClick={() => wc.save(setPaused(w, !paused))} aria-label={paused ? "Resume the minutes" : "Pause the minutes"} aria-pressed={paused} title={paused ? "Resume counting" : "Pause counting"}>
           <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
             {paused ? <path d="M8 5.5v13l10.5-6.5z" fill="currentColor" /> : <path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z" fill="currentColor" />}
           </svg>
         </button>
+        <button type="button" onClick={() => wc.save(shiftWatch(w, -5))} aria-label="5 minutes less">&minus;5</button>
+        <b>{whereLabel(w, now).replace(" · paused", "")}</b>
+        <button type="button" onClick={() => wc.save(shiftWatch(w, 5))} aria-label="5 minutes more">+5</button>
       </span>
     </div>
   );
