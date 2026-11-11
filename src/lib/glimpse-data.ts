@@ -13,7 +13,7 @@ import type { Pos } from "./who-types";
 
 /** Server side of the Glimpse About part: a title's summary, a person's summary, or a person's part in a title. Read-only TMDB + Wikipedia work, soft failures. */
 export interface AboutTitle { name: string; year: string; kind: "film" | "series"; overview: string; line: string }
-export interface AboutPerson { name: string; line: string; bio: string }
+export interface AboutPerson { name: string; line: string; bio: string; /** The biography was trimmed for spoilers. */ cut: boolean }
 export interface AboutRole {
   character: string;
   /** The title's name, for a web search link when no description is found. */
@@ -22,6 +22,8 @@ export interface AboutRole {
   summary: string | null; source: { label: string; url: string } | null;
   /** True when the note was cut short (or left out) so it does not give the story away. */
   short: boolean;
+  /** A fuller note exists but was held back for spoilers (the panel offers to show it). */
+  withheld: boolean;
   episodes: Ep[]; seasons: number[]; line: string;
   /** A regular is listed by season, not by episode: each season they are in, its size and first air date (`upTo` = only that many episodes so far). */
   seasonRows: { n: number; eps: number; air: string; upTo?: number }[];
@@ -52,7 +54,9 @@ async function aboutPerson(pid: number, q: AboutQuery): Promise<AboutPerson> {
   const d = await tmdb(`/person/${pid}`, {}, 24 * 3600);
   const today = new Date().toISOString().slice(0, 10);
   const facts = { birthday: d.birthday ?? "", deathday: d.deathday ?? "", place: d.place_of_birth ?? "" };
-  return { name: d.name ?? "", line: lifeFacts(facts, facts.deathday ? null : ageAt(facts.birthday, today)), bio: safeBio(d.biography ?? "", { hide: q.hide, nospoil: q.nospoil }) };
+  const bio = safeBio(d.biography ?? "", { hide: q.hide, nospoil: q.nospoil });
+  const cut = q.nospoil && bio !== safeBio(d.biography ?? "", {});
+  return { name: d.name ?? "", line: lifeFacts(facts, facts.deathday ? null : ageAt(facts.birthday, today)), bio, cut };
 }
 
 async function aboutRole(type: MediaType, id: number, pid: number, q: AboutQuery): Promise<{ role: AboutRole | null; person: AboutPerson | null }> {
@@ -66,7 +70,7 @@ async function aboutRole(type: MediaType, id: number, pid: number, q: AboutQuery
   const safe = !q.watched;
   const clip = safe ? q.clip : null;
   // The character note: a paragraph of the Wikipedia cast list, else the show's Fandom wiki. A slow answer is skipped (it is cached for next time).
-  const blurb = within((async () => {
+  const blurbFor = (safe: boolean) => within((async () => {
     const wf = await getWikiFacts(brief.imdbId);
     const art = await getArticle(wf?.article ?? null);
     const hit = art && character ? characterBlurb(art.sections, character, p.name, 3) : null;
@@ -74,6 +78,9 @@ async function aboutRole(type: MediaType, id: number, pid: number, q: AboutQuery
     if (text && art) return { text, label: `Wikipedia: ${art.title}`, url: art.url };
     return character ? getFandomNote(brief.imdbId, brief.title, character, safe) : null;
   })(), 6000);
+  const blurb = blurbFor(safe);
+  // Only when the careful version differs from the full one is there anything to offer; both come from the same cached lookups.
+  const fullBlurb = safe ? blurbFor(false) : null;
 
   let episodes: Ep[] = []; let seasons: number[] = []; let total = 0; let note: string | null = null;
   if (type === "tv" && credit?.cids.length) {
@@ -86,10 +93,11 @@ async function aboutRole(type: MediaType, id: number, pid: number, q: AboutQuery
     }
   }
   const w = await blurb;
+  const wf = fullBlurb ? await fullBlurb : null;
   const upTo = clip && clip.s != null ? posLabel(clip) : undefined;
   const line = type === "tv" ? presenceLine({ episodes, seasons, total: clip ? 0 : total }, upTo) : "";
   const role: AboutRole = {
-    character, show: brief.title, summary: w?.text ?? null, source: w ? { label: w.label, url: w.url } : null, short: !!w && safe,
+    character, show: brief.title, summary: w?.text ?? null, source: w ? { label: w.label, url: w.url } : null, short: !!w && safe, withheld: !!wf && wf.text !== w?.text,
     episodes, seasons, line: line || (type === "tv" && credit?.eps ? plural(credit.eps, "episode") : ""), note,
     seasonRows: !episodes.length ? brief.seasons.filter((s) => seasons.includes(s.n) && s.n > 0).map((s) => ({ n: s.n, eps: s.eps, air: s.air, ...(clip && clip.s === s.n && clip.e != null ? { upTo: clip.e } : {}) })) : [],
   };
@@ -98,7 +106,7 @@ async function aboutRole(type: MediaType, id: number, pid: number, q: AboutQuery
 
 export async function loadAbout(q: AboutQuery): Promise<GlimpseAbout> {
   const a = await loadAboutRaw(q);
-  const limited = a.role ? !q.watched : a.person ? q.nospoil : false;
+  const limited = a.role ? a.role.withheld : a.person ? a.person.cut : false;
   return limited ? { ...a, limited } : a;
 }
 
