@@ -3,7 +3,7 @@ import { getArticle, getWikiFacts } from "./wiki";
 import { loadBrief, loadWhoPerson } from "./who-data";
 import { ageAt } from "./who-dates";
 import { charOf } from "./glimpse";
-import { characterBlurb, RISKY, clipEps, clipSeasons, lifeFacts, presenceLine, safeBio, type Ep } from "./glimpse-info";
+import { characterBlurb, minorRole, RISKY, clipEps, clipSeasons, lifeFacts, presenceLine, safeBio, type Ep } from "./glimpse-info";
 import { posLabel } from "./who-scope";
 import { plural, showLine } from "./episodes";
 import { getFandomNote } from "./fandom";
@@ -73,13 +73,24 @@ async function aboutRole(type: MediaType, id: number, pid: number, q: AboutQuery
   const blurbFor = (safe: boolean) => within((async () => {
     const wf = await getWikiFacts(brief.imdbId);
     // The show's article, then the separate "List of … characters" article that long-running shows have.
+    const arts: NonNullable<Awaited<ReturnType<typeof getArticle>>>[] = [];
     for (const name of [wf?.article ?? null, `List of ${brief.title} characters`]) {
       const art = await getArticle(name);
-      const hit = art && character ? characterBlurb(art.sections, character, p.name, 3) : null;
+      if (!art) continue;
+      arts.push(art);
+      const hit = character ? characterBlurb(art.sections, character, p.name, 3) : null;
       const text = hit && (safe ? sentences(hit.text).find((x) => !RISKY.test(x)) ?? null : hit.text);
-      if (text && art) return { text, label: `Wikipedia: ${art.title}`, url: art.url };
+      if (text) return { text, label: `Wikipedia: ${art.title}`, url: art.url };
     }
-    return character ? getFandomNote(brief.imdbId, brief.title, character, safe) : null;
+    // The show's Fandom wiki (often far more detailed). A small part is listed on Wikipedia under another name ("Howie Lee" for TMDB's
+    // "Sushi Master"): that name is tried on the wiki too, and the bare Wikipedia cast line is the last resort.
+    const minor = arts.map((a) => minorRole(a.sections, p.name)).find(Boolean) ?? null;
+    for (const name of [character, minor?.role].filter((x): x is string => !!x)) {
+      const f = await getFandomNote(brief.imdbId, brief.title, name, safe);
+      if (f) return f;
+    }
+    const art = arts[0];
+    return minor && art ? { text: minor.text, label: `Wikipedia: ${art.title}`, url: art.url } : null;
   })(), 6000);
   const blurb = blurbFor(safe);
   // Only when the careful version differs from the full one is there anything to offer; both come from the same cached lookups.

@@ -57,7 +57,9 @@ const article = parseSections([
 
   test("a minor part found by surname under another first name and role name", () => {
     const secs = parseSections(["Intro.", "== Cast ==", "Also appearing are Hy Pyke as Taffey Lewis, Robert Okazaki as Howie Lee, and Kimiko Hiroshige as the cityspeak announcer."].join("\n"));
-    expect(characterBlurb(secs, "Sushi Master", "Bob Okazaki", 1)?.text).toBe("Robert Okazaki as Howie Lee.");
+    expect(characterBlurb(secs, "Sushi Master", "Bob Okazaki", 1)).toBeNull();
+    expect(minorRole(secs, "Bob Okazaki")?.text).toBe("Robert Okazaki as Howie Lee.");
+    expect(minorRole(secs, "Bob Okazaki")?.role).toBe("Howie Lee");
     expect(minorRole(secs, "Nobody Else")).toBeNull();
   });
 

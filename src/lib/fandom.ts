@@ -73,13 +73,13 @@ const findWiki = cached(async (imdb: string, title: string): Promise<string | nu
 }, "fandom-wiki-v3");
 
 const noteFor = cached(async (wiki: string, character: string): Promise<{ text: string; title: string } | null> => {
-  const s = await api(wiki, { action: "query", list: "search", srsearch: character, srlimit: "6", srnamespace: "0" });
+  const s = await api(wiki, { action: "query", list: "search", srsearch: character, srlimit: "10", srnamespace: "0" });
   const page = pickFandomPage(((s.query?.search ?? []) as { title: string }[]).map((x) => x.title), character);
   if (!page) return null;
   const e = await api(wiki, { action: "query", prop: "extracts", exintro: "1", explaintext: "1", redirects: "1", titles: page });
   const text = String(e.query?.pages?.[0]?.extract ?? "");
   return text ? { text: text.slice(0, 4000), title: page } : null;
-}, "fandom-note-v1");
+}, "fandom-note-v2");
 
 /** The character's note from the show's Fandom wiki, made safe to show (see `fandomNote`), or null. */
 export async function getFandomNote(imdb: string | null, show: string, character: string, safe: boolean, max = 3): Promise<FandomNote | null> {

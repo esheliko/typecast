@@ -72,7 +72,7 @@ export function characterBlurb(secs: Section[], character: string, actor: string
       if (!best || score > best.score) best = { score, text: p, section: sec.name };
     }
   }
-  if (!best) return minorRole(secs, actor);
+  if (!best) return null;
   let t = best.text;
   const colon = t.indexOf(":");
   if (colon > 0 && colon < 90 && (mentions(t.slice(0, colon), actor) || (ch && mentions(t.slice(0, colon), ch)))) t = t.slice(colon + 1).trim();
@@ -83,9 +83,9 @@ export function characterBlurb(secs: Section[], character: string, actor: string
 /**
  * Small parts are one clause in a run-on cast line ("Hy Pyke as Taffey Lewis, Robert Okazaki as Howie Lee, ..."), often under another
  * first name or role name than TMDB uses ("Bob" vs "Robert", "Sushi Master" vs "Howie Lee"). Match on the actor's surname in an
- * "<Given name> <Surname> as <role>" clause and give back just that clause, so the panel has something true instead of nothing.
+ * "<Given name> <Surname> as <role>" clause and give back just that clause, so the panel has something true instead of nothing, and the role name it gives ("Howie Lee") is a better search word for the show's wiki than TMDB's "Sushi Master". Used after Fandom, never before it.
  */
-export function minorRole(secs: Section[], actor: string): { text: string; section: string } | null {
+export function minorRole(secs: Section[], actor: string): { text: string; role: string; section: string } | null {
   const last = actor.trim().split(/\s+/).pop() ?? "";
   if (norm(last).length < 4) return null;
   const name = String.raw`(?:[A-Z][\w.'’-]+\s+){1,3}`;
@@ -93,7 +93,7 @@ export function minorRole(secs: Section[], actor: string): { text: string; secti
   for (const sec of secs) {
     if (!/\b(cast|characters?)\b/i.test(sec.name)) continue;
     const m = re.exec(sec.text);
-    if (m && m[2].trim().length > 2) return { text: `${m[1].trim()} as ${m[2].trim()}.`, section: sec.name };
+    if (m && m[2].trim().length > 2) return { text: `${m[1].trim()} as ${m[2].trim()}.`, role: m[2].trim(), section: sec.name };
   }
   return null;
 }
