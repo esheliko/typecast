@@ -1188,3 +1188,8 @@ main:focus { outline: none; }
 .wx-tileg { position: absolute; top: 4px; right: 4px; z-index: 1; }
 .wx-tileg .gl-b { width: 36px; height: 36px; background: rgba(0, 0, 0, .55); color: #fff; backdrop-filter: blur(2px); }
 .wx-tileg .gl-b:hover, .wx-tileg .gl-b:focus-visible { color: var(--gold); background: rgba(0, 0, 0, .75); }
+
+/* "Then" photos: the same 2:3 box as the profile photo (nothing moves); a small year badge says it is from the title. */
+.wx-thenw { position: relative; display: block; }
+.wx-thenw .wx-then { object-position: 50% 20%; margin-bottom: 5px; }
+.wx-thenb { position: absolute; left: 5px; bottom: 10px; padding: 1px 6px; border-radius: 999px; font: 600 10.5px/1.4 var(--sans, inherit); color: #fff; background: rgba(0, 0, 0, .6); pointer-events: none; }

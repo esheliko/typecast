@@ -10,11 +10,15 @@ import { byCast, byGender, groupWhoFaces, matchFaces, type CastFilter, type Gend
 import { RecentRow } from "./Trail";
 import { GlimpseButton } from "../Glimpse";
 import { castSpec, scopeSpec } from "@/lib/glimpse";
+import { getJson } from "@/lib/who-client";
+import { isOldTitle } from "@/lib/then-photo";
+import type { GlimpseImage } from "@/app/api/glimpse/route";
 import { roleLabel } from "@/lib/roster";
 import { pickSeenIn, seenInText, type KnownTitle } from "@/lib/who-known";
 import type { WhoFace, WhoRoster } from "@/lib/who-types";
 
 const PER_GROUP = 12;
+const THEN_KEY = "typecast.who.then";
 /** How many faces a group shows before "Show more": about PER_GROUP, rounded up to whole rows of the grid as it is laid out now. */
 const perGroup = (cols: number) => (cols > 0 ? cols * Math.max(1, Math.ceil(PER_GROUP / cols)) : PER_GROUP);
 
@@ -70,6 +74,40 @@ export function Finder({ roster, loading, err, q, setQ, inputRef, recents, onOpe
     }
   }, [ids]);
 
+  // "Then" photos: how each person looked in this title (the Glimpse "In the role" image search, cached 30 days server-side). Opt-in, only for older titles,
+  // only the faces on screen, a few at a time. The tile keeps its box, so nothing moves; a face with no image keeps the profile photo.
+  const old = isOldTitle(brief.first, new Date().getFullYear());
+  const [then, setThen] = useState(false);
+  const [thenOk, setThenOk] = useState(true);
+  const [thenImg, setThenImg] = useState<Record<number, string | null>>({});
+  useEffect(() => { try { if (localStorage.getItem(THEN_KEY) === "1") setThen(true); } catch { /* private mode */ } }, []);
+  const flipThen = (v: boolean) => { setThen(v); try { localStorage.setItem(THEN_KEY, v ? "1" : "0"); } catch { /* ignore */ } };
+  const thenSpecs = useMemo(() => new Map(visible.map((f) => [f.id, castSpec(f.name, f.role, { title: brief.title, year: brief.year, type: brief.type, key: brief.key }, "Acting", f.id).tabs[0].q])), [visible, brief]);
+  const askedThen = useRef(new Set<number>());
+  useEffect(() => {
+    if (!then || !old || !thenOk) return;
+    const asked = askedThen.current;
+    const need = visible.filter((f) => !asked.has(f.id)).slice(0, 24);
+    if (!need.length) return;
+    need.forEach((f) => asked.add(f.id));
+    let live = true;
+    (async () => {
+      for (let i = 0; i < need.length; i += 3) {
+        await Promise.all(need.slice(i, i + 3).map(async (f) => {
+          try {
+            const r = await getJson<{ configured?: boolean; images?: GlimpseImage[] }>(`/api/glimpse?q=${encodeURIComponent(thenSpecs.get(f.id) ?? "")}`);
+            if (r.configured === false) { if (live) setThenOk(false); return; }
+            if (live) setThenImg((m) => ({ ...m, [f.id]: r.images?.[0]?.thumb ?? null }));
+          } catch { asked.delete(f.id); }
+        }));
+        if (!live) { need.slice(i + 3).forEach((f) => asked.delete(f.id)); break; }
+      }
+    })();
+    return () => { live = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [then, old, thenOk, visible, thenSpecs]);
+  const showThen = then && old && thenOk;
+
   useLayoutEffect(() => {
     const el = wrap.current;
     if (!el) return;
@@ -123,6 +161,11 @@ export function Finder({ roster, loading, err, q, setQ, inputRef, recents, onOpe
         <div className="seg" role="group" aria-label="Cast">
           {([["all", "All"], ["main", "Main cast"], ["guests", film ? "Others" : "Guests"]] as const).map(([v, t]) => <button key={v} type="button" aria-pressed={cast === v} onClick={() => setCast(v)}>{t}</button>)}
         </div>
+        {old && thenOk && (
+          <div className="seg" role="group" aria-label="Photos">
+            {([[false, "Now"], [true, "Then"]] as const).map(([v, t]) => <button key={t} type="button" aria-pressed={then === v} onClick={() => flipThen(v)} title={v ? `How they looked in ${brief.title}` : "Current photos"}>{t}</button>)}
+          </div>
+        )}
         <span className="small muted wx-count" aria-live="polite">{roster ? (shown.length === total ? `${total} people` : `${shown.length} of ${total}`) : ""}</span>
       </div>
       {roster?.note && !spoilers && <p className="small wx-scopenote" role="note">{roster.note}</p>}
@@ -141,7 +184,7 @@ export function Finder({ roster, loading, err, q, setQ, inputRef, recents, onOpe
             <section key={g.id} className="wx-group" aria-label={g.label}>
               <h3 className="wx-gh">{g.label}<span className="muted"> · {g.faces.length}</span></h3>
               <ul className="wx-grid">
-                {list.map((f, i) => <Tile key={f.id} f={f} eager={i < 12} known={known[f.id]} onOpen={() => onOpen(f)} onPop={setPop} />)}
+                {list.map((f, i) => <Tile key={f.id} f={f} eager={i < 12} known={known[f.id]} then={showThen ? thenImg[f.id] : undefined} year={brief.year} onOpen={() => onOpen(f)} onPop={setPop} />)}
               </ul>
               {g.faces.length > lim && <button type="button" className="chip wx-more" onClick={() => setOpen((o) => ({ ...o, [g.id]: !all }))}>{all ? "Show fewer" : `Show ${g.faces.length - lim} more`}</button>}
             </section>
@@ -206,9 +249,10 @@ function GridSkeleton() {
 }
 
 /** One face: photo, name, character (one line each) and one muted line, "x4 · Character in Title" (gold only for the seen part). Nothing is drawn for what is not known. */
-function Tile({ f, known, eager, onOpen, onPop }: { f: WhoFace; known?: KnownTitle[]; eager: boolean; onOpen: () => void; onPop: (p: { f: WhoFace; r: DOMRect } | null) => void }) {
+function Tile({ f, known, eager, then, year, onOpen, onPop }: { f: WhoFace; known?: KnownTitle[]; eager: boolean; then?: string | null; year?: string; onOpen: () => void; onPop: (p: { f: WhoFace; r: DOMRect } | null) => void }) {
   const lib = useLib();
   const { brief, prefetchPerson, clip, spoilers } = useWho();
+  const [bad, setBad] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const show = (el: HTMLElement) => {
     clearTimeout(timer.current);
@@ -230,7 +274,10 @@ function Tile({ f, known, eager, onOpen, onPop }: { f: WhoFace; known?: KnownTit
     <li className="wx-tli">
       <button type="button" className="wx-tile" data-pid={f.id} onClick={() => { hide(); onOpen(); }} onMouseEnter={(ev) => show(ev.currentTarget)} onMouseLeave={hide}
         onFocus={(ev) => { if (ev.currentTarget.matches(":focus-visible")) show(ev.currentTarget); else { clearTimeout(timer.current); prefetchPerson(f.id); } }} onBlur={hide}>
-        <Photo path={f.photo} name={f.name} eager={eager} className="wx-ph" />
+        {then && !bad ? (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <span className="wx-thenw"><img className="wx-ph wx-then" src={then} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={() => setBad(true)} />{year && <span className="wx-thenb">{year}</span>}</span>
+        ) : <Photo path={f.photo} name={f.name} eager={eager} className="wx-ph" />}
         <b className="wx-nm">{f.name}</b>
         <span className="small muted wx-rl"><span className="wx-rlt">{role || " "}</span>{n > 0 && <span className="wx-rln" title={`${n} episode${n === 1 ? "" : "s"}`}>&nbsp;· x{n}</span>}</span>
         <span className="small muted wx-meta" title={seen || (best ? best[1] : undefined)}>
