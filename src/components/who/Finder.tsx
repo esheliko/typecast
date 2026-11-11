@@ -8,6 +8,8 @@ import { img } from "@/lib/img";
 import { whoApi, type RecentTrail } from "@/lib/who-client";
 import { byCast, byGender, groupWhoFaces, matchFaces, type CastFilter, type GenderFilter } from "@/lib/who-scope";
 import { RecentRow } from "./Trail";
+import { GlimpseButton } from "../Glimpse";
+import { castSpec, scopeSpec } from "@/lib/glimpse";
 import { roleLabel } from "@/lib/roster";
 import { pickSeenIn, seenInText, type KnownTitle } from "@/lib/who-known";
 import type { WhoFace, WhoRoster } from "@/lib/who-types";
@@ -206,7 +208,7 @@ function GridSkeleton() {
 /** One face: photo, name, character (one line each) and one muted line, "x4 · Character in Title" (gold only for the seen part). Nothing is drawn for what is not known. */
 function Tile({ f, known, eager, onOpen, onPop }: { f: WhoFace; known?: KnownTitle[]; eager: boolean; onOpen: () => void; onPop: (p: { f: WhoFace; r: DOMRect } | null) => void }) {
   const lib = useLib();
-  const { brief, prefetchPerson } = useWho();
+  const { brief, prefetchPerson, clip, spoilers } = useWho();
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const show = (el: HTMLElement) => {
     clearTimeout(timer.current);
@@ -222,8 +224,10 @@ function Tile({ f, known, eager, onOpen, onPop }: { f: WhoFace; known?: KnownTit
   const best = known?.find(([k]) => k !== brief.key);
   const role = roleLabel(f.role);
   const n = f.part === "main" || f.n < 1 || (f.part === "episode" && f.n <= 1) ? 0 : f.n;
+  const spec = scopeSpec(castSpec(f.name, f.role, { title: brief.title, year: brief.year, type: brief.type, key: brief.key }, "Acting", f.id), { key: brief.key, title: brief.title, clip, spoilers });
+  const ch = roleLabel(f.role);
   return (
-    <li>
+    <li className="wx-tli">
       <button type="button" className="wx-tile" data-pid={f.id} onClick={() => { hide(); onOpen(); }} onMouseEnter={(ev) => show(ev.currentTarget)} onMouseLeave={hide}
         onFocus={(ev) => { if (ev.currentTarget.matches(":focus-visible")) show(ev.currentTarget); else { clearTimeout(timer.current); prefetchPerson(f.id); } }} onBlur={hide}>
         <Photo path={f.photo} name={f.name} eager={eager} className="wx-ph" />
@@ -233,6 +237,7 @@ function Tile({ f, known, eager, onOpen, onPop }: { f: WhoFace; known?: KnownTit
           {pick ? <span className="wx-seen">{pick.character ? <><span className="wx-sc">{pick.character}</span><span className="wx-st">in {pick.title}</span></> : <span className="wx-st">Seen in {pick.title}</span>}</span> : best ? best[1] : null}
         </span>
       </button>
+      <span className="wx-tileg"><GlimpseButton spec={spec} label={`About ${f.name}${ch ? ` as ${ch}` : ""}: the character, episodes and images`} /></span>
     </li>
   );
 }

@@ -1182,3 +1182,9 @@ main:focus { outline: none; }
 .page-head + .chips { margin-top: 8px; }
 .hid-note { margin: 10px 0 0; }
 .stat { align-content: start; }
+
+/* Finder face: the Glimpse button sits on the photo's top-right corner (a sibling of the tile button, never inside it). */
+.wx-tli { position: relative; }
+.wx-tileg { position: absolute; top: 4px; right: 4px; z-index: 1; }
+.wx-tileg .gl-b { width: 36px; height: 36px; background: rgba(0, 0, 0, .55); color: #fff; backdrop-filter: blur(2px); }
+.wx-tileg .gl-b:hover, .wx-tileg .gl-b:focus-visible { color: var(--gold); background: rgba(0, 0, 0, .75); }
