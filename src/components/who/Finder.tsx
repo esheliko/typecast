@@ -13,10 +13,10 @@ import { pickSeenIn, seenInText, type KnownTitle } from "@/lib/who-known";
 import type { WhoFace, WhoRoster } from "@/lib/who-types";
 
 const PER_GROUP = 12;
-/** How many of a group's n faces show before "Show more": about PER_GROUP, always whole rows of the grid as it is laid out now (a group of one row or less shows all of it). */
+/** How many of a group's n faces show before "Show more": about PER_GROUP, always whole rows of the grid as it is laid out now (a group of two rows or less shows all of it). */
 const foldAt = (n: number, cols: number) => {
   if (cols <= 0) return Math.min(n, PER_GROUP);
-  if (n <= cols) return n;
+  if (n <= 2 * cols) return n;
   return Math.floor(Math.min(n, cols * Math.max(1, Math.ceil(PER_GROUP / cols))) / cols) * cols;
 };
 
