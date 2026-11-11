@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { fandomNote, pickFandomPage, characterBlurb, minorRole, clipEps, clipSeasons, firstSentences, lifeFacts, presenceLine, safeBio } from "../../src/lib/glimpse-info";
+import { fandomNote, pickFandomPage, characterBlurb, minorRole, introFromHtml, clipEps, clipSeasons, firstSentences, lifeFacts, presenceLine, safeBio } from "../../src/lib/glimpse-info";
 import { parseSections } from "../../src/lib/wiki-text";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -83,3 +83,9 @@ test("pickFandomPage prefers the exact page and skips lists and subpages", () =>
   expect(pickFandomPage(["Walter White Jr."], "Walter White")).toBe("Walter White Jr.");
   expect(pickFandomPage(["Season 5", "Category:Characters"], "Walter White")).toBeNull();
 });
+
+test("introFromHtml keeps the paragraphs and drops the infobox, figures and footnote marks", () => {
+  const html = '<div><aside><h2>Sushi master</h2><p>Born: somewhere far away from here today</p></aside><figure><p>caption caption caption caption</p></figure><p class="x">The <b>sushi master</b> runs a bar&nbsp;in the city.<sup>[1]</sup> He serves Deckard.</p><p></p></div>';
+  expect(introFromHtml(html)).toBe("The sushi master runs a bar in the city. He serves Deckard.");
+});
+test("pickFandomPage accepts a one-letter spelling difference", () => expect(pickFandomPage(["Zuben", "Howey Lee"], "Howie Lee")).toBe("Howey Lee"));

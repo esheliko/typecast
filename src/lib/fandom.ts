@@ -1,5 +1,5 @@
 import { unstable_cache } from "next/cache";
-import { fandomNote, pickFandomPage } from "./glimpse-info";
+import { fandomNote, introFromHtml, pickFandomPage } from "./glimpse-info";
 
 /**
  * Character notes from a show's Fandom wiki (MediaWiki API, no key). The wiki is found through Wikidata's "Fandom article ID" (P6262) by IMDb id,
@@ -76,10 +76,11 @@ const noteFor = cached(async (wiki: string, character: string): Promise<{ text: 
   const s = await api(wiki, { action: "query", list: "search", srsearch: character, srlimit: "10", srnamespace: "0" });
   const page = pickFandomPage(((s.query?.search ?? []) as { title: string }[]).map((x) => x.title), character);
   if (!page) return null;
-  const e = await api(wiki, { action: "query", prop: "extracts", exintro: "1", explaintext: "1", redirects: "1", titles: page });
-  const text = String(e.query?.pages?.[0]?.extract ?? "");
-  return text ? { text: text.slice(0, 4000), title: page } : null;
-}, "fandom-note-v2");
+  // `action=parse` of the intro: many Fandom wikis do not have the TextExtracts extension (`prop=extracts` answers nothing there).
+  const e = await api(wiki, { action: "parse", page, prop: "text", section: "0", redirects: "1", disabletoc: "1", disableeditsection: "1" });
+  const text = introFromHtml(String(e.parse?.text ?? ""));
+  return text ? { text: text.slice(0, 4000), title: String(e.parse?.title ?? page) } : null;
+}, "fandom-note-v3");
 
 /** The character's note from the show's Fandom wiki, made safe to show (see `fandomNote`), or null. */
 export async function getFandomNote(imdb: string | null, show: string, character: string, safe: boolean, max = 3): Promise<FandomNote | null> {

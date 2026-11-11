@@ -142,6 +142,38 @@ export function fandomNote(text: string, character: string, o: { safe: boolean; 
   return ss.slice(0, o.max ?? 3).join(" ");
 }
 
+const ENT: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ", ndash: "–", mdash: "—", rsquo: "’", lsquo: "‘", ldquo: "“", rdquo: "”" };
+
+/**
+ * The opening text of a wiki page from its rendered intro HTML (MediaWiki `action=parse`, section 0): the paragraphs only, with the infobox,
+ * figures, tables, scripts and footnote marks dropped. Fandom wikis often lack the TextExtracts extension, so this is how their text is read.
+ */
+export function introFromHtml(html: string): string {
+  const clean = (html ?? "")
+    .replace(/<(aside|figure|table|style|script|sup|div class="(?:notice|toc)[^"]*")[\s\S]*?<\/(?:aside|figure|table|style|script|sup|div)>/gi, " ")
+    .replace(/<!--[\s\S]*?-->/g, " ");
+  const paras = [...clean.matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/gi)].map((m) => m[1]
+    .replace(/<[^>]+>/g, "")
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(+n))
+    .replace(/&([a-z]+);/gi, (x, n) => ENT[n.toLowerCase()] ?? x)
+    .replace(/\[\d+\]/g, "").replace(/\s+/g, " ").trim());
+  return paras.filter((x) => x.length > 20).join("\n");
+}
+
+/** Spelled alike: same first letter and at most 1 edit (2 for words of 5+ letters): "Howie" and "Howey". */
+function near(a: string, b: string): boolean {
+  if (a === b) return true;
+  if (a.length < 4 || b.length < 4 || a[0] !== b[0]) return false;
+  const max = Math.min(a.length, b.length) >= 5 ? 2 : 1;
+  let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    const cur = [i];
+    for (let j = 1; j <= b.length; j++) cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    prev = cur;
+  }
+  return prev[b.length] <= max;
+}
+
 /** The best page for a character among a wiki search's hits: an exact title wins, then one that holds all the name's words. Skips lists, galleries and other namespaces. */
 export function pickFandomPage(titles: string[], character: string): string | null {
   const ch = norm(character.replace(/\(.*?\)/g, ""));
@@ -150,5 +182,7 @@ export function pickFandomPage(titles: string[], character: string): string | nu
   const ok = titles.filter((t) => !/[:/]/.test(t) && !/\b(list|gallery|quotes|trivia|episodes?|season|relationships?)\b/i.test(t));
   const exact = ok.find((t) => norm(t) === ch);
   if (exact) return exact;
-  return ok.find((t) => { const n = norm(t); return toks.length > 0 && toks.every((w) => n.split(" ").includes(w)) && n.split(" ").length <= toks.length + 2; }) ?? null;
+  return ok.find((t) => { const n = norm(t); return toks.length > 0 && toks.every((w) => n.split(" ").includes(w)) && n.split(" ").length <= toks.length + 2; })
+    // Wikis spell names their own way ("Howey Lee" for "Howie Lee").
+    ?? ok.find((t) => { const nt = norm(t).split(" "); return toks.length > 0 && nt.length <= toks.length + 1 && toks.every((w) => nt.some((x) => near(w, x))); }) ?? null;
 }
