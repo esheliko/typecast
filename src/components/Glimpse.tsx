@@ -121,7 +121,10 @@ const EPS_SHOWN = 8;
  * The server applies the Watching-now spoiler rules it is given in `info`. Fails soft: a failed lookup shows a small note and the images still work.
  */
 function About({ info }: { info: GlimpseInfo }) {
-  const qs = infoQuery(info);
+  const base = infoQuery(info);
+  // The reader chose to see everything despite the spoiler rules (per question, so another panel starts careful again).
+  const [riskFor, setRiskFor] = useState<string | null>(null);
+  const qs = riskFor === base ? `${base}&full=1` : base;
   const [st, setSt] = useState<{ qs: string; v: GlimpseAbout | "error" } | null>(null);
   const [all, setAll] = useState(false);
   useEffect(() => {
@@ -134,6 +137,9 @@ function About({ info }: { info: GlimpseInfo }) {
   if (cur === "error") return <div className="gl-about"><p className="small muted">Could not load the summary right now.</p></div>;
   const { role, title, person } = cur;
   if (!role && !title && !person) return null;
+  const reveal = cur.limited && riskFor !== base
+    ? <p className="small"><button type="button" className="btn sm" onClick={() => setRiskFor(base)}>Show the full description anyway</button> <span className="muted">May contain spoilers.</span></p>
+    : null;
   const eps = role ? (all ? role.episodes : role.episodes.slice(0, EPS_SHOWN)) : [];
   return (
     <div className="gl-about">
@@ -144,6 +150,7 @@ function About({ info }: { info: GlimpseInfo }) {
             <p className="gl-text">{role.summary}{role.source && <> <a className="small" href={role.source.url} target="_blank" rel="noopener noreferrer">{role.source.label}</a></>}</p>
           ) : <p className="small muted">No description of this character found.{role.character && <> <a href={`https://www.google.com/search?q=${encodeURIComponent(`${role.character} ${role.show} character`)}`} target="_blank" rel="noopener noreferrer">Search the web</a></>}</p>}
           {role.short && <p className="small muted">Kept short so it does not give the story away. Mark it Watched to see everything.</p>}
+          {reveal}
           {role.line && <p className="gl-line">{role.line}</p>}
           {role.note && <p className="small muted">{role.note}</p>}
           {eps.length > 0 && (
@@ -174,6 +181,7 @@ function About({ info }: { info: GlimpseInfo }) {
           <h3 className="gl-sec">About {person.name}</h3>
           {person.line && <p className="gl-line">{person.line}</p>}
           <p className="gl-text">{person.bio || "No biography on TMDB yet."}</p>
+          {!role && reveal}
         </section>
       )}
     </div>

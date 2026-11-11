@@ -16,13 +16,15 @@ export async function GET(req: NextRequest) {
   const t = titleParam(q.get("k"));
   const pid = intParam(q.get("p"));
   if (!t && !pid) return bad("Missing title or person");
-  const clip = q.get("c") === "1" ? posFromParams(q.get("s"), q.get("e")) : null;
+  // `full=1`: the reader chose to see it anyway, spoilers risked: told in full, no cut at the position.
+  const full = q.get("full") === "1";
+  const clip = !full && q.get("c") === "1" ? posFromParams(q.get("s"), q.get("e")) : null;
   try {
     // Marked Watched in the library = fully seen: only then is the whole story told.
-    const watched = t ? (await getLibraryItem(`${t.type}:${t.id}`).catch(() => null))?.status === "watched" : false;
+    const watched = full || (t ? (await getLibraryItem(`${t.type}:${t.id}`).catch(() => null))?.status === "watched" : false);
     return okWho(await loadAbout({ watched,
       ...(t ? { type: t.type, id: t.id } : {}), ...(pid ? { pid } : {}),
-      char: q.get("ch")?.trim().slice(0, 80) || undefined, clip, nospoil: q.get("ns") === "1", hide: q.get("h")?.trim().slice(0, 80) || undefined,
+      char: q.get("ch")?.trim().slice(0, 80) || undefined, clip, nospoil: !full && q.get("ns") === "1", hide: q.get("h")?.trim().slice(0, 80) || undefined,
     }), 0);
   } catch (e) { return failWho(e); }
 }

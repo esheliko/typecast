@@ -28,7 +28,8 @@ export interface AboutRole {
   /** Why the list stops where it does: "Up to S2 E8 only" under the spoiler rules. */
   note: string | null;
 }
-export interface GlimpseAbout { title?: AboutTitle; person?: AboutPerson; role?: AboutRole }
+/** `limited`: something was held back for spoilers; the panel then offers to show it anyway (`full=1`). */
+export interface GlimpseAbout { title?: AboutTitle; person?: AboutPerson; role?: AboutRole; limited?: boolean }
 
 export interface AboutQuery { type?: MediaType; id?: number; pid?: number; char?: string; clip: Pos | null; nospoil: boolean; hide?: string;
   /** The title is marked fully watched in the library: everything is told, whatever the position or the No spoilers switch. Anything else is told conservatively. */
@@ -96,6 +97,12 @@ async function aboutRole(type: MediaType, id: number, pid: number, q: AboutQuery
 }
 
 export async function loadAbout(q: AboutQuery): Promise<GlimpseAbout> {
+  const a = await loadAboutRaw(q);
+  const limited = a.role ? !q.watched : a.person ? q.nospoil : false;
+  return limited ? { ...a, limited } : a;
+}
+
+async function loadAboutRaw(q: AboutQuery): Promise<GlimpseAbout> {
   const { type, id, pid } = q;
   if (type && id && pid) {
     const [r, t] = await Promise.all([aboutRole(type, id, pid, q), aboutTitle(type, id, q).catch(() => null)]);
