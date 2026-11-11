@@ -155,11 +155,20 @@ export function WhoApp({ brief, initialPos, today }: { brief: WhoBrief; initialP
 
   // Move focus to the node's heading when it changes (and back to the tile you came from when you leave it).
   const lastId = useRef("root");
+  // A page load or refresh restores the trail without the user doing anything: don't steal focus then (it drew a focus ring round the name).
+  const interacted = useRef(false);
+  useEffect(() => {
+    const on = () => { interacted.current = true; };
+    const evs = ["pointerdown", "keydown", "touchstart"] as const;
+    evs.forEach((e) => window.addEventListener(e, on, { capture: true, passive: true }));
+    return () => evs.forEach((e) => window.removeEventListener(e, on, { capture: true }));
+  }, []);
   useEffect(() => {
     const id = nodeId(current);
     if (id === lastId.current) return;
     const wasRoot = id === "root";
     lastId.current = id;
+    if (!interacted.current) return;
     pane.current?.scrollTo({ top: 0 });
     const t = setTimeout(() => {
       if (wasRoot && opener.current && document.contains(opener.current)) { opener.current.focus({ preventScroll: true }); return; }
