@@ -1,6 +1,6 @@
 // Typecast service worker. Caches static assets (not images); pages and data always come from the network
 // (they are per-user), with a small offline page as the fallback.
-const STATIC = "typecast-static-v6";
+const STATIC = "typecast-static-v7";
 // Posters are NOT handled here (v4 refetched them with CORS, which this worker's own CSP connect-src 'self' blocks, leaving blank posters
 // on phones until the worker was replaced). The browser HTTP cache serves image.tmdb.org; old image caches are deleted on activate.
 const PRECACHE = ["/offline", "/retry.html", "/icons/icon.svg", "/icons/icon-192.png", "/icons/icon-512.png"];
