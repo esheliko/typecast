@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { characterName, pickSeenIn, seenInText, type KnownTitle } from "../../src/lib/who-known";
+import { characterName, pickSeenIn, sortByRelease, seenInText, type KnownTitle } from "../../src/lib/who-known";
 
 const seen = (...keys: string[]) => (k: string) => (keys.includes(k) ? { status: "watched", rich: false } : undefined);
 
@@ -65,4 +65,9 @@ test("rankByRecognition: part and fame beat date; seen titles rise; the watched 
   const seenNew = rankByRecognition(rows, (k) => (k === "movie:old" ? { status: "watched", rich: false } : undefined));
   assert.equal(seenNew[0].key, "movie:old");
   assert.equal(rows[0].key, "movie:new", "input untouched");
+});
+
+test("sortByRelease puts the newest first and undated rows last", () => {
+  const rows = [{ k: "a", d: "1976-01-01" }, { k: "b", d: "" }, { k: "c", d: "2012-08-01" }, { k: "d", d: "1976-01-01" }];
+  assert.deepEqual(sortByRelease(rows, (r) => r.d).map((r) => r.k), ["c", "a", "d", "b"]);
 });

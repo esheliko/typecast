@@ -82,3 +82,10 @@ export function pickSeenIn(top: KnownTitle[], exclude: string, mark: (key: strin
 
 /** "Dr. House in House", or "Seen in House" when TMDB has no character for it. */
 export function seenInText(p: Pick): string { return p.character ? `${p.character} in ${p.title}` : `Seen in ${p.title}`; }
+
+/** Rows ordered by release date, newest first (a series by its first episode). Rows with no known date go last, keeping their order. */
+export function sortByRelease<T>(rows: T[], start: (row: T) => string | null | undefined): T[] {
+  return rows.map((r, i) => ({ r, i, d: start(r) || "" }))
+    .sort((a, b) => (a.d && b.d ? b.d.localeCompare(a.d) : a.d ? -1 : b.d ? 1 : 0) || a.i - b.i)
+    .map((x) => x.r);
+}

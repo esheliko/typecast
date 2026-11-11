@@ -6,7 +6,7 @@ import { GlimpseButton } from "../Glimpse";
 import { More, Photo, Section, SEEN_STATUS, Sk, Soft, useLimit, useSpans } from "./bits";
 import { Timeline, type AxisItem } from "./Timeline";
 import { defaultChoice } from "@/lib/who-readout";
-import { rankByRecognition } from "@/lib/who-known";
+import { rankByRecognition, sortByRelease } from "@/lib/who-known";
 import { nodeId, useWho, type Node } from "./WhoContext";
 import { img } from "@/lib/img";
 import { roleLabel } from "@/lib/roster";
@@ -57,6 +57,7 @@ export function PersonNode({ node }: { node: PNode }) {
   const [kind, setKind] = useState<Kind>("all");
   const [onlySeen, setOnlySeen] = useState(false);
   const [extras, setExtras] = useState(false);
+  const [byDate, setByDate] = useState(false);
   // The row somebody chose on purpose: a click (selected), or a hover/focus (preview). The default is the title you came from (a title in the trail, or one picked from "titles in common"), else the top "You know them from" title.
   const [selected, setSelected] = useState<string | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
@@ -73,7 +74,7 @@ export function PersonNode({ node }: { node: PNode }) {
     ro.observe(el);
     return () => ro.disconnect();
   }, [data]);
-  useEffect(() => { setSelected(null); setPreview(null); setKind("all"); setOnlySeen(false); setExtras(false); }, [node.id, node.hl]);
+  useEffect(() => { setSelected(null); setPreview(null); setKind("all"); setOnlySeen(false); setExtras(false); setByDate(false); }, [node.id, node.hl]);
 
   const credits = useMemo(() => (data?.credits ?? []).filter((c) => c.key !== brief.key), [data, brief.key]);
   // "You know them from": what the user has seen of theirs, then what is on their list.
@@ -126,8 +127,10 @@ export function PersonNode({ node }: { node: PNode }) {
     } : null;
     const base = own && !(onlySeen && !SEEN_STATUS.has(lib.get(brief.key)?.status ?? "")) && (kind === "all" || kind === "tv") && spansEff[brief.key] !== null ? [own, ...filtered] : filtered;
     // Most recognisable first (part, fame of the title, what you have seen), not by date: the axis above still shows the dates.
-    return rankByRecognition(base, (k) => lib.get(k), tv && face ? brief.key : undefined);
-  }, [data, filtered, tv, face, brief, spansEff, ownStart, onlySeen, kind, lib]);
+    const ranked = rankByRecognition(base, (k) => lib.get(k), tv && face ? brief.key : undefined);
+    // Or by release date, newest first, when the user asks for it.
+    return byDate ? sortByRelease(ranked, (c) => { const w = whenOf(c, spansEff); return w.kind === "range" ? w.range.start : ""; }) : ranked;
+  }, [data, filtered, tv, face, brief, spansEff, ownStart, onlySeen, kind, lib, byDate]);
 
   const lim = useLimit(rows.length, 8);
   useEffect(() => { setLimitHint(lim.shown); }, [lim.shown]);
@@ -266,6 +269,7 @@ export function PersonNode({ node }: { node: PNode }) {
             <KindSeg value={kind} onChange={setKind} label="Films or series" />
             <button type="button" className="chip" aria-pressed={onlySeen} onClick={() => setOnlySeen((v) => !v)}>Only what I&rsquo;ve seen</button>
             <button type="button" className="chip" aria-pressed={extras} onClick={() => setExtras((v) => !v)}>Talk shows &amp; self</button>
+            <button type="button" className="chip" aria-pressed={byDate} onClick={() => setByDate((v) => !v)}>Newest first</button>
           </div>
           {!data && !err && <div className="sk-b wx-axis-sk" />}
           {data && (
