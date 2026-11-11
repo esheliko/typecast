@@ -9,6 +9,7 @@ import { defaultChoice } from "@/lib/who-readout";
 import { rankByRecognition, sortByRelease } from "@/lib/who-known";
 import { nodeId, useWho, type Node } from "./WhoContext";
 import { img } from "@/lib/img";
+import { pickThen } from "@/lib/then-pick";
 import { roleLabel } from "@/lib/roster";
 import { ofKind, type Kind } from "@/lib/kind";
 import { fmtMonth, fmtRange, lifeLine, yearsLabel } from "@/lib/who-dates";
@@ -193,9 +194,9 @@ export function PersonNode({ node }: { node: PNode }) {
     if (!thenOn || !old || !thenQ) return;
     let live = true;
     getJson<{ configured?: boolean; images?: GlimpseImage[] }>(`/api/glimpse?q=${encodeURIComponent(thenQ)}`)
-      .then((r) => { if (live) setThenImg(r.images?.[0]?.thumb ?? null); }).catch(() => {});
+      .then((r) => pickThen(r.images, node.photo ?? data?.photo)).then((u) => { if (live) setThenImg(u); }).catch(() => {});
     return () => { live = false; };
-  }, [thenOn, old, thenQ]);
+  }, [thenOn, old, thenQ, node.photo, data?.photo]);
   const [thenBad, setThenBad] = useState(false);
   useEffect(() => { setThenBad(false); }, [thenImg]);
   const showThen = !!thenImg && !thenBad;
