@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { bad, failWho, intParam, okWho, titleParam } from "@/lib/who-api";
 import { posFromParams } from "@/lib/who-scope";
 import { loadAbout } from "@/lib/glimpse-data";
+import { getLibraryItem } from "@/lib/library";
 
 export const maxDuration = 30;
 
@@ -17,9 +18,11 @@ export async function GET(req: NextRequest) {
   if (!t && !pid) return bad("Missing title or person");
   const clip = q.get("c") === "1" ? posFromParams(q.get("s"), q.get("e")) : null;
   try {
-    return okWho(await loadAbout({
+    // Marked Watched in the library = fully seen: only then is the whole story told.
+    const watched = t ? (await getLibraryItem(`${t.type}:${t.id}`).catch(() => null))?.status === "watched" : false;
+    return okWho(await loadAbout({ watched,
       ...(t ? { type: t.type, id: t.id } : {}), ...(pid ? { pid } : {}),
       char: q.get("ch")?.trim().slice(0, 80) || undefined, clip, nospoil: q.get("ns") === "1", hide: q.get("h")?.trim().slice(0, 80) || undefined,
-    }), 600);
+    }), 0);
   } catch (e) { return failWho(e); }
 }

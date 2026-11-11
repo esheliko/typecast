@@ -103,14 +103,14 @@ export function GlimpseProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-const aboutCache = new Map<string, Promise<GlimpseAbout>>();
+// Kept a minute only: marking a title Watched changes what the server tells, and the panel should follow.
+const aboutCache = new Map<string, { t: number; p: Promise<GlimpseAbout> }>();
 function loadAbout(qs: string): Promise<GlimpseAbout> {
-  let p = aboutCache.get(qs);
-  if (!p) {
-    p = fetch(`/api/glimpse/info?${qs}`).then(async (r) => { if (!r.ok) throw new Error("lookup failed"); return r.json() as Promise<GlimpseAbout>; });
-    p.catch(() => aboutCache.delete(qs));
-    aboutCache.set(qs, p);
-  }
+  const hit = aboutCache.get(qs);
+  if (hit && Date.now() - hit.t < 60_000) return hit.p;
+  const p = fetch(`/api/glimpse/info?${qs}`).then(async (r) => { if (!r.ok) throw new Error("lookup failed"); return r.json() as Promise<GlimpseAbout>; });
+  p.catch(() => { if (aboutCache.get(qs)?.p === p) aboutCache.delete(qs); });
+  aboutCache.set(qs, { t: Date.now(), p });
   return p;
 }
 
@@ -143,7 +143,7 @@ function About({ info }: { info: GlimpseInfo }) {
           {role.summary ? (
             <p className="gl-text">{role.summary}{role.source && <> <a className="small" href={role.source.url} target="_blank" rel="noopener noreferrer">{role.source.label}</a></>}</p>
           ) : <p className="small muted">No description of this character found.</p>}
-          {role.short && <p className="small muted">Kept short so it does not give the story away.</p>}
+          {role.short && <p className="small muted">Kept short so it does not give the story away. Mark it Watched to see everything.</p>}
           {role.line && <p className="gl-line">{role.line}</p>}
           {role.note && <p className="small muted">{role.note}</p>}
           {eps.length > 0 && (

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { characterBlurb, clipEps, clipSeasons, firstSentences, lifeFacts, presenceLine, safeBio } from "../../src/lib/glimpse-info";
+import { fandomNote, pickFandomPage, characterBlurb, clipEps, clipSeasons, firstSentences, lifeFacts, presenceLine, safeBio } from "../../src/lib/glimpse-info";
 import { parseSections } from "../../src/lib/wiki-text";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -62,3 +62,16 @@ const article = parseSections([
   test("a regular listed by season only", () => expect(presenceLine({ episodes: [], seasons: [1, 2, 3], total: 60 })).toBe("About 60 episodes · Seasons 1–3"));
   test("life", () => { expect(lifeFacts({ birthday: "1970-03-03", deathday: "", place: "London" }, 54)).toBe("Born 3 Mar 1970 in London · 54 years old"); expect(lifeFacts({ birthday: "", deathday: "", place: "" }, null)).toBe(""); });
   test("firstSentences falls back to a cut", () => expect(firstSentences("short bit", 2)).toBe("short bit"));
+
+const FAN = "Walter Hartwell White is the main protagonist of Breaking Bad. He is a high school chemistry teacher in Albuquerque. In season 5 he dies after a shootout. He builds a drug empire.";
+test("fandomNote: safe keeps one sentence with no story in it", () => {
+  expect(fandomNote(FAN, "Walter White", { safe: true })).toBe("Walter Hartwell White is the main protagonist of Breaking Bad.");
+  expect(fandomNote("Walter White dies in the finale. He is later revealed to be alive.", "Walter White", { safe: true })).toBeNull();
+});
+test("fandomNote: fully watched gets the lead as written", () => expect(fandomNote(FAN, "Walter White", { safe: false, max: 3 })).toMatch(/dies after a shootout/));
+test("fandomNote: a page about someone else is refused", () => expect(fandomNote("Skyler is a wife and bookkeeper in the show.", "Jesse Pinkman", { safe: false })).toBeNull());
+test("pickFandomPage prefers the exact page and skips lists and subpages", () => {
+  expect(pickFandomPage(["Walter White/Gallery", "List of Walter White quotes", "Walter White Jr.", "Walter White"], "Walter White")).toBe("Walter White");
+  expect(pickFandomPage(["Walter White Jr."], "Walter White")).toBe("Walter White Jr.");
+  expect(pickFandomPage(["Season 5", "Category:Characters"], "Walter White")).toBeNull();
+});

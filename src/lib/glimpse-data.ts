@@ -3,9 +3,11 @@ import { getArticle, getWikiFacts } from "./wiki";
 import { loadBrief, loadWhoPerson } from "./who-data";
 import { ageAt } from "./who-dates";
 import { charOf } from "./glimpse";
-import { characterBlurb, clipEps, clipSeasons, lifeFacts, presenceLine, safeBio, type Ep } from "./glimpse-info";
+import { characterBlurb, RISKY, clipEps, clipSeasons, lifeFacts, presenceLine, safeBio, type Ep } from "./glimpse-info";
 import { posLabel } from "./who-scope";
 import { plural, showLine } from "./episodes";
+import { getFandomNote } from "./fandom";
+import { sentences } from "./wiki-text";
 import type { MediaType } from "./types";
 import type { Pos } from "./who-types";
 
@@ -26,14 +28,16 @@ export interface AboutRole {
 }
 export interface GlimpseAbout { title?: AboutTitle; person?: AboutPerson; role?: AboutRole }
 
-export interface AboutQuery { type?: MediaType; id?: number; pid?: number; char?: string; clip: Pos | null; nospoil: boolean; hide?: string }
+export interface AboutQuery { type?: MediaType; id?: number; pid?: number; char?: string; clip: Pos | null; nospoil: boolean; hide?: string;
+  /** The title is marked fully watched in the library: everything is told, whatever the position or the No spoilers switch. Anything else is told conservatively. */
+  watched?: boolean }
 
 const within = <T,>(p: Promise<T>, ms: number): Promise<T | null> => Promise.race([p.catch(() => null), new Promise<null>((r) => setTimeout(() => r(null), ms))]);
 
 async function aboutTitle(type: MediaType, id: number, q: AboutQuery): Promise<AboutTitle> {
   const b = await loadBrief(type, id);
-  // While spoilers are off, only what the premise says: no season counts or "ended" (how far it goes is a spoiler too).
-  const line = q.nospoil
+  // Not marked fully watched: only what the premise says, no season counts or "ended" (how far it goes is a spoiler too).
+  const line = !q.watched
     ? [b.year, b.genres.slice(0, 3).join(", ")].filter(Boolean).join(" · ")
     : type === "tv"
       ? [showLine({ first: b.first, last: b.last, seasons: b.seasons.filter((s) => s.n > 0).length, episodes: b.seasons.reduce((n, s) => n + (s.n > 0 ? s.eps : 0), 0), status: b.status, next: null, latest: null }), b.genres.slice(0, 3).join(", ")].filter(Boolean).join(" · ")
@@ -55,31 +59,36 @@ async function aboutRole(type: MediaType, id: number, pid: number, q: AboutQuery
   const character = (q.char || charOf(credit?.role) || "").trim();
   if (!credit && !character) return { role: null, person: await aboutPerson(pid, q).catch(() => null) };
 
-  // The character note: a paragraph of the Wikipedia cast list. A slow answer is skipped (it is cached for next time).
+  // Not marked fully watched: told conservatively (one sentence with no deaths, twists or endings) and, for the show being watched, cut at the position.
+  const safe = !q.watched;
+  const clip = safe ? q.clip : null;
+  // The character note: a paragraph of the Wikipedia cast list, else the show's Fandom wiki. A slow answer is skipped (it is cached for next time).
   const blurb = within((async () => {
     const wf = await getWikiFacts(brief.imdbId);
     const art = await getArticle(wf?.article ?? null);
-    const hit = art && character ? characterBlurb(art.sections, character, p.name, q.nospoil ? 1 : 3) : null;
-    return hit && art ? { ...hit, label: art.title, url: art.url } : null;
-  })(), 5000);
+    const hit = art && character ? characterBlurb(art.sections, character, p.name, 3) : null;
+    const text = hit && (safe ? sentences(hit.text).find((x) => !RISKY.test(x)) ?? null : hit.text);
+    if (text && art) return { text, label: `Wikipedia: ${art.title}`, url: art.url };
+    return character ? getFandomNote(brief.imdbId, brief.title, character, safe) : null;
+  })(), 6000);
 
   let episodes: Ep[] = []; let seasons: number[] = []; let total = 0; let note: string | null = null;
   if (type === "tv" && credit?.cids.length) {
     const a = await getAppearances(id, credit.cids, credit.eps).catch(() => null);
     if (a) {
       total = a.total;
-      episodes = clipEps(a.episodes.filter((x) => x.s > 0).map((x): Ep => ({ s: x.s, e: x.e, name: x.name, air: x.air })), q.clip);
-      seasons = clipSeasons(a.seasons, q.clip);
-      if (q.clip) note = q.clip.s == null ? "The season is not set, so this covers the whole series." : `Up to ${posLabel(q.clip)} only, so nothing later is told.`;
+      episodes = clipEps(a.episodes.filter((x) => x.s > 0).map((x): Ep => ({ s: x.s, e: x.e, name: x.name, air: x.air })), clip);
+      seasons = clipSeasons(a.seasons, clip);
+      if (clip) note = clip.s == null ? "The season is not set, so this covers the whole series." : `Up to ${posLabel(clip)} only, so nothing later is told.`;
     }
   }
   const w = await blurb;
-  const upTo = q.clip && q.clip.s != null ? posLabel(q.clip) : undefined;
-  const line = type === "tv" ? presenceLine({ episodes, seasons, total: q.clip ? 0 : total }, upTo) : "";
+  const upTo = clip && clip.s != null ? posLabel(clip) : undefined;
+  const line = type === "tv" ? presenceLine({ episodes, seasons, total: clip ? 0 : total }, upTo) : "";
   const role: AboutRole = {
-    character, summary: w?.text ?? null, source: w ? { label: `Wikipedia: ${w.label}`, url: w.url } : null, short: !!w && q.nospoil,
+    character, summary: w?.text ?? null, source: w ? { label: w.label, url: w.url } : null, short: !!w && safe,
     episodes, seasons, line: line || (type === "tv" && credit?.eps ? plural(credit.eps, "episode") : ""), note,
-    seasonRows: !episodes.length ? brief.seasons.filter((s) => seasons.includes(s.n) && s.n > 0).map((s) => ({ n: s.n, eps: s.eps, air: s.air, ...(q.clip && q.clip.s === s.n && q.clip.e != null ? { upTo: q.clip.e } : {}) })) : [],
+    seasonRows: !episodes.length ? brief.seasons.filter((s) => seasons.includes(s.n) && s.n > 0).map((s) => ({ n: s.n, eps: s.eps, air: s.air, ...(clip && clip.s === s.n && clip.e != null ? { upTo: clip.e } : {}) })) : [],
   };
   return { role, person: null };
 }

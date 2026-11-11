@@ -103,3 +103,34 @@ export function lifeFacts(p: { birthday: string; deathday: string; place: string
   if (p.deathday) return `Born ${b || "(date unknown)"}${where} · died ${fmtDate(p.deathday)}`;
   return `Born ${b || "(date unknown)"}${where}${age != null ? ` · ${age} years old` : ""}`;
 }
+
+/** Words that give a story away: deaths, betrayals, twists, how things end, what happens "later". */
+export const RISKY = /\b(dies?|died|dead|death|deaths|kill(s|ed|ing)?|murder(s|ed)?|betray(s|ed|al)?|reveal(s|ed)?|twist|finale|seasons?|episodes?|eventually|later|ultimately|turns? out|final(ly)?|fate|sacrific\w*|survive[sd]?|arrest(s|ed)?|leaves?|left|returns?|replaced|married|pregnan\w*|cancer|diagnos\w*)\b/i;
+
+/**
+ * A character page's opening from a fan wiki, made safe to show. `safe` (the title is not marked fully watched): the first sentence that
+ * names no death, twist, season or ending; nothing at all when every sentence is risky. Otherwise the first `max` sentences as written.
+ * The page must be about the character (their name, or its first or last word, in the text), else null.
+ */
+export function fandomNote(text: string, character: string, o: { safe: boolean; max?: number }): string | null {
+  const t = (text ?? "").replace(/\[\d+\]/g, "").replace(/\s+/g, " ").trim();
+  const ch = character.replace(/\(.*?\)/g, "").trim();
+  if (!t || !ch) return null;
+  const toks = norm(ch).split(" ").filter((w) => w.length > 2);
+  if (!(mentions(t, ch) || toks.some((w) => mentions(t.slice(0, 300), w)))) return null;
+  const ss = sentences(t);
+  if (!ss.length) return o.safe ? null : firstSentences(t, 1);
+  if (o.safe) { const s = ss.find((x) => !RISKY.test(x)); return s ?? null; }
+  return ss.slice(0, o.max ?? 3).join(" ");
+}
+
+/** The best page for a character among a wiki search's hits: an exact title wins, then one that holds all the name's words. Skips lists, galleries and other namespaces. */
+export function pickFandomPage(titles: string[], character: string): string | null {
+  const ch = norm(character.replace(/\(.*?\)/g, ""));
+  if (!ch) return null;
+  const toks = ch.split(" ").filter((w) => w.length > 2);
+  const ok = titles.filter((t) => !/[:/]/.test(t) && !/\b(list|gallery|quotes|trivia|episodes?|season|relationships?)\b/i.test(t));
+  const exact = ok.find((t) => norm(t) === ch);
+  if (exact) return exact;
+  return ok.find((t) => { const n = norm(t); return toks.length > 0 && toks.every((w) => n.split(" ").includes(w)) && n.split(" ").length <= toks.length + 2; }) ?? null;
+}
