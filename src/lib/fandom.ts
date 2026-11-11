@@ -49,21 +49,28 @@ export function wikiGuesses(title: string): string[] {
 }
 
 /** A candidate counts only if the wiki's own name is the title ("How I Met Your Mother Wiki"), so a lookalike address never lands on an unrelated wiki. */
-async function nameMatches(wiki: string, title: string): Promise<boolean> {
-  const j = await api(wiki, { action: "query", meta: "siteinfo", siprop: "general" });
+export function siteNameMatches(sitename: string, title: string, listed: boolean): boolean {
   const strip = (x: string) => words(x).replace(/\b(wiki|fandom)\b/g, "").replace(/\s+/g, " ").trim().replace(/^the /, "");
-  const name = strip(String(j.query?.general?.sitename ?? ""));
-  return !!name && name === strip(title);
+  const name = strip(sitename), t = strip(title);
+  if (!name || !t) return false;
+  if (name === t) return true;
+  // Wikidata itself lists this wiki for the show, so "Lostpedia" is the show's wiki too.
+  return listed && (name.replace(/pedia$/, "") === t);
+}
+
+async function nameMatches(wiki: string, title: string, listed = false): Promise<boolean> {
+  const j = await api(wiki, { action: "query", meta: "siteinfo", siprop: "general" });
+  return siteNameMatches(String(j.query?.general?.sitename ?? ""), title, listed);
 }
 
 const findWiki = cached(async (imdb: string, title: string): Promise<string | null> => {
   let listed: string[] = [];
   try { listed = imdb ? await wikidataWikis(imdb) : []; } catch { /* fall back to guesses */ }
   const cands = [...new Set([...listed, ...wikiGuesses(title)])].slice(0, 8);
-  const ok = await Promise.all(cands.map((w) => nameMatches(w, title).catch(() => false)));
+  const ok = await Promise.all(cands.map((w) => nameMatches(w, title, listed.includes(w)).catch(() => false)));
   const i = ok.indexOf(true);
   return i >= 0 ? cands[i] : null;
-}, "fandom-wiki-v2");
+}, "fandom-wiki-v3");
 
 const noteFor = cached(async (wiki: string, character: string): Promise<{ text: string; title: string } | null> => {
   const s = await api(wiki, { action: "query", list: "search", srsearch: character, srlimit: "6", srnamespace: "0" });

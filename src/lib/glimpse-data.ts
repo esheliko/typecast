@@ -72,10 +72,13 @@ async function aboutRole(type: MediaType, id: number, pid: number, q: AboutQuery
   // The character note: a paragraph of the Wikipedia cast list, else the show's Fandom wiki. A slow answer is skipped (it is cached for next time).
   const blurbFor = (safe: boolean) => within((async () => {
     const wf = await getWikiFacts(brief.imdbId);
-    const art = await getArticle(wf?.article ?? null);
-    const hit = art && character ? characterBlurb(art.sections, character, p.name, 3) : null;
-    const text = hit && (safe ? sentences(hit.text).find((x) => !RISKY.test(x)) ?? null : hit.text);
-    if (text && art) return { text, label: `Wikipedia: ${art.title}`, url: art.url };
+    // The show's article, then the separate "List of … characters" article that long-running shows have.
+    for (const name of [wf?.article ?? null, `List of ${brief.title} characters`]) {
+      const art = await getArticle(name);
+      const hit = art && character ? characterBlurb(art.sections, character, p.name, 3) : null;
+      const text = hit && (safe ? sentences(hit.text).find((x) => !RISKY.test(x)) ?? null : hit.text);
+      if (text && art) return { text, label: `Wikipedia: ${art.title}`, url: art.url };
+    }
     return character ? getFandomNote(brief.imdbId, brief.title, character, safe) : null;
   })(), 6000);
   const blurb = blurbFor(safe);
