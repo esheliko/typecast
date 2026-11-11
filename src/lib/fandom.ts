@@ -1,5 +1,6 @@
 import { unstable_cache } from "next/cache";
 import { fandomNote, introFromHtml, pickFandomPage } from "./glimpse-info";
+import { pageIsSeason, parseWikiCast, type WikiCastEntry } from "./wiki-cast";
 
 /**
  * Character notes from a show's Fandom wiki (MediaWiki API, no key). The wiki is found through Wikidata's "Fandom article ID" (P6262) by IMDb id,
@@ -91,4 +92,24 @@ export async function getFandomNote(imdb: string | null, show: string, character
     const text = n && fandomNote(n.text, character, { safe, max });
     return n && text ? { text, label: `Fandom: ${n.title}`, url: `https://${wiki}.fandom.com/wiki/${encodeURIComponent(n.title.replace(/ /g, "_"))}` } : null;
   } catch { return null; }
+}
+
+const castOf = cached(async (wiki: string, title: string, season: number): Promise<WikiCastEntry[]> => {
+  for (const page of [title, `${title} (episode)`]) {
+    try {
+      const j = await api(wiki, { action: "parse", page, prop: "wikitext", redirects: "1" });
+      const w = String(j.parse?.wikitext ?? "");
+      if (w && pageIsSeason(w, season)) { const c = parseWikiCast(w); if (c.length) return c; }
+    } catch { /* no such page: try the next title */ }
+  }
+  return [];
+}, "fandom-ep-cast-v1");
+
+/** Everyone the show's Fandom wiki lists for an episode (main, guest and co-starring), or [] when the wiki or page is unknown or unreachable. */
+export async function getFandomEpisodeCast(imdb: string | null, show: string, season: number, episodeTitle: string): Promise<WikiCastEntry[]> {
+  try {
+    if (!episodeTitle.trim()) return [];
+    const wiki = await findWiki(imdb ?? "", show);
+    return wiki ? await castOf(wiki, episodeTitle.trim(), season) : [];
+  } catch { return []; }
 }

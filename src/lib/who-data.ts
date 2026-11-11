@@ -4,6 +4,7 @@ import { buildAllRoster, buildRoster, asGender, scopeKind } from "./who-scope";
 import { commonResults, sharedTitles, type CastEntry, type FoundTitle, type Shared } from "./who-common";
 import { spanFromEpisodes, type CreditEp, type CreditSeason } from "./who-spans";
 import { tmdb, TmdbError } from "./tmdb";
+import { getFandomEpisodeCast } from "./fandom";
 import { missingGuests, normName, tvmazeEpisodeIds, tvmazeGuests } from "./tvmaze";
 import type { MediaType } from "./types";
 import type { AggPerson, PCredit, PersonData, Pos, SeasonData, SeasonPerson, ShowRun, Span, WhoFace, WhoRoster } from "./who-types";
@@ -126,15 +127,15 @@ async function tmdbPersonByName(name: string): Promise<SeasonPerson | null> {
  * the earlier episodes of the season, matched back to TMDB people by exact name so every face still opens a person page.
  * Nothing found or reachable means the season is returned as TMDB gave it.
  */
-async function fillGuests(sd: SeasonData, imdb: string | null, upto: number): Promise<SeasonData> {
-  const ids = await tvmazeEpisodeIds(imdb);
-  if (!ids.size) return sd;
+async function fillGuests(sd: SeasonData, brief: WhoBrief, upto: number): Promise<SeasonData> {
+  const ids = await tvmazeEpisodeIds(brief.imdbId);
   const mine = sd.episodes.filter((x) => x.e <= upto).sort((a, b) => b.e - a.e).slice(0, 13);
   const regulars = sd.regulars.map((r) => r.name);
   const added = await pool(mine, 3, async (ep) => {
     const id = ids.get(`${sd.n}x${ep.e}`);
-    if (!id) return [] as SeasonPerson[];
-    const extra = missingGuests([...ep.guests.map((g) => g.name), ...regulars], await tvmazeGuests(id));
+    // Two second opinions on who is in the episode: TVmaze's guest cast and the show's Fandom wiki cast list (which also names regulars TMDB leaves out).
+    const [maze, wiki] = await Promise.all([id ? tvmazeGuests(id) : Promise.resolve([]), getFandomEpisodeCast(brief.imdbId, brief.title, sd.n, ep.name)]);
+    const extra = missingGuests([...ep.guests.map((g) => g.name), ...regulars], [...maze, ...wiki]);
     const found = await pool(extra, 3, async (g) => { const p = await tmdbPersonByName(g.name); return p ? { ...p, role: tidyRole(g.role) } : null; });
     return found.filter((p): p is SeasonPerson => !!p);
   });
@@ -166,7 +167,7 @@ async function rosterFor(type: MediaType, id: number, pos: Pos | null): Promise<
     const seasons = list.filter((x): x is SeasonData => !!x);
     if (kind === "exact") {
       const i = seasons.findIndex((x) => x.n === p.s);
-      if (i >= 0) seasons[i] = await fillGuests(seasons[i], brief.imdbId, p.e!).catch(() => seasons[i]);
+      if (i >= 0) seasons[i] = await fillGuests(seasons[i], brief, p.e!).catch(() => seasons[i]);
     }
     partial = seasons.length < wanted.length;
     faces = buildRoster(seasons, p);
@@ -176,7 +177,7 @@ async function rosterFor(type: MediaType, id: number, pos: Pos | null): Promise<
   return { key: `tv:${id}`, type, pos: p, scope: kind, faces: faces.slice(0, MAX_FACES), note, partial };
 }
 
-const rosterCached = cached(rosterFor, "who-roster-v2");
+const rosterCached = cached(rosterFor, "who-roster-v3");
 const hot = new Map<string, { t: number; v: Promise<WhoRoster> }>();
 /** The roster for a position. Cached in Next's data cache for six hours and in this process for ten minutes. */
 export function loadWhoRoster(type: MediaType, id: number, pos: Pos | null): Promise<WhoRoster> {
