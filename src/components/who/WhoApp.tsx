@@ -108,11 +108,12 @@ export function WhoApp({ brief, initialPos, today }: { brief: WhoBrief; initialP
     const from = currentNode(t);
     return pushNode(t, n.t === "person" && !n.hl && from.t === "title" ? { ...n, hl: from.key } : n, bid());
   }), []);
+  // From the finder the title you came from is the one being watched: its row is the default choice (falls back when it has no dates, or for a film).
   const openFromFinder = useCallback((f: { id: number; name: string; photo: string | null }, o?: { hl?: string }) => {
     opener.current = document.activeElement instanceof HTMLElement && document.activeElement.closest(".wx-finder") ? document.activeElement : null;
-    setTrail(startTrail([{ t: "person", id: f.id, name: f.name, photo: f.photo, hl: o?.hl }], bid()));
+    setTrail(startTrail([{ t: "person", id: f.id, name: f.name, photo: f.photo, hl: o?.hl ?? brief.key }], bid()));
     setOpen(true);
-  }, []);
+  }, [brief.key]);
   const restore = useCallback((r: RecentTrail) => { setTrail(startTrail(r.nodes, r.id)); setOpen(true); }, []);
   const back = useCallback(() => {
     if (trail.cur > 0) setTrail((t) => jumpTo(t, t.cur - 1)); else setOpen(false);
