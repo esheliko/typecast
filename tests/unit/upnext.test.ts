@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { because, lengthLabel, onYourServices, rankUpNext, realServices, type Facts } from "../../src/lib/upnext";
+import { bySource, because, lengthLabel, onYourServices, rankUpNext, realServices, type Facts } from "../../src/lib/upnext";
 import type { LibItem } from "../../src/lib/types";
 
 const DAY = 24 * 3600 * 1000;
@@ -123,4 +123,12 @@ test("an in-progress series says when its next episode airs, within a week", asy
   assert.match(soon[0].why, /new ep Thursday$/);
   const later = rankUpNext([s], { now, facts: new Map([[s.key, facts({ nextAir: "2026-11-30" })]]), hasServices: false }, new Set(), 5);
   assert.doesNotMatch(later[0].why, /new ep/);
+});
+
+test("bySource splits new picks from library picks", () => {
+  const mk = (key: string, kind: "discover" | "library") => ({ key, kind }) as never;
+  const picks = [mk("a", "library"), mk("b", "discover"), mk("c", "library")];
+  assert.equal(bySource(picks, "both").length, 3);
+  assert.deepEqual(bySource(picks, "new").map((p) => p.key), ["b"]);
+  assert.deepEqual(bySource(picks, "library").map((p) => p.key), ["a", "c"]);
 });

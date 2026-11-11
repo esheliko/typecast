@@ -589,7 +589,9 @@ button.aw-chip:hover { filter: brightness(1.08); }
 
 /* Library: one suggested next watch above the chips */
 .upnext { margin-top: 12px; }
-.upnext-bar { display: flex; align-items: center; gap: 10px; }
+.upnext-bar { display: flex; align-items: center; gap: 6px 10px; flex-wrap: wrap; }
+.upnext-kind .seg button { padding: 4px 10px; font-size: 12px; white-space: nowrap; }
+.upnext-src button { padding: 4px 10px; font-size: 12px; white-space: nowrap; }
 .upnext-h { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; padding: 6px 2px; }
 .upnext-k { font: 700 13px/1 var(--display); text-transform: uppercase; letter-spacing: .08em; color: var(--gold); }
 .upnext-n { font-size: 12px; color: var(--muted); }

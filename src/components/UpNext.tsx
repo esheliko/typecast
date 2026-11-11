@@ -3,14 +3,17 @@ import { useContext, useEffect, useState } from "react";
 import { TitleLink } from "./Modal";
 import { img } from "@/lib/img";
 import { newEpLabel } from "@/lib/new-episode";
-import { onYourServices, type Pick } from "@/lib/upnext";
-import { ofKind } from "@/lib/kind";
+import { bySource, onYourServices, SOURCES, type Pick, type Source } from "@/lib/upnext";
+import { isKind, mixed, ofKind, type Kind } from "@/lib/kind";
+import { KindSeg } from "./KindSeg";
 import { KindContext } from "@/lib/kind-context";
 
 const SHOW = 16;
 const KEY = "typecast:upnext-closed";
 const SNOOZE_KEY = "typecast:upnext-snoozed";
 const MINE_KEY = "typecast:upnext-mine";
+const SRC_KEY = "typecast:upnext-src";
+const KIND_KEY = "typecast:upnext-kind";
 const SNOOZE_MS = 30 * 24 * 3600 * 1000;
 
 type Snoozed = Record<string, number>;
@@ -33,22 +36,30 @@ function saveSnoozed(s: Snoozed) { try { localStorage.setItem(SNOOZE_KEY, JSON.s
 export type ServicesState = "yes" | "no" | "pending" | "failed";
 
 export default function UpNext({ picks: all, services }: { picks: Pick[]; services: ServicesState }) {
-  const kindPicks = ofKind(all, useContext(KindContext)); // follows the Library's Films / Series switch
+  const base = ofKind(all, useContext(KindContext)); // follows the Library's Films / Series switch
+  const [kind, setKind] = useState<Kind>("all"); // and the strip has its own Films / Series choice
   const [closed, setClosed] = useState(false);
   const [mineOnly, setMineOnly] = useState(false);
+  const [src, setSrc] = useState<Source>("both");
   const [snoozed, setSnoozed] = useState<Snoozed>({});
   useEffect(() => {
-    try { setClosed(localStorage.getItem(KEY) === "1"); setMineOnly(localStorage.getItem(MINE_KEY) === "1"); } catch { /* storage unavailable */ }
+    try { setClosed(localStorage.getItem(KEY) === "1"); setMineOnly(localStorage.getItem(MINE_KEY) === "1");
+      const k = localStorage.getItem(KIND_KEY); if (isKind(k)) setKind(k);
+      const s = localStorage.getItem(SRC_KEY); if (s === "new" || s === "library") setSrc(s); } catch { /* storage unavailable */ }
     setSnoozed(loadSnoozed());
   }, []);
   const canFilter = services !== "no";
   const mine = canFilter && mineOnly;
-  const picks = mine ? onYourServices(kindPicks) : kindPicks;
+  const kindPicks = ofKind(base, kind);
+  const sourced = bySource(kindPicks, src);
+  const picks = mine ? onYourServices(sourced) : sourced;
   const list = picks.filter((p) => !snoozed[p.key]).slice(0, SHOW);
   const hidden = picks.filter((p) => snoozed[p.key]).length;
-  if (!kindPicks.length) return null;
+  if (!base.length) return null;
+  const chooseSrc = (s: Source) => { setSrc(s); try { localStorage.setItem(SRC_KEY, s); } catch { /* ignore */ } };
+  const chooseKind = (k: Kind) => { setKind(k); try { localStorage.setItem(KIND_KEY, k); } catch { /* ignore */ } };
   const toggleMine = () => setMineOnly((m) => { try { localStorage.setItem(MINE_KEY, m ? "0" : "1"); } catch { /* ignore */ } return !m; });
-  const empty = !mine ? "Nothing left to suggest: everything here is hidden for now."
+  const empty = !mine ? (sourced.length ? "Nothing left to suggest: everything here is hidden for now." : src === "new" ? "No new picks right now. They come from titles you rated highly." : "Nothing from your library to suggest right now.")
     : services === "pending" ? "Checking where these stream…"
     : services === "failed" ? "Couldn't check your services just now. Try again in a moment."
     : "Nothing from your list is streaming on your services right now.";
@@ -63,6 +74,8 @@ export default function UpNext({ picks: all, services }: { picks: Pick[]; servic
           <span className="mono upnext-n">{list.length}</span>
           <span className="upnext-caret" aria-hidden="true">{closed ? "Show" : "Hide"}</span>
         </button>
+        {!closed && (kind !== "all" || mixed(base)) && <div className="upnext-kind"><KindSeg value={kind} onChange={chooseKind} label="Films or series" /></div>}
+        {!closed && <div className="seg upnext-src" role="group" aria-label="Show picks from">{SOURCES.map(([k, text]) => <button key={k} type="button" aria-pressed={src === k} onClick={() => chooseSrc(k)}>{text}</button>)}</div>}
         {!closed && canFilter && <button type="button" className="chip upnext-mine" aria-pressed={mine} onClick={toggleMine} title="Only what you can stream tonight on the services you picked in Settings">On my services</button>}
         {!closed && hidden > 0 && <button type="button" className="upnext-restore" onClick={restore}>{hidden} hidden · bring back</button>}
       </div>

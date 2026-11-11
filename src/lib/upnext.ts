@@ -48,6 +48,11 @@ export const realServices = (ids: number[]) => ids.filter((id) => Number.isInteg
 /** "Tonight on your services": only picks you can stream right now on a service you have. */
 export const onYourServices = (picks: Pick[]) => picks.filter((p) => p.tag !== null);
 
+/** Which picks Watch next shows: both, only new titles from outside the library, or only what is already in the library. */
+export type Source = "both" | "new" | "library";
+export const SOURCES: [Source, string][] = [["both", "Both"], ["new", "New picks"], ["library", "My library"]];
+export const bySource = (picks: Pick[], src: Source) => (src === "both" ? picks : picks.filter((p) => (p.kind === "discover") === (src === "new")));
+
 export interface Ctx {
   now: number;
   facts: Map<string, Facts>;
@@ -200,7 +205,7 @@ export function rankUpNext(lib: LibItem[], ctx: Ctx, snoozed: Set<string> = new 
   const stale = progress.filter((p) => p.kind === "stale").sort((a, b) => b.score - a.score);
   const active = progress.filter((p) => p.kind !== "stale").sort((a, b) => b.score - a.score).slice(0, 4);
   const wl = live.filter((l) => l.status === "watchlist").map((l) => fromWatchlist(l, ctx, taste, recBy)).filter((p): p is Pick => !!p).sort((a, b) => b.score - a.score);
-  const disc = discoveries(lib, ctx, seeds, taste).filter((p) => !snoozed.has(p.key));
+  const disc = discoveries(lib, ctx, seeds, taste, 8).filter((p) => !snoozed.has(p.key));
 
   // In-progress first (they are what you are in the middle of), then the watchlist with a discovery every fourth card.
   const out: Pick[] = [...active];
