@@ -62,6 +62,15 @@ export function WhoApp({ brief, initialPos, today }: { brief: WhoBrief; initialP
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [brief.key, pk, retry]);
   const rosterFresh = roster && roster.key === brief.key && posKey(roster.pos) === pk ? roster : null;
+  // Spoilers allowed on an exact episode: the finder keeps that episode's cast, but "who else is in this" must look across the whole series.
+  const wide = tv && spoilers && scopeKind(pos) === "exact";
+  const [wideRoster, setWideRoster] = useState<WhoRoster | null>(null);
+  useEffect(() => {
+    if (!wide) { setWideRoster(null); return; }
+    let live = true;
+    whoApi.roster(urlKey(brief.key), { s: null, e: null }).then((r) => { if (live) setWideRoster(r); }).catch(() => {});
+    return () => { live = false; };
+  }, [wide, brief.key]);
 
   /* ----- position: saved in the watch cookie when there is a watch for this title, always mirrored in the URL ----- */
   const changePos = useCallback((p: Pos) => {
@@ -160,7 +169,7 @@ export function WhoApp({ brief, initialPos, today }: { brief: WhoBrief; initialP
     if (same) router.back(); else router.push("/");
   };
 
-  const faces = useMemo(() => new Map((rosterFresh?.faces ?? roster?.faces ?? []).map((f) => [f.id, f])), [rosterFresh, roster]);
+  const faces = useMemo(() => new Map((wide && wideRoster && wideRoster.key === brief.key ? wideRoster.faces : rosterFresh?.faces ?? roster?.faces ?? []).map((f) => [f.id, f])), [wide, wideRoster, brief.key, rosterFresh, roster]);
   const clip = tv && !spoilers ? pos : null;
   const rootLabel = tv ? [brief.title, posCode(pos)].filter(Boolean).join(" ") : brief.title;
   const zoom = useCallback((p: { path: string; name: string; size?: string }) => setZoomed(p), []);

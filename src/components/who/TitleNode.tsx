@@ -17,7 +17,7 @@ type TNode = Extract<Node, { t: "title" }>;
 
 /** Another title as a node: your mark, where it sits against what you are watching, who from this cast is in it, and its top billed. */
 export function TitleNode({ node }: { node: TNode }) {
-  const { watched, faces, push, brief: cur } = useWho();
+  const { watched, faces, push, brief: cur, spoilers } = useWho();
   // The show being watched: its end date and later episodes would give things away, so only its start year is shown.
   const self = node.key === cur.key;
   const lib = useLib();
@@ -61,7 +61,7 @@ export function TitleNode({ node }: { node: TNode }) {
         {self ? <p className="small muted" style={{ margin: 0 }}>This is what you are watching.</p> : !data && !err ? <Sk w="90%" h={16} /> : placed ? <p className="wx-place">{placed}.</p> : <p className="small muted" style={{ margin: 0 }}>No dates to compare.</p>}
       </Section>
 
-      <Section title="From this cast" count={data ? fromCast.length : undefined} note="People in what you are watching (up to where you are) who are also in this title.">
+      <Section title="From this cast" count={data ? fromCast.length : undefined} note={spoilers ? "People from the whole series you are watching who are also in this title." : "People in what you are watching (up to where you are) who are also in this title."}>
         {!data && !err && <div className="wx-rowsk" aria-hidden="true"><Sk w="80%" h={44} /><Sk w="70%" h={44} style={{ marginTop: 8 }} /></div>}
         {data && !fromCast.length && <p className="small muted" style={{ margin: 0 }}>No one from the cast here is in this title.</p>}
         {fromCast.slice(0, lim.shown).map(({ f, role }) => (
