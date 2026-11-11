@@ -80,7 +80,9 @@ export function PersonNode({ node }: { node: PNode }) {
   // "You know them from": what the user has seen of theirs, then what is on their list.
   const known = useMemo(() => {
     const st = (c: PCredit) => lib.get(c.key)?.status;
+    // Watched / watching first; a title you only saw part of comes after them (stable: ties keep their order).
     const seen = credits.filter((c) => !c.extra && SEEN_STATUS.has(st(c) ?? ""));
+    seen.sort((a, b) => Number(st(a) === "partial") - Number(st(b) === "partial"));
     const listed = credits.filter((c) => !c.extra && st(c) === "watchlist");
     return [...seen, ...listed];
   }, [credits, lib]);
