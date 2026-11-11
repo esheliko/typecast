@@ -2,11 +2,12 @@ name: Deploy Manager
 # Pushes no longer deploy by themselves (vercel.json). This workflow batches pushes into one Vercel deployment
 # and paces them against the plan's deployment limit. Needs repo secret VERCEL_TOKEN (see DEPLOYING.md).
 on:
-  # No `push` trigger: CI starts on every push and its completion starts this workflow (below), so a push-triggered run only
-  # started, waited and was cancelled by the next push (36 of 56 runs in the first day).
-  workflow_run: # the moment CI finishes: the gate may now open (the cron below is best effort and was seen 5h late)
+  # No `push` trigger, but CI starts on every push: `requested` starts a manager run that stays alive (polling, up to 24 min) until it has
+  # deployed, `completed` re-evaluates the instant a CI verdict lands. The cron below is best effort only (seen 5h late): never rely on it.
+  # (2026-11-11: with only `completed`, a burst of pushes kept cancelling CI, no manager run started, and a commit waited far past 10 min.)
+  workflow_run:
     workflows: [CI]
-    types: [completed]
+    types: [requested, completed]
   schedule:
     - cron: '*/5 * * * *'
   workflow_dispatch:

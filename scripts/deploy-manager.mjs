@@ -48,7 +48,7 @@ export const CFG = {
   ciIssue: 2, // issue that scripts/ci-status.mjs keeps up to date: verdict, failing tests, responsible sessions
   ciStartGraceMin: 4, // a head commit younger than this with no verify check yet: CI is about to start, hold
   ciCancelledGraceMin: 3, // a cancelled verify older than this, with no newer run, no longer blocks
-  ciMaxWaitMin: 25, // CI still running this long after the newest commit => deploy anyway (a stuck CI must not freeze deployments)
+  ciMaxWaitMin: 12, // CI still running this long after the OLDEST pending commit => deploy anyway: no change waits longer than this, burst or not
 };
 
 const argv = process.argv.slice(2);
@@ -372,7 +372,8 @@ async function tick() {
 
     if (d.action === 'deploy' && !DRY && !d.why.includes(CFG.urgentTag)) {
       const ci = ciState(pending.head, pending.commits[0]?.at ?? null);
-      const ageMin = (Date.now() - Math.max(...pending.relevant.map((c) => c.at))) / 60e3;
+      // Measured from the OLDEST pending commit (not the newest): a stream of pushes must not keep postponing the deploy (2026-11-11).
+      const ageMin = (Date.now() - Math.min(...pending.relevant.map((c) => c.at))) / 60e3;
       // Red on the head only blocks when it is NEW: if the live commit was red too, CI has been red for a while and blocking would freeze
       // every release while changing nothing (2026-11-09: 4 smoke tests red since the previous evening). Deploy, and say so once.
       const chronic = ci === 'fail' && !!ctx.ready?.sha && ciState(ctx.ready.sha) === 'fail';
@@ -399,7 +400,7 @@ async function tick() {
         if (WAIT && Date.now() - started < CFG.loopMaxMin * 60e3) { await sleep(CFG.sleepSec * 1000); continue; }
         return;
       }
-      if (ci === 'pending') event(st, 'ci', `CI still running after ${Math.round(ageMin)}m: deploying ${pending.head.slice(0, 7)} anyway`);
+      if (ci === 'pending') event(st, 'ci', `CI still running; oldest change is ${Math.round(ageMin)}m old: deploying ${pending.head.slice(0, 7)} anyway`);
     }
     if (d.action === 'deploy' && !DRY) {
       const sha = pending.head;

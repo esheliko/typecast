@@ -79,3 +79,8 @@ The supervisor has nothing to refresh there. `scripts/dashboard-data.mjs` is gon
 - 2026-11-09 (19:55 IST): bug found and fixed: the session-start hook exited at its first line since 542cd46 (my edit put the CI block after the first `exit 0`), so new sessions saw
   no standing rule and no red-CI alert for about six hours. Lesson: after editing the hook, run it and read its output.
 - 2026-11-09 (evening): efficiency pass. Dropped the `push` trigger and made cancelled CI runs skip the manager (20 of 27 runs since noon were cancelled). CI caches the Playwright browser and `.next/cache`. CLAUDE.md lost ~40% (per-feature notes moved to `docs/features/`). Rule 3 is now lint + typecheck + unit tests, build only for config/route changes; push once per change set.
+- 2026-11-11 (17:50 IST, owner: "you should never be late"): a commit pushed at 17:36 was still waiting at 17:46. Cause: since the push trigger was removed the manager only woke when a CI run
+  COMPLETED, and during a burst each push cancels the previous CI, so no run completed and no manager run started; the CI hold was also measured from the NEWEST commit, so every push reset it.
+  Fixes: (1) the manager starts on CI `requested` too and stays alive polling until it deploys; (2) the CI hold is capped at 12 min from the OLDEST pending commit. Guarantee: a change is live
+  at most ~12 min after it was pushed, unless CI has shown the head red (then the owner is told). Trade-off: a commit can go live while its CI is still running; a red verdict afterwards
+  goes to the owner as usual. Never rely on the cron.
