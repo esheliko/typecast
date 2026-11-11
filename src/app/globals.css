@@ -1204,3 +1204,21 @@ main:focus { outline: none; }
 .wx-hereg .gl-b { width: 32px; height: 32px; }
 .wx-pphoto .wx-thenw { width: 100%; }
 .wx-pphoto .wx-thenb { bottom: 8px; }
+
+/* Finder, compact on wide short windows: two full rows of faces (photo, name, character, "known from") fit without scrolling.
+   Photos follow the window height (never taller than the usual 2:3, cropped from the bottom so heads stay), the "Recently opened" label sits
+   beside its chips, and mouse users get slightly slimmer chips. Phones in portrait (< 560px) and tall windows are unchanged. */
+@media (min-width: 560px) {
+  .wx-recent { display: flex; align-items: center; gap: 12px; margin: 6px 0 0; }
+  .wx-recent .mc-label { flex: none; }
+  .wx-recent-row { flex: 1 1 auto; min-width: 0; padding: 4px 0; }
+  .wx-group { margin: 12px 0 8px; }
+  .wx-gh { margin-bottom: 8px; }
+  .wx-grid { row-gap: 10px; }
+  .wx-grid .wx-ph { max-height: max(100px, calc((100svh - 445px) / 2)); object-position: 50% 20%; }
+}
+@media (min-width: 560px) and (pointer: fine) {
+  .wx-find { padding: 10px 0 6px; }
+  .wx-chips { margin: 2px 0 4px; }
+  .wx-chips .seg button { min-height: 38px; }
+}
