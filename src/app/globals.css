@@ -701,6 +701,10 @@ body:has(.wbar) { padding-bottom: calc(160px + var(--kb, 0px)); }
 body:has(.wbar) .toast-slot { bottom: calc(146px + env(safe-area-inset-bottom, 0px)); }
 @media (min-width: 720px) { .wbar { bottom: 14px; } body:has(.wbar) { padding-bottom: 110px; } body:has(.wbar) .toast-slot { bottom: 90px; } }
 .modal ~ .wbar, body:has(.modal) .wbar { display: none; }
+/* The watch bar is hidden under a popup, so the toast must not leave room for it. */
+body:has(.modal) .toast-slot { bottom: calc(84px + env(safe-area-inset-bottom, 0px)); }
+@media (min-width: 720px) { body:has(.modal) .toast-slot { bottom: 28px; } }
+@media (max-width: 719px) { body:has(.modal):has(.fsheet-wrap, .gl-wrap) .toast-slot { bottom: calc(16px + env(safe-area-inset-bottom, 0px)); } }
 .wbtn-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin: 8px 0 0; }
 .wbtn-row .btn { padding: 6px 12px; font-size: 13px; }
 .mark-card { margin: 12px 0 14px; padding: 10px 12px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line); }
