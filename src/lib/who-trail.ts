@@ -94,3 +94,16 @@ export function cleanRecents(v: unknown): RecentTrail[] {
     return o && typeof o.id === "string" && typeof o.k === "string" && Array.isArray(o.nodes) && o.nodes.length && o.nodes.every(ok) ? [{ id: o.id, k: o.k, nodes: o.nodes.slice(0, MAX_TRAIL) }] : [];
   }).slice(0, MAX_RECENT);
 }
+
+/** Where you were on the page (kept in sessionStorage so a refresh puts you back): the trail, its cursor and whether the details are open. */
+export interface TrailSession { k: string; id: string; nodes: Node[]; cur: number; open: boolean }
+
+/** Read a stored session back; anything malformed, or made under another title, is dropped. */
+export function cleanSession(v: unknown, key: string): TrailSession | null {
+  const o = v as Partial<TrailSession> | null;
+  if (!o || typeof o !== "object" || o.k !== key || typeof o.id !== "string" || !Array.isArray(o.nodes)) return null;
+  const r = cleanRecents([{ id: o.id, k: key, nodes: o.nodes }])[0];
+  if (!r) return null;
+  const cur = typeof o.cur === "number" && Number.isInteger(o.cur) ? Math.min(Math.max(o.cur, 0), r.nodes.length) : r.nodes.length;
+  return { k: key, id: r.id, nodes: r.nodes, cur, open: o.open === true };
+}

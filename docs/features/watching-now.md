@@ -8,3 +8,4 @@
 - `/who` is a redirect to `/watching` that keeps the query string.
 - Person page: the titles under the timeline are ordered by recognition, not date (`rankByRecognition`, `src/lib/who-known.ts`, unit tested): the same signals as the "Seen in" pick (size of their part, billing, episodes, fame of the title, a boost for what you have seen/rated). The show being watched leads; ties go to the newer title. The axis above still draws the dates.
 - With spoilers shown on an exact episode, the Finder keeps that episode's cast but `WhoApp` fetches the whole-series roster for `faces` (shared-cast lists on title/person/pair nodes).
+- A refresh keeps your place: the trail (steps, cursor, details open) is saved per title in sessionStorage (`typecast.watching.trail.<key>`, `cleanSession` in `lib/who-trail.ts`) and put back on mount; the Back-gesture depth is re-adopted from `history.state.wxDepth` so no extra history entries are pushed.

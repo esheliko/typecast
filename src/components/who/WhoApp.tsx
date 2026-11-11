@@ -16,7 +16,7 @@ import { lockScroll } from "@/lib/scroll-lock";
 import { day } from "@/lib/who-dates";
 import { posKey, readRecent, saveRecent, whoApi, type RecentTrail } from "@/lib/who-client";
 import { posCode, posLabel, scopeKind, urlKey } from "@/lib/who-scope";
-import { currentNode, emptyTrail, jumpTo, pushNode, startTrail } from "@/lib/who-trail";
+import { cleanSession, currentNode, emptyTrail, jumpTo, pushNode, startTrail } from "@/lib/who-trail";
 import type { WhoBrief } from "@/lib/who-data";
 import type { Pos, WhoRoster } from "@/lib/who-types";
 
@@ -130,6 +130,26 @@ export function WhoApp({ brief, initialPos, today }: { brief: WhoBrief; initialP
   const jump = (i: number) => setTrail((t) => jumpTo(t, i));
   const prefetchPerson = useCallback((id: number) => { void whoApi.person(id).catch(() => {}); }, []);
 
+  // A refresh keeps you on the same step of the trail: it is saved per title in sessionStorage and put back on mount.
+  const sessKey = `typecast.watching.trail.${brief.key}`;
+  const [restored, setRestored] = useState(false);
+  const restoring = useRef(false);
+  useEffect(() => {
+    const s = safe(() => cleanSession(JSON.parse(sessionStorage.getItem(sessKey) ?? "null"), brief.key), null);
+    if (s) {
+      const n = Number((safe(() => window.history.state, null) as { wxDepth?: number } | null)?.wxDepth ?? 0);
+      const want = s.open ? s.cur + 1 : 0;
+      if (n === want && want > 0) { hd.current = n; restoring.current = true; }
+      setTrail({ nodes: s.nodes, cur: s.cur, branch: s.id });
+      setOpen(s.open);
+    }
+    setRestored(true);
+  }, [sessKey, brief.key]);
+  useEffect(() => {
+    if (!restored) return;
+    safe(() => sessionStorage.setItem(sessKey, JSON.stringify({ k: brief.key, id: trail.branch, nodes: trail.nodes, cur: trail.cur, open })), undefined);
+  }, [restored, sessKey, brief.key, trail, open]);
+
   // Every line of history is remembered under "Recently opened" (the same branch is updated in place as it grows).
   useEffect(() => { if (trail.nodes.length) setRecents(saveRecent({ id: trail.branch, k: brief.key, nodes: trail.nodes })); }, [trail.nodes, trail.branch, brief.key]);
 
@@ -171,6 +191,7 @@ export function WhoApp({ brief, initialPos, today }: { brief: WhoBrief; initialP
   const hd = useRef(0);
   const leaving = useRef(false);
   useEffect(() => {
+    if (restoring.current) { if (depth === hd.current) restoring.current = false; return; }
     try {
       if (depth > hd.current) {
         for (let d = hd.current + 1; d <= depth; d++) window.history.pushState({ ...(window.history.state ?? {}), wxDepth: d }, "");

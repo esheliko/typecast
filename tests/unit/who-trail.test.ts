@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { breadcrumb, cleanRecents, currentNode, emptyTrail, jumpTo, MAX_TRAIL, nodeId, nodeLabel, pushNode, startTrail, upsertRecent, type Node } from "../../src/lib/who-trail";
+import { breadcrumb, cleanSession, cleanRecents, currentNode, emptyTrail, jumpTo, MAX_TRAIL, nodeId, nodeLabel, pushNode, startTrail, upsertRecent, type Node } from "../../src/lib/who-trail";
 
 const p = (id: number, name = `P${id}`): Node => ({ t: "person", id, name, photo: null });
 const t = (key: string, title = key): Node => ({ t: "title", key, title, year: "2000", poster: null });
@@ -82,4 +82,14 @@ test("breadcrumb text and stored-data cleanup", () => {
   const good = { id: "a", k: "tv:1", nodes: [p(1)] };
   assert.deepEqual(cleanRecents([good, { id: 1 }, { id: "x", k: "k", nodes: [{ t: "person" }] }, null, "x"]), [good]);
   assert.deepEqual(cleanRecents("nope"), []);
+});
+
+test("cleanSession restores the step you were on, only for the same title", () => {
+  const raw = { k: "tv-1", id: "b1", nodes: [p(1), t("tv-2")], cur: 1, open: true };
+  assert.deepEqual(cleanSession(raw, "tv-1"), raw);
+  assert.equal(cleanSession(raw, "tv-9"), null);
+  assert.equal(cleanSession({ ...raw, nodes: [{ t: "bogus" }] }, "tv-1"), null);
+  assert.equal(cleanSession(null, "tv-1"), null);
+  assert.equal(cleanSession({ ...raw, cur: 99 }, "tv-1")?.cur, 2);
+  assert.equal(cleanSession({ ...raw, open: "yes" }, "tv-1")?.open, false);
 });
