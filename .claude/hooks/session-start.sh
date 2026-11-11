@@ -1,6 +1,14 @@
 #!/usr/bin/env bash
 # Session start: remind Claude of the standing rule and flag a stale or non-main checkout.
-cd "${CLAUDE_PROJECT_DIR:-$(dirname "$0")/../..}" 2>/dev/null || exit 0
+cd "${CLAUDE_PROJECT_DIR:-$(dirname "$0")/../..}" 2>/dev/null || # Smoke credentials: say plainly what this session has, so nobody claims they are "saved" when they are not. Names only, never values.
+missing=""
+for v in SMOKE_EMAIL SMOKE_PASSWORD NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY TMDB_TOKEN; do [ -z "${!v}" ] && missing="$missing $v"; done
+if [ -n "$missing" ]; then
+  echo "SMOKE ENV: missing in this session:$missing. 'npm run smoke' cannot sign in until they are set (CI has its own repo secrets). Do not say they are saved; see CLAUDE.md 'Smoke credentials'."
+else
+  echo "SMOKE ENV: all smoke variables are set; 'npm run smoke' can run here."
+fi
+exit 0
 git fetch -q origin main 2>/dev/null
 branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
 behind=$(git rev-list --count HEAD..origin/main 2>/dev/null || echo "?")
