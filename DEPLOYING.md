@@ -87,3 +87,7 @@ The supervisor has nothing to refresh there. `scripts/dashboard-data.mjs` is gon
 - 2026-11-11 (18:50 IST): after the 12-min cap fix, deploys were on time but eight commits in a row got NO CI verdict (each push cancelled the previous run), so a red main would have gone unnoticed
   for the whole burst. CI no longer cancels a running push run on main (`cancel-in-progress` only for non-push events): the running one finishes, the newest queued one waits, older queued ones are
   dropped, so a verdict lands about every 10 min even in a burst and runs stay serialized for the shared smoke account.
+- 2026-11-11 (22:45 IST, owner: "why are you late again"): three commits waited 24+ min. GitHub Actions stopped starting jobs for about 25 min (CI and Deploy Manager runs sat in `queued`), so the
+  12-min cap never ran: the manager lived entirely on GitHub starting a run. Fix: a second, independent executor. A Claude session that is alive runs `node scripts/deploy-manager.mjs --no-poll`
+  every 2 min under the Monitor tool (the "deploy guard"; it prints only when it deploys). The script is idempotent (it checks in-flight deployments and keeps a 2-min minimum gap), so two executors
+  cannot double-deploy. Limit: the guard exists only while that Claude session lives; re-arm it when its Monitor expires, and treat "Last tick" on issue #1 older than ~15 min with pending commits as an alarm.
