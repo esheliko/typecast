@@ -54,6 +54,9 @@ Next.js 16 (App Router) + Supabase (email/password auth, RLS) + TMDB. See README
 - Glimpse (profile-card button on titles, cast rows, credits): opens About (character note, episodes and dates, title or person summary, all spoiler-scoped on /watching) over the images. Specs carry ids (`lib/glimpse.ts`), server `lib/glimpse-data.ts`, route `/api/glimpse/info`. Details: `docs/features/glimpse.md` (read before changing this feature).
 - `artifact.html` is the legacy single-file prototype, not part of the site.
 
+## Screenshot complaints
+- If a session begins with the owner sending a screenshot complaining about how something looks, the reply must include a screenshot of the same exact view after the fix. Same page, same viewport/device size, same state and data as the owner's screenshot (a before/after pair is ideal). Take it with the pre-installed Playwright (see `tests/smoke/visual.ts` for phone and laptop viewports and signing in) and show it to the owner, e.g. with `SendUserFile`; do not call the fix done without it. If the exact view cannot be reproduced (needs data or an account you lack), say so and show the closest view instead.
+
 ## Known gaps
 - Test coverage is thin: unit tests cover only a few pure `src/lib` modules; the smoke test covers page loads, not behaviour.
 
