@@ -738,7 +738,8 @@ body:has(.modal) .toast-slot { bottom: calc(84px + env(safe-area-inset-bottom, 0
 
 .ask-step { display: inline-flex; align-items: center; gap: 2px; padding: 2px; border-radius: 999px; background: var(--chip); font-size: 13px; }
 .ask-step b { padding: 0 6px; white-space: nowrap; }
-.ask-step button { width: 30px; height: 30px; border-radius: 999px; text-align: center; font-weight: 700; }
+.ask-step button { width: 30px; height: 30px; border-radius: 999px; text-align: center; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; padding: 0; line-height: 1; }
+.ask-step svg { display: block; }
 .ask-step button:hover:not([disabled]) { background: var(--line); }
 .ask-step button[disabled] { opacity: .35; cursor: default; }
 @media (prefers-reduced-motion: reduce) { .live-dot { animation: none; } }
