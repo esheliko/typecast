@@ -238,13 +238,17 @@ export function Finder({ roster, loading, err, q, setQ, inputRef, recents, onOpe
 
 /** The larger photo beside a tile: to its right, or its left near the edge, always inside the window. */
 function Pop({ f, r, then, year }: { f: WhoFace; r: DOMRect; then?: string | null; year?: string }) {
-  const W = then ? 400 : 220, H = Math.round(W * 1.5) + 54;
+  const W = then ? 400 : 220;
+  // The height depends on the layout (two photos side by side are half as tall as one), so measure it instead of guessing.
+  const ref = useRef<HTMLDivElement>(null);
+  const [H, setH] = useState(then ? 330 : Math.round(W * 1.5) + 54);
+  useLayoutEffect(() => { const h = ref.current?.offsetHeight; if (h && h !== H) setH(h); }, [f.id, then, H]);
   let left = r.right + 10;
   if (left + W > window.innerWidth - 8) left = r.left - W - 10;
   left = Math.max(8, left);
   const top = Math.min(Math.max(8, r.top + r.height / 2 - H / 2), Math.max(8, window.innerHeight - H - 8));
   return (
-    <div className="wx-pop" style={{ left, top, width: W }} aria-hidden="true">
+    <div ref={ref} className="wx-pop" style={{ left, top, width: W }} aria-hidden="true">
       <div className={then ? "wx-popduo" : undefined}>
         <figure>
           {/* eslint-disable-next-line @next/next/no-img-element */}
