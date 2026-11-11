@@ -5,7 +5,7 @@ import { useWatchControl } from "../Watching";
 import { Finder } from "./Finder";
 import { PairNode } from "./PairNode";
 import { PersonNode } from "./PersonNode";
-import { PositionControl } from "./PositionControl";
+import { PositionControl, FilmClock } from "./PositionControl";
 import { RootNode } from "./RootNode";
 import { TitleNode } from "./TitleNode";
 import { EpisodeNode } from "./EpisodeNode";
@@ -220,6 +220,7 @@ export function WhoApp({ brief, initialPos, today }: { brief: WhoBrief; initialP
             <span className="small muted">{[brief.year, tv ? posLabel(pos) : "Film"].filter(Boolean).join(" · ")}</span>
           </div>
           {tv && pos && <PositionControl brief={brief} pos={pos} onChange={changePos} />}
+          {!tv && <FilmClock briefKey={brief.key} />}
           <div className="wx-topr">
             <button type="button" role="switch" aria-checked={spoilers} className="wx-nospoil" onClick={toggleSpoilers}
               title={spoilers ? "Spoilers are shown: the whole series, past where you are" : "Spoilers are hidden: everything stops at where you are"}>

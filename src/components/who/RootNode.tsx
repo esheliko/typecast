@@ -7,7 +7,7 @@ import { EpisodeCard } from "./EpisodeCard";
 import { Section, Sk, ZoomBtn, Photo } from "./bits";
 import { useWho } from "./WhoContext";
 import { fmtDay } from "@/lib/who-dates";
-import { factButtons, whereLabel } from "@/lib/watching";
+import { factButtons } from "@/lib/watching";
 import { posLabel, scopeKind, urlKey } from "@/lib/who-scope";
 import type { Answer } from "@/lib/answer";
 
@@ -27,9 +27,6 @@ export function RootNode() {
     wc?.stop();
     router.push("/");
   };
-  // A film: how far in you are (the "time left" fact uses it), moved five minutes at a time.
-  const shift = (min: number) => { if (mine && wc) wc.save({ ...mine, started: Math.min(Date.now(), mine.started - min * 60000) }); };
-
   const [facts, setFacts] = useState<Record<string, Answer | "loading">>({});
   const [open, setOpen] = useState<Record<string, boolean>>({});
   useEffect(() => { setFacts({}); setOpen({}); setSummary(false); }, [brief.key, pos?.s, pos?.e, spoilers]);
@@ -60,13 +57,6 @@ export function RootNode() {
             <ZoomBtn path={brief.poster} name={brief.title} className="wx-filmposterb"><Photo path={brief.poster} name={brief.title} w="w342" className="wx-filmposter" /></ZoomBtn>
             <div className="wx-epinfo">
               <p className="small muted" style={{ margin: "0 0 6px" }}>{[brief.first && `Released ${fmtDay(brief.first)}`, brief.runtime && `${brief.runtime} min`, brief.genres.slice(0, 3).join(", ")].filter(Boolean).join(" · ")}</p>
-              {mine && (
-                <span className="ask-step" role="group" aria-label="How far in">
-                  <button type="button" onClick={() => shift(-5)} aria-label="5 minutes less">−5</button>
-                  <b>{whereLabel(mine)}</b>
-                  <button type="button" onClick={() => shift(5)} aria-label="5 minutes more">+5</button>
-                </span>
-              )}
               {brief.overview && (
                 <>
                   <button type="button" className="chip wx-sumb" aria-expanded={summary} onClick={() => setSummary((v) => !v)}>{summary ? "Hide summary" : "Show summary"}</button>

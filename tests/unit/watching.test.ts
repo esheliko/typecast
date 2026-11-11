@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { elapsedMin, parseWatch, factButtons, serializeWatch, whereLabel, WATCH_MAX_MS, type Watch } from "../../src/lib/watching";
+import { elapsedMin, setPaused, shiftWatch, parseWatch, factButtons, serializeWatch, whereLabel, WATCH_MAX_MS, type Watch } from "../../src/lib/watching";
 
 const now = 1_800_000_000_000;
 const film: Watch = { key: "movie:1", type: "movie", id: 1, title: "Heat", year: "1995", poster: "/p.jpg", started: now - 42 * 60000, runtime: 170 };
@@ -42,4 +42,18 @@ test("every fact button reaches its own answer", async () => {
   for (const type of ["movie", "tv"] as const) {
     for (const b of factButtons(type)) assert.notEqual(parseQuestion(b.q, []).kind, "search", `${type}: ${b.label}`);
   }
+});
+
+test("pausing stops the minutes and resuming carries on from there", () => {
+  const now = Date.now();
+  const w: Watch = { key: "movie:1", type: "movie", id: 1, title: "T", year: "2000", poster: null, started: now - 42 * 60000, runtime: 120 };
+  const p = setPaused(w, true, now);
+  assert.equal(elapsedMin(p, now + 30 * 60000), 42);
+  assert.match(whereLabel(p, now), /paused/);
+  const r = setPaused(p, false, now + 30 * 60000);
+  assert.equal(r.paused, undefined);
+  assert.equal(elapsedMin(r, now + 30 * 60000), 42);
+  assert.equal(elapsedMin(r, now + 40 * 60000), 52);
+  assert.equal(elapsedMin(shiftWatch(p, 5, now + 9e6), now + 9e6), 47);
+  assert.equal(parseWatch(serializeWatch(p), now)?.paused, now);
 });
