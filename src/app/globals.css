@@ -719,15 +719,14 @@ body:has(.modal) .toast-slot { bottom: calc(84px + env(safe-area-inset-bottom, 0
 .mc-line .stars { flex: none; letter-spacing: 0; white-space: nowrap; }
 .mc-line .stars button { padding: 0 1px; line-height: 1; }
 .chip.sc.mc-cur { min-width: 0; padding: 8px 12px; font-weight: 600; }
-.mc-cur-t, .mc-q .mc-cur-t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mc-cur-t, .mc-q .mc-cur-t { white-space: nowrap; }
 .mc-chev { flex: none; margin-left: 2px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; opacity: .7; }
 .chip.sc.mc-cur.none { background: var(--gold-fill); color: var(--on-gold); }
 .chip.sc.mc-cur.watched { background: var(--good); color: var(--on-good); }
-.mc-quick { display: flex; align-items: center; gap: 6px; min-width: 0; flex-wrap: nowrap; }
-.chip.sc.mc-more { padding: 8px 10px; }
+.mc-quick { display: flex; align-items: center; gap: 8px; min-width: 0; flex-wrap: wrap; }
+.chip.sc.mc-more { padding: 8px 12px; }
 .chip.sc.mc-q { min-width: 0; padding: 8px 12px; font-weight: 600; }
-.chip.sc.mc-q.none { background: var(--gold-fill); color: var(--on-gold); }
-@media (hover: hover) { .chip.sc.mc-q.none:hover { filter: brightness(1.08); } }
+.chip.sc.mc-q:not(.watchedq):hover { background: var(--gold-fill); color: var(--on-gold); }
 .chip.sc.mc-q.watchedq:hover { background: var(--good); color: var(--on-good); }
 .mc-menu { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
 .mc-menu .mc-row { margin-top: 10px; }
