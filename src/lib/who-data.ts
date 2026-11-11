@@ -4,6 +4,7 @@ import { buildAllRoster, buildRoster, asGender, scopeKind } from "./who-scope";
 import { commonResults, sharedTitles, type CastEntry, type FoundTitle, type Shared } from "./who-common";
 import { spanFromEpisodes, type CreditEp, type CreditSeason } from "./who-spans";
 import { tmdb, TmdbError } from "./tmdb";
+import { missingGuests, normName, tvmazeEpisodeIds, tvmazeGuests } from "./tvmaze";
 import type { MediaType } from "./types";
 import type { AggPerson, PCredit, PersonData, Pos, SeasonData, SeasonPerson, ShowRun, Span, WhoFace, WhoRoster } from "./who-types";
 
@@ -112,6 +113,35 @@ async function fetchSeasonData(tv: number, n: number, full: boolean): Promise<Se
 
 const MAX_FACES = 2500;
 
+/** A TMDB person by exact (accent-free) name, the most popular one when several share it. Null when there is none. */
+async function tmdbPersonByName(name: string): Promise<SeasonPerson | null> {
+  const d = await tmdb("/search/person", { query: name, include_adult: "false" }, 7 * 24 * HOUR);
+  const k = normName(name);
+  const hit = ((d.results ?? []) as any[]).filter((r) => normName(String(r.name)) === k).sort((a, b) => (b.popularity ?? 0) - (a.popularity ?? 0))[0];
+  return hit ? person(hit, "") : null;
+}
+
+/**
+ * TMDB's guest lists miss people. For the exact season, add what TVmaze lists for episode `upto` and (best effort, nearest first)
+ * the earlier episodes of the season, matched back to TMDB people by exact name so every face still opens a person page.
+ * Nothing found or reachable means the season is returned as TMDB gave it.
+ */
+async function fillGuests(sd: SeasonData, imdb: string | null, upto: number): Promise<SeasonData> {
+  const ids = await tvmazeEpisodeIds(imdb);
+  if (!ids.size) return sd;
+  const mine = sd.episodes.filter((x) => x.e <= upto).sort((a, b) => b.e - a.e).slice(0, 13);
+  const regulars = sd.regulars.map((r) => r.name);
+  const added = await pool(mine, 3, async (ep) => {
+    const id = ids.get(`${sd.n}x${ep.e}`);
+    if (!id) return [] as SeasonPerson[];
+    const extra = missingGuests([...ep.guests.map((g) => g.name), ...regulars], await tvmazeGuests(id));
+    const found = await pool(extra, 3, async (g) => { const p = await tmdbPersonByName(g.name); return p ? { ...p, role: tidyRole(g.role) } : null; });
+    return found.filter((p): p is SeasonPerson => !!p);
+  });
+  const byEp = new Map(mine.map((ep, i) => [ep.e, added[i] ?? []]));
+  return { ...sd, episodes: sd.episodes.map((ep) => (byEp.get(ep.e)?.length ? { ...ep, guests: [...ep.guests, ...byEp.get(ep.e)!] } : ep)) };
+}
+
 async function rosterFor(type: MediaType, id: number, pos: Pos | null): Promise<WhoRoster> {
   if (type === "movie") {
     const d = await tmdb(`/movie/${id}/credits`, {}, 24 * HOUR);
@@ -134,6 +164,10 @@ async function rosterFor(type: MediaType, id: number, pos: Pos | null): Promise<
     const wanted = p.s === 0 ? [0] : brief.seasons.filter((x) => x.n > 0 && x.n <= p.s!).map((x) => x.n);
     const list = await pool(wanted, 5, (n) => fetchSeasonData(id, n, n === p.s));
     const seasons = list.filter((x): x is SeasonData => !!x);
+    if (kind === "exact") {
+      const i = seasons.findIndex((x) => x.n === p.s);
+      if (i >= 0) seasons[i] = await fillGuests(seasons[i], brief.imdbId, p.e!).catch(() => seasons[i]);
+    }
     partial = seasons.length < wanted.length;
     faces = buildRoster(seasons, p);
     note = kind === "season" ? (p.s === 0 ? "Specials are listed on their own: everyone in them is included." : `Includes all of season ${p.s} because the episode is not set.`) : null;
@@ -142,7 +176,7 @@ async function rosterFor(type: MediaType, id: number, pos: Pos | null): Promise<
   return { key: `tv:${id}`, type, pos: p, scope: kind, faces: faces.slice(0, MAX_FACES), note, partial };
 }
 
-const rosterCached = cached(rosterFor, "who-roster-v1");
+const rosterCached = cached(rosterFor, "who-roster-v2");
 const hot = new Map<string, { t: number; v: Promise<WhoRoster> }>();
 /** The roster for a position. Cached in Next's data cache for six hours and in this process for ten minutes. */
 export function loadWhoRoster(type: MediaType, id: number, pos: Pos | null): Promise<WhoRoster> {
