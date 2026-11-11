@@ -24,33 +24,46 @@ const api = async (wiki: string, params: Record<string, string>) => {
   return r.json() as Promise<Record<string, any>>; // eslint-disable-line @typescript-eslint/no-explicit-any
 };
 
-async function wikidataWiki(imdb: string): Promise<string | null> {
+/** Every English wiki Wikidata lists for the show (it may list several, plus other languages and unrelated wikis: they are checked by name below). */
+async function wikidataWikis(imdb: string): Promise<string[]> {
   const u = new URL("https://query.wikidata.org/sparql");
-  u.search = new URLSearchParams({ query: `SELECT ?fd WHERE { ?f wdt:P345 "${imdb}". ?f wdt:P6262 ?fd. } LIMIT 1`, format: "json" }).toString();
+  u.search = new URLSearchParams({ query: `SELECT ?fd WHERE { ?f wdt:P345 "${imdb}". ?f wdt:P6262 ?fd. } LIMIT 12`, format: "json" }).toString();
   const r = await fetch(u, { headers: { ...UA, accept: "application/sparql-results+json" }, signal: AbortSignal.timeout(6000) });
-  if (!r.ok) return null;
-  const v = ((await r.json()) as { results?: { bindings?: { fd?: { value: string } }[] } }).results?.bindings?.[0]?.fd?.value ?? "";
-  const w = v.split(":")[0].toLowerCase();
-  return WIKI.test(w) ? w : null;
+  if (!r.ok) return [];
+  const rows = ((await r.json()) as { results?: { bindings?: { fd?: { value: string } }[] } }).results?.bindings ?? [];
+  return [...new Set(rows.map((b) => (b.fd?.value ?? "").split(":")[0].toLowerCase()).filter((w) => WIKI.test(w)))];
 }
 
-const slug = (t: string) => t.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/^the\s+/, "").replace(/[^a-z0-9]+/g, "");
 const words = (t: string) => t.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, " ").trim();
 
-/** A guessed wiki counts only if its own name is the title (so "the" + "office" never lands on an unrelated wiki). */
-async function guessWiki(title: string): Promise<string | null> {
-  const w = slug(title);
-  if (!WIKI.test(w)) return null;
-  const j = await api(w, { action: "query", meta: "siteinfo", siprop: "general" });
-  const name = words(String(j.query?.general?.sitename ?? "")).replace(/\b(wiki|fandom)\b/g, "").replace(/\s+/g, " ").trim();
-  const t = words(title).replace(/^the /, "");
-  return name && (name === t || name.replace(/^the /, "") === t) ? w : null;
+/** Where a show's wiki is likely to live: "howimetyourmother", "how-i-met-your-mother", "himym" (initials of a long title), each with and without a leading "the". */
+export function wikiGuesses(title: string): string[] {
+  const ws = words(title).split(" ").filter(Boolean);
+  const bare = ws[0] === "the" && ws.length > 1 ? ws.slice(1) : ws;
+  const out: string[] = [];
+  for (const w of [ws, bare]) {
+    out.push(w.join(""), w.join("-"));
+    if (w.length >= 3) out.push(w.map((x) => x[0]).join(""));
+  }
+  return [...new Set(out)].filter((x) => WIKI.test(x));
+}
+
+/** A candidate counts only if the wiki's own name is the title ("How I Met Your Mother Wiki"), so a lookalike address never lands on an unrelated wiki. */
+async function nameMatches(wiki: string, title: string): Promise<boolean> {
+  const j = await api(wiki, { action: "query", meta: "siteinfo", siprop: "general" });
+  const strip = (x: string) => words(x).replace(/\b(wiki|fandom)\b/g, "").replace(/\s+/g, " ").trim().replace(/^the /, "");
+  const name = strip(String(j.query?.general?.sitename ?? ""));
+  return !!name && name === strip(title);
 }
 
 const findWiki = cached(async (imdb: string, title: string): Promise<string | null> => {
-  try { const w = await (imdb ? wikidataWiki(imdb) : Promise.resolve(null)); if (w) return w; } catch { /* fall through to the guess */ }
-  try { return await guessWiki(title); } catch { return null; }
-}, "fandom-wiki-v1");
+  let listed: string[] = [];
+  try { listed = imdb ? await wikidataWikis(imdb) : []; } catch { /* fall back to guesses */ }
+  const cands = [...new Set([...listed, ...wikiGuesses(title)])].slice(0, 8);
+  const ok = await Promise.all(cands.map((w) => nameMatches(w, title).catch(() => false)));
+  const i = ok.indexOf(true);
+  return i >= 0 ? cands[i] : null;
+}, "fandom-wiki-v2");
 
 const noteFor = cached(async (wiki: string, character: string): Promise<{ text: string; title: string } | null> => {
   const s = await api(wiki, { action: "query", list: "search", srsearch: character, srlimit: "6", srnamespace: "0" });

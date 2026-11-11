@@ -16,6 +16,8 @@ export interface AboutTitle { name: string; year: string; kind: "film" | "series
 export interface AboutPerson { name: string; line: string; bio: string }
 export interface AboutRole {
   character: string;
+  /** The title's name, for a web search link when no description is found. */
+  show: string;
   /** A short note on the character from the title's Wikipedia cast list. */
   summary: string | null; source: { label: string; url: string } | null;
   /** True when the note was cut short (or left out) so it does not give the story away. */
@@ -86,7 +88,7 @@ async function aboutRole(type: MediaType, id: number, pid: number, q: AboutQuery
   const upTo = clip && clip.s != null ? posLabel(clip) : undefined;
   const line = type === "tv" ? presenceLine({ episodes, seasons, total: clip ? 0 : total }, upTo) : "";
   const role: AboutRole = {
-    character, summary: w?.text ?? null, source: w ? { label: w.label, url: w.url } : null, short: !!w && safe,
+    character, show: brief.title, summary: w?.text ?? null, source: w ? { label: w.label, url: w.url } : null, short: !!w && safe,
     episodes, seasons, line: line || (type === "tv" && credit?.eps ? plural(credit.eps, "episode") : ""), note,
     seasonRows: !episodes.length ? brief.seasons.filter((s) => seasons.includes(s.n) && s.n > 0).map((s) => ({ n: s.n, eps: s.eps, air: s.air, ...(clip && clip.s === s.n && clip.e != null ? { upTo: clip.e } : {}) })) : [],
   };

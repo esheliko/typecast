@@ -142,7 +142,7 @@ function About({ info }: { info: GlimpseInfo }) {
           <h3 className="gl-sec">{role.character ? `The character: ${role.character}` : "In this title"}</h3>
           {role.summary ? (
             <p className="gl-text">{role.summary}{role.source && <> <a className="small" href={role.source.url} target="_blank" rel="noopener noreferrer">{role.source.label}</a></>}</p>
-          ) : <p className="small muted">No description of this character found.</p>}
+          ) : <p className="small muted">No description of this character found.{role.character && <> <a href={`https://www.google.com/search?q=${encodeURIComponent(`${role.character} ${role.show} character`)}`} target="_blank" rel="noopener noreferrer">Search the web</a></>}</p>}
           {role.short && <p className="small muted">Kept short so it does not give the story away. Mark it Watched to see everything.</p>}
           {role.line && <p className="gl-line">{role.line}</p>}
           {role.note && <p className="small muted">{role.note}</p>}
