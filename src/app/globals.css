@@ -845,8 +845,7 @@ body:has(.wbar) .toast-slot { bottom: calc(146px + env(safe-area-inset-bottom, 0
 .wx-pos-sk { width: 380px; max-width: 100%; height: 44px; border-radius: 999px; }
 .wx-pos { display: flex; align-items: center; gap: 8px 10px; flex-wrap: wrap; }
 .wx-pos-l { font: 600 11px/1.2 var(--body); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
-.wx-sel select, .wx-epb { min-height: 44px; padding: 8px 14px; border-radius: 999px; background: var(--chip); border: 1px solid transparent; font-weight: 600; font-size: 14px; color: var(--ink); }
-.wx-sel select { appearance: auto; }
+.wx-epb { min-height: 44px; padding: 8px 14px; border-radius: 999px; background: var(--chip); border: 1px solid transparent; font-weight: 600; font-size: 14px; color: var(--ink); }
 .wx-epgroup { display: inline-flex; align-items: stretch; border-radius: 999px; background: var(--chip); }
 .wx-epgroup .wx-epb { background: transparent; border-radius: 999px 0 0 999px; padding-right: 12px; }
 .wx-epnext { position: relative; display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 8px 16px 8px 14px; border-radius: 0 999px 999px 0; font-weight: 600; font-size: 14px; color: var(--ink); }

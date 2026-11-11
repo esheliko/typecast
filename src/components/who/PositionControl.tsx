@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useId, useRef, useState } from "react";
 import { img } from "@/lib/img";
-import { fmtDay } from "@/lib/who-dates";
+import { fmtDay, fmtRange } from "@/lib/who-dates";
 import { whoApi } from "@/lib/who-client";
 import type { WhoBrief, WhoEp } from "@/lib/who-data";
 import type { Pos } from "@/lib/who-types";
@@ -14,14 +14,76 @@ export function PositionControl({ brief, pos, onChange }: { brief: WhoBrief; pos
   return (
     <div className="wx-pos" role="group" aria-label="Where are you?">
       <span className="wx-pos-l" id={`${id}-l`}>Where are you?</span>
-      <label className="wx-sel">
-        <span className="sr-only">Season</span>
-        <select value={unsure ? "" : String(pos.s)} onChange={(ev) => onChange({ s: Number(ev.target.value) || null, e: null })} aria-label="Season">
-          <option value="">Whole series</option>
-          {seasons.map((s) => <option key={s.n} value={s.n}>{s.n === 0 ? "Specials" : `Season ${s.n}`}</option>)}
-        </select>
-      </label>
+      <SeasonPicker brief={brief} pos={pos} seasons={seasons} onChange={onChange} />
       <EpisodePicker brief={brief} pos={pos} onChange={onChange} />
+    </div>
+  );
+}
+
+/** The season list: the same popup as the episode list, each season with the months it aired (first to last episode) and its episode count. */
+function SeasonPicker({ brief, pos, seasons, onChange }: { brief: WhoBrief; pos: Pos; seasons: WhoBrief["seasons"]; onChange: (p: Pos) => void }) {
+  const [open, setOpen] = useState(false);
+  const [ranges, setRanges] = useState<Record<number, { start: string; end: string }>>({});
+  const wrap = useRef<HTMLDivElement>(null);
+  const btn = useRef<HTMLButtonElement>(null);
+  const list = useRef<HTMLDivElement>(null);
+  const s = pos.s;
+
+  // Season dates come from each season's episode list (cached for the session): fetched when the list first opens.
+  useEffect(() => {
+    if (!open) return;
+    let live = true;
+    seasons.forEach((x) => {
+      whoApi.season(brief.id, x.n).then((r) => {
+        const d = r.episodes.map((e) => e.air).filter(Boolean).sort();
+        if (live && d.length) setRanges((m) => (m[x.n] ? m : { ...m, [x.n]: { start: d[0], end: d[d.length - 1] } }));
+      }).catch(() => { /* the first air date stays */ });
+    });
+    return () => { live = false; };
+  }, [open, brief.id, seasons]);
+  useEffect(() => {
+    if (!open) return;
+    const away = (ev: MouseEvent) => { if (!wrap.current?.contains(ev.target as Node)) setOpen(false); };
+    const esc = (ev: KeyboardEvent) => { if (ev.key === "Escape") { ev.preventDefault(); ev.stopPropagation(); setOpen(false); btn.current?.focus(); } };
+    document.addEventListener("mousedown", away); window.addEventListener("keydown", esc, true);
+    return () => { document.removeEventListener("mousedown", away); window.removeEventListener("keydown", esc, true); };
+  }, [open]);
+  useEffect(() => {
+    if (!open) return;
+    const t = setTimeout(() => (list.current?.querySelector<HTMLElement>('[aria-selected="true"]') ?? list.current?.querySelector<HTMLElement>("button:not(:disabled)"))?.focus(), 0);
+    return () => clearTimeout(t);
+  }, [open]);
+  const key = (ev: React.KeyboardEvent) => {
+    const items = [...(list.current?.querySelectorAll<HTMLElement>("button:not(:disabled)") ?? [])];
+    const i = items.indexOf(document.activeElement as HTMLElement);
+    const go = (n: number) => { ev.preventDefault(); items[(n + items.length) % items.length]?.focus(); };
+    if (ev.key === "ArrowDown") go(i + 1); else if (ev.key === "ArrowUp") go(i - 1); else if (ev.key === "Home") go(0); else if (ev.key === "End") go(items.length - 1);
+  };
+  const pick = (n: number | null) => { onChange({ s: n, e: null }); setOpen(false); btn.current?.focus(); };
+  const when = (x: WhoBrief["seasons"][number]) => {
+    const r = ranges[x.n];
+    const d = r ? fmtRange(r.start, r.end) : x.air ? fmtRange(x.air, x.air) : "";
+    return [d, x.eps ? `${x.eps} episode${x.eps === 1 ? "" : "s"}` : ""].filter(Boolean).join(" · ") || "Dates unknown";
+  };
+  const label = s == null ? "Whole series" : s === 0 ? "Specials" : `Season ${s}`;
+  return (
+    <div className="wx-ep" ref={wrap}>
+      <button ref={btn} type="button" className="wx-epb" aria-haspopup="listbox" aria-expanded={open} aria-label={`Season: ${label}`} onClick={() => setOpen((v) => !v)}>
+        <span className="wx-epl">{label}</span><span aria-hidden="true" className="wx-caret">▾</span>
+      </button>
+      {open && (
+        <div className="wx-eplist" role="listbox" aria-label="Seasons" ref={list} onKeyDown={key}>
+          <button type="button" role="option" aria-selected={s == null} className="wx-epo" onClick={() => pick(null)}>
+            <span className="wx-epn">?</span><span className="wx-epm"><b>Whole series</b><span className="small muted">Everyone in the whole series counts</span></span>
+          </button>
+          {seasons.map((x) => (
+            <button key={x.n} type="button" role="option" aria-selected={s === x.n} className="wx-epo" onClick={() => pick(x.n)}>
+              <span className="wx-epn">{x.n === 0 ? "S" : x.n}</span>
+              <span className="wx-epm"><b>{x.n === 0 ? "Specials" : `Season ${x.n}`}</b><span className="small muted">{when(x)}</span></span>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
