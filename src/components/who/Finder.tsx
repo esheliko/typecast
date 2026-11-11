@@ -13,8 +13,12 @@ import { pickSeenIn, seenInText, type KnownTitle } from "@/lib/who-known";
 import type { WhoFace, WhoRoster } from "@/lib/who-types";
 
 const PER_GROUP = 12;
-/** How many faces a group shows before "Show more": about PER_GROUP, rounded up to whole rows of the grid as it is laid out now. */
-const perGroup = (cols: number) => (cols > 0 ? cols * Math.max(1, Math.ceil(PER_GROUP / cols)) : PER_GROUP);
+/** How many of a group's n faces show before "Show more": about PER_GROUP, always whole rows of the grid as it is laid out now (a group of one row or less shows all of it). */
+const foldAt = (n: number, cols: number) => {
+  if (cols <= 0) return Math.min(n, PER_GROUP);
+  if (n <= cols) return n;
+  return Math.floor(Math.min(n, cols * Math.max(1, Math.ceil(PER_GROUP / cols))) / cols) * cols;
+};
 
 /** The left pane: finder input, filter chips, "recently opened", the face grid. The input filters and finds; it never answers. */
 export function Finder({ roster, loading, err, q, setQ, inputRef, recents, onOpen, onRestore, onRetry }: {
@@ -28,7 +32,6 @@ export function Finder({ roster, loading, err, q, setQ, inputRef, recents, onOpe
   // Columns the grid has right now (it is auto-fill, so it changes with the window): the folded view always ends on a full row.
   const wrap = useRef<HTMLDivElement>(null);
   const [cols, setCols] = useState(0);
-  const lim = perGroup(cols);
   const film = brief.type === "movie";
   const faces = useMemo(() => roster?.faces ?? [], [roster]);
   const shown = useMemo(() => matchFaces(byCast(byGender(faces, gender), cast), q), [faces, gender, cast, q]);
@@ -52,7 +55,7 @@ export function Finder({ roster, loading, err, q, setQ, inputRef, recents, onOpe
   }, [query, brief.key, roster]);
 
   // "Known from": for the tiles on screen, matched against the user's marks in the browser.
-  const visible = useMemo(() => groups.flatMap((g) => g.faces.slice(0, open[g.id] ? g.faces.length : lim)), [groups, open, lim]);
+  const visible = useMemo(() => groups.flatMap((g) => g.faces.slice(0, open[g.id] ? g.faces.length : foldAt(g.faces.length, cols))), [groups, open, cols]);
   const [known, setKnown] = useState<Record<number, KnownTitle[]>>({});
   const askedKnown = useRef(new Set<number>());
   const ids = visible.map((f) => f.id).join(",");
@@ -134,6 +137,7 @@ export function Finder({ roster, loading, err, q, setQ, inputRef, recents, onOpe
       <div ref={wrap} onKeyDown={arrows}>
         {groups.map((g) => {
           const all = !!open[g.id];
+          const lim = foldAt(g.faces.length, cols);
           const list = all ? g.faces : g.faces.slice(0, lim);
           return (
             <section key={g.id} className="wx-group" aria-label={g.label}>
