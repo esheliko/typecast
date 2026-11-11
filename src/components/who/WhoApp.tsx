@@ -164,8 +164,41 @@ export function WhoApp({ brief, initialPos, today }: { brief: WhoBrief; initialP
     return () => window.removeEventListener("keydown", key);
   }, [trail.cur, open, back]);
 
+  /* ----- browser Back (phone gesture/button) walks the trail, then closes the details, then leaves the page ----- */
+  // depth: 0 = details closed, 1 = details open on the root, k+1 = trail step k. Every level the app goes up gets one history entry,
+  // so Back lands one level down; levels the app comes down by itself (Esc, Close, a trail chip) are popped with history.go.
+  const depth = open ? trail.cur + 1 : 0;
+  const hd = useRef(0);
+  const leaving = useRef(false);
+  useEffect(() => {
+    try {
+      if (depth > hd.current) {
+        for (let d = hd.current + 1; d <= depth; d++) window.history.pushState({ ...(window.history.state ?? {}), wxDepth: d }, "");
+        hd.current = depth;
+      } else if (depth < hd.current) {
+        const n = hd.current - depth;
+        hd.current = depth;
+        window.history.go(-n);
+      }
+    } catch { /* history is a convenience */ }
+  }, [depth]);
+  useEffect(() => {
+    const pop = () => {
+      const n = Number((window.history.state as { wxDepth?: number } | null)?.wxDepth ?? 0);
+      hd.current = n;
+      if (n === 0) { setOpen(false); if (leaving.current) { leaving.current = false; window.history.back(); } }
+      else { setOpen(true); setTrail((t) => jumpTo(t, n - 1)); }
+    };
+    window.addEventListener("popstate", pop);
+    return () => window.removeEventListener("popstate", pop);
+  }, []);
+
   const close = () => {
     const same = typeof document !== "undefined" && document.referrer.startsWith(window.location.origin) && window.history.length > 1;
+    if (hd.current > 0) { // first pop the entries this page added, then leave
+      if (same) { leaving.current = true; window.history.go(-hd.current); return; }
+      router.push("/"); return;
+    }
     if (same) router.back(); else router.push("/");
   };
 
