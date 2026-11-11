@@ -20,10 +20,30 @@ export interface BrowseQuery {
   people: Tag[];
   companies: Tag[];
   keywords: Tag[];
+  country: string; // ISO 3166-1 code of where it was made ("IL"), or ""
+  lang: string; // ISO 639-1 code of the original language ("he"), or ""
   sort: Sort;
   minRating: number;
   mine: boolean; // only what's on my streaming services
 }
+
+/** Where a title comes from and what language it was made in: the generic way to find e.g. Israeli, Korean or French content. */
+export const COUNTRIES: [string, string][] = [
+  ["AR", "Argentina"], ["AU", "Australia"], ["AT", "Austria"], ["BE", "Belgium"], ["BR", "Brazil"], ["CA", "Canada"], ["CL", "Chile"], ["CN", "China"],
+  ["CO", "Colombia"], ["CZ", "Czechia"], ["DK", "Denmark"], ["EG", "Egypt"], ["FI", "Finland"], ["FR", "France"], ["DE", "Germany"], ["GR", "Greece"],
+  ["HK", "Hong Kong"], ["HU", "Hungary"], ["IS", "Iceland"], ["IN", "India"], ["ID", "Indonesia"], ["IR", "Iran"], ["IE", "Ireland"], ["IL", "Israel"],
+  ["IT", "Italy"], ["JP", "Japan"], ["LB", "Lebanon"], ["MX", "Mexico"], ["NL", "Netherlands"], ["NZ", "New Zealand"], ["NG", "Nigeria"], ["NO", "Norway"],
+  ["PK", "Pakistan"], ["PL", "Poland"], ["PT", "Portugal"], ["RO", "Romania"], ["RU", "Russia"], ["SA", "Saudi Arabia"], ["ZA", "South Africa"], ["KR", "South Korea"],
+  ["ES", "Spain"], ["SE", "Sweden"], ["CH", "Switzerland"], ["TW", "Taiwan"], ["TH", "Thailand"], ["TR", "Turkey"], ["UA", "Ukraine"], ["GB", "United Kingdom"],
+  ["US", "United States"], ["VN", "Vietnam"],
+];
+export const LANGUAGES: [string, string][] = [
+  ["ar", "Arabic"], ["zh", "Chinese"], ["cs", "Czech"], ["da", "Danish"], ["nl", "Dutch"], ["en", "English"], ["fi", "Finnish"], ["fr", "French"],
+  ["de", "German"], ["el", "Greek"], ["he", "Hebrew"], ["hi", "Hindi"], ["hu", "Hungarian"], ["id", "Indonesian"], ["it", "Italian"], ["ja", "Japanese"],
+  ["ko", "Korean"], ["no", "Norwegian"], ["fa", "Persian"], ["pl", "Polish"], ["pt", "Portuguese"], ["ro", "Romanian"], ["ru", "Russian"], ["es", "Spanish"],
+  ["sv", "Swedish"], ["ta", "Tamil"], ["te", "Telugu"], ["th", "Thai"], ["tr", "Turkish"], ["uk", "Ukrainian"], ["vi", "Vietnamese"],
+];
+const known = (list: [string, string][], v: string) => (list.some(([c]) => c === v) ? v : "");
 
 export const DECADES: { label: string; from: string; to: string }[] = [
   { label: "2020s", from: "2020", to: "2029" },
@@ -62,6 +82,8 @@ export function parseBrowse(p: Params): BrowseQuery {
     genres: [...new Set(all(p, "genre").map(Number).filter((n) => Number.isInteger(n) && n > 0))].slice(0, 6),
     from, to,
     people: tags(p, "person"), companies: tags(p, "company"), keywords: tags(p, "keyword"),
+    country: known(COUNTRIES, one(p, "country").toUpperCase()),
+    lang: known(LANGUAGES, one(p, "lang").toLowerCase()),
     sort: SORTS.some((s) => s.value === sort) ? sort : "popular",
     minRating: (RATINGS as readonly number[]).includes(rating) ? rating : 0,
     mine: one(p, "mine") === "1",
@@ -78,6 +100,8 @@ export function toParams(q: BrowseQuery): URLSearchParams {
   q.people.forEach((t) => u.append("person", `${t.id}:${t.name}`));
   q.companies.forEach((t) => u.append("company", `${t.id}:${t.name}`));
   q.keywords.forEach((t) => u.append("keyword", `${t.id}:${t.name}`));
+  if (q.country) u.set("country", q.country);
+  if (q.lang) u.set("lang", q.lang);
   if (q.sort !== "popular") u.set("sort", q.sort);
   if (q.minRating) u.set("rating", String(q.minRating));
   if (q.mine) u.set("mine", "1");

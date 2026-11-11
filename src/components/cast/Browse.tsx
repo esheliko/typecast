@@ -42,7 +42,7 @@ export interface BrowseProps {
 
 /** Number of filters set, not counting Films / Series. */
 function countFilters(q: BrowseQuery) {
-  return q.genres.length + (q.from || q.to ? 1 : 0) + q.people.length + q.companies.length + q.keywords.length + (q.sort !== "popular" ? 1 : 0) + (q.minRating ? 1 : 0) + (q.mine ? 1 : 0);
+  return q.genres.length + (q.from || q.to ? 1 : 0) + q.people.length + q.companies.length + q.keywords.length + (q.sort !== "popular" ? 1 : 0) + (q.minRating ? 1 : 0) + (q.country ? 1 : 0) + (q.lang ? 1 : 0) + (q.mine ? 1 : 0);
 }
 
 /**

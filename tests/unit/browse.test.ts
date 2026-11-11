@@ -4,7 +4,7 @@ import { parseBrowse, toParams, isActive, interleave, convertGenres, genresFor, 
 
 test("an empty query is the default and not active", () => {
   const q = parseBrowse({});
-  assert.deepEqual(q, { type: "all", genres: [], from: "", to: "", people: [], companies: [], keywords: [], sort: "popular", minRating: 0, mine: false });
+  assert.deepEqual(q, { type: "all", genres: [], from: "", to: "", people: [], companies: [], keywords: [], country: "", lang: "", sort: "popular", minRating: 0, mine: false });
   assert.equal(isActive(q), false);
   assert.equal(toParams(q).size, 0);
 });
@@ -29,7 +29,8 @@ test("tags need an id:name form and are de-duplicated", () => {
 });
 
 test("toParams round-trips through parseBrowse, and reads URLSearchParams", () => {
-  const q = parseBrowse({ type: "movie", genre: ["28", "35"], from: "1990", to: "1999", person: "287:Brad Pitt", company: "1:Acme", keyword: "9:heist", sort: "rating", rating: "8", mine: "1" });
+  const q = parseBrowse({ type: "movie", genre: ["28", "35"], from: "1990", to: "1999", person: "287:Brad Pitt", company: "1:Acme", keyword: "9:heist", sort: "rating", rating: "8", mine: "1", country: "il", lang: "he" });
+  assert.equal(q.country, "IL"); assert.equal(q.lang, "he");
   assert.equal(isActive(q), true);
   assert.deepEqual(parseBrowse(toParams(q)), q);
   assert.deepEqual(parseBrowse(new URLSearchParams("genre=28&genre=35&type=movie")).genres, [28, 35]);
@@ -63,4 +64,10 @@ test("mergeGenres folds series genres into film ones and sorts A to Z", () => {
   const film = [{ id: 28, name: "Action" }, { id: 35, name: "Comedy" }];
   const tv = [{ id: 10759, name: "Action & Adventure" }, { id: 10764, name: "Reality" }, { id: 35, name: "Comedy" }];
   assert.deepEqual(mergeGenres(film, tv).map((g) => g.name), ["Action", "Comedy", "Reality"]);
+});
+
+test("country and language accept only known codes", () => {
+  const q = parseBrowse({ country: "XX", lang: "zz" });
+  assert.equal(q.country, ""); assert.equal(q.lang, "");
+  assert.equal(parseBrowse({ country: "IL" }).country, "IL");
 });

@@ -636,6 +636,8 @@ export async function discover(q: BrowseQuery, page: number, region: string, ser
   if (q.people.length) p.with_people = q.people.map((t) => t.id).join(",");
   if (q.companies.length) p.with_companies = q.companies.map((t) => t.id).join("|");
   if (q.keywords.length) p.with_keywords = q.keywords.map((t) => t.id).join("|");
+  if (q.country) p.with_origin_country = q.country;
+  if (q.lang) p.with_original_language = q.lang;
   if (q.minRating) p["vote_average.gte"] = String(q.minRating);
   if (q.minRating || q.sort === "rating") p["vote_count.gte"] = q.sort === "rating" ? "300" : "100";
   if (q.mine && services.length) {
@@ -663,6 +665,8 @@ async function tvByPeople(q: BrowseQuery, page: number): Promise<BrowsePage> {
     if (q.to && (!y || y > q.to)) return false;
     if (q.genres.length ? !q.genres.every((g) => (r.genre_ids ?? []).includes(g)) : talk(r)) return false;
     if (q.minRating && (r.vote_average ?? 0) < q.minRating) return false;
+    if (q.country && !(r.origin_country ?? []).includes(q.country)) return false;
+    if (q.lang && r.original_language !== q.lang) return false;
     if (q.sort === "rating" && (r.vote_count ?? 0) < 50) return false;
     if (q.sort === "newest" && (r.first_air_date ?? "") > today()) return false;
     return true;
