@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useLib } from "../cast/LibState";
 import { Photo, SEEN_STATUS, Sk } from "./bits";
 import { useWho } from "./WhoContext";
@@ -13,6 +13,8 @@ import { pickSeenIn, seenInText, type KnownTitle } from "@/lib/who-known";
 import type { WhoFace, WhoRoster } from "@/lib/who-types";
 
 const PER_GROUP = 12;
+/** How many faces a group shows before "Show more": about PER_GROUP, rounded up to whole rows of the grid as it is laid out now. */
+const perGroup = (cols: number) => (cols > 0 ? cols * Math.max(1, Math.ceil(PER_GROUP / cols)) : PER_GROUP);
 
 /** The left pane: finder input, filter chips, "recently opened", the face grid. The input filters and finds; it never answers. */
 export function Finder({ roster, loading, err, q, setQ, inputRef, recents, onOpen, onRestore, onRetry }: {
@@ -23,6 +25,10 @@ export function Finder({ roster, loading, err, q, setQ, inputRef, recents, onOpe
   const [gender, setGender] = useState<GenderFilter>("all");
   const [cast, setCast] = useState<CastFilter>("all");
   const [open, setOpen] = useState<Record<string, boolean>>({});
+  // Columns the grid has right now (it is auto-fill, so it changes with the window): the folded view always ends on a full row.
+  const wrap = useRef<HTMLDivElement>(null);
+  const [cols, setCols] = useState(0);
+  const lim = perGroup(cols);
   const film = brief.type === "movie";
   const faces = useMemo(() => roster?.faces ?? [], [roster]);
   const shown = useMemo(() => matchFaces(byCast(byGender(faces, gender), cast), q), [faces, gender, cast, q]);
@@ -46,7 +52,7 @@ export function Finder({ roster, loading, err, q, setQ, inputRef, recents, onOpe
   }, [query, brief.key, roster]);
 
   // "Known from": for the tiles on screen, matched against the user's marks in the browser.
-  const visible = useMemo(() => groups.flatMap((g) => g.faces.slice(0, open[g.id] ? g.faces.length : PER_GROUP)), [groups, open]);
+  const visible = useMemo(() => groups.flatMap((g) => g.faces.slice(0, open[g.id] ? g.faces.length : lim)), [groups, open, lim]);
   const [known, setKnown] = useState<Record<number, KnownTitle[]>>({});
   const askedKnown = useRef(new Set<number>());
   const ids = visible.map((f) => f.id).join(",");
@@ -61,6 +67,21 @@ export function Finder({ roster, loading, err, q, setQ, inputRef, recents, onOpe
         .catch(() => { chunk.forEach((n) => askedKnown.current.delete(n)); });
     }
   }, [ids]);
+
+  useLayoutEffect(() => {
+    const el = wrap.current;
+    if (!el) return;
+    const measure = () => {
+      const grid = el.querySelector<HTMLElement>(".wx-grid");
+      if (!grid) return;
+      const n = getComputedStyle(grid).gridTemplateColumns.split(" ").filter(Boolean).length;
+      if (n > 0) setCols((c) => (c === n ? c : n));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [groups.length]);
 
   const arrows = (ev: React.KeyboardEvent) => {
     const k = ev.key;
@@ -110,17 +131,17 @@ export function Finder({ roster, loading, err, q, setQ, inputRef, recents, onOpe
       {loading && !roster && !err && <GridSkeleton />}
       {err && <p className="small muted wx-soft" role="alert">Couldn&rsquo;t load who&rsquo;s in it. <button type="button" className="linkish" onClick={onRetry}>Try again</button></p>}
       {noMatch && <p className="small muted">{query ? `No one in this cast matches “${query}”.${common?.err ? " Couldn’t search titles just now." : ""}` : "No one to show for this filter."}</p>}
-      <div onKeyDown={arrows}>
+      <div ref={wrap} onKeyDown={arrows}>
         {groups.map((g) => {
           const all = !!open[g.id];
-          const list = all ? g.faces : g.faces.slice(0, PER_GROUP);
+          const list = all ? g.faces : g.faces.slice(0, lim);
           return (
             <section key={g.id} className="wx-group" aria-label={g.label}>
               <h3 className="wx-gh">{g.label}<span className="muted"> · {g.faces.length}</span></h3>
               <ul className="wx-grid">
                 {list.map((f, i) => <Tile key={f.id} f={f} eager={i < 12} known={known[f.id]} onOpen={() => onOpen(f)} onPop={setPop} />)}
               </ul>
-              {g.faces.length > PER_GROUP && <button type="button" className="chip wx-more" onClick={() => setOpen((o) => ({ ...o, [g.id]: !all }))}>{all ? "Show fewer" : `Show ${g.faces.length - PER_GROUP} more`}</button>}
+              {g.faces.length > lim && <button type="button" className="chip wx-more" onClick={() => setOpen((o) => ({ ...o, [g.id]: !all }))}>{all ? "Show fewer" : `Show ${g.faces.length - lim} more`}</button>}
             </section>
           );
         })}
