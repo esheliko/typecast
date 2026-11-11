@@ -1110,11 +1110,12 @@ button.wx-tdates:disabled { cursor: default; }
 @media (max-width: 999px) {
   .wx-main { grid-template-columns: minmax(0, 1fr); }
   .wx-left { padding: 0 16px 90px; }
-  .wx-right { position: absolute; inset: 0; z-index: 6; border-left: 0; transform: translateX(0); }
+  /* the details cover the whole screen, header included, so the close button sits at the very top like a popup */
+  .wx-right { position: fixed; inset: 0; z-index: 6; border-left: 0; transform: translateX(0); }
   .wx-right[data-open="false"] { display: none; }
   .wx-xclose { display: inline-flex; }
-  .wx-trailbar { padding: 0 8px 0 10px; }
-  .wx-right { --wx-tb: 56px; }
+  .wx-trailbar { padding: env(safe-area-inset-top, 0px) max(8px, env(safe-area-inset-right, 0px)) 0 max(10px, env(safe-area-inset-left, 0px)); }
+  .wx-right { --wx-tb: calc(56px + env(safe-area-inset-top, 0px)); }
   .wx-tsticky { margin: 0 -16px 8px; padding: 2px 16px 6px; }
   .wx-readout p { -webkit-line-clamp: 2; }
   .wx-readout { min-height: 2.8em; }
