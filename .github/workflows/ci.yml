@@ -52,7 +52,12 @@ jobs:
           key: pw-${{ runner.os }}-${{ steps.pwv.outputs.v }}
       - name: Install browser
         run: |
-          if [ "${{ steps.pw.outputs.cache-hit }}" = "true" ]; then npx playwright install-deps chromium; else npx playwright install --with-deps chromium; fi
+          # The runner's apt mirrors fail to resolve now and then: retry a few times before calling it a failure.
+          for i in 1 2 3; do
+            if [ "${{ steps.pw.outputs.cache-hit }}" = "true" ]; then npx playwright install-deps chromium && break; else npx playwright install --with-deps chromium && break; fi
+            [ "$i" = 3 ] && exit 1
+            echo "::warning::browser install failed (try $i), retrying in 30s"; sleep 30
+          done
       - name: Smoke test (signed-out pages always; signed-in pages when SMOKE_* secrets are set)
         run: |
           if [ -z "$SMOKE_EMAIL" ] || [ -z "$SMOKE_PASSWORD" ]; then echo "::warning::SMOKE_EMAIL/SMOKE_PASSWORD secrets missing: only signed-out pages are smoke-tested. See DEPLOYING.md > Smoke test."; fi
