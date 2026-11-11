@@ -407,6 +407,7 @@ async function tick() {
       const n = pending.relevant.length;
       const firstAt = Math.min(...pending.relevant.map((c) => c.at));
       event(st, 'deploy', `${sha.slice(0, 7)} — ${d.why}; batching ${n} commit${n === 1 ? '' : 's'}`);
+      log(`DEPLOYING ${sha.slice(0, 7)} (${n} commit${n === 1 ? '' : 's'}): ${d.why}`); // the one line the deploy guard listens for: the decision alone (printed before the CI gate) is not a deployment
       const r = createDeployment(sha);
       if (r.status === 200 || r.status === 201) {
         const id = r.json.id ?? r.json.uid;
