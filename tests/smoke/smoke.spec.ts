@@ -339,9 +339,15 @@ test.describe("signed in", () => {
     // ?p= is how a title opened from a person's credits arrives: it shows their part (and here, their episodes) up top.
     await visit(page, "/title/tv/1396?full=1&p=17419", bad);
     await expect(page.getByText(/5 seasons · 62 episodes/)).toBeVisible({ timeout: 20_000 });
+    // Breaking Bad is seeded Watching at S2 E3, so it keeps its spoiler line (docs/features/spoilers.md): the actor's list is held back behind a gate
+    // (no "Every episode (62)" count) until Show, and so are the names and plots of later episodes.
+    const apps = page.locator(".apps").getByRole("group", { name: /Spoilers hidden for Breaking Bad/ });
+    await expect(apps).toBeVisible({ timeout: 20_000 });
+    await apps.getByRole("button", { name: "Show", exact: true }).click();
     await expect(page.getByText(/Every episode \(62\)/).first()).toBeVisible({ timeout: 20_000 });
     const eps = page.getByRole("region", { name: "Episodes" });
     await eps.getByRole("button", { name: /^S4( ✓)?$/ }).click();
+    await eps.getByRole("group", { name: /Spoilers hidden for Breaking Bad/ }).getByRole("button", { name: "Show", exact: true }).click();
     await eps.getByRole("button", { name: /Face Off/ }).click();
     await expect(eps.getByText("Directed by Vince Gilligan").first()).toBeVisible({ timeout: 20_000 });
     await expect(eps.getByText("Guest stars").first()).toBeVisible();
