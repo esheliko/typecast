@@ -95,3 +95,9 @@ The supervisor has nothing to refresh there. `scripts/dashboard-data.mjs` is gon
 ### A red commit can reach production (2026-11-12, f82fca3)
 The CI gate waits for `verify` only up to `ciMaxWaitMin` (12 min) and smoke takes 10-25 min, so a batch can ship before its own CI result. When that happens and `verify`
 turns red, the manager now posts a 🚨 comment on issue #2 ("the red commit is in production", once per red head) and the owner ships the fix with `[deploy-now]`.
+
+### Intermittent smoke reds (2026-11-12)
+The Library smoke tests ('Library shows the seeded titles', 'Library stats') went red on four different commits and green again with no fix; a verify session also saw plain main fail the
+popup Watched test 2 of 3 times. Suspects: TMDB errors from the runner (Library titles and 'Top genres' come from TMDB) and the shared smoke user used by overlapping runs.
+Rule for whoever sees such a red first: re-run CI on the same commit before blaming anyone; if it goes green with no change it is a flake and the OWNER of the flake (the smoke-infra session) fixes the suite, not the pusher.
+`Claude-Session:` trailers are typed by the sessions and can be wrong (a mistyped id sent a red alert nowhere, twice): match the owner by commit and session title when send_message says the id is invalid.
