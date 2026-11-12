@@ -33,8 +33,8 @@ export const whoApi = {
   roster: (k: string, pos: Pos | null, fast = false) => getJson<WhoRoster>(`/api/who/roster?${q({ k, s: pos?.s, e: pos?.e, fast: fast ? 1 : undefined })}`),
   season: (tv: number, s: number, e?: number | null) => getJson<{ air: string; episodes: WhoEp[]; detail: WhoEpDetail | null }>(`/api/who/season?${q({ tv, s, e })}`),
   person: (id: number) => getJson<PersonData>(`/api/who/person?id=${id}`),
-  spans: (p: number, keys: string[], cur?: { k: string; pos: Pos; cids: string[] } | null) =>
-    getJson<Record<string, Span | null>>(`/api/who/spans?${q({ p, keys: keys.join(","), cur: cur?.k, s: cur?.pos.s, e: cur?.pos.e, cids: cur?.cids.join(",") })}`),
+  spans: (p: number, keys: string[], cur?: { k: string; pos: Pos | null; cids: string[] } | null) =>
+    getJson<Record<string, Span | null>>(`/api/who/spans?${q({ p, keys: keys.join(","), cur: cur?.k, s: cur?.pos?.s, e: cur?.pos?.e, cids: cur?.cids.join(",") })}`),
   known: (ids: number[]) => getJson<{ known: Record<number, { top: KnownTitle[] }> }>(`/api/who/known?ids=${ids.join(",")}`),
   shared: (id: number, others: number[], cur: string) => getJson<{ shared: SharedBrief[] }>(`/api/who/shared?${q({ id, with: others.join(","), cur })}`),
   pair: (a: number, b: number) => getJson<{ a: PersonData; b: PersonData; titles: Shared[] }>(`/api/who/pair?a=${a}&b=${b}`),

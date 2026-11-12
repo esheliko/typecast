@@ -15,5 +15,5 @@ export async function GET(req: NextRequest) {
   if (!p || !keys.length) return bad("Missing person or titles");
   const cur = titleParam(q.get("cur"));
   const cids = (q.get("cids") ?? "").split(",").filter(isCid).slice(0, 12);
-  try { return okWho(await loadSpans(p, keys, cur?.type === "tv" ? { key: cur.key, pos: posParam(q), cids } : undefined), 600); } catch (e) { return failWho(e); }
+  try { return okWho(await loadSpans(p, keys, cur?.type === "tv" ? { key: cur.key, pos: q.get("s") == null ? null : posParam(q), cids } : undefined), 600); } catch (e) { return failWho(e); }
 }

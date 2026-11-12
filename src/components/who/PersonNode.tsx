@@ -101,7 +101,8 @@ export function PersonNode({ node }: { node: PNode }) {
     const rest = [...filtered.filter((c) => c.type === "tv").map((c) => c.key), ...seenFirst];
     return [...new Set([...(tv ? [brief.key] : []), ...head, ...seenFirst.slice(0, 5), ...rest])];
   }, [filtered, seenFirst, limitHint, tv, brief.key]);
-  const cur = tv && clip ? { k: brief.key, pos: clip, cids: face?.cids ?? [] } : null;
+  // With spoilers shown there is no clip, but the face's credit ids still go along: TMDB's own episode list for a person can miss episodes the roster knows.
+  const cur = tv && (clip || face?.cids?.length) ? { k: brief.key, pos: clip, cids: face?.cids ?? [] } : null;
   const { spans, failed } = useSpans(node.id, data ? orderedKeys : [], cur);
   const hereSpan = tv ? spans[brief.key] : undefined;
   // A regular has no episode list on TMDB: their own first credited air date up to where you are is still true, and nothing later is shown.
