@@ -58,8 +58,8 @@ export function useLimit(total: number, n = 5): { shown: number; all: boolean; t
 export function More({ total, shown, all, toggle, noun = "", inline = false }: { total: number; shown: number; all: boolean; toggle: () => void; noun?: string; inline?: boolean }) {
   if (total <= shown && !all) return null;
   const label = all ? "Show fewer" : `Show all ${total}${noun ? ` ${noun}` : ""}`;
-  /** `inline`: a chip-styled item inside a chip row (put it inside the `ul`). */
-  if (inline) return <li><button type="button" className="wx-epchip" onClick={toggle} aria-expanded={all}>{label}</button></li>;
+  /** `inline`: a chip-styled item inside a chip row (put it inside the `ul`). The count lives in the section note, so the label is bare. */
+  if (inline) return <li><button type="button" className="wx-epchip wx-epmore" onClick={toggle} aria-expanded={all}>{all ? "Show fewer" : "Show all"}</button></li>;
   return <button type="button" className="chip wx-more" onClick={toggle} aria-expanded={all}>{all ? "Show fewer" : `Show all ${total}${noun ? ` ${noun}` : ""}`}</button>;
 }
 
