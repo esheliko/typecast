@@ -1,5 +1,6 @@
 "use client";
 import { useContext, useEffect, useState } from "react";
+import Link from "next/link";
 import { TitleLink } from "./Modal";
 import { img } from "@/lib/img";
 import { newEpLabel } from "@/lib/new-episode";
@@ -7,6 +8,7 @@ import { bySource, onYourServices, SOURCES, type Pick, type Source } from "@/lib
 import { isKind, mixed, ofKind, type Kind } from "@/lib/kind";
 import { KindSeg } from "./KindSeg";
 import { KindContext } from "@/lib/kind-context";
+import { useLib } from "./cast/LibState";
 
 const SHOW = 16;
 const KEY = "typecast:upnext-closed";
@@ -42,6 +44,8 @@ export default function UpNext({ picks: all, services }: { picks: Pick[]; servic
   const [mineOnly, setMineOnly] = useState(false);
   const [src, setSrc] = useState<Source>("both");
   const [snoozed, setSnoozed] = useState<Snoozed>({});
+  const [moved, setMoved] = useState<ReadonlySet<string>>(new Set()); // "Move to Partly watched" done here: hidden until the server data catches up
+  const { mark } = useLib();
   useEffect(() => {
     try { setClosed(localStorage.getItem(KEY) === "1"); setMineOnly(localStorage.getItem(MINE_KEY) === "1");
       const k = localStorage.getItem(KIND_KEY); if (isKind(k)) setKind(k);
@@ -53,7 +57,7 @@ export default function UpNext({ picks: all, services }: { picks: Pick[]; servic
   const kindPicks = ofKind(base, kind);
   const sourced = bySource(kindPicks, src);
   const picks = mine ? onYourServices(sourced) : sourced;
-  const list = picks.filter((p) => !snoozed[p.key]).slice(0, SHOW);
+  const list = picks.filter((p) => !snoozed[p.key] && !moved.has(p.key)).slice(0, SHOW);
   const hidden = picks.filter((p) => snoozed[p.key]).length;
   if (!base.length) return null;
   const chooseSrc = (s: Source) => { setSrc(s); try { localStorage.setItem(SRC_KEY, s); } catch { /* ignore */ } };
@@ -65,6 +69,7 @@ export default function UpNext({ picks: all, services }: { picks: Pick[]; servic
     : "Nothing from your list is streaming on your services right now.";
   const toggle = () => setClosed((c) => { try { localStorage.setItem(KEY, c ? "0" : "1"); } catch { /* ignore */ } return !c; });
   const snooze = (k: string) => { const s = { ...loadSnoozed(), [k]: Date.now() + SNOOZE_MS }; saveSnoozed(s); setSnoozed(s); };
+  const toPartly = (p: Pick) => { setMoved((m) => new Set(m).add(p.key)); void mark(p, "partial"); };
   const restore = () => { saveSnoozed({}); setSnoozed({}); };
   return (
     <section className="upnext" aria-label="Watch next">
@@ -95,9 +100,18 @@ export default function UpNext({ picks: all, services }: { picks: Pick[]; servic
                   {p.tag && <span className="upnext-svc">{p.tag}</span>}
                 </span>
                 <span className="upnext-t">{p.title}</span>
-                <span className="upnext-w">{p.why}</span>
-                {p.length && <span className="mono upnext-len">{p.length}</span>}
+                {!p.go && <span className="upnext-w">{p.why}</span>}
+                {!p.go && p.length && <span className="mono upnext-len">{p.length}</span>}
               </TitleLink>
+              {/* A continue card: the text line sits outside the popup link so it can hold a second link (never an anchor inside an anchor). Same one or two lines. */}
+              {p.go && <span className="upnext-w">{p.why} <Link className="upnext-go" href={p.go}>Continue</Link></span>}
+              {p.go && p.length && <span className="mono upnext-len">{p.length}</span>}
+              {p.kind === "still" && (
+                <span className="upnext-ask">
+                  <button type="button" onClick={() => snooze(p.key)}>Keep</button>
+                  <button type="button" onClick={() => toPartly(p)}>Move to Partly watched</button>
+                </span>
+              )}
               <button type="button" className="upnext-x" aria-label={`Not now: ${p.title}`} title="Not now (hide for a month)" onClick={() => snooze(p.key)}>×</button>
             </li>
           ))}

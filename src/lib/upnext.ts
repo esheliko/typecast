@@ -1,6 +1,7 @@
 import { newEpDetail } from "./new-episode";
 import { dayIn } from "./today";
 import { airsLabel, daysUntil } from "./episodes";
+import { caughtUp, continueHref, continueLabel } from "./watch-library";
 import type { Item, LibItem } from "./types";
 
 /**
@@ -8,7 +9,7 @@ import type { Item, LibItem } from "./types";
  * Pure (no fetching), so it runs on the server with TMDB facts and also without them (the instant first paint).
  *
  * - In progress counts only while it is fresh: a series you touched last week leads, one untouched for months does not
- *   (at most one stale title is shown, as a "still want to finish?" question).
+ *   (Watching titles untouched for 6 weeks: at most one, as a "Still watching?" question; Partly watched is never a continue card).
  * - The watchlist is ranked by what makes something a good pick tonight: new episodes, streaming on your services,
  *   recommended by titles you loved, your favourite genres, how well it is rated, must-watch, recently added. Unreleased titles are left out.
  * - A few new titles from outside the library (recommended by what you loved) are mixed in, so it is a place to discover too.
@@ -17,6 +18,8 @@ import type { Item, LibItem } from "./types";
 const DAY = 24 * 3600 * 1000;
 export const FRESH_DAYS = 21;
 export const STALE_DAYS = 60;
+/** A Watching title untouched this long (6 weeks) is offered "Still watching?" (never moved automatically). */
+export const STILL_WATCHING_DAYS = 42;
 export const MAX_PICKS = 16;
 
 /** A title recommended by one of your loved titles, from TMDB. */
@@ -31,6 +34,9 @@ export interface Facts {
   lastAired: string | null;
   /** Series: when the next episode airs, YYYY-MM-DD, if scheduled. Optional so older callers need not set it. */
   nextAir?: string | null;
+  /** Series: season sizes (specials excluded) and the newest aired episode, from the same TMDB response. They make "Next: S3 E9" / "Caught up" true. */
+  seasons?: { n: number; eps: number }[];
+  lastEp?: { s: number; e: number } | null;
   /** Names of your streaming services it is on (subscription, free or with ads) in your country. */
   onMine: string[];
   /** Whether it can be streamed anywhere at all in your country. */
@@ -38,9 +44,11 @@ export interface Facts {
   recs: Rec[];
 }
 
-export type PickKind = "continue" | "new-eps" | "library" | "stale" | "discover";
+export type PickKind = "continue" | "new-eps" | "library" | "stale" | "still" | "discover";
 /** `tag` is the first of your services it streams on (null if none or not looked up); `checked` is whether TMDB was asked. */
-export interface Pick extends Item { why: string; tag: string | null; length: string | null; kind: PickKind; score: number; checked: boolean; /** A watched series that came back because a new episode (or season) aired: shown as a badge. */ fresh?: "episode" | "season" }
+export interface Pick extends Item { why: string; tag: string | null; length: string | null; kind: PickKind; score: number; checked: boolean; /** A watched series that came back because a new episode (or season) aired: shown as a badge. */ fresh?: "episode" | "season";
+  /** A "continue" card: where /watching reopens at the episode to continue with (set only when there is one to continue with). */
+  go?: string }
 
 /** Service ids that TMDB knows. Negative ids are labels the user typed in by hand, with no availability data. */
 export const realServices = (ids: number[]) => ids.filter((id) => Number.isInteger(id) && id > 0);
@@ -109,28 +117,39 @@ export function because(from: LibItem[]): string {
   return `Because you ${two.every((l) => l.rating >= 4) ? "loved" : "watched"} ${two.map((l) => l.title).join(" and ")}`;
 }
 
-function inProgress(l: LibItem, ctx: Ctx): Pick {
+/**
+ * Should a Watching title be offered "Still watching?": Watching (never Partly), untouched for more than 6 weeks, and no new episode waiting
+ * (neither the new-episode flag nor an aired episode newer than the last touch). Pure; `rankUpNext` keeps at most one such card.
+ */
+export function isStillWatching(l: { status: LibItem["status"]; newEp?: LibItem["newEp"]; updated: number }, now: number, newer = false): boolean {
+  return l.status === "watching" && !l.newEp && !newer && daysSince(l.updated, now) > STILL_WATCHING_DAYS;
+}
+
+function inProgress(l: LibItem, ctx: Ctx): Pick | null {
   const f = ctx.facts.get(l.key);
   const age = daysSince(l.updated, ctx.now);
-  const where = l.progress ? `S${l.progress.s} E${l.progress.e}` : null;
+  const after = l.progress ? `after S${l.progress.s} E${l.progress.e}` : null;
   const base = { key: l.key, type: l.type, id: l.id, title: l.title, year: l.year, poster: l.poster, length: lengthLabel(l.type, f?.runtime ?? null), tag: f?.onMine[0] ?? null, checked: !!f };
   // Came back from Watched because an episode aired: it leads, and says which one. Does not go stale while it waits.
   if (l.status === "watching" && l.newEp) {
-    return { ...base, kind: "new-eps", score: 21, fresh: l.newEp.season ? "season" : "episode", why: `${newEpDetail(l.newEp, ctx.now)}${where ? ` · you're at ${where}` : ""}` };
+    return { ...base, kind: "new-eps", score: 21, fresh: l.newEp.season ? "season" : "episode", why: `${newEpDetail(l.newEp, ctx.now)}${after ? ` · ${after}` : ""}` };
   }
   // A series with an episode newer than your last touch is worth picking back up even if it sat for a while.
   const newer = l.type === "tv" && !!f?.lastAired && f.lastAired > iso(l.updated, ctx.tz);
+  const newEps = (): Pick => ({ ...base, kind: "new-eps", score: 12, why: after ? `New episodes · ${after}` : "New episodes since you last watched" });
+  // Partly watched means stopped or seen a bit: never a "continue" card, only a "new episodes" one.
+  if (l.status === "partial") return newer ? newEps() : null;
+  if (isStillWatching(l, ctx.now, newer)) return { ...base, kind: "still", score: 0.5, why: `Still watching? Untouched since ${monthOf(l.updated, ctx.now)}` };
+  if (age > FRESH_DAYS && newer) return newEps();
+  // A Watching title that is fresh enough: the label says where to continue, and is always true.
+  const seasons = l.type === "tv" ? f?.seasons : undefined;
+  const lastEp = l.type === "tv" ? f?.lastEp : undefined;
+  const up = l.type === "tv" && !!l.progress && !caughtUp(l.progress, seasons, lastEp);
   // "· new ep Thursday" when the next episode airs within a week.
   const soon = l.type === "tv" && f?.nextAir && daysUntil(f.nextAir, iso(ctx.now, ctx.tz)) <= 6 ? airsLabel(f.nextAir, iso(ctx.now, ctx.tz)) : "";
-  const plus = (p: Pick): Pick => (soon && p.kind !== "stale" ? { ...p, why: `${p.why} · new ep ${soon}` } : p);
-  return plus(pickInProgress(l, ctx, age, where, base, newer));
-}
-
-function pickInProgress(l: LibItem, ctx: Ctx, age: number, where: string | null, base: Omit<Pick, "why" | "kind" | "score">, newer: boolean): Pick {
-  if (age <= FRESH_DAYS) return { ...base, kind: "continue", score: 20 - age / 7, why: where ? `Continue from ${where}` : l.status === "watching" ? "You're watching this" : "Pick up where you left off" };
-  if (newer) return { ...base, kind: "new-eps", score: 12, why: where ? `New episodes · you're at ${where}` : "New episodes since you last watched" };
-  if (age <= STALE_DAYS) return { ...base, kind: "continue", score: 9 - (age - FRESH_DAYS) / 10, why: where ? `Pick up at ${where}` : "Still on it?" };
-  return { ...base, kind: "stale", score: 0.5, why: `Untouched since ${monthOf(l.updated, ctx.now)} · still want to finish?` };
+  const label = continueLabel(l.progress, seasons, lastEp);
+  return { ...base, kind: "continue", score: age <= FRESH_DAYS ? 20 - age / 7 : 9 - (age - FRESH_DAYS) / 10, why: soon ? `${label} · new ep ${soon}` : label,
+    ...(up ? { go: continueHref(l, seasons) } : {}) };
 }
 
 function fromWatchlist(l: LibItem, ctx: Ctx, taste: Map<number, number>, recBy: Map<string, LibItem[]>): Pick | null {
@@ -194,16 +213,18 @@ export function discoveries(lib: LibItem[], ctx: Ctx, seeds: LibItem[], taste: M
 
 /**
  * The strip, best first. `snoozed` titles ("Not now") are left out. In-progress titles lead while fresh; the watchlist
- * follows by score; discoveries are slotted in every few cards; at most one stale in-progress title, near the end.
+ * follows by score; discoveries are slotted in every few cards; at most one "Still watching?" title, near the end.
  */
 export function rankUpNext(lib: LibItem[], ctx: Ctx, snoozed: Set<string> = new Set(), max = MAX_PICKS): Pick[] {
   const live = lib.filter((l) => !snoozed.has(l.key));
   const seeds = tasteSeeds(lib);
   const taste = genreTaste(seeds, ctx.facts);
   const recBy = recommenders(seeds, ctx.facts);
-  const progress = live.filter((l) => l.status === "watching" || l.status === "partial").map((l) => inProgress(l, ctx));
-  const stale = progress.filter((p) => p.kind === "stale").sort((a, b) => b.score - a.score);
-  const active = progress.filter((p) => p.kind !== "stale").sort((a, b) => b.score - a.score).slice(0, 4);
+  const progress = live.filter((l) => l.status === "watching" || l.status === "partial").map((l) => ({ l, p: inProgress(l, ctx) })).filter((x): x is { l: LibItem; p: Pick } => !!x.p);
+  // At most one "Still watching?" card (the most recently touched of them), near the end.
+  const stale = progress.filter((x) => x.p.kind === "still").sort((a, b) => b.l.updated - a.l.updated).map((x) => x.p);
+  // Every fresh Watching title leads (no cap of 4); Partly "new episodes" cards follow them. Only the whole strip is capped.
+  const active = progress.filter((x) => x.p.kind !== "still").sort((a, b) => Number(b.l.status === "watching") - Number(a.l.status === "watching") || b.p.score - a.p.score).map((x) => x.p);
   const wl = live.filter((l) => l.status === "watchlist").map((l) => fromWatchlist(l, ctx, taste, recBy)).filter((p): p is Pick => !!p).sort((a, b) => b.score - a.score);
   const disc = discoveries(lib, ctx, seeds, taste, 8).filter((p) => !snoozed.has(p.key));
 
