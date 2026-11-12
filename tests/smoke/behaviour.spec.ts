@@ -564,4 +564,26 @@ test.describe("behaviour (signed in)", () => {
     const after = await rowOf(sb, userId, "tv", bb.tmdb_id);
     expect(after).toEqual(before);
   });
+  // Step 4B-1 (docs/features/spoilers.md): the browser knows the saved place (`Mark.progress`), so moving it changes what the page tells without a reload (the popup-over-/watching switch is a manual QA view, see the doc). Breaking Bad is seeded Watching at S2 E3. NOT RUN by the author (shared smoke user): needs the lock.
+  test("spoiler line: ticking an episode moves the line on screen with no reload", async ({ page }) => {
+    const { sb, userId } = await smokeClient();
+    const bb = SEED.find((r) => r.tmdb_id === 1396)!;
+    const before = await rowOf(sb, userId, "tv", bb.tmdb_id);
+    await page.goto(`/title/tv/${bb.tmdb_id}?full=1`);
+    const gate = page.getByRole("group", { name: /Spoilers hidden for Breaking Bad/ }).first();
+    await expect(gate).toBeVisible({ timeout: 30_000 });
+    // Tick S2 E5: the saved place moves; E5 (and E4) are now told, E6 is still held back, all without a page load.
+    const row = (n: number) => page.locator(`li.ep[data-ep="${n}"] .ep-name`);
+    expect(await row(5).innerText()).toBe("Episode 5");
+    await page.getByRole("button", { name: "Mark watched up to S2 E5" }).click();
+    await expect(row(5)).not.toHaveText("Episode 5", { timeout: 30_000 });
+    await expect(row(4)).not.toHaveText("Episode 4");
+    await expect(row(6)).toHaveText("Episode 6");
+    // Back to where it was (unticking a tick steps back one episode: E5 -> E4 -> E3): E5 and E4 are held back again.
+    await page.getByRole("button", { name: /Watched S2 E5\. Tap to untick/ }).click();
+    await expect(row(5)).toHaveText("Episode 5", { timeout: 30_000 });
+    await page.getByRole("button", { name: /Watched S2 E4\. Tap to untick/ }).click();
+    await expect(row(4)).toHaveText("Episode 4", { timeout: 30_000 });
+    expect(await rowOf(sb, userId, "tv", bb.tmdb_id)).toEqual(before);
+  });
 });

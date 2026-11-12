@@ -89,9 +89,28 @@ export function lineParams(c: { page?: { key: string; spoilersShown: boolean } |
   return { ...(c.page ? { pg: c.page.key.replace(":", "-"), ...(c.page.spoilersShown ? { ps: "1" } : {}) } : {}), ...(c.reveal ? { reveal: "1" } : {}) };
 }
 
-/** One string for a client cache: the same request with a different page, switch or Show is a different answer. */
-export function lineCacheKey(c: { page?: { key: string; spoilersShown: boolean } | null; reveal?: boolean }): string {
-  return `${c.page ? `${c.page.key}${c.page.spoilersShown ? "+" : "-"}` : "."}${c.reveal ? "!" : ""}`;
+/** The line as a short cache tag: "." nothing held back, "s" series-only, "u2.3" up to S2 E3. The browser knows the saved place (`Mark.progress`), so a cache can key on exactly what the server will decide. */
+export const lineTag = (l: SpoilerLine): string => (l.kind === "none" ? "." : l.kind === "series-only" ? "s" : `u${l.s}.${l.e}`);
+
+/** The tags of several titles at once, in the order asked ("/api/who/spans"): one string for the whole question. */
+export const lineTags = (keys: string[], lineOf: (key: string) => SpoilerLine): string => keys.map((k) => lineTag(lineOf(k))).join(",");
+
+/** The line the browser expects the server to use for `key`: the same pure rule, fed from `Mark` (status + saved place). */
+export function markLine(key: string, mark: { status: Status; progress?: { s: number; e: number } | null } | null | undefined, ctx: LineContext = {}): SpoilerLine {
+  return spoilerLine(key, mark ? { status: mark.status, progress: mark.progress ?? null } : null, ctx);
+}
+
+/**
+ * Which page a request about `key` should name (`pg`/`ps`). Only when the page's No spoilers switch SHOWS spoilers, and the request is about the page's own title:
+ * then the popup of that title is not gated. With the switch off nothing is sent, so the library line applies (protective, today's behaviour).
+ */
+export function pageFor(page: { key: string; spoilersShown: boolean } | null | undefined, key: string | null | undefined): { key: string; spoilersShown: boolean } | null {
+  return page && page.spoilersShown && key && colon(key) === colon(page.key) ? page : null;
+}
+
+/** One string for a client cache: the same request with a different page, switch, Show or saved place is a different answer. */
+export function lineCacheKey(c: { page?: { key: string; spoilersShown: boolean } | null; reveal?: boolean; line?: SpoilerLine }): string {
+  return `${c.page ? `${c.page.key}${c.page.spoilersShown ? "+" : "-"}` : "."}${c.reveal ? "!" : ""}${c.line ? `~${lineTag(c.line)}` : ""}`;
 }
 
 /** Which keys a per-row `reveal` covers: `reveal=1` is every key asked for, otherwise the list ("tv:1,tv:2"). */

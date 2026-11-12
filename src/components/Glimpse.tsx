@@ -2,8 +2,12 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { GlimpseImage } from "@/app/api/glimpse/route";
 
-import { infoQuery, tabsWithRoles, type GlimpseInfo, type GlimpseSpec, type LibRole } from "@/lib/glimpse";
+import { infoQuery, tabsWithRoles, withLine, type GlimpseInfo, type GlimpseSpec, type LibRole } from "@/lib/glimpse";
 import type { GlimpseAbout } from "@/lib/glimpse-data";
+import { markLine } from "@/lib/spoiler-line";
+import { useLib } from "./cast/LibState";
+import { usePageLine, type PageLine } from "./PageLine";
+import type { Mark } from "@/lib/types";
 import { SpoilerGate } from "./SpoilerGate";
 import { epCode, fmtDate, plural } from "@/lib/episodes";
 import { useBackClose } from "@/lib/back-layer";
@@ -52,16 +56,36 @@ function loadRoles(pid: number, key?: string): Promise<LibRole[]> {
 }
 
 /** Ask for what a button's panel will need. `images`: also the image searches (costlier, so only on intent or open). */
-export function prefetchGlimpse(spec: GlimpseSpec, images: boolean) {
+export function prefetchGlimpse(spec: GlimpseSpec, images: boolean, enrich: Enrich = (x) => x) {
+  spec = enrich(spec);
   const one = (info: GlimpseInfo | undefined, q: string | undefined) => {
     if (info) loadAbout(infoQuery(info)).catch(() => {});
     if (images && q) loadImages(q);
   };
   spec.tabs.forEach((t, i) => one(t.info ?? (i === 0 ? spec.info : undefined), t.q));
-  if (spec.libRoles && spec.info?.pid) loadRoles(spec.info.pid, spec.info.key).then((rs) => { if (rs.length) tabsWithRoles(spec, rs).forEach((t) => one(t.info, t.q)); });
+  if (spec.libRoles && spec.info?.pid) loadRoles(spec.info.pid, spec.info.key).then((rs) => { if (rs.length) enrich({ ...spec, tabs: tabsWithRoles(spec, rs) }).tabs.forEach((t) => one(t.info, t.q)); });
+}
+
+/**
+ * The panel sits ABOVE LibProvider (the franchise sheet it renders has glimpse buttons too), so it cannot read the library marks itself. `GlimpseLineFeed`,
+ * mounted inside LibProvider, hands them over through this ref; every spec is enriched with the spoiler line (`withLine`) when it is opened or prefetched.
+ */
+type Feed = { get: (key: string) => Mark | undefined; page: PageLine | null };
+type Enrich = (s: GlimpseSpec) => GlimpseSpec;
+const FeedCtx = createContext<{ feed: React.MutableRefObject<Feed | null>; enrich: Enrich }>({ feed: { current: null }, enrich: (s) => s });
+export const useGlimpseEnrich = (): Enrich => useContext(FeedCtx).enrich;
+export function GlimpseLineFeed() {
+  const { feed } = useContext(FeedCtx);
+  const lib = useLib();
+  const page = usePageLine();
+  feed.current = { get: lib.get, page };
+  return null;
 }
 
 export function GlimpseProvider({ children }: { children: React.ReactNode }) {
+  const feed = useRef<Feed | null>(null);
+  const enrich = useCallback<Enrich>((s) => withLine(s, (k, pg) => markLine(k, feed.current?.get(k), { page: pg }), feed.current?.page ?? null), []);
+  const feedValue = useMemo(() => ({ feed, enrich }), [enrich]);
   const [spec, setSpec] = useState<GlimpseSpec | null>(null);
   const [tabQ, setTabQ] = useState<string | null>(null);
   const [rolesSt, setRolesSt] = useState<{ k: string; v: LibRole[] } | null>(null);
@@ -70,7 +94,7 @@ export function GlimpseProvider({ children }: { children: React.ReactNode }) {
   const box = useRef<HTMLDivElement>(null);
   const opener = useRef<HTMLElement | null>(null);
 
-  const open = useCallback((s: GlimpseSpec) => { opener.current = document.activeElement as HTMLElement | null; setTabQ(null); setBig(null); setSpec(s); }, []);
+  const open = useCallback((s: GlimpseSpec) => { opener.current = document.activeElement as HTMLElement | null; setTabQ(null); setBig(null); setSpec(enrich(s)); }, [enrich]);
   const close = useCallback(() => { setSpec(null); setBig(null); const o = opener.current; if (o && document.contains(o)) o.focus({ preventScroll: true }); }, []);
 
   // Back button: first leaves a big image, then closes the panel.
@@ -86,7 +110,7 @@ export function GlimpseProvider({ children }: { children: React.ReactNode }) {
     loadRoles(pid, tkey).then((v) => { if (live) setRolesSt({ k: rk, v }); });
     return () => { live = false; };
   }, [pid, tkey, rk]);
-  const tabs = useMemo(() => (spec ? tabsWithRoles(spec, rolesSt && rolesSt.k === rk ? rolesSt.v : null) : []), [spec, rolesSt, rk]);
+  const tabs = useMemo(() => (spec ? enrich({ ...spec, tabs: tabsWithRoles(spec, rolesSt && rolesSt.k === rk ? rolesSt.v : null) }).tabs : []), [spec, rolesSt, rk, enrich]);
   const curTab = tabs.find((t) => t.q === tabQ) ?? tabs[0];
   const q = curTab?.q;
 
@@ -112,7 +136,7 @@ export function GlimpseProvider({ children }: { children: React.ReactNode }) {
   const cur = q ? imgDone.get(q) ?? res[q] : undefined;
   const about = curTab ? curTab.info ?? spec?.info : undefined;
   return (
-    <Ctx.Provider value={open}>
+    <FeedCtx.Provider value={feedValue}><Ctx.Provider value={open}>
       {children}
       {spec && q && (
         <div className="gl-wrap" onClick={(e) => { if (e.target === e.currentTarget) close(); }}>
@@ -161,17 +185,17 @@ export function GlimpseProvider({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       )}
-    </Ctx.Provider>
+    </Ctx.Provider></FeedCtx.Provider>
   );
 }
 
-// Kept a minute only: marking a title Watched changes what the server tells, and the panel should follow. An answer held back by a spoiler line (the saved place
-// moves as you tick episodes, and the client does not know it) is kept 15 seconds.
-const aboutTtl = (v?: GlimpseAbout) => (v?.role?.hidden ? 15_000 : 60_000);
+// An answer is cached under its exact question, which includes the spoiler line (`lt`, the saved place); a minute only: marking a title Watched changes what the server tells, and the panel should follow. An answer held back by a spoiler line (the saved place
+// something else can change what the server tells (marking a title Watched), so the answer is not kept longer.
+const aboutTtl = () => 60_000;
 const aboutCache = new Map<string, { t: number; p: Promise<GlimpseAbout>; v?: GlimpseAbout }>();
 function loadAbout(qs: string): Promise<GlimpseAbout> {
   const hit = aboutCache.get(qs);
-  if (hit && Date.now() - hit.t < aboutTtl(hit.v)) return hit.p;
+  if (hit && Date.now() - hit.t < aboutTtl()) return hit.p;
   const p = fetch(`/api/glimpse/info?${qs}`).then(async (r) => { if (!r.ok) throw new Error("lookup failed"); return r.json() as Promise<GlimpseAbout>; });
   p.catch(() => { if (aboutCache.get(qs)?.p === p) aboutCache.delete(qs); });
   const entry: { t: number; p: Promise<GlimpseAbout>; v?: GlimpseAbout } = { t: Date.now(), p };
@@ -180,7 +204,7 @@ function loadAbout(qs: string): Promise<GlimpseAbout> {
   return p;
 }
 /** The answer if it is already here (prefetched), so the panel opens with it instead of a "reading up" line. */
-const peekAbout = (qs: string): GlimpseAbout | null => { const h = aboutCache.get(qs); return h && h.v && Date.now() - h.t < aboutTtl(h.v) ? h.v : null; };
+const peekAbout = (qs: string): GlimpseAbout | null => { const h = aboutCache.get(qs); return h && h.v && Date.now() - h.t < aboutTtl() ? h.v : null; };
 
 const EPS_SHOWN = 8;
 
@@ -266,6 +290,8 @@ export function GlimpseButton({ spec, label }: { spec: GlimpseSpec; label?: stri
   const text = label ?? (spec.info ? `About ${spec.heading}` : `See images of ${spec.heading}`);
   const ref = useRef<HTMLButtonElement>(null);
   const specRef = useRef(spec);
+  const enrichRef = useRef<Enrich>((x) => x);
+  enrichRef.current = useGlimpseEnrich();
   useEffect(() => { specRef.current = spec; });
   // Words and roles once the button has been on screen for a moment; everything (images too) when a pointer or finger reaches for it.
   useEffect(() => {
@@ -274,12 +300,13 @@ export function GlimpseButton({ spec, label }: { spec: GlimpseSpec; label?: stri
     let timer: ReturnType<typeof setTimeout> | undefined;
     const io = new IntersectionObserver(([e]) => {
       clearTimeout(timer);
-      if (e?.isIntersecting) timer = setTimeout(() => { prefetchGlimpse(specRef.current, false); io.disconnect(); }, 600);
+      if (e?.isIntersecting) timer = setTimeout(() => { prefetchGlimpse(specRef.current, false, enrichRef.current); io.disconnect(); }, 600);
     });
     io.observe(el);
     return () => { clearTimeout(timer); io.disconnect(); };
   }, []);
-  const warm = () => prefetchGlimpse(spec, true);
+  const enrich = useGlimpseEnrich();
+  const warm = () => prefetchGlimpse(spec, true, enrich);
   return (
     <button ref={ref} type="button" className="gl-b" onPointerEnter={warm} onFocus={warm} onTouchStart={warm} onClick={() => open(spec)} aria-label={text} title={text}>
       <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="5" width="17" height="15" rx="3" /><circle cx="8.5" cy="11" r="2.1" /><path d="M5 17.2c.5-2 1.9-3.1 3.5-3.1s3 1.1 3.5 3.1" /><path d="M14.5 10h2.5M14.5 13h2.5M14.5 16h1.5" /><path d="M20 1.5v4M18 3.5h4" /></svg>

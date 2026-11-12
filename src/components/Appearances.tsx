@@ -2,6 +2,9 @@
 import { useEffect, useRef, useState } from "react";
 import { appearanceLine, epCode, fmtDate } from "@/lib/episodes";
 import { SpoilerGate } from "./SpoilerGate";
+import { lineCacheKey, lineParams, markLine, pageFor } from "@/lib/spoiler-line";
+import { useLib } from "./cast/LibState";
+import { usePageLine } from "./PageLine";
 import type { Appearances as Data } from "@/lib/types";
 
 /** Asks the Episodes section of this page to open one episode (and scroll to it). */
@@ -9,21 +12,19 @@ function openEpisode(s: number, e: number) {
   window.dispatchEvent(new CustomEvent("tc:episode", { detail: { s, e } }));
 }
 
-// An answer held back by a spoiler line (the saved place moves as you tick episodes, and this component does not know it) is kept 15 seconds; the rest for the session.
-const cache = new Map<string, { t: number; p: Promise<Data>; v?: Data }>();
-function load(tv: number, credits: string[], eps: number, reveal: boolean): Promise<Data> {
-  const k = `${tv}:${credits.join(",")}${reveal ? ":!" : ""}`;
+// Cached for the session under the exact question: the series, the credits, the spoiler line (the saved place is in the library marks), the page and Show.
+const cache = new Map<string, Promise<Data>>();
+function load(tv: number, credits: string[], eps: number, lk: string, page: { key: string; spoilersShown: boolean } | null, reveal: boolean): Promise<Data> {
+  const k = `${tv}:${credits.join(",")}:${lk}`;
   const hit = cache.get(k);
-  if (hit && (!hit.v?.hidden || Date.now() - hit.t < 15_000)) return hit.p;
-  const q = new URLSearchParams({ tv: String(tv), c: credits.join(","), n: String(eps) });
-  if (reveal) q.set("reveal", "1");
+  if (hit) return hit;
+  const q = new URLSearchParams({ tv: String(tv), c: credits.join(","), n: String(eps), ...lineParams({ page, reveal }) });
   const p = fetch(`/api/appearances?${q}`).then(async (r) => {
     if (!r.ok) throw new Error("lookup failed");
     return r.json() as Promise<Data>;
   });
-  const entry: { t: number; p: Promise<Data>; v?: Data } = { t: Date.now(), p };
-  p.then((v) => { entry.v = v; }, () => { if (cache.get(k) === entry) cache.delete(k); });
-  cache.set(k, entry);
+  p.catch(() => { if (cache.get(k) === p) cache.delete(k); });
+  cache.set(k, p);
   return p;
 }
 
@@ -53,12 +54,19 @@ export default function Appearances({ tv, credits, eps, auto, show }: { tv: numb
   }, [want]);
 
   const ck = credits.join(",");
+  // The spoiler line the server will use: the saved place from the library marks, or none when the page's switch shows spoilers for this very title.
+  const lib = useLib();
+  const key = `tv:${tv}`;
+  const page = pageFor(usePageLine(), key);
+  const lk = lineCacheKey({ page, reveal, line: markLine(key, lib.get(key), { page, revealed: reveal }) });
   useEffect(() => {
     if (!want || !ck) return;
     let live = true;
-    load(tv, ck.split(","), eps ?? 0, reveal).then((x) => { if (live) setData(x); }, () => { if (live) setFailed(true); });
+    load(tv, ck.split(","), eps ?? 0, lk, page, reveal).then((x) => { if (live) setData(x); }, () => { if (live) setFailed(true); });
     return () => { live = false; };
-  }, [want, tv, ck, eps, reveal]);
+    // `lk` stands for the line, the page and Show.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [want, tv, ck, eps, lk]);
 
   if (!credits.length || failed) return <div ref={box} hidden />;
   const roles = data?.roles.filter((r) => r.role) ?? [];

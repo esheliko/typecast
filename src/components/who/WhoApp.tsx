@@ -5,6 +5,7 @@ import { TitleLink } from "../Modal";
 import { TitleSwitcher } from "./TitleSwitcher";
 import { useWatchControl } from "../Watching";
 import { useLib } from "../cast/LibState";
+import { usePublishPageLine } from "../PageLine";
 import { useSavedPlace } from "./useSavedPlace";
 import { Finder } from "./Finder";
 import { PairNode } from "./PairNode";
@@ -56,6 +57,7 @@ export function WhoApp({ brief, initialPos, today, others = [], savedProgress = 
   const [zoomed, setZoomed] = useState<{ path: string; name: string; size?: string; gallery?: string[] } | null>(null);
   /** The page-wide spoiler switch: true = spoilers allowed. Off (the default) keeps everything inside where you are. */
   const [spoilers, setSpoilers] = useState(false);
+  usePublishPageLine(brief.key, spoilers);
   const input = useRef<HTMLInputElement>(null);
   const pane = useRef<HTMLDivElement>(null);
   const opener = useRef<HTMLElement | null>(null);

@@ -3,6 +3,7 @@ import type { Mark, Priority, Status } from "./types";
 /**
  * Marks for every library row are sent to the browser on every page, so they travel as four characters per title
  * (status, priority, rich, new-episode flag) instead of an object: about a third of the size for a large library.
+ * A Watching series with a saved place adds `<season>.<episode>` after them (its spoiler line); a 4-character string has none.
  */
 const STATUS: Record<Status, string> = { watching: "g", partial: "p", watchlist: "l", watched: "w" };
 const STATUS_BACK = Object.fromEntries(Object.entries(STATUS).map(([k, v]) => [v, k])) as Record<string, Status>;
@@ -10,14 +11,38 @@ const STATUS_BACK = Object.fromEntries(Object.entries(STATUS).map(([k, v]) => [v
 export type PackedMarks = Record<string, string>;
 
 export function packMark(m: Mark): string {
-  return `${STATUS[m.status]}${m.priority === "must" ? "m" : "s"}${m.rich ? "r" : "-"}${m.fresh === "season" ? "S" : m.fresh === "episode" ? "E" : "-"}`;
+  const p = m.status === "watching" && m.progress && m.progress.s >= 1 && m.progress.e >= 1 ? `${m.progress.s}.${m.progress.e}` : "";
+  return `${STATUS[m.status]}${m.priority === "must" ? "m" : "s"}${m.rich ? "r" : "-"}${m.fresh === "season" ? "S" : m.fresh === "episode" ? "E" : "-"}${p}`;
+}
+
+/** The saved place out of a packed mark's optional suffix; null when there is none (or it is malformed). */
+export function unpackProgress(c: string): { s: number; e: number } | null {
+  const m = /^(\d{1,4})\.(\d{1,4})$/.exec(c.slice(4));
+  return m ? { s: +m[1], e: +m[2] } : null;
 }
 
 export function unpackMarks(packed: PackedMarks): Record<string, Mark> {
   const out: Record<string, Mark> = {};
   for (const k of Object.keys(packed)) {
     const c = packed[k];
-    out[k] = { status: STATUS_BACK[c[0]] ?? "watchlist", priority: (c[1] === "m" ? "must" : "someday") as Priority, rich: c[2] === "r", ...(c[3] === "S" ? { fresh: "season" as const } : c[3] === "E" ? { fresh: "episode" as const } : {}) };
+    const progress = unpackProgress(c);
+    out[k] = { status: STATUS_BACK[c[0]] ?? "watchlist", priority: (c[1] === "m" ? "must" : "someday") as Priority, rich: c[2] === "r", ...(c[3] === "S" ? { fresh: "season" as const } : c[3] === "E" ? { fresh: "episode" as const } : {}), ...(progress ? { progress } : {}) };
   }
   return out;
+}
+
+/** The saved place a mark carries: only a Watching series has one (it is what `packMark` keeps). */
+export const placeOf = (m: Mark | null | undefined): { s: number; e: number } | null => (m && m.status === "watching" && m.progress && m.progress.s >= 1 && m.progress.e >= 1 ? m.progress : null);
+
+/** Does the server's mark agree with a local override (status, priority and saved place)? Then the override has done its job. */
+export function sameMark(a: Mark | null | undefined, b: Mark | null | undefined): boolean {
+  const pa = placeOf(a), pb = placeOf(b);
+  return (a?.status ?? null) === (b?.status ?? null) && a?.priority === b?.priority && pa?.s === pb?.s && pa?.e === pb?.e;
+}
+
+/** The mark after the saved place moved to `place` (null clears it). `status` is what the library now holds when the write also changed it (an episode tick adds a series as Watching). Null when there is nothing to put it on. */
+export function withPlace(m: Mark | null | undefined, place: { s: number; e: number } | null, status?: Status): Mark | null {
+  const st = status ?? m?.status;
+  if (!st) return null;
+  return { status: st, priority: m?.priority ?? "someday", rich: m?.rich ?? false, ...(m?.fresh ? { fresh: m.fresh } : {}), progress: place };
 }

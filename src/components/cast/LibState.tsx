@@ -3,7 +3,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { setStatus, setStatusMany, undoStatusMany } from "@/app/actions";
 import { FranchiseSheet, type Group } from "./Franchise";
-import { unpackMarks, type PackedMarks } from "@/lib/marks";
+import { sameMark, unpackMarks, withPlace, type PackedMarks } from "@/lib/marks";
 import { PRIORITY_LABEL, STATUS_LABEL, markLabel, type Item, type Mark, type Priority, type Status } from "@/lib/types";
 
 interface Ctx {
@@ -31,6 +31,11 @@ interface Ctx {
   defaultPriority: Priority;
   /** A plain toast, with an optional Undo (used for saved places, which are not marks). */
   notify: (msg: string, undo?: () => void) => void;
+  /**
+   * The saved place of a series moved (null clears it): on screen only, NO server write (the caller already made its one write). It is the spoiler line
+   * every surface and cache keys on. `status` is what the library holds now when that write also changed it.
+   */
+  setPlace: (key: string, place: { s: number; e: number } | null, status?: Status) => void;
 }
 const LibCtx = createContext<Ctx | null>(null);
 
@@ -76,7 +81,7 @@ export function LibProvider({ packed, children }: { packed: PackedMarks; childre
   useEffect(() => {
     setOver((o) => {
       const next = { ...o }; let changed = false;
-      for (const k of Object.keys(o)) if ((initial[k]?.status ?? null) === (o[k]?.status ?? null) && initial[k]?.priority === o[k]?.priority) { delete next[k]; changed = true; }
+      for (const k of Object.keys(o)) if (sameMark(initial[k], o[k])) { delete next[k]; changed = true; }
       return changed ? next : o;
     });
   }, [initial]);
@@ -128,7 +133,7 @@ export function LibProvider({ packed, children }: { packed: PackedMarks; childre
     const k = it.key, v = (version.current.get(k) ?? 0) + 1;
     version.current.set(k, v);
     dirty.current = true;
-    setOver((o) => ({ ...o, [k]: status ? { status, priority: priority ?? prev?.priority ?? "someday", rich: prev?.rich ?? false } : null }));
+    setOver((o) => ({ ...o, [k]: status ? { status, priority: priority ?? prev?.priority ?? "someday", rich: prev?.rich ?? false, ...(prev?.progress ? { progress: prev.progress } : {}) } : null }));
     const run = (saveQueue.current.get(k) ?? Promise.resolve(true)).then(async () => {
       try { await setStatus({ type: it.type, id: it.id, title: it.title, year: it.year, poster: it.poster }, status, priority); return true; }
       catch {
@@ -163,8 +168,8 @@ export function LibProvider({ packed, children }: { packed: PackedMarks; childre
           show({ msg: `${it.title}: ${markLabel(next.status, next.priority)}`, action: flip(next) });
         } };
       };
-      const action = status ? flip({ status, priority: priority ?? prev?.priority ?? "someday", rich: false }) : undefined;
-      const id = show({ msg, pending: true, action, undo: canUndo ? () => { setToast(null); save(it, prev?.status ?? null, status ? { status, priority: priority ?? "someday", rich: false } : null, prev?.priority); } : undefined });
+      const action = status ? flip({ status, priority: priority ?? prev?.priority ?? "someday", rich: false, progress: prev?.progress }) : undefined;
+      const id = show({ msg, pending: true, action, undo: canUndo ? () => { setToast(null); save(it, prev?.status ?? null, status ? { status, priority: priority ?? "someday", rich: false, progress: prev?.progress } : null, prev?.priority); } : undefined });
       // Having watched one, offer the rest of its franchise: the toast grows a button once we know there is something to mark.
       if (status === "watched" && !quiet) franchise(it).then((groups) => {
         const left = new Set(groups.flatMap((g) => g.items).filter((i) => !current(i.key)).map((i) => i.key)).size;
@@ -179,6 +184,10 @@ export function LibProvider({ packed, children }: { packed: PackedMarks; childre
   }, [save, show, franchise, current]);
 
   const touch = useCallback(() => { dirty.current = true; }, []);
+  const setPlace = useCallback((key: string, place: { s: number; e: number } | null, status?: Status) => {
+    const m = withPlace(current(key), place, status);
+    if (m) setOver((o) => ({ ...o, [key]: m }));
+  }, [current]);
   const put = useCallback((it: Item, status: Status | null, priority?: Priority) => {
     const prev = (it.key in overRef.current ? overRef.current[it.key] : live.current[it.key]) ?? null;
     if ((prev?.status ?? null) === status && (priority === undefined || prev?.priority === priority)) return Promise.resolve(true);
@@ -233,7 +242,7 @@ export function LibProvider({ packed, children }: { packed: PackedMarks; childre
   }, [show, writeSkipped]);
 
   return (
-    <LibCtx.Provider value={{ get, mark, markMany, openRelated, groupsOf: franchise, marked, skipped, skip, put, touch, markRich, defaultPriority, notify }}>
+    <LibCtx.Provider value={{ get, mark, markMany, openRelated, groupsOf: franchise, marked, skipped, skip, put, touch, markRich, defaultPriority, notify, setPlace }}>
       {children}
       {sheet && <FranchiseSheet it={sheet} load={franchise} loadSimilar={similar} onClose={() => setSheet(null)} />}
       <div className="toast-slot" aria-live="polite">

@@ -1,3 +1,5 @@
+import { lineTag, pageFor, type SpoilerLine } from "./spoiler-line";
+
 /**
  * One thing to look at: a heading, one or more image searches (shown as tabs) and, when we know which title / person it is,
  * `info` so the panel can also tell about them (summary, the character, which episodes). Pure; unit tested in tests/unit/glimpse.test.ts.
@@ -27,6 +29,8 @@ export interface GlimpseInfo {
   hide?: string;
   /** The /watching page this was opened on: its title key ("tv-79744") and whether its spoilers are shown. The server uses it to tell the page's own title (governed by the page) from every other title (governed by the library, see spoiler-line.ts). */
   pg?: string; ps?: boolean;
+  /** Cache discriminator only (never read by the server): the spoiler line the browser expects for `key` (`lineTag`), so the About cache is keyed on the saved place. Set by `withLine`. */
+  lt?: string;
 }
 
 type TitleBits = { title: string; year?: string | number; type: string; key?: string; id?: number };
@@ -96,6 +100,7 @@ export function infoQuery(i: GlimpseInfo): string {
   if (i.nospoil) p.set("ns", "1");
   if (i.hide) p.set("h", i.hide.slice(0, 80));
   if (i.pg) { p.set("pg", i.pg); if (i.ps) p.set("ps", "1"); }
+  if (i.lt) p.set("lt", i.lt);
   return p.toString();
 }
 
@@ -134,4 +139,19 @@ export function tabsWithRoles(spec: GlimpseSpec, roles: LibRole[] | null): Glimp
   const seen = new Set(spec.tabs.map((t) => t.q));
   const extra = roles.map((r) => libRoleTab(spec.libRoles!.actor, spec.info!.pid, r, spec.info)).filter((t) => !seen.has(t.q));
   return [spec.tabs[0], ...extra, ...spec.tabs.slice(1)];
+}
+
+/**
+ * Make a spec ready to open from where the button sits: each question about a title gets the line the browser expects the server to use (`lt`, from the saved
+ * place in the library marks: the About cache key) and, when the /watching page shows spoilers for that very title and the spec does not already name the
+ * page, `pg`/`ps` so a popup of the page's own title is not gated. Pure; unit tested.
+ */
+export function withLine(spec: GlimpseSpec, lineOf: (key: string, page: { key: string; spoilersShown: boolean } | null) => SpoilerLine, page: { key: string; spoilersShown: boolean } | null): GlimpseSpec {
+  const one = (i: GlimpseInfo | undefined): GlimpseInfo | undefined => {
+    if (!i) return i;
+    const own = i.pg ? { key: i.pg.replace("-", ":"), spoilersShown: !!i.ps } : pageFor(page, i.key);
+    const withPage = !i.pg && own ? { ...i, pg: own.key.replace(":", "-"), ...(own.spoilersShown ? { ps: true } : {}) } : i;
+    return i.key ? { ...withPage, lt: lineTag(lineOf(i.key, own)) } : withPage;
+  };
+  return { ...spec, ...(spec.info ? { info: one(spec.info) } : {}), tabs: spec.tabs.map((t) => (t.info ? { ...t, info: one(t.info) } : t)) };
 }
