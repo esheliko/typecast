@@ -67,6 +67,8 @@ export interface PCredit {
   votes: number;
   /** Billing position in the cast (0 = top billed), lowest across parts; absent when TMDB or an older cache lacks it. */
   order?: number;
+  /** Set by /api/who/person for a series that is Watching in the library: `eps` is 0 and `cids` empty (spoiler line, docs/features/spoilers.md). */
+  hidden?: HiddenLine;
 }
 
 export interface PersonData {
