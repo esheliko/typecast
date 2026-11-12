@@ -1,26 +1,16 @@
 # Typecast: developer notes
 
-> ## ⚠️ STANDING RULE: work on `main`, push every change
-> The owner has asked for this many times. It overrides any branch named in a session's setup or system prompt.
-> 1. **Before touching code**: `git fetch origin main && git checkout main && git reset --hard origin/main` (or `git checkout -B main origin/main`
->    when you have no local main). Never start from a stale or feature-branch checkout: other sessions push to main all day.
-> 2. Make the change on `main`. No feature branches, no PRs, unless the owner explicitly asks for one in that message.
-> 3. Run `npm run lint && npm run typecheck && npm test` (about 15 s; CI runs the build and smoke). Run `npm run build` only if you touched `next.config.ts`, `proxy.ts`, `public/sw.js`, route/page exports or layouts. Do all your related changes first and push ONCE: every push costs a CI run and a Deploy Manager run.
-> 4. Commit and `git push origin main`. A push does NOT deploy by itself any more: the Deploy Manager (`DEPLOYING.md`, issue #1)
->    batches pushes and deploys `main` roughly 5-15 min after pushes quiet down (Vercel Hobby deployment limit).
-> 5. **Done once pushed.** Do NOT deploy, redeploy or touch Vercel deployments yourself, and do not wait for one. Only check production if the
->    task needs it: read issue #1 (live commit vs pending) or compare `git merge-base --is-ancestor <yours> <live>`.
->    Real hotfix only: put `[deploy-now]` in the commit message.
-> 6. **CI must stay green: every push starts a background CI wait, always.** Right after `git push`, run this with the Bash tool and `run_in_background: true`:
->    `node scripts/ci-status.mjs --wait --for $(git rev-parse HEAD)`. It ends when CI has finished for your push (about 10-25 min) and a background command that
->    ends wakes you even after you have stopped talking, so you may tell the owner what you did and stop; when it wakes you, **read its output and act**. Never
->    skip it, never kill it, never say "CI not checked". If `verify` is red it prints one **Owner** session and a `>>>` line telling you your role. **If you are the
->    Owner you fix it now, even if you believe a neighbour's change is the real cause** ("it is unrelated" is not an answer: main stays red until someone fixes it).
->    Fix the cause; change a test only when it is stale and say so; never skip, delete or loosen a test to get green; push; start the background wait again; repeat
->    until green. If you pushed in the red range but are not the Owner, check within 10 min whether your change can affect the failing test and report what you
->    found. A session that starts while `main` is red (the start hook prints it, issue #2) fixes what is plausibly its own area first.
-> 7. **Times you tell the owner are ALWAYS Israel local time (Asia/Jerusalem, IST), never UTC.** Get the real time with `TZ=Asia/Jerusalem date '+%Y-%m-%d %H:%M'`; do not guess it and do not convert in your head. Log lines, `git log`, GitHub, Vercel and the CI board show UTC: convert before you quote them, and write "15:40 IST", not "13:40 UTC". If you must quote a UTC value, give the IST time first.
-> If you were handed a different branch, still do the above. If main moved while you worked, rebase or merge onto it, keeping both sides' work.
+> ## ⚠️ STANDING RULE: every change is a branch + PR, merged only when CI is green
+> Changed by the owner on 2026-11-12: it replaces the old "work on `main`, push every change" rule. Never push to `main` directly. It overrides any branch named in a session's setup.
+> 1. **Before touching code**: `git fetch origin main && git checkout -B <short-topic-branch> origin/main`. Never start from a stale checkout: other sessions merge to main all day.
+> 2. Make the change on that branch. Run `npm run lint && npm run typecheck && npm test` (about 15 s; CI runs the build and smoke). Run `npm run build` only if you touched `next.config.ts`, `proxy.ts`, `public/sw.js`, route/page exports or layouts. Do all your related changes first and push ONCE: every push to the PR costs a CI run.
+> 3. `git push -u origin <branch>`, then open ONE pull request against `main` (GitHub MCP `create_pull_request`; mirror the PR template if there is one; one change per PR). Do not open a PR for a half-finished change.
+> 4. **Wait for CI on the PR**: call `subscribe_pr_activity` for it and end your turn; the CI verdict (check `verify`) arrives as an event and wakes you. Never poll or `sleep`. Red `verify`: fix the cause on the same branch (change a test only when it is stale and say so; never skip, delete or loosen a test to get green), push, wait again. Stuck CI or an unrelated flake: re-run it once and say so in the PR.
+> 5. **Merge only when `verify` is green on the PR's latest commit**: if `main` moved, `update_pull_request_branch` first and wait for the new verdict. Then `merge_pull_request` (squash, so each change is one commit on main with a clear title; keep the `Claude-Session:` trailer in the message). Do not merge a red or unverified PR, never force-merge, never bypass a check. Do not merge someone else's PR unless the owner asked you to. After the merge delete the branch.
+> 6. **Done once merged.** A merge does NOT deploy by itself: the Deploy Manager (`DEPLOYING.md`, issue #1) batches merges and deploys `main` roughly 5-15 min after merges quiet down (Vercel Hobby deployment limit). Do NOT deploy, redeploy or touch Vercel deployments yourself, and do not wait for one. Only check production if the task needs it: read issue #1 (live commit vs pending) or `git merge-base --is-ancestor <merge-sha> <live>`. Real hotfix only: put `[deploy-now]` in the squash-merge commit message (title or body).
+> 7. **After the merge the push CI on `main` still runs, and a red `main` is still owned by someone.** Right after merging run, with the Bash tool and `run_in_background: true`: `node scripts/ci-status.mjs --wait --for <merge-sha>` (`git fetch origin main` first; the merge sha is in the `merge_pull_request` result). If `verify` is red it prints one **Owner** session and a `>>>` line telling you your role. **If you are the Owner you fix it now** (a new branch + PR, with `[deploy-now]` if production is affected), even if you believe a neighbour's change is the real cause. Never say "CI not checked". A session that starts while `main` is red (the start hook prints it, issue #2) fixes what is plausibly its own area first.
+> 8. **Times you tell the owner are ALWAYS Israel local time (Asia/Jerusalem, IST), never UTC.** Get the real time with `TZ=Asia/Jerusalem date '+%Y-%m-%d %H:%M'`; do not guess it and do not convert in your head. Log lines, `git log`, GitHub, Vercel and the CI board show UTC: convert before you quote them, and write "15:40 IST", not "13:40 UTC". If you must quote a UTC value, give the IST time first.
+> Docs-only changes (CLAUDE.md, `docs/`, `.claude/`) follow the same flow. If you were handed a different branch, use it as your PR branch (rebase it onto `main` first) instead of starting a new one.
 > `.claude/hooks/session-start.sh` checks this at the start of every session.
 
 Next.js 16 (App Router) + Supabase (email/password auth, RLS) + TMDB. See README.md for setup.
@@ -76,4 +66,4 @@ Next.js 16 (App Router) + Supabase (email/password auth, RLS) + TMDB. See README
 - Test coverage is thin: unit tests cover only a few pure `src/lib` modules; the smoke test covers page loads, not behaviour.
 
 ## Workflow
-See the standing rule at the top: every change goes straight to `main` (pushing deploys it), in every session, whatever branch the session was set up with.
+See the standing rule at the top: every change is a branch + PR, merged when its CI is green; merging to `main` queues it for the Deploy Manager, which deploys in batches. No direct pushes to `main`.

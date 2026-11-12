@@ -155,7 +155,7 @@ async function main() {
     if (FOR) {
       const mySession = (git('log', '-1', '--format=%(trailers:key=Claude-Session,valueonly,separator=%x2c)', git('rev-parse', FOR)).split(',')[0] ?? '').trim().replace(/^.*\//, '');
       const inRange = commits.some((c) => c.session && c.session === mySession);
-      if (owner && mySession && owner.session === mySession) lines.push('', '>>> YOU ARE THE OWNER OF THIS RED. Fix it now (CLAUDE.md rule 6): even if a neighbour caused it. Push the fix, then run this command again.');
+      if (owner && mySession && owner.session === mySession) lines.push('', '>>> YOU ARE THE OWNER OF THIS RED. Fix it now (CLAUDE.md rule 7): even if a neighbour caused it. Push the fix, then run this command again.');
       else if (inRange) lines.push('', `>>> You pushed in the red range but the Owner is ${owner?.session ?? 'unknown'}. Within 10 minutes check whether your change can affect the failing tests and report what you found.`);
       else lines.push('', '>>> Your push is not in the red range: not yours. Say so in your final message.');
     }
