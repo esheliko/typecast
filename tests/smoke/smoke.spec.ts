@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { configured } from "./seed";
+import { configured, smokeClient } from "./seed";
 
 /** Errors that mean a page is broken. Image 404s and the like are not. */
 const BROKEN = /Server Components render|Attempted to call|Hydration failed|Minified React error|Application error|Unhandled|Content Security Policy/i;
@@ -208,7 +208,23 @@ test.describe("signed in", () => {
     await healthy(page, bad);
   });
 
-  // Watching now: start on a title, land on /watching at the seeded episode, step to the next episode (saved progress is never written),
+  // Watching now, empty page: "Pick up where you left off" lists the Watching titles of the library (seeded Breaking Bad, S2 E3) and reopens /watching at that place.
+  test("Watching now: pick up where you left off", async ({ page }) => {
+    const bad = watch(page);
+    await visit(page, "/watching", bad);
+    const block = page.getByRole("region", { name: "Pick up where you left off" });
+    await expect(block).toBeVisible({ timeout: 30_000 });
+    const card = block.getByRole("link", { name: /Breaking Bad/ });
+    await expect(card).toContainText("S2 E3");
+    expect(await block.getByRole("link").count()).toBeLessThanOrEqual(6);
+    await card.click();
+    await page.waitForURL(/\/watching\?k=tv-1396&s=2&e=3/, { timeout: 30_000 });
+    const main = page.getByRole("main", { name: /Watching now: Breaking Bad/ });
+    await expect(main.getByRole("button", { name: /^Episode: E3/ })).toBeVisible({ timeout: 30_000 });
+    await healthy(page, bad);
+  });
+
+  // Watching now: start on a title, land on /watching at the seeded episode, step to the next episode (the place is saved to the library while Watching: behaviour.spec),
   // the bar above the tabs has no extra button and opens the page, and the watch ends cleanly. No AI.
   test("Watching now: start, next episode, bar, end", async ({ page }) => {
     const bad = watch(page);
@@ -237,6 +253,9 @@ test.describe("signed in", () => {
     await expect(page.getByRole("region", { name: "Watching now" })).toHaveCount(0, { timeout: 30_000 });
     expect((await page.request.get("/api/ask")).status()).toBe(405);
     await healthy(page, bad);
+    // Next saved S2 E4 to the library (the title is Watching there): put the seeded place back.
+    const { sb, userId } = await smokeClient();
+    await sb.from("library_items").update({ progress_season: 2, progress_episode: 3 }).eq("user_id", userId).eq("tmdb_type", "tv").eq("tmdb_id", 1396);
   });
 
 

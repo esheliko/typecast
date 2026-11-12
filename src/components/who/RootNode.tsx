@@ -24,7 +24,7 @@ export function RootNode() {
   const [ending, setEnding] = useState(false);
   const finish = (watched: boolean) => {
     if (watched) lib.mark({ key: brief.key, type: brief.type, id: brief.id, title: brief.title, year: brief.year, poster: brief.poster }, "watched", undefined, true);
-    wc?.stop();
+    wc?.stop({ restore: !watched });
     router.push("/");
   };
   const [facts, setFacts] = useState<Record<string, Answer | "loading">>({});

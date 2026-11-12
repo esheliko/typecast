@@ -1,8 +1,11 @@
 "use client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { PersonLink, TitleLink } from "./Modal";
+import { useLib } from "./cast/LibState";
+import { setProgress } from "@/app/actions";
+import { restorePlan, startPlan } from "@/lib/watch-library";
 import { img } from "@/lib/img";
 import { serializeWatch, WATCH_COOKIE, WATCH_MAX_MS, whereLabel, type Watch } from "@/lib/watching";
 import type { Item } from "@/lib/types";
@@ -13,12 +16,13 @@ interface Ctx {
   /** Replace the stored watch (the /watching page moves the position with it, so the bar stays in step). */
   save: (w: Watch | null) => void;
   start: (it: Item, runtime: number | null, ep?: { s: number; e: number } | null) => void;
-  stop: () => void;
+  /** Ends the watch. Unless `restore` is false, a title this watch moved to Watching goes back to what it was (see `restorePlan`). */
+  stop: (opts?: { restore?: boolean }) => void;
 }
 const WatchCtx = createContext<Ctx | null>(null);
 const useWatch = () => useContext(WatchCtx);
 /** The current watch, a way to change it and a way to end it, for the /watching page. */
-export function useWatchControl(): { watch: Watch | null; save: (w: Watch | null) => void; stop: () => void } | null { return useContext(WatchCtx); }
+export function useWatchControl(): { watch: Watch | null; save: (w: Watch | null) => void; stop: (opts?: { restore?: boolean }) => void } | null { return useContext(WatchCtx); }
 
 function writeCookie(w: Watch | null) {
   document.cookie = w
@@ -32,13 +36,36 @@ export function WatchProvider({ initial, children }: { initial: Watch | null; ch
   const router = useRouter();
   const save = useCallback((w: Watch | null) => { writeCookie(w); setWatch(w); }, []);
 
+  const lib = useLib();
+  const watchRef = useRef(watch); watchRef.current = watch;
+
   const start = useCallback((it: Item, runtime: number | null, ep?: { s: number; e: number } | null) => {
     const w: Watch = { key: it.key, type: it.type, id: it.id, title: it.title, year: it.year, poster: it.poster, started: Date.now(), runtime };
     if (it.type === "tv") { w.s = ep?.s || 1; w.e = ep?.e || 1; }
+    // The explicit "I'm watching this now" is the only intent that touches the library: a title that is missing, To watch or Partly watched becomes Watching.
+    const cur = lib.get(it.key);
+    const plan = startPlan(cur, it.type, it.type === "tv" ? { s: w.s!, e: w.e! } : null);
+    if (plan.promote) w.prev = plan.prev;
     save(w);
+    if (plan.promote) {
+      const saved = lib.mark(it, "watching", undefined, true, { msg: `${it.title}: added to Watching${firstTime() ? " It will show in your Library." : ""}` });
+      // The place is one more write after the status has landed (progress is an update, so the row must exist).
+      if (it.type === "tv") saved.then((ok) => (ok ? setProgress("tv", it.id, w.s!, w.e!).then(() => lib.touch()) : undefined)).catch(() => {});
+    }
     router.push("/watching");
-  }, [save, router]);
-  const stop = useCallback(() => save(null), [save]);
+  }, [save, router, lib]);
+
+  const stop = useCallback((opts?: { restore?: boolean }) => {
+    const w = watchRef.current;
+    if (w && opts?.restore !== false) {
+      const m = lib.get(w.key);
+      const plan = restorePlan(w, m);
+      const it: Item = { key: w.key, type: w.type, id: w.id, title: w.title, year: w.year, poster: w.poster };
+      if (plan.do === "set") lib.mark(it, plan.status, plan.priority, true);
+      else if (plan.do === "remove") lib.mark(it, null, undefined, true);
+    }
+    save(null);
+  }, [save, lib]);
 
   return (
     <WatchCtx.Provider value={{ watch, save, start, stop }}>
@@ -46,6 +73,12 @@ export function WatchProvider({ initial, children }: { initial: Watch | null; ch
       {watch && <WatchBar w={watch} />}
     </WatchCtx.Provider>
   );
+}
+
+const SEEN_KEY = "typecast.watchingToastSeen";
+/** True the first time on this device (then remembered). When storage is unavailable the extra sentence is simply not shown. */
+function firstTime(): boolean {
+  try { if (localStorage.getItem(SEEN_KEY)) return false; localStorage.setItem(SEEN_KEY, "1"); return true; } catch { return false; }
 }
 
 /** Re-renders every 30 seconds so "42 min in" keeps up. */

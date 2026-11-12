@@ -57,3 +57,19 @@ test("pausing stops the minutes and resuming carries on from there", () => {
   assert.equal(elapsedMin(shiftWatch(p, 5, now + 9e6), now + 9e6), 47);
   assert.equal(parseWatch(serializeWatch(p), now)?.paused, now);
 });
+
+test("prev: round-trips, and junk prev is dropped without losing the watch", () => {
+  const tv: Watch = { key: "tv:5", type: "tv", id: 5, title: "Show", year: "2020", poster: null, started: now - 60000, runtime: 45, s: 2, e: 3, prev: { st: "watchlist", s: 1, e: 1 } };
+  assert.deepEqual(parseWatch(serializeWatch(tv), now), tv);
+  const films: Watch = { ...film, prev: { st: "none" } };
+  assert.deepEqual(parseWatch(serializeWatch(films), now), films);
+  for (const bad of [{ st: "watched" }, { st: 3 }, "partial", null, []]) {
+    const w = parseWatch(JSON.stringify({ ...tv, prev: bad }), now);
+    assert.ok(w && !("prev" in w), JSON.stringify(bad));
+  }
+  // a place that is not a whole number >= 1 is ignored, the status is kept
+  assert.deepEqual(parseWatch(JSON.stringify({ ...tv, prev: { st: "partial", s: 0, e: 2 } }), now)?.prev, { st: "partial" });
+  assert.deepEqual(parseWatch(JSON.stringify({ ...tv, prev: { st: "partial", s: 2 } }), now)?.prev, { st: "partial" });
+  // films carry no place
+  assert.deepEqual(parseWatch(JSON.stringify({ ...film, prev: { st: "none", s: 1, e: 1 } }), now)?.prev, { st: "none" });
+});

@@ -4,9 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import { Photo } from "./bits";
 import { typeLabel, urlParam } from "./start-util";
 import type { SearchHit } from "@/lib/types";
+import type { ResumeCard } from "@/lib/watch-library";
 
 /** /watching with no title: search for the film or series you are watching and start from it. */
-export function WhoStart() {
+export function WhoStart({ pickUp = [] }: { pickUp?: ResumeCard[] }) {
   const [q, setQ] = useState("");
   const [hits, setHits] = useState<SearchHit[] | null>(null);
   const [err, setErr] = useState(false);
@@ -27,6 +28,21 @@ export function WhoStart() {
       <div className="wx-startbox">
         <span className="wbar-k"><span className="live-dot" aria-hidden="true" />Watching now</span>
         <h1 className="wx-startt">What are you watching?</h1>
+        {pickUp.length > 0 && (
+          <section className="wx-resume" aria-label="Pick up where you left off">
+            <h2 className="wx-resumet">Pick up where you left off</h2>
+            <ul className="wx-resumel">
+              {pickUp.map((c) => (
+                <li key={c.key}>
+                  <Link className="wx-resumec" href={c.href}>
+                    <Photo path={c.poster} name={c.title} w="w92" className="wx-resumep" />
+                    <span className="wx-resumex"><b>{c.title}</b>{c.place && <span className="small muted">{c.place}</span>}</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
         <input ref={input} type="search" value={q} onChange={(ev) => setQ(ev.target.value)} aria-label="Search for a film or series" placeholder="Search a film or series…" autoComplete="off" />
         {err && <p className="small muted" role="alert">Couldn&rsquo;t search just now.</p>}
         {hits && !titles.length && !err && <p className="small muted">Nothing found.</p>}
