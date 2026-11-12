@@ -221,7 +221,7 @@ export function PersonNode({ node }: { node: PNode }) {
           {data ? (life && <p className="wx-life">{life}</p>) : <Sk w="75%" h={14} style={{ margin: "4px 0 6px" }} />}
           <p className="wx-here small">{hereLabel}{hereSpec && <span className="wx-hereg"> <GlimpseButton spec={hereSpec} label={`About ${node.name}${face?.role ? ` as ${roleLabel(face.role) || face.role}` : ""}: the character, episodes and images`} /></span>}</p>
           <p className="wx-full small"><PersonLink pid={node.id} it={{ name: node.name, photo: node.photo ?? data?.photo }} className="linkish">Full profile: bio, all credits, photos &rsaquo;</PersonLink></p>
-          {data && (data.images.length > 0 || (hasThen && !showThen)) && (
+          {data && (data.images.length > 0 || (hasThen && !showThen) || (showThen && !!mainPh)) && (
             <div className="wx-looks" aria-label="Other looks">
               <span className="mc-label">Other looks</span>
               <div className="wx-looks-row">
@@ -232,7 +232,14 @@ export function PersonNode({ node }: { node: PNode }) {
                     <span className="wx-lookb">Then</span>
                   </button>
                 )}
-                {data.images.map((p) => (
+                {showThen && mainPh && (
+                  <button type="button" className="wx-look wx-lookthen" onClick={() => zoom({ path: mainPh, name: node.name, gallery: looks })} aria-label={`Enlarge current photo of ${node.name}`} title="How they look now">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={img(mainPh, "w185")} alt="" loading="lazy" decoding="async" />
+                    <span className="wx-lookb">Now</span>
+                  </button>
+                )}
+                {data.images.filter((p) => !(showThen && p === mainPh)).map((p) => (
                   <button key={p} type="button" className="wx-look" onClick={() => zoom({ path: p, name: node.name, gallery: looks })} aria-label={`Enlarge another photo of ${node.name}`}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={img(p, "w185")} alt="" loading="lazy" decoding="async" />
