@@ -14,5 +14,5 @@
 - Person node header has a "Full profile" `PersonLink` that opens the regular person popup (bio, all credits, photos) over /watching.
 - Title details: the watched title in the top bar is a `TitleLink` (a trailing ›) that opens the regular title popup over /watching; it adds no height.
 
-- Back after reopening a "Recently opened" line: restoring a line pushes ONE history entry (`single`/`lo` refs in `WhoApp`), so Back closes the details instead of walking back through the restored trail. Trails you build step by step still get one entry per step.
+- Back after reopening a "Recently opened" line or tapping the phone Details dock: reopening pushes ONE history entry (`single`/`lo` refs in `WhoApp`), so Back closes the details instead of walking back through the restored trail. Trails you build step by step still get one entry per step.
 - Phone layout (< 560px, end of `globals.css`): the header is two slim rows (poster, title, No spoilers switch, icon-only Close; then season and episode pickers on one line), `.wx-stick` is `display: contents` so only the search box stays pinned and the filter chips scroll away with the grid. Keep the Close button's `aria-label` (its text is hidden on phones).

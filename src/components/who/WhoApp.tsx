@@ -296,7 +296,7 @@ export function WhoApp({ brief, initialPos, today }: { brief: WhoBrief; initialP
               {current.t === "episode" && <EpisodeNode key={nodeId(current)} node={current} />}
             </div>
           </aside>
-          {!open && <Dock node={current} onOpen={() => setOpen(true)} />}
+          {!open && <Dock node={current} onOpen={() => { single.current = true; setOpen(true); }} />}
         </div>
         {zoomed && <Lightbox path={zoomed.path} name={zoomed.name} size={zoomed.size} onClose={() => setZoomed(null)} />}
       </div>
