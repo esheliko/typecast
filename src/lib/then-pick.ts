@@ -1,4 +1,4 @@
-import { pickThenUrl, dHash } from "./then-photo";
+import { pickThenUrl, dHash, rankThenImages, type ThenWho } from "./then-photo";
 import { img } from "./img";
 import type { GlimpseImage } from "@/app/api/glimpse/route";
 
@@ -35,8 +35,9 @@ function hashOf(url: string): Promise<string | null> {
   return p;
 }
 
-/** The "Then" photo: the first image of the role search that is not the profile ("Now") photo, by address and by look. null keeps the profile photo. */
-export function pickThen(images: GlimpseImage[] | undefined, profilePath: string | null | undefined): Promise<string | null> {
+/** The "Then" photo: the best role-search image that looks like a picture from the work (not a headshot, see `thenScore`) and is not the profile ("Now") photo, by address and by look. null keeps the profile photo. */
+export function pickThen(images: GlimpseImage[] | undefined, profilePath: string | null | undefined, who: ThenWho): Promise<string | null> {
   const nowUrl = profilePath ? img(profilePath, "w185") : null;
-  return pickThenUrl((images ?? []).map((i) => i.thumb), nowUrl, hashOf);
+  const ranked = rankThenImages((images ?? []).map((i) => ({ thumb: i.thumb, page: i.page, title: i.title, w: i.w, h: i.h })), who);
+  return pickThenUrl(ranked.map((i) => i.thumb), nowUrl, hashOf);
 }

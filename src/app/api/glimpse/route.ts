@@ -1,7 +1,7 @@
 import { unstable_cache } from "next/cache";
 import { NextResponse, type NextRequest } from "next/server";
 
-export interface GlimpseImage { thumb: string; full: string; page: string; title: string }
+export interface GlimpseImage { thumb: string; full: string; page: string; title: string; w?: number; h?: number }
 
 type SerperRes = { ok: true; images: GlimpseImage[] } | { ok: false; status: number; msg?: string };
 
@@ -12,8 +12,8 @@ const cachedSerper = unstable_cache(async (q: string): Promise<SerperRes> => {
   const apiKey = process.env.SERPER_API_KEY ?? "";
   const r = await fetch("https://google.serper.dev/images", { method: "POST", headers: { "X-API-KEY": apiKey, "Content-Type": "application/json" }, body: JSON.stringify({ q, num: 12 }) });
   if (!r.ok) throw new SerperError(r.status, (await r.text().catch(() => "")).slice(0, 120));
-  const j = await r.json() as { images?: { title?: string; imageUrl: string; thumbnailUrl?: string; link?: string }[] };
-  return { ok: true, images: (j.images ?? []).slice(0, 12).map((i) => ({ thumb: i.thumbnailUrl ?? i.imageUrl, full: i.imageUrl, page: i.link ?? i.imageUrl, title: i.title ?? "" })) };
+  const j = await r.json() as { images?: { title?: string; imageUrl: string; imageWidth?: number; imageHeight?: number; thumbnailUrl?: string; link?: string }[] };
+  return { ok: true, images: (j.images ?? []).slice(0, 12).map((i) => ({ thumb: i.thumbnailUrl ?? i.imageUrl, full: i.imageUrl, page: i.link ?? i.imageUrl, title: i.title ?? "", w: i.imageWidth, h: i.imageHeight })) };
 }, ["glimpse-serper"], { revalidate: 60 * 60 * 24 * 30 });
 
 /**

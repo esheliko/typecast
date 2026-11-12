@@ -6,11 +6,12 @@ import { useWho } from "./WhoContext";
 import { peopleHere, titlesForQuery, titlesWithPeople, type FoundTitle } from "@/lib/who-common";
 import { img } from "@/lib/img";
 import { pickThen } from "@/lib/then-pick";
+import type { ThenWho } from "@/lib/then-photo";
 import { whoApi, type RecentTrail } from "@/lib/who-client";
 import { byCast, byGender, groupWhoFaces, matchFaces, type CastFilter, type GenderFilter } from "@/lib/who-scope";
 import { RecentRow } from "./Trail";
 import { GlimpseButton } from "../Glimpse";
-import { castSpec, scopeSpec, withLibRoles } from "@/lib/glimpse";
+import { castSpec, charOf, scopeSpec, withLibRoles } from "@/lib/glimpse";
 import { getJson } from "@/lib/who-client";
 import { isOldTitle } from "@/lib/then-photo";
 import { useThen } from "./useThen";
@@ -84,7 +85,7 @@ export function Finder({ roster, loading, err, q, setQ, inputRef, recents, onOpe
   const thenSpecs = useMemo(() => new Map(visible.map((f) => [f.id, castSpec(f.name, f.role, { title: brief.title, year: brief.year, type: brief.type, key: brief.key }, "Acting", f.id).tabs[0].q])), [visible, brief]);
   // A queue that outlives the effect: when the grid re-measures (`visible` changes) while lookups are running, nothing queued is lost or fetched twice.
   const askedThen = useRef(new Set<number>());
-  const thenQueue = useRef<{ id: number; q: string; photo: string | null }[]>([]);
+  const thenQueue = useRef<{ id: number; q: string; photo: string | null; who: ThenWho }[]>([]);
   const thenBusy = useRef(0);
   const pumpThen = useRef<() => void>(() => {});
   pumpThen.current = () => {
@@ -97,7 +98,7 @@ export function Finder({ roster, loading, err, q, setQ, inputRef, recents, onOpe
           try {
             const r = await getJson<{ configured?: boolean; images?: GlimpseImage[] }>(`/api/glimpse?q=${encodeURIComponent(job.q)}`);
             if (r.configured === false) { thenQueue.current = []; setThenOk(false); return; }
-            const url = await pickThen(r.images, job.photo); // never the Now photo again, by address or by look
+            const url = await pickThen(r.images, job.photo, job.who); // never the Now photo again, by address or by look
             if (url) { const pre = new Image(); pre.referrerPolicy = "no-referrer"; pre.src = url; }
             setThenImg((m) => ({ ...m, [job.id]: url }));
             return;
@@ -114,10 +115,10 @@ export function Finder({ roster, loading, err, q, setQ, inputRef, recents, onOpe
     for (const f of visible) {
       if (asked.has(f.id)) continue;
       asked.add(f.id);
-      thenQueue.current.push({ id: f.id, q: thenSpecs.get(f.id) ?? "", photo: f.photo ?? null });
+      thenQueue.current.push({ id: f.id, q: thenSpecs.get(f.id) ?? "", photo: f.photo ?? null, who: { actor: f.name, char: charOf(f.role), title: brief.title } });
     }
     pumpThen.current();
-  }, [old, thenOk, visible, thenSpecs]);
+  }, [old, thenOk, visible, thenSpecs, brief.title]);
   const showThen = then && old && thenOk;
 
   useLayoutEffect(() => {

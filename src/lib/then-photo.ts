@@ -57,3 +57,56 @@ export async function pickThenUrl(
   }
   return null;
 }
+
+/** What `rankThenImages` needs to know about one search result. `w`/`h` are the image's pixel size when the search says. */
+export interface ThenCand { thumb: string; page?: string; title?: string; w?: number; h?: number }
+export interface ThenWho { actor: string; char?: string; title?: string }
+
+const words = (s: string): string[] => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").split(/[^a-z0-9]+/).filter((w) => w.length > 1);
+const has = (hay: string, needle: string | undefined): boolean => { const n = words(needle ?? ""); const h = new Set(words(hay)); return n.length > 0 && n.every((w) => h.has(w)); };
+
+/** Pages that hold an actor's own portrait (profile headshots, agency and fan-site galleries) rather than a picture from the work. */
+const PORTRAIT_PAGE = /(imdb\.com\/(name|(?:[a-z]{2}\/)?name)\/|themoviedb\.org\/person|rottentomatoes\.com\/celebrity|wikipedia\.org|wikimedia\.org|wikidata\.org|famousbirthdays|biography\.com|tvguide\.com\/celebrities|instagram\.com|facebook\.com|twitter\.com|x\.com\/|pinterest\.|gettyimages|shutterstock|alamy|ranker\.com|fandango\.com\/people|justjared|zimbio|fanpop\.com\/(?:celebrity|people)|castingnetworks)/i;
+/** Words in a result's title that say it is a portrait or an event photo, not a still. */
+const PORTRAIT_WORDS = /\b(headshots?|portraits?|photoshoot|photo ?call|red carpet|premiere|arrivals?|attends?|attending|festival|comic[- ]?con|panel|interview|wallpapers?|biography|bio|height|net worth|wife|husband|girlfriend|boyfriend|instagram|profile|imdb)\b/i;
+/** Pages and words that say the picture is from the show or film itself. */
+const WORK_PAGE = /(fandom\.com|wikia\.|imdb\.com\/title\/|tvmaze\.com|thetvdb\.com|screenrant|tvline|ew\.com|collider|denofgeek|avclub|vulture|hollywoodreporter|deadline\.com|tvinsider|metacritic|rottentomatoes\.com\/(tv|m)\/|netflix\.com|hulu\.com|abc\.com|nbc\.com|cbs\.com|hbo\.com|max\.com|disneyplus|primevideo|screencaps?)/i;
+const WORK_WORDS = /\b(season|episode|still|scene|screencaps?|finale|pilot|series|trailer|clip|character)\b/i;
+
+/**
+ * How likely a search result is a picture of the actor in the role rather than their own headshot: higher is better, below 0 is probably a headshot.
+ * Pure; looks at the page the image sits on, the result's title and its shape. The same search ("Actor as Character Title") also returns the actor's
+ * IMDb profile photo first, which defeated the purpose of a Then photo.
+ */
+export function thenScore(c: ThenCand, who: ThenWho): number {
+  const page = c.page ?? "", title = c.title ?? "", thumb = c.thumb ?? "";
+  const hay = `${title} ${page} ${thumb}`;
+  let s = 0;
+  if (PORTRAIT_PAGE.test(page)) s -= 4;
+  if (/imdb\.com\/title\/.*\/(mediaviewer|mediaindex)/i.test(page)) s += 3; // a title's own gallery, not a name page
+  else if (WORK_PAGE.test(page)) s += 3;
+  if (PORTRAIT_WORDS.test(title)) s -= 3;
+  if (/\b(imdb)\s*$/i.test(title) && !has(title, who.title)) s -= 2; // "Name - IMDb"
+  if (WORK_WORDS.test(title)) s += 1;
+  const t = has(hay, who.title), ch = !!who.char && has(hay, who.char);
+  if (t) s += 2;
+  if (ch) s += 3;
+  // Just the actor's name in the title, with nothing about the work: the profile-photo pattern.
+  if (has(title, who.actor) && !t && !ch) s -= 2;
+  if (c.w && c.h) {
+    const r = c.w / c.h;
+    if (r >= 1.3) s += 2; // a wide frame is nearly always a scene
+    else if (r < 0.9) s -= 1; // a tall frame is a poster or a portrait
+    if (c.w < 200) s -= 1;
+  }
+  return s;
+}
+
+/** Candidates best first (stable for equal scores, so the search's own order breaks ties). Strong headshot lookalikes are dropped. */
+export function rankThenImages<T extends ThenCand>(items: T[], who: ThenWho, floor = -3): T[] {
+  return items
+    .map((c, i) => ({ c, i, s: thenScore(c, who) }))
+    .filter((x) => x.s > floor)
+    .sort((a, b) => b.s - a.s || a.i - b.i)
+    .map((x) => x.c);
+}

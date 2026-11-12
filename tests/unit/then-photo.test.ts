@@ -28,3 +28,26 @@ test("pickThenUrl skips the Now photo by address and by look, never returns it",
   // unreadable pixels: only the address check applies
   assert.equal(await pickThenUrl(["https://x/unknown.jpg"], now, async () => null), "https://x/unknown.jpg");
 });
+
+import { thenScore, rankThenImages } from "../../src/lib/then-photo";
+
+const who = { actor: "Nathan Fillion", char: "John Nolan", title: "The Rookie" };
+const headshot = { thumb: "https://m.media-amazon.com/a.jpg", page: "https://www.imdb.com/name/nm0277213/", title: "Nathan Fillion - IMDb", w: 500, h: 750 };
+const scene = { thumb: "https://static.wikia.nocookie.net/b.jpg", page: "https://therookie.fandom.com/wiki/John_Nolan", title: "John Nolan | The Rookie Wiki", w: 1280, h: 720 };
+const event = { thumb: "https://x/c.jpg", page: "https://www.gettyimages.com/detail/1", title: "Nathan Fillion attends the premiere", w: 800, h: 1200 };
+const still = { thumb: "https://x/d.jpg", page: "https://www.tvline.com/the-rookie-season-5", title: "The Rookie season 5 episode: Nathan Fillion as John Nolan", w: 1000, h: 560 };
+
+test("headshots and event photos score below stills", () => {
+  assert.ok(thenScore(headshot, who) < 0);
+  assert.ok(thenScore(event, who) < 0);
+  assert.ok(thenScore(scene, who) > 0);
+  assert.ok(thenScore(still, who) > thenScore(scene, who));
+});
+test("ranking puts the role picture first and drops lookalike headshots", () => {
+  const r = rankThenImages([headshot, event, scene, still], who);
+  assert.deepEqual(r.map((x) => x.thumb), [still.thumb, scene.thumb]);
+});
+test("ranking keeps the search order for ties and handles missing fields", () => {
+  const a = { thumb: "https://x/1.jpg" }, b = { thumb: "https://x/2.jpg" };
+  assert.deepEqual(rankThenImages([a, b], who).map((x) => x.thumb), [a.thumb, b.thumb]);
+});

@@ -18,7 +18,7 @@ import { pairLabels } from "@/lib/who-common";
 import { whoApi } from "@/lib/who-client";
 import { showRunLabel } from "@/lib/who-spans";
 import { posCode, posLabel, scopeKind } from "@/lib/who-scope";
-import { castSpec, creditSpec, scopeSpec, withLibRoles } from "@/lib/glimpse";
+import { castSpec, charOf, creditSpec, scopeSpec, withLibRoles } from "@/lib/glimpse";
 import { getJson } from "@/lib/who-client";
 import { isOldTitle } from "@/lib/then-photo";
 import { useThen } from "./useThen";
@@ -197,9 +197,9 @@ export function PersonNode({ node }: { node: PNode }) {
     if (!thenOn || !old || !thenQ) return;
     let live = true;
     getJson<{ configured?: boolean; images?: GlimpseImage[] }>(`/api/glimpse?q=${encodeURIComponent(thenQ)}`)
-      .then((r) => pickThen(r.images, node.photo ?? data?.photo)).then((u) => { if (live) setThenImg(u); }).catch(() => {});
+      .then((r) => pickThen(r.images, node.photo ?? data?.photo, { actor: node.name, char: charOf(face?.role), title: brief.title })).then((u) => { if (live) setThenImg(u); }).catch(() => {});
     return () => { live = false; };
-  }, [thenOn, old, thenQ, node.photo, data?.photo]);
+  }, [thenOn, old, thenQ, node.photo, data?.photo, node.name, face?.role, brief.title]);
   const [thenBad, setThenBad] = useState(false);
   useEffect(() => { setThenBad(false); }, [thenImg]);
   const showThen = !!thenImg && !thenBad;
