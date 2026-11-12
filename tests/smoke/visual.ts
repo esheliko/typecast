@@ -26,7 +26,8 @@ export async function brokenImages(page: Page, ms = 15_000): Promise<string[]> {
     for (const i of Array.from(document.images)) {
       const r = i.getBoundingClientRect();
       if (!i.currentSrc || i.currentSrc.startsWith("data:") || r.width < 8 || r.bottom < 0 || r.top > h * 2 || getComputedStyle(i).visibility === "hidden") continue;
-      if (!i.complete) out.push(`pending ${i.currentSrc.slice(0, 90)}`);
+      // Detail for a pending image, so a CDN slow-down can be told from a real bug: lazy or eager, where it sits, and whether the browser ever asked for it.
+      if (!i.complete) out.push(`pending ${i.currentSrc.slice(0, 90)} [${i.loading}, top ${Math.round(r.top)}px of ${h}, left ${Math.round(r.left)}px, requested ${performance.getEntriesByName(i.currentSrc).length > 0 ? "yes" : "no"}]`);
       else if (i.naturalWidth === 0) out.push(`broken ${i.currentSrc.slice(0, 90)}`);
     }
     return out;
