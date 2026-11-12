@@ -1,4 +1,5 @@
 import { inScope } from "./who-scope";
+import { allowsSeason, hiddenOf, type SpoilerLine } from "./spoiler-line";
 import type { Pos, Span } from "./who-types";
 
 /**
@@ -29,6 +30,21 @@ export function spanFromEpisodes(key: string, eps: CreditEp[], expected: number,
   if (sd.length) return { key, kind: "own", start: sd[0], end: sd[sd.length - 1], n: 0, eps: [] };
   if (show?.first) return { key, kind: "run", start: show.first, end: show.last || show.first, n: 0, eps: [] };
   return null;
+}
+
+/**
+ * The dates of a series under a spoiler line (docs/features/spoilers.md): with a saved place, the person's own episodes up to and including it (else the
+ * dates of the seasons up to its season); with none, an empty stub. Always marked `hidden`, and never the show's own run. null for a line that holds nothing back.
+ */
+export function spanUnderLine(key: string, line: SpoilerLine, expected: number, got: { eps: CreditEp[]; seasons: CreditSeason[] }): Span | null {
+  const hidden = hiddenOf(line);
+  if (!hidden) return null;
+  const stub: Span = { key, kind: "own", start: "", end: "", n: 0, eps: [], hidden };
+  if (line.kind !== "upto") return stub;
+  const sp = spanFromEpisodes(key, got.eps, expected, null, { s: line.s, e: line.e }, []);
+  if (sp) return { ...sp, hidden };
+  const sd = got.seasons.filter((x) => allowsSeason(line, x.s) && /^\d{4}-\d{2}-\d{2}$/.test(x.air)).map((x) => x.air).sort();
+  return sd.length ? { ...stub, start: sd[0], end: sd[sd.length - 1] } : stub;
 }
 
 /** "2020-22", "2008", for two dates. */

@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { appearanceLine, epCode, fmtDate } from "@/lib/episodes";
+import { SpoilerGate } from "./SpoilerGate";
 import type { Appearances as Data } from "@/lib/types";
 
 /** Asks the Episodes section of this page to open one episode (and scroll to it). */
@@ -8,18 +9,21 @@ function openEpisode(s: number, e: number) {
   window.dispatchEvent(new CustomEvent("tc:episode", { detail: { s, e } }));
 }
 
-const cache = new Map<string, Promise<Data>>();
-function load(tv: number, credits: string[], eps: number): Promise<Data> {
-  const k = `${tv}:${credits.join(",")}`;
-  let p = cache.get(k);
-  if (!p) {
-    p = fetch(`/api/appearances?${new URLSearchParams({ tv: String(tv), c: credits.join(","), n: String(eps) })}`).then(async (r) => {
-      if (!r.ok) throw new Error("lookup failed");
-      return r.json();
-    });
-    p.catch(() => cache.delete(k));
-    cache.set(k, p);
-  }
+// An answer held back by a spoiler line (the saved place moves as you tick episodes, and this component does not know it) is kept 15 seconds; the rest for the session.
+const cache = new Map<string, { t: number; p: Promise<Data>; v?: Data }>();
+function load(tv: number, credits: string[], eps: number, reveal: boolean): Promise<Data> {
+  const k = `${tv}:${credits.join(",")}${reveal ? ":!" : ""}`;
+  const hit = cache.get(k);
+  if (hit && (!hit.v?.hidden || Date.now() - hit.t < 15_000)) return hit.p;
+  const q = new URLSearchParams({ tv: String(tv), c: credits.join(","), n: String(eps) });
+  if (reveal) q.set("reveal", "1");
+  const p = fetch(`/api/appearances?${q}`).then(async (r) => {
+    if (!r.ok) throw new Error("lookup failed");
+    return r.json() as Promise<Data>;
+  });
+  const entry: { t: number; p: Promise<Data>; v?: Data } = { t: Date.now(), p };
+  p.then((v) => { entry.v = v; }, () => { if (cache.get(k) === entry) cache.delete(k); });
+  cache.set(k, entry);
   return p;
 }
 
@@ -29,12 +33,14 @@ const SHOW = 8;
  * Which episodes of this series someone was in, when they aired and as whom. Loads when the row it sits in is opened
  * (or at once with `auto`). Each episode jumps to it in the Episodes section. Fails soft: a lookup error shows nothing.
  */
-export default function Appearances({ tv, credits, eps, auto }: { tv: number; credits: string[]; eps?: number; auto?: boolean }) {
+export default function Appearances({ tv, credits, eps, auto, show }: { tv: number; credits: string[]; eps?: number; auto?: boolean; /** The series' name, for the spoiler gate. */ show?: string }) {
   const box = useRef<HTMLDivElement>(null);
   const [want, setWant] = useState(!!auto);
   const [data, setData] = useState<Data | null>(null);
   const [failed, setFailed] = useState(false);
   const [all, setAll] = useState(false);
+  // "Show" on a spoiler gate: this view only (per mounted list), nothing is saved.
+  const [reveal, setReveal] = useState(false);
 
   useEffect(() => {
     if (want) return;
@@ -50,9 +56,9 @@ export default function Appearances({ tv, credits, eps, auto }: { tv: number; cr
   useEffect(() => {
     if (!want || !ck) return;
     let live = true;
-    load(tv, ck.split(","), eps ?? 0).then((x) => { if (live) setData(x); }, () => { if (live) setFailed(true); });
+    load(tv, ck.split(","), eps ?? 0, reveal).then((x) => { if (live) setData(x); }, () => { if (live) setFailed(true); });
     return () => { live = false; };
-  }, [want, tv, ck, eps]);
+  }, [want, tv, ck, eps, reveal]);
 
   if (!credits.length || failed) return <div ref={box} hidden />;
   const roles = data?.roles.filter((r) => r.role) ?? [];
@@ -62,7 +68,7 @@ export default function Appearances({ tv, credits, eps, auto }: { tv: number; cr
       <div className="apps-head">In this series</div>
       {!data ? <span className="muted small"><span className="spin" />Finding their episodes</span> : (
         <>
-          <div className="apps-line">{appearanceLine(data) || "Episodes not listed"}</div>
+          <div className="apps-line">{appearanceLine(data) || (data.hidden ? "" : "Episodes not listed")}</div>
           {roles.length > 1 && <div className="small muted">As {roles.map((r) => (r.eps ? `${r.role} (${r.eps})` : r.role)).join(", ")}</div>}
           {list.length > 0 && (
             <ul className="apps-eps">
@@ -77,6 +83,7 @@ export default function Appearances({ tv, credits, eps, auto }: { tv: number; cr
               ))}
             </ul>
           )}
+          {data.hidden && <SpoilerGate title={show ?? "this series"} hidden={data.hidden} what="later episodes" hintKey={`tv:${tv}`} placeHref={`/watching?k=tv-${tv}`} onShow={() => { setData(null); setReveal(true); }} />}
           {!all && data.episodes.length > SHOW && <button type="button" className="btn sm" style={{ marginTop: 6 }} onClick={() => setAll(true)}>All {data.episodes.length} episodes</button>}
         </>
       )}

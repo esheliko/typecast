@@ -1,3 +1,4 @@
+import type { HiddenLine } from "./spoiler-line";
 import type { CrewBy, DetailId } from "./details";
 
 export type MediaType = "movie" | "tv";
@@ -27,7 +28,8 @@ export interface Episode extends EpisodeLite { overview: string; still: string |
 /** Facts about a series as a whole. */
 export interface ShowInfo { first: string; last: string; seasons: number; episodes: number; status: string; next: EpisodeLite | null; latest: EpisodeLite | null }
 /** Where one actor turns up in one series: every episode when TMDB lists them, else just the seasons. */
-export interface Appearances { roles: { role: string; eps: number }[]; total: number; episodes: EpisodeLite[]; seasons: number[]; showEpisodes: number }
+export interface Appearances { roles: { role: string; eps: number }[]; total: number; episodes: EpisodeLite[]; seasons: number[]; showEpisodes: number;
+  /** The series is Watching in the library: later episodes were left out (spoiler line, docs/features/spoilers.md). */ hidden?: HiddenLine }
 export interface Provider { id: number; name: string; logo: string | null }
 export interface ProviderGroup { link?: string; flatrate?: Provider[]; free?: Provider[]; ads?: Provider[]; rent?: Provider[]; buy?: Provider[] }
 

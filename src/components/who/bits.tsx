@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { img } from "@/lib/img";
-import { posKey, whoApi } from "@/lib/who-client";
+import { posKey, whoApi, type PageRef } from "@/lib/who-client";
 import { useWho } from "./WhoContext";
 import type { Pos, Span } from "@/lib/who-types";
 
@@ -105,7 +105,7 @@ export function More({ total, shown, all, toggle, noun = "", inline = false }: {
  * `undefined` means not loaded yet (draw a skeleton); `null` means TMDB has nothing usable. `cur` is the show being watched:
  * its dates come back clipped to the position, so nothing later is given away.
  */
-export function useSpans(pid: number, keys: string[], cur: { k: string; pos: Pos; cids: string[] } | null): { spans: Record<string, Span | null>; failed: boolean } {
+export function useSpans(pid: number, keys: string[], cur: { k: string; pos: Pos; cids: string[] } | null, page?: PageRef | null, reveal?: ReadonlySet<string>): { spans: Record<string, Span | null>; failed: boolean } {
   const tok = `${pid}|${cur ? `${cur.k}|${posKey(cur.pos)}` : ""}`;
   const store = useRef<{ tok: string; data: Record<string, Span | null>; asked: Set<string> }>({ tok, data: {}, asked: new Set() });
   const [, bump] = useState(0);
@@ -118,11 +118,17 @@ export function useSpans(pid: number, keys: string[], cur: { k: string; pos: Pos
   }
   const joined = keys.filter((k) => k.startsWith("tv:")).join(",");
   const curRef = useRef(cur); curRef.current = cur;
+  // The page's title and the lifted rows (spoiler line, docs/features/spoilers.md): a row the reader showed is asked again with `reveal`, for this view only.
+  const pageRef = useRef(page); pageRef.current = page;
+  const revealRef = useRef(reveal); revealRef.current = reveal;
+  const revealTok = reveal ? [...reveal].sort().join(",") : "";
   useEffect(() => {
     const st = store.current;
-    const need = joined.split(",").filter((k) => k && !st.asked.has(k));
+    const ask = (k: string) => (revealRef.current?.has(k) ? `${k}!` : k);
+    const need = joined.split(",").filter((k) => k && !st.asked.has(ask(k)));
     if (!need.length) return;
-    need.forEach((k) => st.asked.add(k));
+    const names = need.map(ask);
+    names.forEach((n) => st.asked.add(n));
     const chunks: string[][] = [];
     for (let i = 0; i < need.length; i += 7) chunks.push(need.slice(i, i + 7));
     let alive = true;
@@ -130,14 +136,14 @@ export function useSpans(pid: number, keys: string[], cur: { k: string; pos: Pos
     const run = async () => {
       for (let c = next++; c < chunks.length; c = next++) {
         try {
-          const r = await whoApi.spans(pid, chunks[c], curRef.current);
+          const r = await whoApi.spans(pid, chunks[c], curRef.current, { page: pageRef.current, reveal: chunks[c].filter((k) => revealRef.current?.has(k)) });
           if (alive && store.current === st) { st.data = { ...st.data, ...r }; bump((n) => n + 1); }
         } catch { if (alive) { st.data = { ...st.data, ...Object.fromEntries(chunks[c].map((k) => [k, null])) }; setFailed(true); bump((n) => n + 1); } }
       }
     };
     void Promise.all([run(), run()]);
-    return () => { alive = false; need.forEach((k) => { if (!(k in st.data)) st.asked.delete(k); }); };
-  }, [pid, joined, tok]);
+    return () => { alive = false; need.forEach((k, i) => { if (!(k in st.data)) st.asked.delete(names[i]); }); };
+  }, [pid, joined, tok, revealTok]);
   return { spans: store.current.data, failed };
 }
 

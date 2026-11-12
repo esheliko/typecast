@@ -2,11 +2,12 @@ import type { KnownTitle } from "./who-known";
 import { unstable_cache } from "next/cache";
 import { buildAllRoster, buildRoster, asGender, scopeKind } from "./who-scope";
 import { commonResults, sharedTitles, type CastEntry, type FoundTitle, type Shared } from "./who-common";
-import { spanFromEpisodes, type CreditEp, type CreditSeason } from "./who-spans";
+import { spanFromEpisodes, spanUnderLine, type CreditEp, type CreditSeason } from "./who-spans";
 import { tmdb, TmdbError } from "./tmdb";
 import { getFandomEpisodeCast } from "./fandom";
 import { missingGuests, normName, tvmazeEpisodeIds, tvmazeGuests } from "./tvmaze";
 import type { MediaType } from "./types";
+import { isHidden, type HiddenLine, type SpoilerLine } from "./spoiler-line";
 import type { AggPerson, PCredit, PersonData, Pos, SeasonData, SeasonPerson, ShowRun, Span, WhoFace, WhoRoster } from "./who-types";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -271,7 +272,7 @@ async function creditEpisodes(cids: string[]): Promise<{ eps: CreditEp[]; season
  * whose dates are clipped to what has happened so far; `extraCids` are the credit ids the roster already knows for that show.
  * Films have no span: their date is the release date, already on the credit.
  */
-export async function loadSpans(personId: number, keys: string[], scope?: { key: string; pos: Pos; cids: string[] }): Promise<Record<string, Span | null>> {
+export async function loadSpans(personId: number, keys: string[], scope?: { key: string; pos: Pos; cids: string[] }, lines: Record<string, SpoilerLine> = {}): Promise<Record<string, Span | null>> {
   const p = await loadWhoPerson(personId);
   const wanted = keys.filter((k) => k.startsWith("tv:")).slice(0, 14);
   const res = await pool(wanted, 3, async (key) => {
@@ -279,6 +280,10 @@ export async function loadSpans(personId: number, keys: string[], scope?: { key:
     const isScope = scope?.key === key;
     const cids = [...new Set([...(c?.cids ?? []), ...(isScope ? scope!.cids : [])])];
     if (!c && !isScope) return null;
+    // A series that is Watching in the library keeps a spoiler line (spoiler-line.ts): with no saved place there is no TMDB lookup at all, with
+    // one only what is up to and including it. The show's own run (its end, whether it still airs) is never sent for it.
+    const line = isScope ? undefined : lines[key];
+    if (line && isHidden(line) && c) return spanUnderLine(key, line, c.eps ?? 0, line.kind === "upto" ? await creditEpisodes(c.cids).catch(() => ({ eps: [], seasons: [] })) : { eps: [], seasons: [] });
     const [{ eps, seasons }, run] = await Promise.all([creditEpisodes(cids), isScope ? Promise.resolve(null) : showRun(Number(key.slice(3)))]);
     const expected = c?.eps ?? 0;
     // The show's own run is only needed when neither the person's episode list nor their seasons give dates.
@@ -330,6 +335,8 @@ export interface TitleNode {
   cast: [number, string, number][];
   /** The top billed, with their faces. */
   top: { id: number; name: string; photo: string | null; role: string }[];
+  /** Set when the title is a series that is Watching in the library: the end date, status and season list were cut (spoiler-line.ts). */
+  hidden?: HiddenLine;
 }
 
 function castOf(type: MediaType, d: any): { entries: CastEntry[]; people: any[] } {

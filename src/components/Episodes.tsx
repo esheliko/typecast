@@ -5,23 +5,28 @@ import { setWatchedUpTo } from "@/app/actions";
 import { CreditRow } from "./CreditRow";
 import { aired, airsLabel, epCode, fmtDate, nextAfter, plural, prevEpisode, untilLabel, upTo } from "@/lib/episodes";
 import { useLib } from "./cast/LibState";
+import { SpoilerGate } from "./SpoilerGate";
+import type { HiddenLine } from "@/lib/spoiler-line";
 import { img } from "@/lib/img";
 import type { EnrichedMember, Episode, EpisodeLite, Status } from "@/lib/types";
 
-interface Season { name: string; air: string; episodes: Episode[] }
+interface Season { name: string; air: string; episodes: (Episode & { hidden?: true })[]; /** The series is Watching in the library and later episodes were held back (docs/features/spoilers.md). */ hidden?: HiddenLine }
 interface EpCast { guests: EnrichedMember[]; cast: EnrichedMember[] }
 
 const seasonCache = new Map<string, Promise<Season>>();
-function loadSeason(tv: number, s: number): Promise<Season> {
-  const k = `${tv}:${s}`;
+/** `lk` is where the saved place was when this was asked (the server decides from the library; it only keeps an answer for one place apart from the next), `reveal` the gate's Show. */
+function loadSeason(tv: number, s: number, lk: string, reveal: boolean): Promise<Season> {
+  const k = `${tv}:${s}:${lk}${reveal ? ":!" : ""}`;
   let p = seasonCache.get(k);
   if (!p) {
-    p = fetch(`/api/season?tv=${tv}&s=${s}`).then(async (r) => { if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error ?? "Could not load this season."); return r.json(); });
+    p = fetch(`/api/season?tv=${tv}&s=${s}${reveal ? "&reveal=1" : ""}`).then(async (r) => { if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error ?? "Could not load this season."); return r.json(); });
     p.catch(() => seasonCache.delete(k));
     seasonCache.set(k, p);
   }
   return p;
 }
+/** The place the server's line is built from, as a cache key: "n" when the series is not Watching, "s" with no place. */
+const placeKey = (p: { s: number; e: number } | null, st: Status | null) => (st !== "watching" ? "n" : p ? `${p.s}.${p.e}` : "s");
 
 type P = { s: number; e: number } | null;
 const light = (c: EnrichedMember | Episode["guests"][number]): EnrichedMember => ({ hits: [], also: [], top: [], ...c });
@@ -53,6 +58,11 @@ export default function Episodes({ item, seasons, progress, status, today, ended
   const [st, setSt] = useState(status);
   const [s, setS] = useState(() => startSeason(seasons, progress));
   const [data, setData] = useState<Season | null>(null);
+  // Where the SAVED place is (updated once a save has landed, not while it is in flight): the key the season answers are cached under.
+  const [lk, setLk] = useState(() => placeKey(progress, status));
+  // Seasons whose gate was opened with Show: this view only, nothing is saved.
+  const [shown, setShown] = useState<ReadonlySet<number>>(new Set());
+  const lastSeason = useRef("");
   const [err, setErr] = useState("");
   const [open, setOpen] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
@@ -63,10 +73,13 @@ export default function Episodes({ item, seasons, progress, status, today, ended
 
   useEffect(() => {
     let live = true;
-    setData(null); setErr("");
-    loadSeason(item.id, s).then((d) => { if (live) setData(d); }, (e: Error) => { if (live) setErr(e.message); });
+    // A new season clears the list; a new saved place or a Show keeps the old list on screen until the new answer arrives.
+    const here = `${item.id}:${s}`;
+    if (lastSeason.current !== here) { lastSeason.current = here; setData(null); }
+    setErr("");
+    loadSeason(item.id, s, lk, shown.has(s)).then((d) => { if (live) setData(d); }, (e: Error) => { if (live) setErr(e.message); });
     return () => { live = false; };
-  }, [item.id, s]);
+  }, [item.id, s, lk, shown]);
 
   // Once the asked-for episode is on screen, open it and bring it into view.
   useEffect(() => {
@@ -92,7 +105,9 @@ export default function Episodes({ item, seasons, progress, status, today, ended
     const before = p, beforeSt = st;
     setSaving(true); setFail(""); setP(to);
     try {
-      setSt(await setWatchedUpTo(item, to?.s ?? 1, to?.e ?? 0));
+      const now = await setWatchedUpTo(item, to?.s ?? 1, to?.e ?? 0);
+      setSt(now);
+      setLk(placeKey(to, now));
       setUndo(offerUndo ? { to: before } : null);
       router.refresh();
     } catch { setP(before); setSt(beforeSt); setFail("Could not save. Check your connection and try again."); }
@@ -153,6 +168,10 @@ export default function Episodes({ item, seasons, progress, status, today, ended
         {err && <p className="err small" style={{ padding: "0 14px 12px" }}>{err}</p>}
         {!data && !err && <p className="muted small" style={{ padding: "0 14px 12px" }}><span className="spin" />Loading episodes</p>}
         {data && eps.length === 0 && <p className="muted small" style={{ padding: "0 14px 12px" }}>No episodes listed yet.</p>}
+        {data?.hidden && (
+          <div style={{ padding: "0 14px" }}><SpoilerGate title={item.title} hidden={data.hidden} what="episode names and plots" hintKey={`tv:${item.id}`} placeHref={`/watching?k=tv-${item.id}`}
+            onShow={() => setShown((v) => new Set(v).add(s))} /></div>
+        )}
         <ul className="ep-list">
           {eps.map((x) => {
             const isOpen = open === x.e, seen = upTo(x, p), out = aired(x, today), isNext = next?.s === x.s && next?.e === x.e;
@@ -174,7 +193,8 @@ export default function Episodes({ item, seasons, progress, status, today, ended
                     title={seen ? "Watched (tap if you stopped before this one)" : "Watched up to here"}
                     onClick={() => (seen ? untick(x) : markUpTo(x))}>✓</button>
                 )}
-                {isOpen && <EpisodePanel tv={item.id} x={x} mine={!!p && p.s === x.s && p.e === x.e} canMark={out} saving={saving} onMark={() => markUpTo(x)} status={st} />}
+                {isOpen && x.hidden && <div className="ep-panel"><p className="small muted" style={{ margin: 0 }}>The plot, crew and guest stars of {epCode(x.s, x.e)} are hidden. Use Show above to see this season.</p></div>}
+                {isOpen && !x.hidden && <EpisodePanel tv={item.id} x={x} mine={!!p && p.s === x.s && p.e === x.e} canMark={out} saving={saving} onMark={() => markUpTo(x)} status={st} />}
               </li>
             );
           })}

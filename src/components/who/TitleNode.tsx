@@ -3,6 +3,7 @@ import { Fragment, useEffect, useMemo, useState } from "react";
 import { useLib } from "../cast/LibState";
 import QuickMark from "../cast/QuickMark";
 import { TitleLink } from "../Modal";
+import { SpoilerGate } from "../SpoilerGate";
 import { GlimpseButton } from "../Glimpse";
 import { castSpec, scopeSpec, titleSpec, withLibRoles } from "@/lib/glimpse";
 import { More, Photo, Section, Sk, Soft, useLimit, useSpans, ZoomBtn } from "./bits";
@@ -11,7 +12,7 @@ import { typeLabel } from "@/lib/img";
 import { roleLabel } from "@/lib/roster";
 import { fmtRange } from "@/lib/who-dates";
 import { fmtDate } from "@/lib/episodes";
-import { whoApi } from "@/lib/who-client";
+import { whoApi, type PageRef } from "@/lib/who-client";
 import { markLabel, type Item } from "@/lib/types";
 import { urlKey } from "@/lib/who-scope";
 import type { GlimpseSpec } from "@/lib/glimpse";
@@ -31,14 +32,19 @@ export function TitleNode({ node }: { node: TNode }) {
   const lib = useLib();
   const [data, setData] = useState<TitleData | null>(null);
   const [err, setErr] = useState(false);
+  // A series that is Watching in the library keeps its own spoiler line (docs/features/spoilers.md): Show lifts it for this view only, nothing is saved.
+  const [revealed, setRevealed] = useState(false);
+  const page = useMemo(() => ({ key: cur.key, spoilersShown: spoilers }), [cur.key, spoilers]);
+  const revealSet = useMemo<ReadonlySet<string>>(() => (revealed ? new Set([node.key]) : new Set<string>()), [revealed, node.key]);
   const type = node.key.startsWith("tv:") ? "tv" : "movie";
   const id = Number(node.key.slice(node.key.indexOf(":") + 1));
   useEffect(() => {
     let live = true;
-    setData(null); setErr(false);
-    whoApi.title(urlKey(node.key)).then((d) => { if (live) setData(d); }).catch(() => { if (live) setErr(true); });
+    setErr(false);
+    whoApi.title(urlKey(node.key), { page, reveal: revealed }).then((d) => { if (live) setData(d); }).catch(() => { if (live) setErr(true); });
     return () => { live = false; };
-  }, [node.key]);
+  }, [node.key, page, revealed]);
+  useEffect(() => { setData(null); setRevealed(false); }, [node.key]);
 
   const it: Item = { key: node.key, type, id, title: node.title, year: node.year, poster: node.poster };
   const m = lib.get(node.key);
@@ -66,7 +72,9 @@ export function TitleNode({ node }: { node: TNode }) {
         </div>
       </header>
 
-      {err && <Soft>Couldn&rsquo;t load this title just now. <button type="button" className="linkish" onClick={() => { setErr(false); whoApi.title(urlKey(node.key)).then(setData).catch(() => setErr(true)); }}>Try again</button></Soft>}
+      {err && <Soft>Couldn&rsquo;t load this title just now. <button type="button" className="linkish" onClick={() => { setErr(false); whoApi.title(urlKey(node.key), { page, reveal: revealed }).then(setData).catch(() => setErr(true)); }}>Try again</button></Soft>}
+
+      {data?.hidden && <SpoilerGate title={node.title} hidden={data.hidden} what="end date and later dates" hintKey={node.key} placeHref={`/watching?k=${urlKey(node.key)}`} onShow={() => setRevealed(true)} />}
 
       <Section title="About">
         {!data && !err ? <Sk w="90%" h={16} /> : data?.brief.overview ? <p className="wx-place">{data.brief.overview}</p> : <p className="small muted" style={{ margin: 0 }}>No description available.</p>}
@@ -76,7 +84,7 @@ export function TitleNode({ node }: { node: TNode }) {
         {!data && !err && <div className="wx-rowsk" aria-hidden="true"><Sk w="80%" h={44} /><Sk w="70%" h={44} style={{ marginTop: 8 }} /></div>}
         {data && !fromCast.length && <p className="small muted" style={{ margin: 0 }}>No one from the cast here is in this title.</p>}
         {fromCast.slice(0, lim.shown).map(({ f, role }) => (
-          <CastRow key={f.id} f={f} role={role} spec={spec(f.name, role, f.id)} titleKey={node.key} type={type} release={data?.brief.first ?? ""} hideDates={self}
+          <CastRow key={f.id} f={f} role={role} spec={spec(f.name, role, f.id)} titleKey={node.key} type={type} release={data?.brief.first ?? ""} hideDates={self} page={page} reveal={revealSet}
             onOpen={() => push({ t: "person", id: f.id, name: f.name, photo: f.photo, hl: node.key, still: true })} />
         ))}
         {data && <More total={fromCast.length} {...lim} />}
@@ -103,10 +111,10 @@ export function TitleNode({ node }: { node: TNode }) {
 }
 
 /** One person of the watched cast within another title: their part, their own dates there, and the gap to what you are watching. */
-function CastRow({ f, role, spec, titleKey, type, release, hideDates, onOpen }: { f: { id: number; name: string; photo: string | null }; role: string; spec: GlimpseSpec; titleKey: string; type: "movie" | "tv"; release: string; hideDates?: boolean; onOpen: () => void }) {
-  const { spans } = useSpans(f.id, type === "tv" && !hideDates ? [titleKey] : [], null);
+function CastRow({ f, role, spec, titleKey, type, release, hideDates, page, reveal, onOpen }: { f: { id: number; name: string; photo: string | null }; role: string; spec: GlimpseSpec; titleKey: string; type: "movie" | "tv"; release: string; hideDates?: boolean; page: PageRef; reveal: ReadonlySet<string>; onOpen: () => void }) {
+  const { spans } = useSpans(f.id, type === "tv" && !hideDates ? [titleKey] : [], null, page, reveal);
   const s = spans[titleKey];
-  const range = type === "movie" ? (release ? { start: release, end: release } : null) : s && s.kind === "own" ? { start: s.start, end: s.end } : null;
+  const range = type === "movie" ? (release ? { start: release, end: release } : null) : s && s.kind === "own" && s.start ? { start: s.start, end: s.end } : null;
   const loading = type === "tv" && !hideDates && s === undefined;
   return (
     <div className="wx-wrowx">
@@ -114,7 +122,7 @@ function CastRow({ f, role, spec, titleKey, type, release, hideDates, onOpen }: 
       <Photo path={f.photo} name={f.name} className="wx-wimg" />
       <span className="wx-wmain"><b>{f.name}</b>
         <span className="small muted wx-wline">{role ? `as ${roleLabel(role) || role}` : " "}</span>
-        <span className="small wx-wline">{hideDates ? null : loading ? <Sk w={110} h={12} /> : range ? <><b>{fmtRange(range.start, range.end)}</b></> : <span className="muted">{s?.kind === "run" ? "during the show's run" : "date unknown"}</span>}</span>
+        <span className="small wx-wline">{hideDates ? null : loading ? <Sk w={110} h={12} /> : range ? <><b>{fmtRange(range.start, range.end)}</b></> : s?.hidden ? <span className="muted">spoilers hidden</span> : <span className="muted">{s?.kind === "run" ? "during the show's run" : "date unknown"}</span>}</span>
       </span>
       <span className="wx-go" aria-hidden="true">›</span>
     </button>

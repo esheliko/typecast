@@ -26,7 +26,7 @@ export function CreditRow({ c, title, pending, tv, light, hidden }: {
         </summary>
         <div className="more">
           <div className="more-top"><PersonLink className="btn sm" pid={c.id} it={c}>Full profile →</PersonLink></div>
-          {tv && c.credits && c.credits.length > 0 && <Appearances tv={tv.id} credits={c.credits} eps={c.eps} />}
+          {tv && c.credits && c.credits.length > 0 && <Appearances tv={tv.id} credits={c.credits} eps={c.eps} show={title?.title} />}
           {!light && c.top.length === 0 && <span className="muted small">{pending ? "Finding their other credits…" : "No other credits found."}</span>}
           {c.top.length > 0 && tv && <div className="apps-head" style={{ marginTop: 10 }}>Also known for</div>}
           <PersonProvider id={c.id}><TopCredits items={c.top} actor={c.name} actorId={c.id} /></PersonProvider>

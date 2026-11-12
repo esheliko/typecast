@@ -493,4 +493,40 @@ test.describe("behaviour (signed in)", () => {
     await box.press("Escape");
     await expect(box).toHaveValue("");
   });
+  // Spoiler line (docs/features/spoilers.md): a series that is Watching in the library keeps its saved place as its spoiler line, everywhere. Breaking Bad is seeded
+  // Watching at S2 E3; Game of Thrones is Watched (no line). The routes decide from the library: episodes after S2 E3 keep their number and air date only, Show
+  // (`reveal=1`, this request only) lifts it, and nothing is ever written to the library. NOT RUN by the author (shared smoke user): needs the lock.
+  test("spoiler line: a Watching series holds back later episodes, Show lifts it for that view, nothing is saved", async ({ page }) => {
+    const { sb, userId } = await smokeClient();
+    const bb = SEED.find((r) => r.tmdb_id === 1396)!, got = SEED.find((r) => r.tmdb_id === 1399)!;
+    const before = await rowOf(sb, userId, "tv", bb.tmdb_id);
+    type Season = { hidden?: { kind: string; s?: number; e?: number }; episodes: { e: number; name: string; overview: string; hidden?: boolean }[] };
+    const season = async (id: number, s: number, extra = "") => (await (await page.request.get(`/api/season?tv=${id}&s=${s}${extra}`)).json()) as Season;
+    // The API: S2 E3 is told, S2 E4 is not (name and plot empty, marked hidden); the other seasons of the series are held back from season 3 on.
+    const s2 = await season(bb.tmdb_id, 2);
+    expect(s2.hidden).toEqual({ kind: "upto", s: 2, e: 3 });
+    expect(s2.episodes.find((x) => x.e === 3)?.name).toBeTruthy();
+    const e4 = s2.episodes.find((x) => x.e === 4)!;
+    expect([e4.hidden, e4.name, e4.overview]).toEqual([true, "", ""]);
+    expect((await season(bb.tmdb_id, 3)).episodes.every((x) => x.hidden && x.name === "")).toBe(true);
+    // Show (reveal=1) lifts it for that request; a Watched series has no line at all.
+    const shown = await season(bb.tmdb_id, 2, "&reveal=1");
+    expect(shown.hidden).toBeUndefined();
+    expect(shown.episodes.find((x) => x.e === 4)?.name).toBeTruthy();
+    expect((await season(got.tmdb_id, 1)).hidden).toBeUndefined();
+    // The page's own title is governed by the page, not by the library line.
+    expect((await season(bb.tmdb_id, 2, "&pg=tv-1396")).hidden).toBeUndefined();
+    // /api/who/title: no end date, status or later seasons for the held-back series.
+    const wt = (await (await page.request.get(`/api/who/title?k=tv-${bb.tmdb_id}`)).json()) as { hidden?: unknown; brief: { last: string; status: string; seasons: { n: number }[] } };
+    expect(wt.hidden).toEqual({ kind: "upto", s: 2, e: 3 });
+    expect([wt.brief.last, wt.brief.status, Math.max(0, ...wt.brief.seasons.map((x) => x.n))]).toEqual(["", "", 2]);
+    // The title page: the Episodes section draws the gate, Show reveals the names of this season, and the saved place is untouched.
+    await page.goto(`/title/tv/${bb.tmdb_id}?full=1`);
+    const gate = page.getByRole("group", { name: /Spoilers hidden for Breaking Bad/ }).first();
+    await expect(gate).toBeVisible({ timeout: 30_000 });
+    await gate.getByRole("button", { name: "Show", exact: true }).click();
+    await expect(page.getByRole("group", { name: /Spoilers hidden for Breaking Bad/ })).toHaveCount(0, { timeout: 15_000 });
+    const after = await rowOf(sb, userId, "tv", bb.tmdb_id);
+    expect(after).toEqual(before);
+  });
 });

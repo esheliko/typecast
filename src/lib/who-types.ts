@@ -1,4 +1,5 @@
 import type { MediaType } from "./types";
+import type { HiddenLine } from "./spoiler-line";
 
 /**
  * Shared shapes for the /who experience ("Watching now" redesign). Pure types, safe for server and client.
@@ -89,6 +90,8 @@ export interface Span {
   eps: { s: number; e: number; air: string }[];
   /** The whole show's run, for "2009-2017" beside its name (absent for the show being watched, whose end is never given away). */
   show?: ShowRun;
+  /** Set when the spoiler line of this series cuts the dates (Watching in the library): what is here stops at the saved place, or is empty with no place. */
+  hidden?: HiddenLine;
 }
 /** A series' own first and last air dates, and whether it is still going. */
 export interface ShowRun { first: string; last: string; ongoing: boolean }

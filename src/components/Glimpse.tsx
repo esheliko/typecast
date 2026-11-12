@@ -4,6 +4,7 @@ import type { GlimpseImage } from "@/app/api/glimpse/route";
 
 import { infoQuery, tabsWithRoles, type GlimpseInfo, type GlimpseSpec, type LibRole } from "@/lib/glimpse";
 import type { GlimpseAbout } from "@/lib/glimpse-data";
+import { SpoilerGate } from "./SpoilerGate";
 import { epCode, fmtDate, plural } from "@/lib/episodes";
 import { useBackClose } from "@/lib/back-layer";
 
@@ -164,11 +165,13 @@ export function GlimpseProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-// Kept a minute only: marking a title Watched changes what the server tells, and the panel should follow.
+// Kept a minute only: marking a title Watched changes what the server tells, and the panel should follow. An answer held back by a spoiler line (the saved place
+// moves as you tick episodes, and the client does not know it) is kept 15 seconds.
+const aboutTtl = (v?: GlimpseAbout) => (v?.role?.hidden ? 15_000 : 60_000);
 const aboutCache = new Map<string, { t: number; p: Promise<GlimpseAbout>; v?: GlimpseAbout }>();
 function loadAbout(qs: string): Promise<GlimpseAbout> {
   const hit = aboutCache.get(qs);
-  if (hit && Date.now() - hit.t < 60_000) return hit.p;
+  if (hit && Date.now() - hit.t < aboutTtl(hit.v)) return hit.p;
   const p = fetch(`/api/glimpse/info?${qs}`).then(async (r) => { if (!r.ok) throw new Error("lookup failed"); return r.json() as Promise<GlimpseAbout>; });
   p.catch(() => { if (aboutCache.get(qs)?.p === p) aboutCache.delete(qs); });
   const entry: { t: number; p: Promise<GlimpseAbout>; v?: GlimpseAbout } = { t: Date.now(), p };
@@ -177,7 +180,7 @@ function loadAbout(qs: string): Promise<GlimpseAbout> {
   return p;
 }
 /** The answer if it is already here (prefetched), so the panel opens with it instead of a "reading up" line. */
-const peekAbout = (qs: string): GlimpseAbout | null => { const h = aboutCache.get(qs); return h && h.v && Date.now() - h.t < 60_000 ? h.v : null; };
+const peekAbout = (qs: string): GlimpseAbout | null => { const h = aboutCache.get(qs); return h && h.v && Date.now() - h.t < aboutTtl(h.v) ? h.v : null; };
 
 const EPS_SHOWN = 8;
 
@@ -202,7 +205,7 @@ function About({ info }: { info: GlimpseInfo }) {
   if (cur === "error") return <div className="gl-about"><p className="small muted">Could not load the summary right now.</p></div>;
   const { role, title, person } = cur;
   if (!role && !title && !person) return null;
-  const reveal = cur.limited && riskFor !== base
+  const reveal = cur.limited && riskFor !== base && !role?.hidden
     ? <p className="small"><button type="button" className="btn sm" onClick={() => setRiskFor(base)}>Show the full description anyway</button> <span className="muted">May contain spoilers.</span></p>
     : null;
   const eps = role ? (all ? role.episodes : role.episodes.slice(0, EPS_SHOWN)) : [];
@@ -216,6 +219,7 @@ function About({ info }: { info: GlimpseInfo }) {
           ) : <p className="small muted">No description of this character found.{role.character && <> <a href={`https://www.google.com/search?q=${encodeURIComponent(`${role.character} ${role.show} character`)}`} target="_blank" rel="noopener noreferrer">Search the web</a></>}</p>}
           {role.short && <p className="small muted">Kept short so it does not give the story away. Mark it Watched to see everything.</p>}
           {reveal}
+          {role.hidden && <SpoilerGate title={role.show} hidden={role.hidden} what="episodes and details" hintKey={info.key} placeHref={info.key ? `/watching?k=${info.key.replace(":", "-")}` : undefined} onShow={() => setRiskFor(base)} />}
           {role.line && <p className="gl-line">{role.line}</p>}
           {role.note && <p className="small muted">{role.note}</p>}
           {eps.length > 0 && (

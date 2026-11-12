@@ -1,6 +1,9 @@
 "use client";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useLib } from "../cast/LibState";
+import { SpoilerGate } from "../SpoilerGate";
+import { urlKey } from "@/lib/who-scope";
+import type { HiddenLine } from "@/lib/spoiler-line";
 import { KindSeg } from "../KindSeg";
 import { GlimpseButton } from "../Glimpse";
 import { PersonLink } from "../Modal";
@@ -27,13 +30,15 @@ import type { SharedBrief } from "@/lib/who-data";
 type PNode = Extract<Node, { t: "person" }>;
 
 /** A row's dates: a film's release, a series' own first-to-last episode (or the show's run when TMDB has no list), loading, or unknown. */
-type When = { kind: "loading" } | { kind: "none" } | { kind: "range"; range: Range; own: boolean };
+type When = { kind: "loading" } | { kind: "none" } | { kind: "hidden" } | { kind: "range"; range: Range; own: boolean };
 
 function whenOf(c: PCredit, spans: Record<string, Span | null>): When {
   if (c.type === "movie") return c.date ? { kind: "range", range: { start: c.date, end: c.date }, own: true } : { kind: "none" };
   const s = spans[c.key];
   if (s === undefined) return { kind: "loading" };
   if (!s) return { kind: "none" };
+  // A series under a spoiler line with nothing in scope: no dates to draw (the row shows the gate).
+  if (s.hidden && !s.start) return { kind: "hidden" };
   return { kind: "range", range: { start: s.start, end: s.end }, own: s.kind === "own" };
 }
 
@@ -75,6 +80,9 @@ export function PersonNode({ node }: { node: PNode }) {
     return () => ro.disconnect();
   }, [data]);
   useEffect(() => { setSelected(null); setPreview(null); setKind("all"); setOnlySeen(false); setExtras(false); setByDate(false); }, [node.id, node.hl]);
+  // Rows the reader lifted with Show (a series that is Watching in the library keeps its own spoiler line): this view only, never saved.
+  const [shown, setShown] = useState<ReadonlySet<string>>(new Set());
+  useEffect(() => { setShown(new Set()); }, [node.id]);
 
   const credits = useMemo(() => (data?.credits ?? []).filter((c) => c.key !== brief.key), [data, brief.key]);
   // "You know them from": what the user has seen of theirs, then what is on their list.
@@ -102,7 +110,9 @@ export function PersonNode({ node }: { node: PNode }) {
     return [...new Set([...(tv ? [brief.key] : []), ...head, ...seenFirst.slice(0, 5), ...rest])];
   }, [filtered, seenFirst, limitHint, tv, brief.key]);
   const cur = tv && clip ? { k: brief.key, pos: clip, cids: face?.cids ?? [] } : null;
-  const { spans, failed } = useSpans(node.id, data ? orderedKeys : [], cur);
+  const page = useMemo(() => ({ key: brief.key, spoilersShown: spoilers }), [brief.key, spoilers]);
+  const { spans, failed } = useSpans(node.id, data ? orderedKeys : [], cur, page, shown);
+  const show = (k: string) => setShown((v) => new Set(v).add(k));
   const hereSpan = tv ? spans[brief.key] : undefined;
   // A regular has no episode list on TMDB: their own first credited air date up to where you are is still true, and nothing later is shown.
   // With spoilers allowed the whole series is in scope: the bar runs to the series' last episode and counts every episode.
@@ -143,7 +153,7 @@ export function PersonNode({ node }: { node: PNode }) {
   const usable = (id: string) => {
     if (ref && id === ref.id) return false;
     const c = rows.find((r) => r.key === id);
-    return !!c && whenRow(c).kind !== "none";
+    return !!c && whenRow(c).kind !== "none" && whenRow(c).kind !== "hidden";
   };
   const fallback = defaultChoice({ highlighted: node.hl, known: known.map((c) => c.key), usable });
   const marked = selected && usable(selected) ? selected : fallback;
@@ -313,7 +323,7 @@ export function PersonNode({ node }: { node: PNode }) {
                   <TRow c={c} actor={node.name} actorId={node.id} when={whenRow(c)} eps={epsIn(c, spansEff[c.key])} sel={marked === c.key} hot={preview === c.key}
                     reg={(el) => { if (el) rowRefs.current.set(c.key, el); else rowRefs.current.delete(c.key); }}
                     onOpen={() => push({ t: "title", key: c.key, title: c.title, year: c.year, poster: c.poster })} onSelect={() => pick(c.key)} onPreview={(on) => setPreview(on ? c.key : null)}
-                    isCur={c.key === brief.key} upTo={clip ? posLabel(clip) : ""} lib={lib.get(c.key)?.status} />
+                    isCur={c.key === brief.key} upTo={clip ? posLabel(clip) : ""} lib={lib.get(c.key)?.status} hidden={spansEff[c.key]?.hidden} onShow={() => show(c.key)} />
                 </Fragment>
               ))}
             </ol>
@@ -336,12 +346,13 @@ const RowsSk = ({ n }: { n: number }) => (
 
 /** How many episodes they were in: TMDB's count on the credit, or what their own episode list adds up to. */
 function epsIn(c: PCredit, s: Span | null | undefined): number {
-  return c.type === "tv" ? Math.max(c.eps, s?.n ?? 0) : 0;
+  // Under a spoiler line the credit's own total would give away what is later: only what the clipped list adds up to.
+  return c.type === "tv" ? (s?.hidden ? s.n : Math.max(c.eps, s?.n ?? 0)) : 0;
 }
 const epsLabel = (n: number) => `${n} episode${n === 1 ? "" : "s"}`;
 
 function whenText(c: PCredit, w: When): string {
-  if (w.kind !== "range") return w.kind === "none" ? "date unknown" : "";
+  if (w.kind !== "range") return w.kind === "none" ? "date unknown" : w.kind === "hidden" ? "spoilers hidden" : "";
   if (!w.own) return showRunLabel(w.range.start, w.range.end);
   return fmtRange(w.range.start, w.range.end);
 }
@@ -374,9 +385,11 @@ function HereEpisodes({ span, loading, failed, regular, inScope }: { span: Span 
   );
 }
 
-function TRow({ c, actor, actorId, when, eps, sel, hot, reg, onOpen, onSelect, onPreview, isCur, upTo, lib }: {
+function TRow({ c, actor, actorId, when, eps, sel, hot, reg, onOpen, onSelect, onPreview, isCur, upTo, lib, hidden, onShow }: {
   c: PCredit; actor: string; actorId: number; when: When; eps: number; sel: boolean; hot: boolean; reg: (el: HTMLElement | null) => void;
   onOpen: () => void; onSelect: () => void; onPreview: (on: boolean) => void; isCur: boolean; upTo: string; lib?: string;
+  /** The series is Watching in the library and its dates stop at the saved place (docs/features/spoilers.md); Show lifts that for this row, this view only. */
+  hidden?: HiddenLine; onShow: () => void;
 }) {
   const { brief, clip, spoilers } = useWho();
   const own = when.kind === "range" && when.own;
@@ -387,15 +400,15 @@ function TRow({ c, actor, actorId, when, eps, sel, hot, reg, onOpen, onSelect, o
       onMouseEnter={() => onPreview(true)} onMouseLeave={() => onPreview(false)} onFocus={() => onPreview(true)} onBlur={() => onPreview(false)}
       onClick={(ev) => { if (!(ev.target as HTMLElement).closest("button")) onSelect(); }}>
       {when.kind === "loading" ? <span className="wx-tdates"><Sk w={74} h={13} /></span>
-        : <button type="button" className="wx-tdates" onClick={onSelect} disabled={when.kind === "none"} aria-label={`Compare ${c.title} with what you are watching`}>
-          {when.kind === "none" ? <span className="muted">date unknown</span> : own ? <b>{fmtRange(when.range.start, when.range.end).replace(/ /g, "\u00a0").replace("-", "-\u200b")}</b> : <span className="muted">{showRunLabel(when.range.start, when.range.end)}</span>}
+        : <button type="button" className="wx-tdates" onClick={onSelect} disabled={when.kind === "none" || when.kind === "hidden"} aria-label={`Compare ${c.title} with what you are watching`}>
+          {when.kind === "none" ? <span className="muted">date unknown</span> : when.kind === "hidden" ? <span className="muted">hidden</span> : own ? <b>{fmtRange(when.range.start, when.range.end).replace(/ /g, "\u00a0").replace("-", "-\u200b")}</b> : <span className="muted">{showRunLabel(when.range.start, when.range.end)}</span>}
         </button>}
       <span className="wx-tline">
         <button type="button" className="wx-ttitle" onClick={onOpen}>{c.title}</button>
         <span className="pill wx-kind">{c.type === "tv" ? "Series" : "Film"}</span>
         {seen && <span className="ask-st seen" title="You have seen this">&#10003; Seen</span>}
       </span>
-      <span className="small muted wx-trole" title={role}>{role}</span>
+      <span className="small muted wx-trole" title={role}>{hidden ? <SpoilerGate compact title={c.title} hidden={hidden} onShow={onShow} placeHref={`/watching?k=${urlKey(c.key)}`} /> : role}</span>
       <span className="wx-tgl"><GlimpseButton spec={scopeSpec(creditSpec(actor, c.role, { title: c.title, year: c.year, type: c.type, key: c.key }, actorId), { key: brief.key, title: brief.title, clip, spoilers })} label={`About ${actor}${c.role ? ` as ${roleLabel(c.role) || c.role}` : ""} in ${c.title}: the role, episodes and images`} /></span>
     </li>
   );

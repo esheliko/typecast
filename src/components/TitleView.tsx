@@ -251,7 +251,7 @@ function Focus({ t, id }: { t: Title; id: number }) {
           <span className="small muted">{[c.role ? `as ${c.role}` : "", eps].filter(Boolean).join(" · ")}</span>
         </span>
       </PersonLink>
-      {t.show && c.credits && c.credits.length > 0 && <Appearances tv={t.id} credits={c.credits} eps={c.eps} auto />}
+      {t.show && c.credits && c.credits.length > 0 && <Appearances tv={t.id} credits={c.credits} eps={c.eps} auto show={t.title} />}
     </div>
   );
 }

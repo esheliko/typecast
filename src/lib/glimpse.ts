@@ -25,6 +25,8 @@ export interface GlimpseInfo {
   nospoil?: boolean;
   /** Name of the show being watched: sentences in a biography that mention it are dropped while `nospoil`. */
   hide?: string;
+  /** The /watching page this was opened on: its title key ("tv-79744") and whether its spoilers are shown. The server uses it to tell the page's own title (governed by the page) from every other title (governed by the library, see spoiler-line.ts). */
+  pg?: string; ps?: boolean;
 }
 
 type TitleBits = { title: string; year?: string | number; type: string; key?: string; id?: number };
@@ -76,9 +78,12 @@ export const personInTitleSpec = (name: string, dept: string | undefined, title?
  * show's name is kept out of biographies; for the watched show itself (`key`) nothing after the position (`clip`) is told.
  */
 export function scopeSpec(spec: GlimpseSpec, w: { key: string; title: string; clip: { s: number | null; e: number | null } | null; spoilers: boolean }): GlimpseSpec {
-  if (!spec.info || w.spoilers) return spec;
+  if (!spec.info) return spec;
   const i = spec.info;
-  return { ...spec, info: { ...i, nospoil: true, hide: w.title, ...(i.key === w.key.replace("-", ":") && w.clip ? { clip: { s: w.clip.s, e: w.clip.e } } : {}) } };
+  // The page's key goes along even when spoilers are shown: the switch lifts the line for the title being watched only, so the server must know which one that is.
+  const page = { pg: w.key.replace(":", "-"), ...(w.spoilers ? { ps: true } : {}) };
+  if (w.spoilers) return { ...spec, info: { ...i, ...page } };
+  return { ...spec, info: { ...i, nospoil: true, hide: w.title, ...page, ...(i.key === w.key.replace("-", ":") && w.clip ? { clip: { s: w.clip.s, e: w.clip.e } } : {}) } };
 }
 
 /** The query string the About request uses (one cache key per distinct question). */
@@ -90,6 +95,7 @@ export function infoQuery(i: GlimpseInfo): string {
   if (i.clip) { p.set("c", "1"); if (i.clip.s != null) p.set("s", String(i.clip.s)); if (i.clip.e != null) p.set("e", String(i.clip.e)); }
   if (i.nospoil) p.set("ns", "1");
   if (i.hide) p.set("h", i.hide.slice(0, 80));
+  if (i.pg) { p.set("pg", i.pg); if (i.ps) p.set("ps", "1"); }
   return p.toString();
 }
 

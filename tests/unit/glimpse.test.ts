@@ -33,7 +33,16 @@ const show = { title: "The Rookie", year: "2018", type: "tv", key: "tv:79744" };
 
 // scopeSpec applies the Watching-now spoiler rules
   const w = { key: "tv:79744", title: "The Rookie", clip: { s: 2, e: 8 }, spoilers: false };
-  test("leaves the spec alone while spoilers are allowed", () => { const s = creditSpec("A", "B", show, 1); expect(scopeSpec(s, { ...w, spoilers: true })).toBe(s); });
+  test("spoilers allowed: no No-spoilers rules, but the page's key goes along so other titles stay under their library line", () => {
+    const i = scopeSpec(creditSpec("A", "B", show, 1), { ...w, spoilers: true }).info!;
+    expect(i).toMatchObject({ pg: "tv-79744", ps: true });
+    expect(i.nospoil).toBeUndefined(); expect(i.clip).toBeUndefined(); expect(i.hide).toBeUndefined();
+  });
+  test("No spoilers on: the page's key goes along without the switch flag", () => { const i = scopeSpec(creditSpec("A", "B", show, 1), w).info!; expect(i.pg).toBe("tv-79744"); expect(i.ps).toBeUndefined(); });
+  test("infoQuery carries the page key and its switch (a different page or switch is a different question)", () => {
+    const a = infoQuery(scopeSpec(creditSpec("A", "B", show, 1), { ...w, spoilers: true }).info!), b = infoQuery(scopeSpec(creditSpec("A", "B", show, 1), w).info!);
+    expect(a).toMatch(/pg=tv-79744/); expect(a).toMatch(/ps=1/); expect(b).toMatch(/pg=tv-79744/); expect(b).not.toMatch(/ps=1/); assert.notEqual(a, b);
+  });
   test("cuts the watched show at the position", () => expect(scopeSpec(creditSpec("A", "B", show, 1), w).info).toMatchObject({ nospoil: true, hide: "The Rookie", clip: { s: 2, e: 8 } }));
   test("another title gets no cut but still the short form", () => {
     const i = scopeSpec(creditSpec("A", "B", { ...show, key: "tv:1" }, 1), w).info!;

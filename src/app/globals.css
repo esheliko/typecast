@@ -1335,3 +1335,11 @@ main:focus { outline: none; }
 .wx-tswe { flex: none; color: var(--muted); font-size: 13px; }
 .wx-tswq { min-height: 44px; color: var(--muted); font-size: 14px; border-top: 1px solid var(--line); border-radius: 0 0 10px 10px; margin-top: 2px; }
 .wx-topgrid .wx-billedg { top: 4px; bottom: auto; }
+
+/* Spoiler gate (components/SpoilerGate.tsx): "Spoilers hidden for <Title> · Show · Set my place" */
+.sgate { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin: 8px 0; padding: 9px 12px; border: 1px dashed var(--line); border-radius: 10px; background: var(--chip); font-size: 14px; }
+.sgate-t { font-weight: 600; min-width: 0; }
+.sgate-a { flex: none; white-space: nowrap; }
+.sgate-h { flex: 1 1 100%; }
+.sgate-c { display: inline-flex; margin: 0; padding: 0; border: 0; background: none; font-size: 13px; gap: 0 8px; max-width: 100%; }
+.sgate-c .sgate-t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; color: var(--muted); }
