@@ -48,7 +48,7 @@ test("ranking puts the role picture first and drops lookalike headshots", () => 
   assert.deepEqual(r.map((x) => x.thumb), [still.thumb, scene.thumb]);
 });
 test("ranking keeps the search order for ties and handles missing fields", () => {
-  const a = { thumb: "https://x/1.jpg" }, b = { thumb: "https://x/2.jpg" };
+  const a = { thumb: "https://x/1.jpg", title: "The Rookie" }, b = { thumb: "https://x/2.jpg", title: "The Rookie" };
   assert.deepEqual(rankThenImages([a, b], who).map((x) => x.thumb), [a.thumb, b.thumb]);
 });
 
@@ -79,4 +79,14 @@ test("real results: an actor's own wiki page is a portrait, a generic title gall
   const gal = { thumb: "g", page: "https://www.imdb.com/title/tt0252866/mediaviewer/rm3535959808/", title: "American Pie 2 (2001)", w: 1437, h: 783 };
   const tag = { thumb: "c", page: "https://www.imdb.com/title/tt0252866/characters/nm0037970/", title: "American Pie 2 (2001) - Lisa Arturo as Amber - IMDb", w: 1439, h: 779 };
   assert.ok(thenScore(tag, w2) >= thenScore(gal, w2));
+});
+
+test("a picture with no tie to the role (another film's poster) is never a Then photo, even when nothing better is left", () => {
+  const w = { actor: "Tamyra Gray", char: "3Eyez", title: "The Rookie" };
+  const vq = { thumb: "https://x/vq.jpg", page: "https://www.example.com/film/visionquest", title: "Vision Quest poster", w: 500, h: 1000 };
+  const role = { thumb: "r", page: "https://www.imdb.com/title/tt13433318/characters/nm1223951/", title: "The Rookie Bad Blood - Tamyra Gray as 3Eyez - IMDb", w: 1263, h: 1121 };
+  const poster = { thumb: "p", page: "https://live-action.fandom.com/wiki/The_Rookie_(2018)", title: "The Rookie (2018) | Live Action Wiki | Fandom", w: 780, h: 1170 };
+  assert.deepEqual(rankThenImages([vq], w), []);
+  assert.deepEqual(rankThenImages([vq, poster, role], w).map((x) => x.thumb), ["r", "p"]);
+  assert.ok(thenScore(role, w) > thenScore(poster, w));
 });

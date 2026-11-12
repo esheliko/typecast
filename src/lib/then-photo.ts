@@ -104,17 +104,27 @@ export function thenScore(c: ThenCand, who: ThenWho): number {
   if (c.w && c.h) {
     const r = c.w / c.h;
     if (r >= 1.3) s += 2; // a wide frame is nearly always a scene
-    else if (r < 0.9) s -= 1; // a tall frame is a poster or a portrait
+    else if (r < 0.9) s -= ch ? 1 : 3; // a tall frame is a poster or a portrait; only one naming the character is plausibly of them
     if (c.w < 200) s -= 1;
   }
   return s;
 }
 
-/** Candidates best first (stable for equal scores, so the search's own order breaks ties). Strong headshot lookalikes are dropped. */
+/**
+ * Does anything in the result tie it to this role: the character or the show in its title, page address or file name, or IMDb's tagged page for this actor in a title?
+ * Without that, a picture is just something the search returned for the actor (another film's poster, a fan montage) and must never stand in for the role.
+ */
+export function hasRoleEvidence(c: ThenCand, who: ThenWho): boolean {
+  const hay = `${c.title ?? ""} ${c.page ?? ""} ${c.thumb ?? ""}`;
+  if (/imdb\.com\/(?:[a-z]{2}\/)?title\/tt\d+\/characters\/nm\d+/i.test(c.page ?? "")) return true;
+  return (!!who.char && has(hay, who.char)) || has(hay, who.title);
+}
+
+/** Candidates best first (stable for equal scores, so the search's own order breaks ties). Strong headshot lookalikes and pictures with no tie to the role are dropped. */
 export function rankThenImages<T extends ThenCand>(items: T[], who: ThenWho, floor = -3): T[] {
   return items
     .map((c, i) => ({ c, i, s: thenScore(c, who) }))
-    .filter((x) => x.s > floor)
+    .filter((x) => x.s > floor && hasRoleEvidence(x.c, who))
     .sort((a, b) => b.s - a.s || a.i - b.i)
     .map((x) => x.c);
 }
