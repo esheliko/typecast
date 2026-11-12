@@ -236,7 +236,7 @@ export function PersonNode({ node }: { node: PNode }) {
       {err && <Soft>Couldn&rsquo;t load {node.name}&rsquo;s credits. <button type="button" className="linkish" onClick={() => { setErr(false); whoApi.person(node.id).then(setData).catch(() => setErr(true)); }}>Try again</button></Soft>}
 
       {/* 2. Here */}
-      <Section title="Here" note={tv ? (() => { const n = hereSpan?.eps.length; const lead = n ? `${n} ${n === 1 ? "episode" : "episodes"} of` : "Episodes of"; return clip ? `${lead} ${brief.title} up to ${posLabel(pos) || "here"}.` : `${lead} ${brief.title}.`; })() : undefined}>
+      <Section title="Here" inline note={tv ? (() => { const n = hereSpan?.eps.length; const lead = n ? `${n} ${n === 1 ? "episode" : "episodes"} of` : "Episodes of"; return clip ? `${lead} ${brief.title} up to ${posLabel(pos) || "here"}.` : `${lead} ${brief.title}.`; })() : undefined}>
         {!tv ? <p className="small" style={{ margin: 0 }}>{face ? `In this film${face.role ? ` as ${roleLabel(face.role) || face.role}` : ""}.` : "Not in this film's cast."}</p> : <HereEpisodes span={hereSpan} loading={!data || (hereSpan === undefined && !failed)} failed={failed && hereSpan === undefined} regular={face?.part === "main"} inScope={!!face} />}
       </Section>
 

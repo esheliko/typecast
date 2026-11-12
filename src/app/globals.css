@@ -968,6 +968,8 @@ body:has(.modal) .toast-slot { bottom: calc(84px + env(safe-area-inset-bottom, 0
 .wx-sec { margin-top: 22px; }
 .wx-h { margin: 0 0 8px; font: 700 15px/1.2 var(--display); letter-spacing: .06em; text-transform: uppercase; color: var(--ink); display: block; }
 .wx-secnote { margin: -4px 0 10px; }
+.wx-hline { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0 10px; margin-bottom: 10px; }
+.wx-hline .wx-h, .wx-hline .wx-secnote { margin: 0; }
 .wx-phead, .wx-thead { display: flex; gap: 16px; align-items: flex-start; }
 .wx-pphoto { flex: none; padding: 0; border-radius: 14px; width: 128px; }
 .wx-pimg { width: 128px; aspect-ratio: 2 / 3; border-radius: 14px; object-fit: cover; background: var(--chip); display: block; }

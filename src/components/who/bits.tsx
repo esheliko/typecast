@@ -37,11 +37,20 @@ export function Lightbox({ path, name, size = "w780", onClose }: { path: string;
 
 export const Sk = ({ w, h = 14, style }: { w: number | string; h?: number; style?: React.CSSProperties }) => <span className="sk-b wx-sk" style={{ width: w, height: h, ...style }} aria-hidden="true" />;
 
-export function Section({ id, title, count, note, bare, children }: { id?: string; title: string; bare?: boolean; count?: number | string; note?: React.ReactNode; children: React.ReactNode }) {
+export function Section({ id, title, count, note, bare, inline, children }: { id?: string; title: string; bare?: boolean; inline?: boolean; count?: number | string; note?: React.ReactNode; children: React.ReactNode }) {
   return (
     <section className="wx-sec" aria-label={title} id={id}>
-      <h3 className={bare ? "sr-only" : "wx-h"}>{title}{count != null && <span className="muted"> · {count}</span>}</h3>
-      {note && <p className="small muted wx-secnote">{note}</p>}
+      {inline && note && !bare ? (
+        <div className="wx-hline">
+          <h3 className="wx-h">{title}{count != null && <span className="muted"> · {count}</span>}</h3>
+          <p className="small muted wx-secnote">{note}</p>
+        </div>
+      ) : (
+        <>
+          <h3 className={bare ? "sr-only" : "wx-h"}>{title}{count != null && <span className="muted"> · {count}</span>}</h3>
+          {note && <p className="small muted wx-secnote">{note}</p>}
+        </>
+      )}
       {children}
     </section>
   );
