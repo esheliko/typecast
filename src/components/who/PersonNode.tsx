@@ -334,7 +334,7 @@ function HereEpisodes({ span, loading, failed, regular, inScope }: { span: Span 
   const { pos, push } = useWho();
   const eps = span?.eps ?? [];
   const lim = useLimit(eps.length, 8);
-  if (loading && span === undefined) return <div className="wx-chiprow" aria-hidden="true"><Sk w={120} h={44} /><Sk w={120} h={44} /></div>;
+  if (loading && span === undefined) return <div className="wx-chiprow" aria-hidden="true"><Sk w={110} h={30} /><Sk w={110} h={30} /></div>;
   if (failed) return <Soft>Couldn&rsquo;t load their episodes just now.</Soft>;
   if (!eps.length) return <p className="small muted" style={{ margin: 0 }}>{regular ? "Part of the main cast. TMDB lists no episode dates for them." : inScope ? "TMDB lists no episode dates for them here." : "TMDB doesn’t list them in the episodes up to here."}</p>;
   return (
