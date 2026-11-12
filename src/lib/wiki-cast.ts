@@ -37,6 +37,27 @@ export function parseWikiCast(wikitext: string): WikiCastEntry[] {
   return out;
 }
 
+/**
+ * People the Cast list leaves out but a Trivia or plot line names as appearing: "Captain [[Zoe Andersen]] ([[Mercedes Mason]]) makes an
+ * uncredited appearance delivering a speech". Needs an appearance word and the actor in a link inside brackets right after the character,
+ * so ordinary parentheses never match.
+ */
+export function parseWikiCameos(wikitext: string): WikiCastEntry[] {
+  const out: WikiCastEntry[] = [];
+  const seen = new Set<string>();
+  for (const line of wikitext.split("\n")) {
+    if (!/\b(?:uncredited|cameo|appearance|appears?|guest|briefly|seen|voice)\b/i.test(line)) continue;
+    const re = /((?:\[\[[^\]]+\]\]|[A-Z][\w.'’-]*)(?:\s+(?:\[\[[^\]]+\]\]|[A-Z][\w.'’-]*)){0,3})\s*\(\s*\[\[(?:[^\]|]*\|)?([^\]|]+)\]\]\s*\)/g;
+    for (const m of line.matchAll(re)) {
+      const name = plainWiki(m[2]);
+      const k = normName(name);
+      if (!k || name.split(" ").length < 2 || name.split(" ").length > 4 || seen.has(k)) continue;
+      seen.add(k); out.push({ name, role: plainWiki(m[1]) });
+    }
+  }
+  return out;
+}
+
 /** Does the page say it is an episode of that season ("third season", "[[Season 3", "season 3")? Guards against a same-titled non-episode page. */
 export function pageIsSeason(wikitext: string, season: number): boolean {
   const re = new RegExp(`(\\[\\[season ${season}\\b|\\bseason ${season}\\b${ORD[season] ? `|\\b${ORD[season]} season\\b` : ""})`, "i");
