@@ -10,7 +10,7 @@
     "lint": "eslint src && node scripts/check-client-boundary.mjs",
     "check:boundary": "node scripts/check-client-boundary.mjs",
     "test": "node --import tsx --test \"tests/unit/*.test.ts\"",
-    "smoke": "playwright test",
+    "smoke": "node scripts/smoke.mjs",
     "eval:import": "tsx scripts/eval-import.mts"
   },
   "dependencies": {
