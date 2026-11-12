@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { openingPos, pickUpCards, restorePlan, resumePlace, shouldSavePlace, startPlan } from "../../src/lib/watch-library";
+import { openingPos, pickUpCards, restorePlan, resumePlace, shouldSavePlace, startPlan, switchCards } from "../../src/lib/watch-library";
 
 test("startPlan: missing, To watch and Partly are promoted and remembered; Watching and Watched are left alone", () => {
   assert.deepEqual(startPlan(null, "tv", { s: 1, e: 1 }), { promote: true, prev: { st: "none", s: 1, e: 1 } });
@@ -77,4 +77,16 @@ test("pickUpCards: Watching only, newest first, at most 6, with a place and a li
   assert.equal(cards[2].place, "S3 E8");
   assert.equal(cards[2].href, "/watching?k=tv-9&s=3&e=8");
   assert.deepEqual(pickUpCards([row(1, { status: "watchlist" })]), []);
+});
+
+test("switchCards: the other Watching titles, never the current one, newest first, at most 6, only title poster and place", () => {
+  const row = (n: number, over = {}) => ({ key: `tv:${n}`, type: "tv" as const, title: `T${n}`, poster: null, status: "watching" as const, progress: { s: 3, e: 8 }, updated: n, ...over });
+  const rows = [row(1), row(2), row(3, { status: "watched" }), ...[4, 5, 6, 7, 8, 9].map((n) => row(n))];
+  const cards = switchCards(rows, "tv:9");
+  assert.deepEqual(cards.map((c) => c.title), ["T8", "T7", "T6", "T5", "T4", "T2"]);
+  assert.deepEqual(Object.keys(cards[0]).sort(), ["href", "key", "place", "poster", "title"]);
+  assert.equal(cards[0].href, "/watching?k=tv-8&s=3&e=8");
+  assert.deepEqual(switchCards([row(1)], "tv:1"), []);
+  assert.deepEqual(switchCards([row(1, { status: "partial" })], "tv:2"), []);
+  assert.equal(switchCards([row(5, { type: "movie", key: "movie:5", progress: null })], "tv:1")[0].place, null);
 });

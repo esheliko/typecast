@@ -65,3 +65,8 @@ export function pickUpCards(rows: readonly ResumeRow[], max = 6): ResumeCard[] {
     return { key: r.key, title: r.title, poster: r.poster, place: p ? `S${p.s} E${p.e}` : null, href: `/watching?k=${k}${p ? `&s=${p.s}&e=${p.e}` : ""}` };
   });
 }
+
+/** The title switcher on /watching: the OTHER Watching titles (never the one on the page), same shape and order as `pickUpCards`. Title, poster and place only: nothing that could spoil. */
+export function switchCards(rows: readonly ResumeRow[], currentKey: string, max = 6): ResumeCard[] {
+  return pickUpCards(rows.filter((r) => r.key !== currentKey), max);
+}

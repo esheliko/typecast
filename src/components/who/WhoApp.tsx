@@ -2,6 +2,7 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { TitleLink } from "../Modal";
+import { TitleSwitcher } from "./TitleSwitcher";
 import { useWatchControl } from "../Watching";
 import { useSavedPlace } from "./useSavedPlace";
 import { Finder } from "./Finder";
@@ -20,6 +21,7 @@ import { posKey, readRecent, saveRecent, whoApi, type RecentTrail } from "@/lib/
 import { posCode, posLabel, scopeKind, urlKey } from "@/lib/who-scope";
 import { cleanSession, currentNode, emptyTrail, jumpTo, pushNode, startTrail } from "@/lib/who-trail";
 import type { WhoBrief } from "@/lib/who-data";
+import type { ResumeCard } from "@/lib/watch-library";
 import type { Pos, WhoRoster } from "@/lib/who-types";
 
 const SPOIL_KEY = "typecast.ask.spoilers";
@@ -27,7 +29,7 @@ const safe = <T,>(f: () => T, d: T): T => { try { return f(); } catch { return d
 const bid = () => Math.random().toString(36).slice(2, 9);
 
 /** The /who page: top bar, the finder (left) and the node you opened (right), joined by a trail. Position lives in the watch cookie when there is a watch, else the URL. */
-export function WhoApp({ brief, initialPos, today }: { brief: WhoBrief; initialPos: Pos | null; today: string }) {
+export function WhoApp({ brief, initialPos, today, others = [] }: { brief: WhoBrief; initialPos: Pos | null; today: string; others?: ResumeCard[] }) {
   const router = useRouter();
   const wc = useWatchControl();
   const tv = brief.type === "tv";
@@ -279,7 +281,10 @@ export function WhoApp({ brief, initialPos, today }: { brief: WhoBrief; initialP
           <ZoomBtn path={brief.poster} name={brief.title} className="wx-posterb"><Photo path={brief.poster} name={brief.title} w="w92" className="wx-poster" eager /></ZoomBtn>
           <div className="wx-ttl">
             <span className="wbar-k"><span className="live-dot" aria-hidden="true" />Watching now</span>
-            <TitleLink k={brief.key} it={{ title: brief.title, year: brief.year, poster: brief.poster }} className="wx-title wx-titlelink" aria-label={`${brief.title}: open title details`}>{brief.title}<span aria-hidden="true"> ›</span></TitleLink>
+            <div className="wx-trl">
+              <TitleLink k={brief.key} it={{ title: brief.title, year: brief.year, poster: brief.poster }} className="wx-title wx-titlelink" aria-label={`${brief.title}: open title details`}>{brief.title}<span aria-hidden="true"> ›</span></TitleLink>
+              <TitleSwitcher cards={others} title={brief.title} />
+            </div>
             <span className="small muted">{[brief.year, tv ? posLabel(pos) : "Film"].filter(Boolean).join(" · ")}</span>
           </div>
           {tv && pos && <PositionControl brief={brief} pos={pos} onChange={changePos} />}

@@ -135,6 +135,56 @@ test.describe("behaviour (signed in)", () => {
     }
   });
 
+  // The title switcher on /watching: a quiet chevron after the title, only while ANOTHER title is Watching in the library. It lists the other Watching titles
+  // (title and place, never the page's own title), choosing one opens that page, and none of it writes to the library. Titles: Chernobyl (scratch, made Watching here) and Breaking Bad (seeded Watching, S2 E3).
+  test("Watching now: title switcher lists the other Watching titles and writes nothing", async ({ page }) => {
+    const { sb, userId } = await smokeClient();
+    const show = SCRATCH[2], bb = SEED.find((r) => r.tmdb_id === 1396)!;
+    const chev = page.getByRole("button", { name: "Switch title" });
+    const row = async (id: number) => (await rowOf(sb, userId, "tv", id)) as { status: string; progress_season?: number | null; progress_episode?: number | null } | null;
+    try {
+      const { error } = await sb.from("library_items").upsert({ user_id: userId, ...show, year: "2019", poster_path: null, status: "watching", priority: "someday", rating: 0, note: "",
+        progress_season: 1, progress_episode: 2 }, { onConflict: "user_id,tmdb_type,tmdb_id" });
+      expect(error?.message).toBeUndefined();
+      await page.goto(`/watching?k=tv-${show.tmdb_id}&s=1&e=2`);
+      await expect(page.getByRole("main", { name: /Watching now: Chernobyl/ })).toBeVisible({ timeout: 30_000 });
+      await expect(chev).toBeVisible({ timeout: 15_000 });
+      const header = page.locator(".wx-top");
+      const h = (await header.boundingBox())!.height;
+      await chev.click();
+      const menu = page.getByRole("navigation", { name: /Switch from Chernobyl/ });
+      await expect(menu.getByRole("link", { name: /Breaking Bad/ })).toContainText("S2 E3");
+      await expect(menu.getByRole("link", { name: /^Chernobyl/ })).toHaveCount(0);
+      expect(Math.abs((await header.boundingBox())!.height - h), "opening the menu must not change the header height").toBeLessThan(1);
+      // Esc closes it and puts focus back on the chevron.
+      await page.keyboard.press("Escape");
+      await expect(menu).toHaveCount(0);
+      await expect(chev).toBeFocused();
+      // Search another title: the search shows even though a watch/title is open, and picking nothing changes nothing.
+      await chev.click();
+      await menu.getByRole("link", { name: /Search another title/ }).click();
+      await page.waitForURL(/\/watching\?search=1/, { timeout: 30_000 });
+      await expect(page.getByRole("searchbox", { name: "Search for a film or series" })).toBeVisible({ timeout: 30_000 });
+      // Choosing another title opens its page at the saved place.
+      await page.goto(`/watching?k=tv-${show.tmdb_id}&s=1&e=2`);
+      await chev.click();
+      await menu.getByRole("link", { name: /Breaking Bad/ }).click();
+      await page.waitForURL(/\/watching\?k=tv-1396&s=2&e=3/, { timeout: 30_000 });
+      await expect(page.getByRole("main", { name: /Watching now: Breaking Bad/ })).toBeVisible({ timeout: 30_000 });
+      await page.waitForTimeout(1500);
+      expect(await row(show.tmdb_id)).toMatchObject({ status: "watching", progress_season: 1, progress_episode: 2 });
+      expect(await row(bb.tmdb_id)).toMatchObject({ status: "watching", progress_season: 2, progress_episode: 3 });
+      // No other Watching title: no chevron at all.
+      await sb.from("library_items").update({ status: "watchlist" }).eq("user_id", userId).eq("tmdb_type", "tv").eq("tmdb_id", bb.tmdb_id);
+      await page.goto(`/watching?k=tv-${show.tmdb_id}&s=1&e=2`);
+      await expect(page.getByRole("main", { name: /Watching now: Chernobyl/ })).toBeVisible({ timeout: 30_000 });
+      await expect(chev).toHaveCount(0);
+    } finally {
+      await deleteRows(sb, userId, [show]);
+      await sb.from("library_items").update({ status: "watching", progress_season: 2, progress_episode: 3 }).eq("user_id", userId).eq("tmdb_type", "tv").eq("tmdb_id", bb.tmdb_id);
+    }
+  });
+
   test("Browse: quick-mark a poster, then Undo from the toast leaves nothing saved", async ({ page }) => {
     const { sb, userId } = await smokeClient();
     let made: { type: string; id: number } | null = null;

@@ -5,7 +5,7 @@ import { WhoStart } from "@/components/who/WhoStart";
 import { loadBrief } from "@/lib/who-data";
 import { parseUrlKey, posFromParams } from "@/lib/who-scope";
 import { getLibrary, getProfile } from "@/lib/library";
-import { openingPos, pickUpCards, resumePlace } from "@/lib/watch-library";
+import { openingPos, pickUpCards, resumePlace, switchCards } from "@/lib/watch-library";
 import { todayFor } from "@/lib/today";
 import { parseWatch, WATCH_COOKIE } from "@/lib/watching";
 import type { Pos } from "@/lib/who-types";
@@ -24,12 +24,14 @@ export default async function WhoPage({ searchParams }: { searchParams: Promise<
   const watch = parseWatch((await cookies()).get(WATCH_COOKIE)?.value);
   const k = parseUrlKey(one(sp.k));
   const target = k ?? (watch ? { type: watch.type, id: watch.id } : null);
-  if (!target) {
+  // `?search=1` (from the title switcher) shows the search even while a watch exists. It changes nothing: the watch stays as it is.
+  if (!target || (one(sp.search) === "1" && !k)) {
     // "Pick up where you left off": decoration, so a failure shows nothing.
     const cards = await getLibrary().then((l) => pickUpCards(l)).catch(() => []);
     return <WhoStart pickUp={cards} />;
   }
-  const brief = await loadBrief(target.type, target.id).catch(() => null);
+  // The library is cached per request, so the place lookup below and the switcher share one read; it runs beside TMDB, not after it.
+  const [brief, lib] = await Promise.all([loadBrief(target.type, target.id).catch(() => null), getLibrary().catch(() => null)]);
   if (!brief) {
     return (
       <div className="wx wx-start"><div className="wx-startbox">
@@ -43,9 +45,11 @@ export default async function WhoPage({ searchParams }: { searchParams: Promise<
   if (target.type === "tv") {
     const mine = watch && watch.key === brief.key ? watch : null;
     // No place in the URL: this device's watch, else the place saved in the library (the page never writes it back just for opening).
-    const saved = one(sp.s) != null || mine ? null : resumePlace((await getLibrary().catch(() => [])).find((l) => l.key === brief.key));
+    const saved = one(sp.s) != null || mine ? null : resumePlace(lib?.find((l) => l.key === brief.key));
     pos = openingPos(one(sp.s) != null, posFromParams(one(sp.s), one(sp.e)), mine ? (mine.pos ?? { s: mine.s ?? 1, e: mine.e ?? 1 }) : null, saved);
   }
   const today = todayFor((await getProfile().catch(() => null))?.country);
-  return <WhoApp key={`${brief.key}`} brief={brief} initialPos={pos} today={today} />;
+  // Decoration: no switcher on any failure or when there is no other Watching title.
+  const others = lib ? switchCards(lib, brief.key) : [];
+  return <WhoApp key={`${brief.key}`} brief={brief} initialPos={pos} today={today} others={others} />;
 }
