@@ -77,9 +77,11 @@ export default function StatusControls({ item, lib }: { item: Item; lib: LibItem
         <div className="mc-menu">
           <div className="mc-grid" role="group" aria-label="Status">
             {opt("watchlist", priority === "must" ? "must" : "watchlist")}
-            {opt("watching", "watching")}
-            {opt("partial", "partial")}
-            {opt("watched", "watched")}
+            {opt("watching", "watching mc-now")}
+            <div className="mc-pair" role="group" aria-label="Past">
+              {opt("watched", "watched")}
+              {opt("partial", "partial")}
+            </div>
           </div>
           {status === "watchlist" && (
             <div className="mc-row" role="group" aria-label="How much you want to watch it">

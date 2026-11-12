@@ -316,6 +316,9 @@ test.describe("behaviour (signed in)", () => {
     await page.goto("/library");
     await expect(inRow(page, "The Matrix").first()).toBeVisible({ timeout: 20_000 }); // .first() on every visibility check here: a row can render twice for a moment after load or a filter change (strict-mode violation in CI at 87a2811)
     const chips = page.getByRole("group", { name: "Filter" });
+    // Statuses read by intent: future, now, then the past pair (docs/features/watch-next.md, "Status order").
+    expect((await chips.getByRole("button").allInnerTexts()).map((t) => t.replace(/\s*\d+\s*$/, "").trim()))
+      .toEqual(["All", "To watch", "Watching", "Watched", "Partly watched"]);
 
     await chips.getByRole("button", { name: /^Watched\b/ }).click();
     await expect(page).toHaveURL(/f=watched/);
