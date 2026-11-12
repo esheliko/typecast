@@ -41,3 +41,6 @@
 ## Finder bar and Then photos (round 4)
 - The search box and the All/Women/Men, All/Main/Guests, Now/Then chips sit in one sticky block (`.wx-stick`), so the chip bar stays visible under the search bar while the grid scrolls.
 - "Then" photos are fetched ahead (and preloaded into the browser cache) for every face shown on an older title, whether or not the Now/Then switch is on. The hover pop (`Pop`) shows Now and Then side by side when a Then photo exists.
+
+## Cameos from the wiki (Trivia lines)
+TMDB, TVmaze and the Fandom Cast list all missed Mercedes Mason in The Rookie S3E10 (an uncredited speech); only the wiki's Trivia names her ("Captain [[Zoe Andersen]] ([[Mercedes Mason]]) makes an uncredited appearance"). `parseWikiCameos` (`src/lib/wiki-cast.ts`, unit tested) reads such lines (appearance word + actor in a linked "(…)") and `castOf` adds them to the wiki cast; they are matched back to TMDB people by name like other extra guests.

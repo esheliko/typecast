@@ -42,7 +42,7 @@ export function WhoApp({ brief, initialPos, today }: { brief: WhoBrief; initialP
   const [compact, setCompact] = useState(false); // phones: the header slims down once the face list is scrolled (hysteresis so it never flickers at the edge)
   const [q, setQ] = useState("");
   const [recents, setRecents] = useState<RecentTrail[]>([]);
-  const [zoomed, setZoomed] = useState<{ path: string; name: string; size?: string } | null>(null);
+  const [zoomed, setZoomed] = useState<{ path: string; name: string; size?: string; gallery?: string[] } | null>(null);
   /** The page-wide spoiler switch: true = spoilers allowed. Off (the default) keeps everything inside where you are. */
   const [spoilers, setSpoilers] = useState(false);
   const input = useRef<HTMLInputElement>(null);
@@ -258,7 +258,7 @@ export function WhoApp({ brief, initialPos, today }: { brief: WhoBrief; initialP
   const faces = useMemo(() => new Map((wide && wideRoster && wideRoster.key === brief.key ? wideRoster.faces : rosterFresh?.faces ?? roster?.faces ?? []).map((f) => [f.id, f])), [wide, wideRoster, brief.key, rosterFresh, roster]);
   const clip = tv && !spoilers ? pos : null;
   const rootLabel = tv ? [brief.title, posCode(pos)].filter(Boolean).join(" ") : brief.title;
-  const zoom = useCallback((p: { path: string; name: string; size?: string }) => setZoomed(p), []);
+  const zoom = useCallback((p: { path: string; name: string; size?: string; gallery?: string[] }) => setZoomed(p), []);
   const ctx = useMemo(() => ({ brief, today, pos, scope: scopeKind(pos), clip, spoilers, rootLabel, faces, watched, push, setExact, zoom, prefetchPerson }), [brief, today, pos, clip, spoilers, rootLabel, faces, watched, push, setExact, zoom, prefetchPerson]);
   const roster4finder = rosterFresh ?? roster;
 
@@ -302,7 +302,7 @@ export function WhoApp({ brief, initialPos, today }: { brief: WhoBrief; initialP
           </aside>
           {!open && <Dock node={current} onOpen={() => { single.current = true; setOpen(true); }} />}
         </div>
-        {zoomed && <Lightbox path={zoomed.path} name={zoomed.name} size={zoomed.size} onClose={() => setZoomed(null)} />}
+        {zoomed && <Lightbox path={zoomed.path} name={zoomed.name} size={zoomed.size} gallery={zoomed.gallery} onClose={() => setZoomed(null)} />}
       </div>
     </WhoProvider>
   );

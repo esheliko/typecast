@@ -76,6 +76,15 @@ const PORTRAIT_WORDS = /\b(headshots?|portraits?|photoshoot|photo ?call|red carp
 const WORK_PAGE = /(fandom\.com|wikia\.|imdb\.com\/title\/|tvmaze\.com|thetvdb\.com|screenrant|tvline|ew\.com|collider|denofgeek|avclub|vulture|hollywoodreporter|deadline\.com|tvinsider|metacritic|rottentomatoes\.com\/(tv|m)\/|netflix\.com|hulu\.com|abc\.com|nbc\.com|cbs\.com|hbo\.com|max\.com|disneyplus|primevideo|screencaps?)/i;
 const WORK_WORDS = /\b(season|episode|still|scene|screencaps?|finale|pilot|series|trailer|clip|character)\b/i;
 
+/** Role names that name a job or a type, not a person: any episode's picture can carry the word, so the word proves nothing about this actor. */
+const GENERIC_ROLE = new Set(["kidnapper", "cop", "officer", "policeman", "policewoman", "man", "woman", "boy", "girl", "guy", "lady", "guard", "waiter", "waitress", "guest", "doctor", "dr", "nurse", "thug", "agent", "soldier", "driver", "bartender", "reporter", "detective", "student", "extra", "background", "customer", "passenger", "teacher", "clerk", "cashier", "paramedic", "driver", "gunman", "robber", "victim", "witness", "suspect", "juror", "judge", "lawyer", "attorney", "bystander", "pedestrian", "neighbor", "neighbour", "stranger", "voice", "henchman", "goon", "worker", "employee", "receptionist", "sketchy", "young", "old", "first", "second", "third", "the", "a", "an", "of", "and", "uncredited", "self", "himself", "herself", "other", "another", "one", "two", "mr", "mrs", "ms", "miss"]);
+export function isGenericRole(char: string | undefined): boolean {
+  const w = (char ?? "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").split(/[^a-z0-9]+/).filter(Boolean);
+  return w.length === 0 || w.every((x) => /^\d+$/.test(x) || GENERIC_ROLE.has(x));
+}
+/** The result names this specific character (a generic role such as "Kidnapper 1" never counts). */
+const namesChar = (hay: string, who: ThenWho): boolean => !!who.char && !isGenericRole(who.char) && has(hay, who.char);
+
 /**
  * How likely a search result is a picture of the actor in the role rather than their own headshot: higher is better, below 0 is probably a headshot.
  * Pure; looks at the page the image sits on, the result's title and its shape. The same search ("Actor as Character Title") also returns the actor's
@@ -92,9 +101,10 @@ export function thenScore(c: ThenCand, who: ThenWho): number {
   if (PORTRAIT_WORDS.test(title) && !/imdb\.com\/(?:[a-z]{2}\/)?title\/tt\d+\/characters\//i.test(page)) s -= 3; // ("- IMDb" in the title of the tagged page is not a portrait sign)
   if (/\b(imdb)\s*$/i.test(title) && !has(title, who.title)) s -= 2; // "Name - IMDb"
   if (WORK_WORDS.test(title)) s += 1;
-  const t = has(hay, who.title), ch = !!who.char && has(hay, who.char);
+  const t = has(hay, who.title), ch = namesChar(hay, who);
   if (t) s += 2;
-  if (ch) s += 5; // the character's name is the strongest sign it is this role, above a generic scene from the show
+  if (ch) s += 5;
+  if (has(hay, who.actor) && (t || ch) && s >= 0) s += 3; // the actor's own name beside the work: the picture is tagged with them, not just any scene // the character's name is the strongest sign it is this role, above a generic scene from the show
   // A page named after the actor (a wiki's actor article, a bio) rather than the role: its picture is their portrait.
   const slug = decodeURIComponent(page).toLowerCase().replace(/[^a-z0-9]+/g, " ");
   const cw = words(who.char ?? "").filter((w) => w.length > 2);
@@ -111,15 +121,16 @@ export function thenScore(c: ThenCand, who: ThenWho): number {
 }
 
 /**
- * Does the result show this role? Yes when it names the character (title, page address or file name), or is IMDb's tagged page for this actor in a title, or is a wide
- * frame (a scene) from the show. The show's name alone is not enough on a tall or square image: that is a poster, a filmography montage or another work listed on a page
+ * Does the result show this role? Yes when it names the character (title, page address or file name), or is IMDb's tagged page for this actor in a title, or names both the actor and the show. The show's name alone is not enough on a tall or square image: that is a poster, a filmography montage or another work listed on a page
  * about the actor, and it must never stand in for the role.
  */
 export function hasRoleEvidence(c: ThenCand, who: ThenWho): boolean {
   const hay = `${c.title ?? ""} ${c.page ?? ""} ${c.thumb ?? ""}`;
   if (/imdb\.com\/(?:[a-z]{2}\/)?title\/tt\d+\/characters\/nm\d+/i.test(c.page ?? "")) return true;
-  if (who.char && has(hay, who.char)) return true;
-  return has(hay, who.title) && !!c.w && !!c.h && c.w / c.h >= 1.3;
+  if (namesChar(hay, who)) return true;
+  // The show alone is not enough, even on a wide frame: that is a scene of anyone in it (a "Kidnapper 1" got another man's photo). It must name the actor too.
+  if (c.w && c.h && c.w / c.h < 1.1) return false; // a poster or a square filmography montage
+  return has(hay, who.title) && has(hay, who.actor) && !PORTRAIT_PAGE.test(c.page ?? "") && !PORTRAIT_WORDS.test(c.title ?? "");
 }
 
 /** Candidates best first (stable for equal scores, so the search's own order breaks ties). Strong headshot lookalikes and pictures with no tie to the role are dropped. */

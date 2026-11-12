@@ -29,7 +29,7 @@ test("pickThenUrl skips the Now photo by address and by look, never returns it",
   assert.equal(await pickThenUrl(["https://x/unknown.jpg"], now, async () => null), "https://x/unknown.jpg");
 });
 
-import { thenScore, rankThenImages } from "../../src/lib/then-photo";
+import { thenScore, rankThenImages, isGenericRole } from "../../src/lib/then-photo";
 
 const who = { actor: "Nathan Fillion", char: "John Nolan", title: "The Rookie" };
 const headshot = { thumb: "https://m.media-amazon.com/a.jpg", page: "https://www.imdb.com/name/nm0277213/", title: "Nathan Fillion - IMDb", w: 500, h: 750 };
@@ -89,7 +89,9 @@ test("a picture with no tie to the role (another film's poster) is never a Then 
   assert.deepEqual(rankThenImages([vq], w), []);
   const montage = { thumb: "m", page: "https://www.example.com/tamyra-gray-movies-and-tv-shows-the-rookie", title: "Tamyra Gray movies and TV: The Rookie, VisionQuest", w: 900, h: 900 };
   const scene = { thumb: "s", page: "https://www.tvline.com/the-rookie-season-4", title: "The Rookie season 4 episode 8", w: 1000, h: 560 };
-  assert.deepEqual(rankThenImages([vq, poster, montage, scene, role], w).map((x) => x.thumb), ["r", "s"]);
+  assert.deepEqual(rankThenImages([vq, poster, montage, scene, role], w).map((x) => x.thumb), ["r"]); // a scene naming only the show could be anyone in it
+  const named = { thumb: "n", page: "https://www.tvline.com/the-rookie-season-4", title: "The Rookie season 4: Tamyra Gray episode 8", w: 1000, h: 560 };
+  assert.deepEqual(rankThenImages([scene, named, role], w).map((x) => x.thumb), ["r", "n"]);
   assert.ok(thenScore(role, w) > thenScore(poster, w));
 });
 
@@ -98,4 +100,12 @@ test("real case: IMDb's tagged page also serves a tall 'known for' poster collag
   const page = "https://www.imdb.com/title/tt7587890/characters/nm1223951/", title = "The Rookie (TV Series 2018– ) - Tamyra Gray as 3Eyez - IMDb";
   const collage = { thumb: "c", page, title, w: 1000, h: 1250 }, still = { thumb: "s", page, title, w: 380, h: 214 }, art = { thumb: "a", page, title, w: 1350, h: 1688 };
   assert.deepEqual(rankThenImages([collage, art, still], w).map((x) => x.thumb), ["s"]);
+});
+
+test("a generic role ('Kidnapper 1') is not evidence: another man's scene from the same show must not become Then", () => {
+  assert.ok(isGenericRole("Kidnapper 1") && isGenericRole("Sketchy Guest") && !isGenericRole("Lucy Chen"));
+  const w = { actor: "Dusty Sorg", char: "Kidnapper 1", title: "Westworld" };
+  const other = { thumb: "o", page: "https://www.example.com/westworld-kidnapper-scene", title: "Westworld kidnapper crime scene", w: 1200, h: 700 };
+  const mine = { thumb: "m", page: "https://www.example.com/westworld-s2", title: "Dusty Sorg in Westworld", w: 1200, h: 700 };
+  assert.deepEqual(rankThenImages([other, mine], w).map((x) => x.thumb), ["m"]);
 });
