@@ -586,4 +586,24 @@ test.describe("behaviour (signed in)", () => {
     await expect(row(4)).toHaveText("Episode 4", { timeout: 30_000 });
     expect(await rowOf(sb, userId, "tv", bb.tmdb_id)).toEqual(before);
   });
+
+  // Step 4B-2 (docs/features/spoilers.md): credits of a person who is in a Watching series. Bryan Cranston (TMDB person 17419) is in Breaking Bad, seeded Watching.
+  // NOT RUN by the author (shared smoke user): needs the lock.
+  test("spoiler line: a person's credits give no episode count for a Watching series, and Seen in does not count it", async ({ page }) => {
+    const bb = SEED.find((r) => r.tmdb_id === 1396)!, got = SEED.find((r) => r.tmdb_id === 1399)!;
+    type P = { credits: { key: string; eps: number; cids: string[]; hidden?: { kind: string } }[] };
+    const person = async (extra = "") => (await (await page.request.get(`/api/who/person?id=17419${extra}`)).json()) as P;
+    const held = (await person()).credits.find((c) => c.key === `tv:${bb.tmdb_id}`)!;
+    expect([held.eps, held.cids.length, !!held.hidden]).toEqual([0, 0, true]);
+    // The page's own title and Show (reveal) lift it; a Watched series is never held back.
+    expect((await person(`&pg=tv-${bb.tmdb_id}`)).credits.find((c) => c.key === `tv:${bb.tmdb_id}`)?.hidden).toBeUndefined();
+    expect((await person("&reveal=1")).credits.find((c) => c.key === `tv:${bb.tmdb_id}`)?.eps).toBeGreaterThan(0);
+    expect((await person()).credits.find((c) => c.key === `tv:${got.tmdb_id}`)?.hidden).toBeUndefined();
+    // Finder tile: on a title Bryan Cranston is in (not Breaking Bad), his tile does not say "in Breaking Bad" (Watching is not "seen" there). Check by hand in QA:
+    //   open /watching on a series he is in, find his tile: no "... in Breaking Bad" line; his person node "You know them from" shows the
+    //   "Spoilers hidden for Breaking Bad" row, and Show reveals the role and dates for that row only.
+    // Title popup credit rows: opening a cast member's row on another title lists Breaking Bad without "N eps": no "ep(s)" text on that row.
+    await page.goto(`/title/tv/${bb.tmdb_id}?full=1`);
+    await expect(page.locator(".credit .role .eps")).toHaveCount(0, { timeout: 30_000 });
+  });
 });

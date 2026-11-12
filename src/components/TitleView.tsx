@@ -27,6 +27,7 @@ import { WatchButton } from "@/components/Watching";
 import { fillCrew, missingCrew } from "@/lib/crew-fill";
 import { bylineLabel, DETAIL_IDS, DETAIL_LABEL, detailLabel, isCrewId, MAIN_CAST, type CrewBy, type CrewId, type DetailId } from "@/lib/details";
 import { enrich } from "@/lib/enrich";
+import { isWatchingSeries } from "@/lib/spoiler-mask";
 import { img, typeLabel } from "@/lib/img";
 import { getLibrary, getLibraryItem, getProfile } from "@/lib/library";
 import TitleFranchise from "@/components/cast/TitleFranchise";
@@ -69,16 +70,17 @@ function CrewSection({ ids, t }: { ids: CrewId[]; t: Title }) {
   );
 }
 
-type CastProps = { part: "cast_main" | "cast_rest"; t: Title; lib: LibItem[]; first: boolean; last: boolean };
+/** `hold`: the title is a series that is Watching in the library, so no episode counts next to the cast (spoiler line, docs/features/spoilers.md). */
+type CastProps = { part: "cast_main" | "cast_rest"; t: Title; lib: LibItem[]; first: boolean; last: boolean; hold?: boolean };
 
 /** The main-cast or rest-of-cast block. `first` adds the compare link, `last` adds the library connections. While `pending`, the people are shown without their extras. */
-function CastBlock({ part, t, lib, people, first, last, pending }: CastProps & { people: EnrichedMember[]; pending?: boolean }) {
+function CastBlock({ part, t, lib, people, first, last, pending, hold }: CastProps & { people: EnrichedMember[]; pending?: boolean }) {
   const shown = part === "cast_main" ? people.slice(0, MAIN_CAST) : people.slice(MAIN_CAST);
   const libKeys = Object.fromEntries(lib.map((l) => [l.key, l.status]));
   const links = new Map<string, string[]>();
   for (const c of people) for (const h of c.hits) links.set(h.key, [...(links.get(h.key) ?? []), c.name]);
   const linked = last ? [...links.entries()].sort((a, b) => b[1].length - a[1].length).slice(0, 8) : [];
-  const tv = t.show ? { id: t.id, episodes: t.show.episodes } : undefined;
+  const tv = t.show ? { id: t.id, episodes: t.show.episodes, hold } : undefined;
   const ttl = { title: t.title, year: t.year, type: t.type, key: t.key };
   // A series' long tail of guest parts is not listed, but the search box finds anyone who appeared.
   const extras = last && t.extras?.length ? t.extras : [];
@@ -122,7 +124,7 @@ async function CastSection({ libP, ...props }: Omit<CastProps, "lib"> & { libP: 
 }
 
 /** Every section the user chose, in the order they chose. Crew is already in hand; cast streams in behind its own spinner. */
-function Details({ t, libP, order }: { t: Title; libP: Promise<LibItem[]>; order: DetailId[] }) {
+function Details({ t, libP, order, hold }: { t: Title; libP: Promise<LibItem[]>; order: DetailId[]; hold?: boolean }) {
   const casts = order.filter((i) => i === "cast_main" || i === "cast_rest");
   // Merge runs of adjacent crew details into one block.
   const blocks: (DetailId | CrewId[])[] = [];
@@ -137,9 +139,9 @@ function Details({ t, libP, order }: { t: Title; libP: Promise<LibItem[]>; order
         <Suspense key={id[0]} fallback={<CrewSection ids={id} t={t} />}><FilledCrew ids={id} t={t} /></Suspense>
       ) : id === "cast_main" || id === "cast_rest" ? (
         // The cast is already known from the title itself, so show it right away; "you know them from" fills in behind it.
-        <Suspense key={id} fallback={<CastBlock part={id} t={t} lib={[]} first={id === casts[0]} last={id === casts[casts.length - 1]} pending
+        <Suspense key={id} fallback={<CastBlock part={id} t={t} lib={[]} first={id === casts[0]} last={id === casts[casts.length - 1]} hold={hold} pending
           people={t.people.map((c) => ({ ...c, hits: [], also: [], top: [] }))} />}>
-          <CastSection part={id} t={t} libP={libP} first={id === casts[0]} last={id === casts[casts.length - 1]} />
+          <CastSection part={id} t={t} libP={libP} first={id === casts[0]} last={id === casts[casts.length - 1]} hold={hold} />
         </Suspense>
       ) : null)}
     </>
@@ -147,13 +149,13 @@ function Details({ t, libP, order }: { t: Title; libP: Promise<LibItem[]>; order
 }
 
 /** Details switched off in Setup stay one tap away, folded under a single collapsed section. */
-function Unchosen({ t, libP, order }: { t: Title; libP: Promise<LibItem[]>; order: DetailId[] }) {
+function Unchosen({ t, libP, order, hold }: { t: Title; libP: Promise<LibItem[]>; order: DetailId[]; hold?: boolean }) {
   const rest = DETAIL_IDS.filter((id) => !order.includes(id));
   if (!rest.length) return null;
   return (
     <details className="cw" style={{ marginTop: 22 }}>
       <summary>More details<span className="cw-n">{rest.length}</span></summary>
-      <Details t={t} libP={libP} order={rest} />
+      <Details t={t} libP={libP} order={rest} hold={hold} />
     </details>
   );
 }
@@ -270,6 +272,7 @@ export default async function TitleView({ t, origin, focus }: { t: Title; origin
   const meta = [yearEl, ...rest].filter(Boolean);
   const gaps = missingCrew(t.crewBy).length > 0 && !!t.imdbId;
   const today = todayFor(profile.country);
+  const hold = isWatchingSeries(t.key, mine?.status);
   return (
     <FromProvider k={t.key} name={t.title} year={t.show ? undefined : t.year}>
       <div className="sh-top sh-compact" style={{ marginTop: 10 }}>
@@ -295,8 +298,8 @@ export default async function TitleView({ t, origin, focus }: { t: Title; origin
       {focus && <Focus t={t} id={focus} />}
       <Where t={t} profile={profile} />
       <DetailOrder initial={profile.details} type={t.type} />
-      <Details t={t} libP={libP} order={profile.details} />
-      <Unchosen t={t} libP={libP} order={profile.details} />
+      <Details t={t} libP={libP} order={profile.details} hold={hold} />
+      <Unchosen t={t} libP={libP} order={profile.details} hold={hold} />
       {t.type === "tv" && t.seasons.length > 0 && (
         <Episodes item={{ id: t.id, title: t.title, year: t.year, poster: t.poster }} seasons={t.seasons} progress={mine?.progress ?? null} status={mine?.status ?? null} today={today}
           ended={!!t.show && !isRunning(t.show.status)} latest={t.show?.latest ?? null} next={t.show?.next ?? null} />

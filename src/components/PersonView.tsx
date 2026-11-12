@@ -6,6 +6,7 @@ import { GlimpseButton } from "@/components/Glimpse";
 import { personInTitleSpec } from "@/lib/glimpse";
 import { img } from "@/lib/img";
 import { getLibrary } from "@/lib/library";
+import { maskCreditItem } from "@/lib/spoiler-mask";
 import { getPerson, TmdbError } from "@/lib/tmdb";
 
 export type PersonParams = Promise<{ id: string }>;
@@ -21,6 +22,8 @@ export async function loadPerson(p: PersonParams) {
 export default async function PersonView({ p, from }: { p: Awaited<ReturnType<typeof loadPerson>>; from?: { key: string; name: string; year?: string } }) {
   const lib = await getLibrary();
   const byKey = new Map(lib.map((l) => [l.key, l]));
+  // A series that is Watching: no episode count or "from <year>" on its row (spoiler line, docs/features/spoilers.md).
+  const known = p.known.map((k) => maskCreditItem(k, byKey.get(k.key)?.status));
   const mineKeys = p.known.filter((k) => byKey.has(k.key)).map((k) => k.key);
   return (
     <>
@@ -33,7 +36,7 @@ export default async function PersonView({ p, from }: { p: Awaited<ReturnType<ty
         </div>
       </div>
       {p.bio && <p className="small muted" style={{ margin: "14px 0 0" }}>{p.bio}</p>}
-      <PersonProvider id={p.id}><PersonCredits known={p.known} mineKeys={mineKeys} name={p.name} personId={p.id} /></PersonProvider>
+      <PersonProvider id={p.id}><PersonCredits known={known} mineKeys={mineKeys} name={p.name} personId={p.id} /></PersonProvider>
     </>
   );
 }

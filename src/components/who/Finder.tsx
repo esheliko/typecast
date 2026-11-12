@@ -16,6 +16,7 @@ import { sharedThenIds } from "@/lib/then-photo";
 import { useThen } from "./useThen";
 import { roleLabel } from "@/lib/roster";
 import { pickSeenIn, seenInText, type KnownTitle } from "@/lib/who-known";
+import { seenMark } from "@/lib/spoiler-mask";
 import type { WhoFace, WhoRoster } from "@/lib/who-types";
 
 const PER_GROUP = 12;
@@ -295,7 +296,7 @@ function Tile({ f, known, eager, then, year, onOpen, onPop }: { f: WhoFace; know
   };
   const hide = () => { clearTimeout(timer.current); onPop(null); };
   useEffect(() => () => clearTimeout(timer.current), []);
-  const pick = known ? pickSeenIn(known, brief.key, (k) => { const m = lib.get(k); return m && SEEN_STATUS.has(m.status) ? m : undefined; }) : null;
+  const pick = known ? pickSeenIn(known, brief.key, (k) => { const m = lib.get(k); return m && SEEN_STATUS.has(m.status) ? seenMark(k, m) : undefined; }) : null; // a Watching series is not "seen" here: no saved-place check (spoiler line)
   const seen = pick ? seenInText(pick) : "";
   const best = known?.find(([k]) => k !== brief.key);
   const role = roleLabel(f.role);
