@@ -26,6 +26,8 @@ export function Lightbox({ path, name, size = "w780", gallery, onClose }: { path
   const go = (d: number) => setI((x) => (x + d + n) % n);
   const cur = set ? set[i] : path;
   const touch = useRef<number | null>(null);
+  const active = useRef<HTMLButtonElement>(null);
+  useEffect(() => { active.current?.scrollIntoView({ inline: "center", block: "nearest" }); }, [i]);
   useEffect(() => {
     btn.current?.focus();
     const k = (ev: KeyboardEvent) => {
@@ -37,7 +39,7 @@ export function Lightbox({ path, name, size = "w780", gallery, onClose }: { path
     return () => window.removeEventListener("keydown", k, true);
   }, [onClose, set]);
   return (
-    <div className="wx-lightbox" role="dialog" aria-modal="true" aria-label={`Photo of ${name}`} onClick={(ev) => { if (ev.target === ev.currentTarget) onClose(); }}
+    <div className={`wx-lightbox${set ? " wx-lbset" : ""}`} role="dialog" aria-modal="true" aria-label={`Photo of ${name}`} onClick={(ev) => { if (ev.target === ev.currentTarget) onClose(); }}
       onTouchStart={(ev) => { touch.current = ev.touches[0].clientX; }}
       onTouchEnd={(ev) => { const x0 = touch.current; touch.current = null; if (!set || x0 == null) return; const dx = ev.changedTouches[0].clientX - x0; if (Math.abs(dx) > 50) go(dx < 0 ? 1 : -1); }}>
       <button ref={btn} type="button" className="back wx-lbx" onClick={onClose}><span aria-hidden="true">&#215;</span> Close</button>
@@ -46,6 +48,16 @@ export function Lightbox({ path, name, size = "w780", gallery, onClose }: { path
       <img key={cur} src={img(cur, size)} alt={name} referrerPolicy="no-referrer" />
       {set && <button type="button" className="wx-lbnav next" onClick={() => go(1)} aria-label="Next photo"><span aria-hidden="true">&rsaquo;</span></button>}
       {set && <span className="wx-lbcount" aria-live="polite">{i + 1} / {n}</span>}
+      {set && (
+        <div className="wx-lbstrip" role="group" aria-label="All photos">
+          {set.map((p, k) => (
+            <button key={p} ref={k === i ? active : undefined} type="button" className={`wx-lbchip${k === i ? " on" : ""}`} onClick={() => setI(k)} aria-label={`Show photo ${k + 1} of ${n}`} aria-current={k === i ? "true" : undefined}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={img(p, "w92")} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" />
+            </button>
+          ))}
+        </div>
+      )}
       {set && [-1, 1].map((d) => /* eslint-disable-next-line @next/next/no-img-element */ <img key={d} className="wx-lbpre" src={img(set[(i + d + n) % n], size)} alt="" aria-hidden="true" />)}
     </div>
   );
