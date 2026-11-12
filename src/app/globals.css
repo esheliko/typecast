@@ -1214,6 +1214,7 @@ main:focus { outline: none; }
 .wx-full a { font-weight: 600; text-decoration: none; }
 .wx-hereg { margin: -6px 0 -6px 4px; flex: none; display: inline-flex; align-items: center; }
 .wx-hereg .gl-b { width: 32px; height: 32px; }
+.wx-hereg .gl-b svg { transform: translateY(-1.5px); } /* the card glyph and the text line box both sit ~1px off the button centre; nudge so the card meets the text x-height */
 .wx-pphoto .wx-thenw { width: 100%; }
 .wx-pphoto .wx-thenb { bottom: 8px; }
 
