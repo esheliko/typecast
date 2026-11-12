@@ -4,7 +4,7 @@ import { discoveryCandidates, rankUpNext, realServices, tasteSeeds, type Facts, 
 import type { Item, LibItem, Profile } from "./types";
 
 const MAX_WATCHLIST = 45;
-const MAX_PROGRESS = 15;
+const MAX_PROGRESS = 30;
 
 /** Runs `fn` over `xs`, `n` at a time. */
 async function pool<T, R>(xs: T[], n: number, fn: (x: T) => Promise<R>): Promise<R[]> {
@@ -23,7 +23,7 @@ async function factsFor(items: Item[], profile: Profile, into: Map<string, Facts
     if (!b) return;
     const here = b.prov[profile.country] ?? [];
     const onMine = [...new Set(here.filter((id) => mine.has(id)).map((id) => b.names.get(id) ?? profile.serviceNames[String(id)] ?? "your services"))];
-    into.set(it.key, { genres: b.genres, vote: b.vote, votes: b.votes, runtime: b.runtime, released: b.released, lastAired: b.lastAired, nextAir: b.nextAir, onMine, streamable: here.length > 0, recs: b.recs });
+    into.set(it.key, { genres: b.genres, vote: b.vote, votes: b.votes, runtime: b.runtime, released: b.released, lastAired: b.lastAired, nextAir: b.nextAir, seasons: b.seasons, lastEp: b.lastEp, onMine, streamable: here.length > 0, recs: b.recs });
   });
 }
 
@@ -33,7 +33,7 @@ async function factsFor(items: Item[], profile: Profile, into: Map<string, Facts
  * the strip shows so titles snoozed on this device can drop out without leaving it short.
  */
 export async function loadUpNext(lib: LibItem[], profile: Profile, now = Date.now()): Promise<Pick[]> {
-  const progress = lib.filter((l) => l.status === "watching" || l.status === "partial").sort((a, b) => b.updated - a.updated).slice(0, MAX_PROGRESS);
+  const progress = lib.filter((l) => l.status === "watching" || l.status === "partial").sort((a, b) => Number(b.status === "watching") - Number(a.status === "watching") || b.updated - a.updated).slice(0, MAX_PROGRESS);
   const wl = lib.filter((l) => l.status === "watchlist").sort((a, b) => Number(b.priority === "must") - Number(a.priority === "must") || b.added - a.added).slice(0, MAX_WATCHLIST);
   const facts = new Map<string, Facts>();
   await factsFor([...tasteSeeds(lib), ...progress, ...wl], profile, facts);

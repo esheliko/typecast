@@ -258,6 +258,9 @@ export async function getPickBasics(type: MediaType, id: number) {
     runtime: ((type === "movie" ? d.runtime : d.episode_run_time?.[0] || (d.last_episode_to_air?.runtime <= 90 ? d.last_episode_to_air.runtime : null)) || null) as number | null,
     released: (d.release_date ?? d.first_air_date ?? "") as string, lastAired: (d.last_episode_to_air?.air_date ?? null) as string | null,
     nextAir: (d.next_episode_to_air?.air_date ?? null) as string | null,
+    // Season sizes and the newest aired episode come from the same /tv/{id} response (no extra call): they make "Next: S3 E9" / "Caught up" true.
+    seasons: type === "tv" ? ((d.seasons ?? []) as any[]).filter((x) => x.season_number >= 1 && x.episode_count > 0).map((x) => ({ n: x.season_number as number, eps: x.episode_count as number })) : [],
+    lastEp: (type === "tv" && d.last_episode_to_air?.season_number >= 1 && d.last_episode_to_air?.episode_number >= 1 ? { s: d.last_episode_to_air.season_number as number, e: d.last_episode_to_air.episode_number as number } : null) as { s: number; e: number } | null,
     prov, names,
     recs: ((d.recommendations?.results ?? []) as any[]).slice(0, 12).map((r) => ({
       ...item(type, r), vote: r.vote_average ?? 0, votes: r.vote_count ?? 0, genres: (r.genre_ids ?? []) as number[], released: (r.release_date ?? r.first_air_date ?? "") as string,

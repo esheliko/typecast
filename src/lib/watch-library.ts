@@ -57,10 +57,10 @@ export function placeToProgress(place: Ep | null | undefined, seasons: readonly 
  * The page place to continue with for saved library progress: the episode after it. With season sizes it rolls into the next season after a season's last
  * episode (and stays on the last episode when nothing follows); without them it is simply the next number (the page normalises it with `normalizePlace`).
  */
-export function continuePlace(progress: Ep | null | undefined, seasons?: readonly SeasonCount[]): Ep | null {
+export function continuePlace(progress: Ep | null | undefined, seasons?: readonly SeasonCount[], keepLast = true): Ep | null {
   if (!progress || !(progress.s >= 1) || !(progress.e >= 1)) return null;
   const next = { s: progress.s, e: progress.e + 1 };
-  return seasons ? normalizePlace(next, seasons, true) : next;
+  return seasons ? normalizePlace(next, seasons, keepLast) : next;
 }
 
 /** A place past the end of its season rolls to the first episode of the next season that has episodes; with `keepLast` and no later season it falls back to the season's last episode. */
@@ -154,16 +154,47 @@ export function shouldSavePlace(status: Status | undefined, type: MediaType, p: 
   return status === "watching" && type === "tv" && p.s != null && p.s > 0 && p.e != null && p.e > 0;
 }
 
+/** The link that reopens /watching for a series: at the episode to CONTINUE with (the one after the saved progress), rolled over a season end when sizes are known. */
+export function continueHref(row: { key: string; type: MediaType; status: Status; progress: Ep | null }, seasons?: readonly SeasonCount[]): string {
+  const k = row.key.replace(":", "-");
+  const p = row.type === "tv" ? resumePlace(row, seasons?.length ? seasons : undefined) : null;
+  return `/watching?k=${k}${p ? `&s=${p.s}&e=${p.e}` : ""}`;
+}
+
+/**
+ * Is there nothing to continue with yet? True when the episode after the saved progress is past the last one that aired (`lastEp`, TMDB's last_episode_to_air)
+ * or past the end of the last known season. Needs season sizes: without them nobody can tell, so false.
+ */
+export function caughtUp(progress: Ep | null | undefined, seasons?: readonly SeasonCount[], lastEp?: Ep | null): boolean {
+  if (!progress || !seasons?.length) return false;
+  const next = continuePlace(progress, seasons, false);
+  if (!next) return false;
+  const known = seasons.find((x) => x.n === next.s);
+  if (known && known.eps > 0 && next.e > known.eps) return true; // past the last episode of the last season
+  return !!lastEp && lastEp.s >= 1 && lastEp.e >= 1 && isAhead(next, lastEp);
+}
+
+/**
+ * What a Watching title's card says, always true: "Next: S3 E9" (rolls to "Next: S4 E1" at a season end), "Caught up" when that episode has not aired,
+ * "After S3 E8" when season sizes are unknown (no TMDB), and "Pick up where you left off" without any progress.
+ */
+export function continueLabel(progress: Ep | null | undefined, seasons?: readonly SeasonCount[], lastEp?: Ep | null): string {
+  if (!progress || !(progress.s >= 1) || !(progress.e >= 1)) return "Pick up where you left off";
+  if (!seasons?.length) return `After S${progress.s} E${progress.e}`;
+  if (caughtUp(progress, seasons, lastEp)) return "Caught up";
+  const n = continuePlace(progress, seasons, false)!;
+  return `Next: S${n.s} E${n.e}`;
+}
+
 export interface ResumeCard { key: string; title: string; poster: string | null; place: string | null; href: string }
 interface ResumeRow { key: string; type: MediaType; title: string; poster: string | null; status: Status; progress: { s: number; e: number } | null; updated: number }
 
 /** "Pick up where you left off": the Watching titles, most recently updated first, as links that reopen /watching at the saved place. */
 export function pickUpCards(rows: readonly ResumeRow[], max = 6): ResumeCard[] {
   return rows.filter((r) => r.status === "watching").sort((a, b) => b.updated - a.updated).slice(0, max).map((r) => {
-    const k = r.key.replace(":", "-");
     const p = r.type === "tv" ? resumePlace(r) : null;
     // The label names the last FINISHED episode ("after S3 E22"): always true without season sizes. The link opens at the episode to continue with.
-    return { key: r.key, title: r.title, poster: r.poster, place: p && r.progress ? `after S${r.progress.s} E${r.progress.e}` : null, href: `/watching?k=${k}${p ? `&s=${p.s}&e=${p.e}` : ""}` };
+    return { key: r.key, title: r.title, poster: r.poster, place: p && r.progress ? `after S${r.progress.s} E${r.progress.e}` : null, href: continueHref(r) };
   });
 }
 
