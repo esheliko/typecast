@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { fandomNote, pickFandomPage, characterBlurb, minorRole, introFromHtml, clipEps, clipSeasons, firstSentences, lifeFacts, presenceLine, safeBio } from "../../src/lib/glimpse-info";
+import { fandomNote, pickFandomPage, characterBlurb, minorRole, plotNote, introFromHtml, clipEps, clipSeasons, firstSentences, lifeFacts, presenceLine, safeBio } from "../../src/lib/glimpse-info";
 import { parseSections } from "../../src/lib/wiki-text";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -89,3 +89,11 @@ test("introFromHtml keeps the paragraphs and drops the infobox, figures and foot
   expect(introFromHtml(html)).toBe("The sushi master runs a bar in the city. He serves Deckard.");
 });
 test("pickFandomPage accepts a one-letter spelling difference", () => expect(pickFandomPage(["Zuben", "Howey Lee"], "Howie Lee")).toBe("Howey Lee"));
+
+// plotNote
+test("plotNote: the plot sentence that says who the character is, not a list of names", () => {
+  const secs = parseSections("== Plot ==\nIn 1975, neighborhood friends Jimmy Markum, Sean Devine, and Dave Boyle are playing street hockey in Boston. 25 years later, Jimmy is an ex-convict and Sean is a detective with the Massachusetts State Police whose pregnant wife Lauren recently left him, and Dave is a blue-collar worker.\n\n== Cast ==\n");
+  const n = plotNote(secs, "Sean Devine");
+  expect(n?.text).toMatch(/Sean is a detective/);
+  expect(plotNote(secs, "Katie Markum")).toBeNull();
+});

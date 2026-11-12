@@ -3,7 +3,7 @@ import { getArticle, getWikiFacts } from "./wiki";
 import { loadBrief, loadWhoPerson } from "./who-data";
 import { ageAt } from "./who-dates";
 import { charOf } from "./glimpse";
-import { characterBlurb, minorRole, RISKY, clipEps, clipSeasons, lifeFacts, presenceLine, safeBio, type Ep } from "./glimpse-info";
+import { characterBlurb, minorRole, plotNote, RISKY, clipEps, clipSeasons, lifeFacts, presenceLine, safeBio, type Ep } from "./glimpse-info";
 import { posLabel } from "./who-scope";
 import { plural, showLine } from "./episodes";
 import { getFandomNote } from "./fandom";
@@ -88,6 +88,12 @@ async function aboutRole(type: MediaType, id: number, pid: number, q: AboutQuery
     for (const name of [character, minor?.role].filter((x): x is string => !!x)) {
       const f = await getFandomNote(brief.imdbId, brief.title, name, safe);
       if (f) return f;
+    }
+    // A cast list that is only "Actor as Character": the plot summary's sentence about them beats a bare clause.
+    for (const a of arts) {
+      const pn = character ? plotNote(a.sections, character) : null;
+      const text = pn && (safe ? (RISKY.test(pn.text) ? null : pn.text) : pn.text);
+      if (text) return { text, label: `Wikipedia: ${a.title}`, url: a.url };
     }
     const art = arts[0];
     return minor && art ? { text: minor.text, label: `Wikipedia: ${art.title}`, url: art.url } : null;
