@@ -569,9 +569,9 @@ button.aw-chip:hover { filter: brightness(1.08); }
 /* Compact cast and crew rows: small photo that grows on hover. */
 .credit .avatar { width: 32px; height: 32px; font-size: 13px; position: relative; }
 @media (hover: hover) {
-  .credit .avatar { transform-origin: left center; }
+  .credit .avatar { transform-origin: top left; }
   .credit:has(.avatar:hover) { z-index: 30; }
-  .credit .avatar:hover { transform: scale(3); z-index: 30; border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.45); filter: none; }
+  .credit .avatar:hover { transform: scale(2); z-index: 30; border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.45); filter: none; }
 }
 .crew-card { padding-top: 8px; padding-bottom: 8px; }
 .crew-group { display: grid; grid-template-columns: 84px 1fr; gap: 8px; align-items: start; padding: 2px 0; border-top: 1px solid var(--line); }
@@ -596,7 +596,8 @@ button.aw-chip:hover { filter: brightness(1.08); }
 .cast-main .credit-gl { top: 12px; }
 @media (hover: hover) {
   .cast-main .credit:hover:not(:has(details[open])) .marks { left: 56px; }
-  .cast-main .credit .avatar:hover { transform: scale(2.4); }
+  .cast-main .credit .avatar:hover { transform: scale(1.7); }
+  .credit:has(details[open]) .avatar:hover { transform: none; box-shadow: none; } /* an open row keeps its name and the Full profile button uncovered */
 }
 
 /* Library: one suggested next watch above the chips */

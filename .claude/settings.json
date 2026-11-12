@@ -20,5 +20,13 @@
         ]
       }
     ]
+  },
+  "enabledPlugins": {
+    "design@knowledge-work-plugins": false,
+    "product-management@knowledge-work-plugins": false,
+    "cowork-plugin-management@knowledge-work-plugins": false,
+    "vercel@anthropic-plugin-directory": false,
+    "vercel@claude-plugins-official": false,
+    "vercel@vercel": false
   }
 }

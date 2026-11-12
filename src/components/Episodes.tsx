@@ -1,6 +1,5 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import { setWatchedUpTo } from "@/app/actions";
 import { CreditRow } from "./CreditRow";
 import { aired, airsLabel, epCode, fmtDate, nextAfter, plural, prevEpisode, untilLabel, upTo } from "@/lib/episodes";
@@ -52,7 +51,6 @@ export default function Episodes({ item, seasons, progress, status, today, ended
   /** Whether the series has ended, its newest aired episode and the next scheduled one (for "finished" / "caught up"). */
   ended: boolean; latest: EpisodeLite | null; next: EpisodeLite | null;
 }) {
-  const router = useRouter();
   const lib = useLib();
   const [p, setP] = useState<P>(progress);
   const [st, setSt] = useState(status);
@@ -109,7 +107,7 @@ export default function Episodes({ item, seasons, progress, status, today, ended
       setSt(now);
       setLk(placeKey(to, now));
       setUndo(offerUndo ? { to: before } : null);
-      router.refresh();
+      lib.touch();
     } catch { setP(before); setSt(beforeSt); setFail("Could not save. Check your connection and try again."); }
     setSaving(false);
   }

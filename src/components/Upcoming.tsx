@@ -1,6 +1,7 @@
 "use client";
 import { useContext, useEffect, useState } from "react";
 import { TitleLink } from "./Modal";
+import { saveUi } from "@/lib/ui-prefs";
 import { img } from "@/lib/img";
 import { ofKind } from "@/lib/kind";
 import { KindContext } from "@/lib/kind-context";
@@ -8,27 +9,25 @@ import { setUpcomingBadges } from "@/lib/upcoming-badges";
 import { countdown, dateLabel, groupUpcoming, isSoon, localDay, subLine, type UpEntry } from "@/lib/upcoming";
 
 const SHOW = 8;
-const KEY = "typecast:upcoming-open";
 
 /**
  * Unreleased films and the next episodes of your series, grouped by date (see lib/upcoming.ts). Collapsed until you open it
  * (remembered on this device) and absent when nothing is coming. Follows the Library's Films / Series switch.
  * `today` comes from the server and is corrected to the device's own day after mount, so "tomorrow" is right in any time zone.
  */
-export default function Upcoming({ entries: all, today: serverToday }: { entries: UpEntry[]; today: string }) {
+export default function Upcoming({ entries: all, today: serverToday, open: initialOpen }: { entries: UpEntry[]; today: string; open: boolean }) {
   const entries = ofKind(all, useContext(KindContext));
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(initialOpen);
   const [all_, setAll] = useState(false);
   const [today, setToday] = useState(serverToday);
   useEffect(() => {
-    try { setOpen(localStorage.getItem(KEY) === "1"); } catch { /* storage unavailable */ }
     setToday(localDay());
   }, []);
   // Library rows show a small "Out Fri" / "S5 in 12 days" badge from the same data (all kinds, whatever the switch shows).
   useEffect(() => { setUpcomingBadges(all); return () => setUpcomingBadges([]); }, [all]);
   const live = entries.filter((e) => e.date >= today);
   if (!live.length) return null;
-  const toggle = () => setOpen((o) => { try { localStorage.setItem(KEY, o ? "0" : "1"); } catch { /* ignore */ } return !o; });
+  const toggle = () => { saveUi({ upOpen: !open }); setOpen(!open); };
   const shown = all_ ? live : live.slice(0, SHOW);
   return (
     <section className="upnext upcoming" aria-label="Upcoming">

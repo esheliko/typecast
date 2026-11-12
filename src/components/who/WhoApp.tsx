@@ -269,14 +269,9 @@ export function WhoApp({ brief, initialPos, today, others = [], savedProgress = 
     return () => window.removeEventListener("popstate", pop);
   }, []);
 
-  const close = () => {
-    const same = typeof document !== "undefined" && document.referrer.startsWith(window.location.origin) && window.history.length > 1;
-    if (hd.current > 0) { // first pop the entries this page added, then leave
-      if (same) { leaving.current = true; window.history.go(-(hd.current - lo.current + 1)); return; }
-      router.push("/"); return;
-    }
-    if (same) router.back(); else router.push("/");
-  };
+  // Close always lands on the main app. Walking history back is unreliable here (the trail and details add entries, and
+  // document.referrer only describes the first load), so it once stepped back through the trail instead of leaving.
+  const close = () => { leaving.current = false; router.push("/"); };
 
   const faces = useMemo(() => new Map((wide && wideRoster && wideRoster.key === brief.key ? wideRoster.faces : rosterFresh?.faces ?? roster?.faces ?? []).map((f) => [f.id, f])), [wide, wideRoster, brief.key, rosterFresh, roster]);
   const clip = tv && !spoilers ? pos : null;
