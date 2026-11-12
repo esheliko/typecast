@@ -1120,15 +1120,15 @@ button.wx-tdates:disabled { cursor: default; }
 .wx-eptitle { margin: 2px 0 0; font: 700 20px/1.15 var(--display); letter-spacing: .03em; text-transform: uppercase; color: var(--ink); display: block; }
 .wx-sumb { margin-top: 10px; min-height: 44px; }
 .wx-summary { margin: 10px 0 0; font-size: 14.5px; line-height: 1.5; }
-.wx-facts { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; align-items: start; }
-.wx-factgroup { margin-top: 14px; }
-.wx-factgroup:first-of-type { margin-top: 6px; }
-.wx-grouph { margin: 0 0 6px; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
-.wx-fact { border-radius: 12px; background: var(--bg); border: 1px solid var(--line); overflow: hidden; }
-.wx-fact.open { grid-column: 1 / -1; border-color: var(--gold-fill); }
-.wx-factb { display: flex; justify-content: space-between; align-items: center; gap: 8px; width: 100%; min-height: 48px; padding: 8px 14px; font-weight: 600; font-size: 14.5px; }
-.wx-factb:hover { background: var(--chip); }
-.wx-factbody { padding: 2px 14px 14px; overflow-wrap: anywhere; font-size: 14.5px; }
+.wx-ftabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 12px; padding: 5px; border-radius: 16px; background: var(--chip); }
+.wx-ftab { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 62px; padding: 8px 4px; border-radius: 12px; color: var(--muted); font-size: 12.5px; font-weight: 700; }
+.wx-ftab.on { background: var(--surface); color: var(--ink); box-shadow: 0 1px 4px rgb(0 0 0 / .12); }
+.wx-ftab.on svg { color: var(--gold); }
+.wx-fpanel { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px; margin-top: 12px; align-items: start; }
+.wx-frow { border-radius: 14px; background: var(--bg); border: 1px solid var(--line); padding: 12px 14px 4px; border-top: 3px solid var(--gold-fill); }
+.wx-frowh { display: flex; align-items: center; gap: 10px; margin: 0 0 8px; font-size: 14.5px; font-weight: 700; }
+.wx-ficon { display: grid; place-items: center; width: 34px; height: 34px; flex: none; border-radius: 10px; background: var(--chip); color: var(--gold); }
+.wx-factbody { padding: 0 0 10px; overflow-wrap: anywhere; font-size: 14.5px; }
 .wx-factbody p { margin: 0 0 6px; } .wx-factbody ul { margin: 0 0 6px; padding-left: 18px; }
 
 .wx-lightbox { position: fixed; inset: 0; z-index: 60; background: rgb(0 0 0 / .85); display: flex; align-items: center; justify-content: center; padding: 56px 16px 16px; }
@@ -1164,7 +1164,7 @@ button.wx-tdates:disabled { cursor: default; }
 .wx-resumex b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
 
 .wx button:focus-visible, .wx select:focus-visible, .wx input:focus-visible, .wx a:focus-visible { outline: 2px solid var(--gold-fill); outline-offset: 2px; }
-@media (hover: hover) { .wx-fact .wx-factb:hover { background: var(--chip); } }
+@media (hover: hover) { .wx-ftab:not(.on):hover { background: var(--bg); color: var(--ink); } }
 @media (prefers-reduced-motion: reduce) { .wx-trow { scroll-behavior: auto; } }
 
 /* phones: the way back to the details after closing them (also what resumes where you left off) */
