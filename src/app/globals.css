@@ -1207,6 +1207,8 @@ main:focus { outline: none; }
 .wx-thenb { position: absolute; left: 5px; bottom: 10px; padding: 1px 6px; border-radius: 999px; font: 600 10.5px/1.4 var(--sans, inherit); color: #fff; background: rgba(0, 0, 0, .6); pointer-events: none; }
 
 /* Details pane: the Glimpse button sits inline after "Plays X in Title"; the "Then" photo keeps the profile photo's box. */
+.wx-full { margin: 0 0 8px; }
+.wx-full a { font-weight: 600; text-decoration: none; }
 .wx-hereg { margin: -6px 0 -6px 4px; flex: none; display: inline-flex; align-items: center; }
 .wx-hereg .gl-b { width: 32px; height: 32px; }
 .wx-pphoto .wx-thenw { width: 100%; }

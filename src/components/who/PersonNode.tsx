@@ -3,6 +3,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useLib } from "../cast/LibState";
 import { KindSeg } from "../KindSeg";
 import { GlimpseButton } from "../Glimpse";
+import { PersonLink } from "../Modal";
 import { More, Photo, Section, SEEN_STATUS, Sk, Soft, useLimit, useSpans } from "./bits";
 import { Timeline, type AxisItem } from "./Timeline";
 import { defaultChoice } from "@/lib/who-readout";
@@ -216,6 +217,7 @@ export function PersonNode({ node }: { node: PNode }) {
           <h2 className="wx-pname" tabIndex={-1} data-focus-target>{node.name}</h2>
           {data ? (life && <p className="wx-life">{life}</p>) : <Sk w="75%" h={14} style={{ margin: "4px 0 6px" }} />}
           <p className="wx-here small">{hereLabel}{hereSpec && <span className="wx-hereg"> <GlimpseButton spec={hereSpec} label={`About ${node.name}${face?.role ? ` as ${roleLabel(face.role) || face.role}` : ""}: the character, episodes and images`} /></span>}</p>
+          <p className="wx-full small"><PersonLink pid={node.id} it={{ name: node.name, photo: node.photo ?? data?.photo }} className="linkish">Full profile: bio, all credits, photos &rsaquo;</PersonLink></p>
           {data && data.images.length > 0 && (
             <div className="wx-looks" aria-label="Other looks">
               <span className="mc-label">Other looks</span>
