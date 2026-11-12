@@ -18,19 +18,35 @@ export function ZoomBtn({ path, name, size = "w780", className = "", children }:
   return <button type="button" className={`wx-zoom ${className}`} onClick={() => path && zoom({ path, name, size })} aria-label={`Enlarge photo of ${name}`} disabled={!path}>{children}</button>;
 }
 
-export function Lightbox({ path, name, size = "w780", onClose }: { path: string; name: string; size?: string; onClose: () => void }) {
+export function Lightbox({ path, name, size = "w780", gallery, onClose }: { path: string; name: string; size?: string; gallery?: string[]; onClose: () => void }) {
   const btn = useRef<HTMLButtonElement>(null);
+  const set = gallery && gallery.length > 1 && gallery.includes(path) ? gallery : null;
+  const [i, setI] = useState(set ? set.indexOf(path) : 0);
+  const n = set?.length ?? 1;
+  const go = (d: number) => setI((x) => (x + d + n) % n);
+  const cur = set ? set[i] : path;
+  const touch = useRef<number | null>(null);
   useEffect(() => {
     btn.current?.focus();
-    const k = (ev: KeyboardEvent) => { if (ev.key === "Escape") { ev.preventDefault(); ev.stopPropagation(); onClose(); } };
+    const k = (ev: KeyboardEvent) => {
+      if (ev.key === "Escape") { ev.preventDefault(); ev.stopPropagation(); onClose(); }
+      else if (set && (ev.key === "ArrowRight" || ev.key === "ArrowLeft")) { ev.preventDefault(); ev.stopPropagation(); setI((x) => (x + (ev.key === "ArrowRight" ? 1 : -1) + set.length) % set.length); }
+      else if (set && (ev.key === "Home" || ev.key === "End")) { ev.preventDefault(); ev.stopPropagation(); setI(ev.key === "Home" ? 0 : set.length - 1); }
+    };
     window.addEventListener("keydown", k, true);
     return () => window.removeEventListener("keydown", k, true);
-  }, [onClose]);
+  }, [onClose, set]);
   return (
-    <div className="wx-lightbox" role="dialog" aria-modal="true" aria-label={`Photo of ${name}`} onClick={(ev) => { if (ev.target === ev.currentTarget) onClose(); }}>
+    <div className="wx-lightbox" role="dialog" aria-modal="true" aria-label={`Photo of ${name}`} onClick={(ev) => { if (ev.target === ev.currentTarget) onClose(); }}
+      onTouchStart={(ev) => { touch.current = ev.touches[0].clientX; }}
+      onTouchEnd={(ev) => { const x0 = touch.current; touch.current = null; if (!set || x0 == null) return; const dx = ev.changedTouches[0].clientX - x0; if (Math.abs(dx) > 50) go(dx < 0 ? 1 : -1); }}>
       <button ref={btn} type="button" className="back wx-lbx" onClick={onClose}><span aria-hidden="true">&#215;</span> Close</button>
+      {set && <button type="button" className="wx-lbnav prev" onClick={() => go(-1)} aria-label="Previous photo"><span aria-hidden="true">&lsaquo;</span></button>}
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={img(path, size)} alt={name} />
+      <img key={cur} src={img(cur, size)} alt={name} />
+      {set && <button type="button" className="wx-lbnav next" onClick={() => go(1)} aria-label="Next photo"><span aria-hidden="true">&rsaquo;</span></button>}
+      {set && <span className="wx-lbcount" aria-live="polite">{i + 1} / {n}</span>}
+      {set && [-1, 1].map((d) => /* eslint-disable-next-line @next/next/no-img-element */ <img key={d} className="wx-lbpre" src={img(set[(i + d + n) % n], size)} alt="" aria-hidden="true" />)}
     </div>
   );
 }

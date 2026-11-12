@@ -221,7 +221,7 @@ export function PersonNode({ node }: { node: PNode }) {
               <span className="mc-label">Other looks</span>
               <div className="wx-looks-row">
                 {data.images.map((p) => (
-                  <button key={p} type="button" className="wx-look" onClick={() => zoom({ path: p, name: node.name })} aria-label={`Enlarge another photo of ${node.name}`}>
+                  <button key={p} type="button" className="wx-look" onClick={() => zoom({ path: p, name: node.name, gallery: data.images })} aria-label={`Enlarge another photo of ${node.name}`}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={img(p, "w185")} alt="" loading="lazy" decoding="async" />
                   </button>

@@ -28,7 +28,7 @@ export interface WhoCtx {
   /** "We're on this one": set an exact episode. */
   setExact: (s: number, e: number) => void;
   /** Open a photo full size (the same viewer for every photo on the page). `size` is a TMDB image size. */
-  zoom: (p: { path: string; name: string; size?: string }) => void;
+  zoom: (p: { path: string; name: string; size?: string; gallery?: string[] }) => void;
   /** Turn on (and warm up) a person's data, e.g. on hover. */
   prefetchPerson: (id: number) => void;
 }
