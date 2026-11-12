@@ -247,9 +247,8 @@ export function WhoApp({ brief, initialPos, today }: { brief: WhoBrief; initialP
           <ZoomBtn path={brief.poster} name={brief.title} className="wx-posterb"><Photo path={brief.poster} name={brief.title} w="w92" className="wx-poster" eager /></ZoomBtn>
           <div className="wx-ttl">
             <span className="wbar-k"><span className="live-dot" aria-hidden="true" />Watching now</span>
-            <b className="wx-title">{brief.title}</b>
+            <TitleLink k={brief.key} it={{ title: brief.title, year: brief.year, poster: brief.poster }} className="wx-title wx-titlelink" aria-label={`${brief.title}: open title details`}>{brief.title}<span aria-hidden="true"> ›</span></TitleLink>
             <span className="small muted">{[brief.year, tv ? posLabel(pos) : "Film"].filter(Boolean).join(" · ")}</span>
-            <TitleLink k={brief.key} it={{ title: brief.title, year: brief.year, poster: brief.poster }} className="linkish small wx-details">Title details</TitleLink>
           </div>
           {tv && pos && <PositionControl brief={brief} pos={pos} onChange={changePos} />}
           {!tv && <FilmClock briefKey={brief.key} />}
