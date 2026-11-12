@@ -120,8 +120,6 @@ export function GlimpseProvider({ children }: { children: React.ReactNode }) {
               <button type="button" className="back" onClick={close} aria-label="Close"><span aria-hidden="true">&#215;</span> Close</button>
             </div>
             <div className="gl-body">
-              {(curTab.info ?? spec.info) && <About info={(curTab.info ?? spec.info)!} />}
-              {spec.info && <h3 className="gl-sec">Images</h3>}
               {tabs.length > 1 && (
                 <div className="gl-tabs" role="tablist">
                   {tabs.map((t) => <button key={t.q} type="button" role="tab" aria-selected={t.q === q} className={t.q === q ? "on" : ""} onClick={() => { setTabQ(t.q); setBig(null); }}>{t.label}</button>)}
@@ -152,6 +150,8 @@ export function GlimpseProvider({ children }: { children: React.ReactNode }) {
               )}
               <a className="btn sm gold" href={gUrl(q)} target="_blank" rel="noopener noreferrer" style={{ marginTop: 12 }}>More in Google Images</a>
               <p className="small muted" style={{ margin: "8px 0 0" }}>Searching: {q}</p>
+              {/* The images come first: that is what the panel is opened for. The words about it follow below them. */}
+              {(curTab.info ?? spec.info) && <div style={{ marginTop: 16 }}><About info={(curTab.info ?? spec.info)!} /></div>}
             </div>
           </div>
         </div>
