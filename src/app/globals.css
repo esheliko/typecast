@@ -1020,10 +1020,12 @@ button.wx-epchip::after { content: ""; position: absolute; inset: -7px -2px; }
 .wx-rowsk { display: block; }
 .wx-rowsk .wx-krow { pointer-events: none; }
 
-.wx-tfilters { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: 0; padding: 4px 0; }
+.wx-tfilters { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; padding: 4px 0; }
 .wx-tfilters > * { flex: none; }
-.wx-tfilters .chip, .wx-tfilters .seg button { min-height: 40px; }
-.wx-tlh { margin: 0 6px 0 0; white-space: nowrap; }
+.wx-tfilters .chip, .wx-tfilters .seg button { min-height: 36px; font-size: 13px; }
+.wx-tfilters .chip { padding: 6px 11px; }
+.wx-tfilters .seg button { padding: 6px 10px; }
+.wx-tlh { margin: 0 4px 0 0; white-space: nowrap; }
 /* the timeline's header, filters, axis and readout stay under the trail while the titles scroll; kept compact (one filter row, small marks, a one-line readout) */
 .wx-tsticky { position: sticky; top: var(--wx-tb, 58px); z-index: 3; margin: 0 -20px 8px; padding: 2px 20px 6px; background: var(--surface); border-bottom: 1px solid var(--line); box-shadow: 0 6px 10px -8px rgb(0 0 0 / .35); }
 .wx-tlsec { --wx-tl-h: 150px; margin-top: 4px; }
