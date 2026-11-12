@@ -158,7 +158,7 @@ export function PersonNode({ node }: { node: PNode }) {
     const i = rows.findIndex((r) => r.key === node.hl);
     if (i >= lim.shown && !lim.all) lim.toggle();
     // Only when a row was asked for ("titles in common"); the default (the watched title, from the finder) must not scroll the details.
-    if (node.hl === brief.key) return;
+    if (node.hl === brief.key || node.still) return;
     const t = setTimeout(() => rowRefs.current.get(node.hl!)?.scrollIntoView({ block: "center", behavior: "smooth" }), 250);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps

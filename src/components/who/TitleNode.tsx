@@ -77,7 +77,7 @@ export function TitleNode({ node }: { node: TNode }) {
         {data && !fromCast.length && <p className="small muted" style={{ margin: 0 }}>No one from the cast here is in this title.</p>}
         {fromCast.slice(0, lim.shown).map(({ f, role }) => (
           <CastRow key={f.id} f={f} role={role} spec={spec(f.name, role, f.id)} titleKey={node.key} type={type} release={data?.brief.first ?? ""} hideDates={self}
-            onOpen={() => push({ t: "person", id: f.id, name: f.name, photo: f.photo, hl: node.key })} />
+            onOpen={() => push({ t: "person", id: f.id, name: f.name, photo: f.photo, hl: node.key, still: true })} />
         ))}
         {data && <More total={fromCast.length} {...lim} />}
       </Section>

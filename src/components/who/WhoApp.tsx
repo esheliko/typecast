@@ -130,7 +130,7 @@ export function WhoApp({ brief, initialPos, today }: { brief: WhoBrief; initialP
   // Opening a person from a title: that title is the one to compare first (their row is selected), not the top "You know them from".
   const push = useCallback((n: Node) => setTrail((t) => {
     const from = currentNode(t);
-    return pushNode(t, n.t === "person" && !n.hl && from.t === "title" ? { ...n, hl: from.key } : n, bid());
+    return pushNode(t, n.t === "person" && !n.hl && from.t === "title" ? { ...n, hl: from.key, still: true } : n, bid());
   }), []);
   // From the finder the title you came from is the one being watched: its row is the default choice (falls back when it has no dates, or for a film).
   const openFromFinder = useCallback((f: { id: number; name: string; photo: string | null }, o?: { hl?: string }) => {
