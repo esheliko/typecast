@@ -37,5 +37,10 @@ export function maskCreditItem<T extends { key: string; eps?: number; since?: st
   return { ...it, eps: undefined, since: undefined, cids: undefined };
 }
 
+/** A season's cast under the line: no per-person episode counts or credit ids (they give each actor's run away). */
+export function holdBackCast<T extends { eps?: number; credits?: string[] }>(cast: T[], l: SpoilerLine): T[] {
+  return isHidden(l) ? cast.map((c) => (c.eps || c.credits?.length ? { ...c, eps: undefined, credits: undefined } : c)) : cast;
+}
+
 /** A series credit the library has as Watching, i.e. one whose "seen in" claim needs the saved place to be safe. */
 export const heldHit = (k: { key: string }, l: { status: string } | undefined): boolean => isWatchingSeries(k.key, l?.status);

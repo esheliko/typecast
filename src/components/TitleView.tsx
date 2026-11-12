@@ -241,11 +241,11 @@ function ReleaseLine({ date, k, today }: { date: string; k: string; today: strin
 }
 
 /** Opened from a person (their filmography, or their row in another title's cast): their part in this one, and for a series which episodes. */
-function Focus({ t, id }: { t: Title; id: number }) {
+function Focus({ t, id, hold }: { t: Title; id: number; hold?: boolean }) {
   const c = t.people.find((x) => x.id === id) ?? t.extras?.find((x) => x.id === id)
     ?? Object.values(t.crewBy).flat().find((x) => x.id === id);
   if (!c) return null;
-  const eps = t.show ? epsLabel(c.eps, t.show.episodes) : "";
+  const eps = t.show && !hold ? epsLabel(c.eps, t.show.episodes) : "";
   return (
     <div className="card pad focus" style={{ marginTop: 14 }}>
       <PersonLink className="credit-main" pid={c.id} it={c}>
@@ -295,7 +295,7 @@ export default async function TitleView({ t, origin, focus }: { t: Title; origin
         <StatusControls item={t} lib={mine} />
         <WatchButton it={{ key: t.key, type: t.type, id: t.id, title: t.title, year: t.year, poster: t.poster }} runtime={t.runtime} progress={mine?.progress ?? null} seasons={t.type === "tv" ? t.seasons : undefined} />
       </section>
-      {focus && <Focus t={t} id={focus} />}
+      {focus && <Focus t={t} id={focus} hold={hold} />}
       <Where t={t} profile={profile} />
       <DetailOrder initial={profile.details} type={t.type} />
       <Details t={t} libP={libP} order={profile.details} hold={hold} />

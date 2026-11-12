@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import type { MaskableCredit } from "../../src/lib/spoiler-mask";
-import { heldHit, holdBackCredits, isWatchingSeries, maskCreditItem, seenMark } from "../../src/lib/spoiler-mask";
+import { holdBackCast, heldHit, holdBackCredits, isWatchingSeries, maskCreditItem, seenMark } from "../../src/lib/spoiler-mask";
 import { pickSeenIn, type KnownTitle } from "../../src/lib/who-known";
 import { NONE } from "../../src/lib/spoiler-line";
 
@@ -52,5 +52,15 @@ describe("maskCreditItem / isWatchingSeries / heldHit", () => {
     assert.equal(isWatchingSeries("movie:1", "watching"), false);
     assert.equal(heldHit({ key: "tv:1" }, { status: "watched" }), false);
     assert.equal(heldHit({ key: "tv:1" }, undefined), false);
+  });
+});
+
+describe("holdBackCast", () => {
+  it("drops per-person counts and ids under a line, and is the same array without one", () => {
+    const cast = [{ id: 1, eps: 7, credits: ["a"] }, { id: 2 }];
+    const out = holdBackCast(cast, { kind: "upto", s: 1, e: 1 });
+    assert.deepEqual(out[0], { id: 1, eps: undefined, credits: undefined });
+    assert.equal(out[1], cast[1]);
+    assert.equal(holdBackCast(cast, NONE), cast);
   });
 });

@@ -289,7 +289,7 @@ export function PersonNode({ node }: { node: PNode }) {
                   {!held && <span className="small muted wx-kline">{[c.role && `as ${roleLabel(c.role) || c.role}`, whenText(c, w), n ? epsLabel(n) : ""].filter(Boolean).join(" · ")}{w.kind === "loading" && <Sk w={90} h={11} style={{ marginLeft: 4 }} />}</span>}
                 </span>
                 <span className="wx-kright">
-                  <span className={`ask-st ${st === "watchlist" ? "list" : "seen"}`}>{st === "watchlist" ? "On your list" : "Seen"}</span>
+                  {!held && <span className={`ask-st ${st === "watchlist" ? "list" : "seen"}`}>{st === "watchlist" ? "On your list" : "Seen"}</span>}
                 </span>
               </button>
               <GlimpseButton spec={scopeSpec(creditSpec(node.name, c.role, { title: c.title, year: c.year, type: c.type, key: c.key }, node.id), { key: brief.key, title: brief.title, clip, spoilers })} label={held ? `About ${node.name} in ${c.title}` : `About ${node.name}${c.role ? ` as ${roleLabel(c.role) || c.role}` : ""} in ${c.title}: the role, episodes and images`} />
@@ -411,7 +411,7 @@ function TRow({ c, actor, actorId, when, eps, sel, hot, reg, onOpen, onSelect, o
       <span className="wx-tline">
         <button type="button" className="wx-ttitle" onClick={onOpen}>{c.title}</button>
         <span className="pill wx-kind">{c.type === "tv" ? "Series" : "Film"}</span>
-        {seen && <span className="ask-st seen" title="You have seen this">&#10003; Seen</span>}
+        {seen && !hidden && <span className="ask-st seen" title="You have seen this">&#10003; Seen</span>}
       </span>
       <span className="small muted wx-trole" title={role}>{hidden ? <SpoilerGate compact title={c.title} hidden={hidden} onShow={onShow} placeHref={`/watching?k=${urlKey(c.key)}`} /> : role}</span>
       <span className="wx-tgl"><GlimpseButton spec={scopeSpec(creditSpec(actor, c.role, { title: c.title, year: c.year, type: c.type, key: c.key }, actorId), { key: brief.key, title: brief.title, clip, spoilers })} label={`About ${actor}${c.role ? ` as ${roleLabel(c.role) || c.role}` : ""} in ${c.title}: the role, episodes and images`} /></span>
