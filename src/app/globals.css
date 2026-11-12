@@ -1243,3 +1243,31 @@ main:focus { outline: none; }
 }
 .wx-titlelink { color: inherit; text-decoration: none; font-weight: 700; display: block; }
 .wx-titlelink:hover { text-decoration: underline; }
+
+/* Watching now on phones (< 560px): the faces get the screen. The header is two slim rows (title + switches, then where you are), the filter chips scroll away with the grid
+   and only the search box stays pinned. Before: the header, search and three chip rows took more than half of the screen, so one row of faces showed. */
+@media (max-width: 559px) {
+  .wx-top { flex-wrap: wrap; align-items: center; gap: 6px 10px; padding-top: calc(6px + env(safe-area-inset-top, 0px)); padding-bottom: 6px; }
+  .wx-poster { width: 30px; height: 45px; }
+  .wx-ttl { flex: 1 1 0; min-width: 0; }
+  .wx-title { font-size: 17px; max-width: none; }
+  .wx-topr { order: 2; margin-left: 0; gap: 6px; }
+  .wx-nospoil { min-width: 0; min-height: 40px; padding: 4px 10px 4px 8px; font-size: 12.5px; gap: 6px; }
+  .wx-close { min-height: 40px; min-width: 40px; padding: 0 10px; justify-content: center; }
+  .wx-closet { display: none; }
+  .wx-pos { flex-wrap: nowrap; gap: 6px; }
+  .wx-pos .wx-ep { min-width: 0; flex: 0 1 auto; }
+  .wx-pos .wx-epgroup { min-width: 0; flex: 1 1 auto; }
+  .wx-pos .wx-epgroup .wx-ep { flex: 1 1 auto; min-width: 0; }
+  .wx-epb { min-height: 40px; padding: 6px 12px; font-size: 13.5px; max-width: 100%; }
+  .wx-epnext { min-height: 40px; padding: 6px 12px 6px 10px; font-size: 13.5px; }
+  .wx-epnext::before { top: 9px; bottom: 9px; }
+  .wx-stick { display: contents; }
+  .wx-find { position: sticky; top: 0; z-index: 3; background: var(--bg); padding: 8px 0 6px; }
+  .wx-find input { min-height: 44px; }
+  .wx-chips { margin: 0 0 4px; gap: 6px; }
+  .wx-chips .seg { padding: 2px; }
+  .wx-chips .seg button { padding: 5px 11px; font-size: 13px; }
+  .wx-group { margin: 8px 0 6px; }
+  .wx-gh { margin-bottom: 8px; }
+}

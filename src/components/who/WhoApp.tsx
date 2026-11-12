@@ -275,7 +275,7 @@ export function WhoApp({ brief, initialPos, today }: { brief: WhoBrief; initialP
               title={spoilers ? "Spoilers are shown: the whole series, past where you are" : "Spoilers are hidden: everything stops at where you are"}>
               <span className="wx-sw" aria-hidden="true" /><span>{spoilers ? "Show spoilers" : "No spoilers"}</span>
             </button>
-            <button type="button" className="back wx-close" onClick={close}><span aria-hidden="true">&#215;</span> Close</button>
+            <button type="button" className="back wx-close" aria-label="Close" onClick={close}><span aria-hidden="true">&#215;</span><span className="wx-closet"> Close</span></button>
           </div>
         </header>
         <div className="wx-main">
