@@ -14,6 +14,7 @@ if printf '%s' "$ci" | grep -q '\*\*fail\*\*'; then
   echo "CI IS RED ON MAIN (issue #2). If your session id or your change is listed below, fix it FIRST (CLAUDE.md rule 6). Never skip or delete a failing test."
   printf '%s\n' "$ci" | sed -n '/CI `verify`/,/Everyone who pushed/p' | head -30
 fi
+echo "TIME RULE (CLAUDE.md rule 7): every time you tell the owner is Israel local time (IST): run TZ=Asia/Jerusalem date, convert UTC from logs/GitHub/Vercel before quoting, never write UTC to the owner."
 echo "SCREENSHOT RULE (CLAUDE.md): if the owner's message includes a screenshot complaining about how something looks, your reply MUST include a screenshot of the same view after the fix (same page, viewport, state). One command: node scripts/shot.mjs \"/path\" [--click TEXT] [--sel CSS] [--phone] --out <scratchpad>/x.png, then SendUserFile. Do not call the fix done without it."
 # Smoke credentials: say plainly what this session has, so nobody claims they are "saved" when they are not. Names only, never values.
 missing=""

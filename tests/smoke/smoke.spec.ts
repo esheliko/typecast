@@ -350,10 +350,14 @@ test.describe("signed in", () => {
     // Her own dates load (a skeleton until they do): The Big Bang Theory is Nov-Dec 2008. The list shows about five rows; Show all has the rest.
     await page.getByRole("region", { name: "Timeline" }).getByRole("button", { name: /Show all/ }).click();
     await expect(page.locator(".wx-trow", { hasText: "The Big Bang Theory" }).getByText("Nov-Dec 2008")).toBeVisible({ timeout: 45_000 });
-    // Esc goes back one step to "This title", whose facts are cards, not a question box.
+    // Esc goes back one step to "This title", whose facts sit in four tabs (Story is open first), not a question box.
     await page.keyboard.press("Escape");
     await expect(page.getByRole("heading", { name: "The Rookie" }).first()).toBeVisible();
-    await expect(page.getByRole("button", { name: "Trivia" })).toBeVisible();
+    const aboutTabs = page.getByRole("tablist", { name: "About this title" });
+    for (const t of ["Story", "Making", "Reception", "Watching"]) await expect(aboutTabs.getByRole("tab", { name: t })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Story so far" })).toBeVisible();
+    await aboutTabs.getByRole("tab", { name: "Making" }).click();
+    await expect(page.getByRole("region", { name: "Trivia" })).toBeVisible();
     await expect(page.getByPlaceholder(/look something up/i)).toHaveCount(0);
     // Going back keeps the step (it is dimmed, not erased), the line of history is a recents chip, and the spoiler switch is always on screen.
     await expect(page.locator(".wx-trail")).toContainText("Sara Rue");

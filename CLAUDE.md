@@ -19,6 +19,7 @@
 >    Fix the cause; change a test only when it is stale and say so; never skip, delete or loosen a test to get green; push; start the background wait again; repeat
 >    until green. If you pushed in the red range but are not the Owner, check within 10 min whether your change can affect the failing test and report what you
 >    found. A session that starts while `main` is red (the start hook prints it, issue #2) fixes what is plausibly its own area first.
+> 7. **Times you tell the owner are ALWAYS Israel local time (Asia/Jerusalem, IST), never UTC.** Get the real time with `TZ=Asia/Jerusalem date '+%Y-%m-%d %H:%M'`; do not guess it and do not convert in your head. Log lines, `git log`, GitHub, Vercel and the CI board show UTC: convert before you quote them, and write "15:40 IST", not "13:40 UTC". If you must quote a UTC value, give the IST time first.
 > If you were handed a different branch, still do the above. If main moved while you worked, rebase or merge onto it, keeping both sides' work.
 > `.claude/hooks/session-start.sh` checks this at the start of every session.
 
@@ -60,6 +61,7 @@ Next.js 16 (App Router) + Supabase (email/password auth, RLS) + TMDB. See README
 - Enforced two ways: `.claude/hooks/session-start.sh` prints the rule every session, and `.claude/hooks/prompt-submit.sh` repeats it on any message that contains an image. Keep both when editing hooks.
 
 ## Smoke credentials
+- Preferred: `SUPABASE_SERVICE_ROLE_KEY` (CI repo secret) makes every smoke run create and delete its own temporary account, so nothing below is needed and runs never collide (`DEPLOYING.md` > Temporary smoke accounts). The rest of this section is the shared-account fallback used when the key is absent (cloud sessions).
 - CI reads them from GitHub repo secrets (`SMOKE_EMAIL`, `SMOKE_PASSWORD`, Supabase URL/anon key, `TMDB_TOKEN`); sessions cannot read those. In a cloud session they come from the environment `typecast` (variables set in its settings): `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` (public), `SMOKE_EMAIL` and a dummy `TMDB_TOKEN` (the proxy injects the real one) are saved there. `SMOKE_PASSWORD` is NOT saved: the environment tool refuses to store secrets as variables. The session-start hook prints `SMOKE ENV:` with what is missing; trust that line, not memory. Never write the password into the repo, a commit, a log or a doc.
 
 ## Known gaps
