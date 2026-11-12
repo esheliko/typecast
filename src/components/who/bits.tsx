@@ -43,7 +43,7 @@ export function Lightbox({ path, name, size = "w780", gallery, onClose }: { path
       <button ref={btn} type="button" className="back wx-lbx" onClick={onClose}><span aria-hidden="true">&#215;</span> Close</button>
       {set && <button type="button" className="wx-lbnav prev" onClick={() => go(-1)} aria-label="Previous photo"><span aria-hidden="true">&lsaquo;</span></button>}
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img key={cur} src={img(cur, size)} alt={name} />
+      <img key={cur} src={img(cur, size)} alt={name} referrerPolicy="no-referrer" />
       {set && <button type="button" className="wx-lbnav next" onClick={() => go(1)} aria-label="Next photo"><span aria-hidden="true">&rsaquo;</span></button>}
       {set && <span className="wx-lbcount" aria-live="polite">{i + 1} / {n}</span>}
       {set && [-1, 1].map((d) => /* eslint-disable-next-line @next/next/no-img-element */ <img key={d} className="wx-lbpre" src={img(set[(i + d + n) % n], size)} alt="" aria-hidden="true" />)}

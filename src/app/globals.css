@@ -988,6 +988,8 @@ body:has(.modal) .toast-slot { bottom: calc(84px + env(safe-area-inset-bottom, 0
 .wx-look { flex: none; width: 40px; height: 60px; padding: 0; border-radius: 8px; overflow: hidden; background: var(--chip); position: relative; }
 .wx-look::after { content: ""; position: absolute; inset: -4px; }
 .wx-look img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.wx-lookthen img { object-position: 50% 20%; }
+.wx-lookb { position: absolute; left: 0; right: 0; bottom: 0; padding: 1px 0; text-align: center; font: 600 9.5px/1.4 var(--sans, inherit); color: #fff; background: rgba(0, 0, 0, .6); pointer-events: none; }
 .wx-look:hover, .wx-look:focus-visible { outline: 2px solid var(--gold-fill); }
 .wx-tposter { width: 96px; aspect-ratio: 2 / 3; border-radius: 12px; object-fit: cover; background: var(--chip); flex: none; }
 .wx-mark-row { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }

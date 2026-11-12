@@ -192,20 +192,22 @@ export function PersonNode({ node }: { node: PNode }) {
   const [thenImg, setThenImg] = useState<string | null>(null);
   useEffect(() => {
     setThenImg(null);
-    if (!thenOn || !old || !thenQ) return;
+    if (!old || !thenQ) return; // fetched whether or not the Then switch is on: the details always offer it
     let live = true;
     fetchThen(thenQ, node.photo ?? data?.photo, { actor: node.name, char: charOf(face?.role), title: brief.title })
       .then((r) => { if (live) setThenImg(r.url); }).catch(() => {});
     return () => { live = false; };
-  }, [thenOn, old, thenQ, node.photo, data?.photo, node.name, face?.role, brief.title]);
+  }, [old, thenQ, node.photo, data?.photo, node.name, face?.role, brief.title]);
   const [thenBad, setThenBad] = useState(false);
   useEffect(() => { setThenBad(false); }, [thenImg]);
-  const showThen = !!thenImg && !thenBad;
+  const hasThen = !!thenImg && !thenBad;
+  const showThen = thenOn && hasThen;
+  const thenZoom = () => { if (thenImg) zoom({ path: thenImg, name: `${node.name} in ${brief.title}`, size: "original" }); };
 
   return (
     <div className="wx-node wx-person" data-node={nodeId(node)}>
       <header className="wx-phead">
-        <button type="button" className="wx-pphoto" onClick={() => { const ph = data?.photo ?? node.photo; if (ph) zoom({ path: ph, name: node.name }); }} aria-label={`Enlarge photo of ${node.name}`} disabled={!node.photo && !data?.photo}>
+        <button type="button" className="wx-pphoto" onClick={() => { if (showThen) { thenZoom(); return; } const ph = data?.photo ?? node.photo; if (ph) zoom({ path: ph, name: node.name }); }} aria-label={showThen ? `Enlarge photo of ${node.name} in ${brief.title}` : `Enlarge photo of ${node.name}`} disabled={!showThen && !node.photo && !data?.photo}>
           {showThen ? (
             /* eslint-disable-next-line @next/next/no-img-element */
             <span className="wx-thenw"><img className="wx-pimg wx-then" src={thenImg!} alt="" decoding="async" referrerPolicy="no-referrer" onError={() => setThenBad(true)} />{brief.year && <span className="wx-thenb">{brief.year}</span>}</span>
@@ -216,10 +218,17 @@ export function PersonNode({ node }: { node: PNode }) {
           {data ? (life && <p className="wx-life">{life}</p>) : <Sk w="75%" h={14} style={{ margin: "4px 0 6px" }} />}
           <p className="wx-here small">{hereLabel}{hereSpec && <span className="wx-hereg"> <GlimpseButton spec={hereSpec} label={`About ${node.name}${face?.role ? ` as ${roleLabel(face.role) || face.role}` : ""}: the character, episodes and images`} /></span>}</p>
           <p className="wx-full small"><PersonLink pid={node.id} it={{ name: node.name, photo: node.photo ?? data?.photo }} className="linkish">Full profile: bio, all credits, photos &rsaquo;</PersonLink></p>
-          {data && data.images.length > 0 && (
+          {data && (data.images.length > 0 || (hasThen && !showThen)) && (
             <div className="wx-looks" aria-label="Other looks">
               <span className="mc-label">Other looks</span>
               <div className="wx-looks-row">
+                {hasThen && !showThen && (
+                  <button type="button" className="wx-look wx-lookthen" onClick={thenZoom} aria-label={`Enlarge ${node.name} in ${brief.title}${brief.year ? ` (${brief.year})` : ""}`} title={`How they looked in ${brief.title}`}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={thenImg!} alt="" decoding="async" referrerPolicy="no-referrer" onError={() => setThenBad(true)} />
+                    <span className="wx-lookb">Then</span>
+                  </button>
+                )}
                 {data.images.map((p) => (
                   <button key={p} type="button" className="wx-look" onClick={() => zoom({ path: p, name: node.name, gallery: data.images })} aria-label={`Enlarge another photo of ${node.name}`}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
