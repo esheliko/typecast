@@ -86,7 +86,8 @@ export function thenScore(c: ThenCand, who: ThenWho): number {
   const hay = `${title} ${page} ${thumb}`;
   let s = 0;
   if (PORTRAIT_PAGE.test(page)) s -= 4;
-  if (/imdb\.com\/title\/.*\/(mediaviewer|mediaindex)/i.test(page)) s += 3; // a title's own gallery, not a name page
+  if (/imdb\.com\/title\/tt\d+\/characters\/nm\d+/i.test(page)) s += 4; // IMDb's page for this actor in this title: pictures tagged with them
+  else if (/imdb\.com\/title\/.*\/(mediaviewer|mediaindex)/i.test(page)) s += 1; // a title's gallery: stills, but not necessarily of this actor
   else if (WORK_PAGE.test(page)) s += 3;
   if (PORTRAIT_WORDS.test(title)) s -= 3;
   if (/\b(imdb)\s*$/i.test(title) && !has(title, who.title)) s -= 2; // "Name - IMDb"
@@ -94,6 +95,10 @@ export function thenScore(c: ThenCand, who: ThenWho): number {
   const t = has(hay, who.title), ch = !!who.char && has(hay, who.char);
   if (t) s += 2;
   if (ch) s += 3;
+  // A page named after the actor (a wiki's actor article, a bio) rather than the role: its picture is their portrait.
+  const slug = decodeURIComponent(page).toLowerCase().replace(/[^a-z0-9]+/g, " ");
+  const cw = words(who.char ?? "").filter((w) => w.length > 2);
+  if (words(who.actor).length > 1 && words(who.actor).every((w) => slug.includes(w)) && !cw.some((w) => slug.includes(w))) s -= 3;
   // Just the actor's name in the title, with nothing about the work: the profile-photo pattern.
   if (has(title, who.actor) && !t && !ch) s -= 2;
   if (c.w && c.h) {

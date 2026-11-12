@@ -61,3 +61,22 @@ test("strict pick skips a candidate whose pixels cannot be read, and re-hosted c
   assert.equal(await pickThenUrl(c.slice(0, 2), now, hashOf, 6, true), null);
   assert.equal(await pickThenUrl(c.slice(1, 2), now, hashOf), "https://x/unreadable.jpg"); // lenient mode keeps the old behaviour
 });
+
+// Real Serper rows (checked live): the first hit was IMDb's own headshot, the role pictures came after it.
+test("real results: IMDb character page beats the headshot and the TVmaze thumbnail", () => {
+  const w = { actor: "Tamyra Gray", char: "3Eyez", title: "The Rookie" };
+  const head = { thumb: "h", page: "https://www.imdb.com/name/nm1223951/", title: "Tamyra Gray - IMDb", w: 1000, h: 1455 };
+  const role = { thumb: "r", page: "https://www.imdb.com/title/tt7587890/characters/nm1223951/", title: "The Rookie (TV Series 2018– ) - Tamyra Gray as 3Eyez - IMDb", w: 380, h: 214 };
+  const tvm = { thumb: "t", page: "https://www.tvmaze.com/characters/855231/the-rookie-3eyez", title: "3Eyez - The Rookie | TVmaze", w: 210, h: 295 };
+  assert.deepEqual(rankThenImages([head, tvm, role], w).map((x) => x.thumb), ["r", "t"]);
+});
+test("real results: an actor's own wiki page is a portrait, a generic title gallery ranks below the actor's tagged page", () => {
+  const w = { actor: "Melissa O'Neil", char: "Lucy Chen", title: "The Rookie" };
+  const wiki = { thumb: "w", page: "https://the-rookie.fandom.com/wiki/Melissa_O%27Neil", title: "Melissa O'Neil | The Rookie Wiki | Fandom", w: 438, h: 600 };
+  const art = { thumb: "a", page: "https://collider.com/the-rookie-season-8-melissa-oneil-lucy-training/", title: "'The Rookie' Season 8's Unexpected Lucy Training", w: 1600, h: 900 };
+  assert.ok(thenScore(art, w) > thenScore(wiki, w));
+  const w2 = { actor: "Lisa Arturo", char: "Cindy", title: "American Pie 2" };
+  const gal = { thumb: "g", page: "https://www.imdb.com/title/tt0252866/mediaviewer/rm3535959808/", title: "American Pie 2 (2001)", w: 1437, h: 783 };
+  const tag = { thumb: "c", page: "https://www.imdb.com/title/tt0252866/characters/nm0037970/", title: "American Pie 2 (2001) - Lisa Arturo as Amber - IMDb", w: 1439, h: 779 };
+  assert.ok(thenScore(tag, w2) >= thenScore(gal, w2));
+});
