@@ -19,6 +19,7 @@
 >    Fix the cause; change a test only when it is stale and say so; never skip, delete or loosen a test to get green; push; start the background wait again; repeat
 >    until green. If you pushed in the red range but are not the Owner, check within 10 min whether your change can affect the failing test and report what you
 >    found. A session that starts while `main` is red (the start hook prints it, issue #2) fixes what is plausibly its own area first.
+> 7. **Times you tell the owner are ALWAYS Israel local time (Asia/Jerusalem, IST), never UTC.** Get the real time with `TZ=Asia/Jerusalem date '+%Y-%m-%d %H:%M'`; do not guess it and do not convert in your head. Log lines, `git log`, GitHub, Vercel and the CI board show UTC: convert before you quote them, and write "15:40 IST", not "13:40 UTC". If you must quote a UTC value, give the IST time first.
 > If you were handed a different branch, still do the above. If main moved while you worked, rebase or merge onto it, keeping both sides' work.
 > `.claude/hooks/session-start.sh` checks this at the start of every session.
 
