@@ -67,6 +67,7 @@ export function GlimpseProvider({ children }: { children: React.ReactNode }) {
   const [res, setRes] = useState<Record<string, Res>>({});
   const [big, setBig] = useState<GlimpseImage | null>(null);
   const box = useRef<HTMLDivElement>(null);
+  const bodyEl = useRef<HTMLDivElement>(null);
   const opener = useRef<HTMLElement | null>(null);
 
   const open = useCallback((s: GlimpseSpec) => { opener.current = document.activeElement as HTMLElement | null; setTabQ(null); setBig(null); setSpec(s); }, []);
@@ -119,12 +120,12 @@ export function GlimpseProvider({ children }: { children: React.ReactNode }) {
               <b className="gl-h">{spec.heading}</b>
               <button type="button" className="back" onClick={close} aria-label="Close"><span aria-hidden="true">&#215;</span> Close</button>
             </div>
-            <div className="gl-body">
-              {tabs.length > 1 && (
-                <div className="gl-tabs" role="tablist">
-                  {tabs.map((t) => <button key={t.q} type="button" role="tab" aria-selected={t.q === q} className={t.q === q ? "on" : ""} onClick={() => { setTabQ(t.q); setBig(null); }}>{t.label}</button>)}
-                </div>
-              )}
+            {tabs.length > 1 && (
+              <div className="gl-tabs" role="tablist">
+                {tabs.map((t) => <button key={t.q} type="button" role="tab" aria-selected={t.q === q} className={t.q === q ? "on" : ""} onClick={() => { setTabQ(t.q); setBig(null); bodyEl.current?.scrollTo(0, 0); }}>{t.label}</button>)}
+              </div>
+            )}
+            <div className="gl-body" ref={bodyEl}>
               {(!cur || cur.state === "loading") && <p className="muted" role="status"><span className="spin" aria-hidden="true" />Finding images…</p>}
               {cur?.state === "error" && <p className="err">{cur.msg}</p>}
               {cur?.state === "ok" && !cur.configured && <p className="small muted">Image search is not set up here yet. Use “More in Google Images” below.</p>}
