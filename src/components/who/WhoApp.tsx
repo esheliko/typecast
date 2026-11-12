@@ -124,7 +124,9 @@ export function WhoApp({ brief, initialPos, today }: { brief: WhoBrief; initialP
     setTrail(startTrail([{ t: "person", id: f.id, name: f.name, photo: f.photo, hl: o?.hl ?? brief.key }], bid()));
     setOpen(true);
   }, [brief.key]);
-  const restore = useCallback((r: RecentTrail) => { setTrail(startTrail(r.nodes, r.id)); setOpen(true); }, []);
+  // Reopening a recent line is ONE history step, so Back closes the details instead of walking back through the restored trail.
+  const single = useRef(false);
+  const restore = useCallback((r: RecentTrail) => { single.current = true; setTrail(startTrail(r.nodes, r.id)); setOpen(true); }, []);
   const back = useCallback(() => {
     if (trail.cur > 0) setTrail((t) => jumpTo(t, t.cur - 1)); else setOpen(false);
   }, [trail.cur]);
@@ -140,7 +142,7 @@ export function WhoApp({ brief, initialPos, today }: { brief: WhoBrief; initialP
     if (s) {
       const n = Number((safe(() => window.history.state, null) as { wxDepth?: number } | null)?.wxDepth ?? 0);
       const want = s.open ? s.cur + 1 : 0;
-      if (n === want && want > 0) { hd.current = n; restoring.current = true; }
+      if (n === want && want > 0) { hd.current = n; lo.current = n; restoring.current = true; }
       setTrail({ nodes: s.nodes, cur: s.cur, branch: s.id });
       setOpen(s.open);
     }
@@ -199,25 +201,41 @@ export function WhoApp({ brief, initialPos, today }: { brief: WhoBrief; initialP
   // so Back lands one level down; levels the app comes down by itself (Esc, Close, a trail chip) are popped with history.go.
   const depth = open ? trail.cur + 1 : 0;
   const hd = useRef(0);
+  const lo = useRef(1); // lowest depth that has a history entry of its own (a reopened recent line has just one, at its top)
   const leaving = useRef(false);
   useEffect(() => {
     if (restoring.current) { if (depth === hd.current) restoring.current = false; return; }
     try {
       if (depth > hd.current) {
-        for (let d = hd.current + 1; d <= depth; d++) window.history.pushState({ ...(window.history.state ?? {}), wxDepth: d }, "");
+        if (single.current && hd.current === 0) {
+          window.history.pushState({ ...(window.history.state ?? {}), wxDepth: depth }, "");
+          lo.current = depth;
+        } else {
+          for (let d = hd.current + 1; d <= depth; d++) window.history.pushState({ ...(window.history.state ?? {}), wxDepth: d }, "");
+        }
         hd.current = depth;
       } else if (depth < hd.current) {
-        const n = hd.current - depth;
-        hd.current = depth;
-        window.history.go(-n);
+        if (depth >= lo.current) {
+          const n = hd.current - depth;
+          hd.current = depth;
+          window.history.go(-n);
+        } else if (depth > 0) { // stepping below the only entry: reuse it
+          window.history.replaceState({ ...(window.history.state ?? {}), wxDepth: depth }, "");
+          hd.current = depth; lo.current = depth;
+        } else {
+          const n = hd.current - lo.current + 1;
+          hd.current = 0; lo.current = 1;
+          window.history.go(-n);
+        }
       }
     } catch { /* history is a convenience */ }
+    single.current = false;
   }, [depth]);
   useEffect(() => {
     const pop = () => {
       const n = Number((window.history.state as { wxDepth?: number } | null)?.wxDepth ?? 0);
       hd.current = n;
-      if (n === 0) { setOpen(false); if (leaving.current) { leaving.current = false; window.history.back(); } }
+      if (n === 0) { lo.current = 1; setOpen(false); if (leaving.current) { leaving.current = false; window.history.back(); } }
       else { setOpen(true); setTrail((t) => jumpTo(t, n - 1)); }
     };
     window.addEventListener("popstate", pop);
@@ -227,7 +245,7 @@ export function WhoApp({ brief, initialPos, today }: { brief: WhoBrief; initialP
   const close = () => {
     const same = typeof document !== "undefined" && document.referrer.startsWith(window.location.origin) && window.history.length > 1;
     if (hd.current > 0) { // first pop the entries this page added, then leave
-      if (same) { leaving.current = true; window.history.go(-hd.current); return; }
+      if (same) { leaving.current = true; window.history.go(-(hd.current - lo.current + 1)); return; }
       router.push("/"); return;
     }
     if (same) router.back(); else router.push("/");
