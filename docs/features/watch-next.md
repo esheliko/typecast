@@ -3,3 +3,9 @@
 > Moved verbatim out of CLAUDE.md so sessions only read it when they touch this feature.
 
 - Watch next (Library, `components/UpNext.tsx`) is ranked by `rankUpNext` (`src/lib/upnext.ts`, pure, unit tested): in-progress titles lead only while fresh (`updated_at` within 21 days; stale ones sink, at most one shown as "still want to finish?", unless new episodes aired), then the watchlist scored by new episodes, your streaming services, recommendations from rated titles, genre taste, TMDB rating, must-watch and recency (unreleased left out), with new picks from outside the library mixed in. `loadUpNext` (`src/lib/upnext-data.ts`) fetches the TMDB facts behind Suspense; the fallback is the same ranking without TMDB. "Not now" hides a card for 30 days on that device; the "On my services" chip (remembered per device) keeps only picks streaming on the services picked in Settings (`onYourServices`; negative service ids are manual labels and are skipped via `realServices`). A Both / New picks / My library switch (`bySource`, remembered per device) filters by where a pick comes from (`discover` = outside the library); up to 8 discoveries are ranked so "New picks" is not nearly empty. "New picks" means anything not in the library at all (watchlist counts as library). The strip also has its own Films / Series switch (remembered per device) on top of the Library's.
+
+## Status order (display only)
+Statuses read by intent: To watch (future), Watching (now, gold-outlined), then Watched and Partly watched as one "past" pair.
+`src/lib/status-order.ts` holds the order (`LIBRARY_TAB_ORDER`, `STATUS_GROUP`, `tabGroup`, unit tested). Used by the Library filter chips
+(`lib-now`, `lib-past`, `lib-pair-start`) and the title popup menu (`mc-now`, `.mc-pair`, group label "Past"). Labels, `?f=` values, stored
+statuses, QuickMark, SEEN sets and `CreditList` weights are unchanged. The stats page list keeps its own order (watched first, it counts what was done).

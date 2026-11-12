@@ -678,6 +678,11 @@ a.srow { color: inherit; text-decoration: none; }
 input, textarea { scroll-margin-top: calc(var(--top-h, 56px) + 12px); }
 .chips.lib-chips { margin-top: 0; }
 .chips.lib-chips .chip { padding: 5px 12px; font-size: 13px; }
+.chips.lib-chips .chip.lib-now { font-weight: 700; box-shadow: inset 0 0 0 1.5px var(--gold-fill); }
+.chips.lib-chips .chip.lib-now[aria-pressed="true"] { box-shadow: none; }
+.chips.lib-chips .chip.lib-past { box-shadow: inset 0 0 0 1px var(--line); }
+.chips.lib-chips .chip.lib-past[aria-pressed="true"] { box-shadow: none; }
+.chips.lib-chips .chip.lib-pair-start { margin-left: 6px; }
 
 /* Films / Series switch above any title list */
 .kind-bar { display: flex; margin: 0 0 8px; }
@@ -724,7 +729,11 @@ body:has(.modal) .toast-slot { bottom: calc(84px + env(safe-area-inset-bottom, 0
 .mark-card { margin: 12px 0 14px; padding: 10px 12px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line); }
 .mc-label { font: 600 11px/1.2 var(--body); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
 .mc-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 8px; }
-@media (min-width: 520px) { .mc-grid { grid-template-columns: repeat(4, 1fr); } }
+@media (min-width: 520px) { .mc-grid { grid-template-columns: repeat(4, 1fr); } .mc-pair { grid-column: span 2; } }
+.mc-pair { grid-column: span 2; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 3px; border-radius: 999px; box-shadow: inset 0 0 0 1px var(--line); }
+.mc-pair .chip.sc.mc-opt { padding: 6px 8px; }
+.chip.sc.mc-opt.mc-now { font-weight: 700; box-shadow: inset 0 0 0 1.5px var(--gold-fill); }
+.chip.sc.mc-opt.mc-now[aria-pressed="true"] { box-shadow: none; }
 .chip.sc.mc-opt { justify-content: center; padding: 9px 10px; white-space: nowrap; }
 .mc-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; margin-top: 14px; }
 .mc-row .stars { letter-spacing: 0; white-space: nowrap; }

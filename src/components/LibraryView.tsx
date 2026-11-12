@@ -8,8 +8,9 @@ import { SORTS, type SortKey } from "@/lib/library-sort";
 import { KindSeg } from "./KindSeg";
 import { mixed, ofKind, type Kind } from "@/lib/kind";
 import { KindContext } from "@/lib/kind-context";
+import { LIBRARY_TAB_ORDER, tabGroup } from "@/lib/status-order";
 
-const TABS: [Status | "all", string][] = [["all", "All"], ["watching", STATUS_LABEL.watching], ["partial", STATUS_LABEL.partial], ["watchlist", STATUS_LABEL.watchlist], ["watched", STATUS_LABEL.watched]];
+const TABS: [Status | "all", string][] = LIBRARY_TAB_ORDER.map((k) => [k, k === "all" ? "All" : STATUS_LABEL[k]]);
 
 const num = (y: string) => parseInt(y, 10) || 0;
 const SORTERS: Record<SortKey, ((a: LibItem, b: LibItem) => number) | null> = {
@@ -62,7 +63,7 @@ export default function LibraryView({ items, initial, initialSort = "added", ini
     <>
       <KindContext.Provider value={kind}>{top}</KindContext.Provider>
       <div className="chips scroll lib-chips" role="group" aria-label="Filter">
-        {TABS.map(([k, label]) => <button key={k} type="button" className="chip" aria-pressed={filter === k} onClick={() => choose(k)}>{label} <span className="mono">{count(k)}</span></button>)}
+        {TABS.map(([k, label], i) => { const { group, pairStart } = tabGroup(k, i); return <button key={k} type="button" className={`chip${group ? ` lib-${group}` : ""}${pairStart ? " lib-pair-start" : ""}`} aria-pressed={filter === k} onClick={() => choose(k)}>{label} <span className="mono">{count(k)}</span></button>; })}
       </div>
       <div className="bz-bar" style={{ marginTop: 12 }}>
         {(kind !== "all" || mixed(items)) && <KindSeg value={kind} onChange={chooseKind} />}
