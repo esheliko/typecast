@@ -1335,3 +1335,8 @@ main:focus { outline: none; }
 .wx-tswe { flex: none; color: var(--muted); font-size: 13px; }
 .wx-tswq { min-height: 44px; color: var(--muted); font-size: 14px; border-top: 1px solid var(--line); border-radius: 0 0 10px 10px; margin-top: 2px; }
 .wx-topgrid .wx-billedg { top: 4px; bottom: auto; }
+
+/* Finished? prompts (film clock, last episode of an ended series): one quiet line, dismissible. */
+.wx-finish { flex: 1 0 100%; font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 10px; }
+.wx-pos:has(.wx-finish) { flex-wrap: wrap; }
+.wx-finale { margin: 0; padding: 6px 14px; }

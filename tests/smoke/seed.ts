@@ -24,6 +24,8 @@ export const SCRATCH = [
   { tmdb_type: "movie", tmdb_id: 129, title: "Spirited Away" },
   /** Ended series used for the "New episode" test: seeded as Watched long before its episodes aired. */
   { tmdb_type: "tv", tmdb_id: 87108, title: "Chernobyl" },
+  /** Used only by the "Next marks the episode you were on" test (Band of Brothers, 10 episodes): no other test reads or writes it. */
+  { tmdb_type: "tv", tmdb_id: 4613, title: "Band of Brothers" },
 ] as const;
 
 /** Deletes the smoke user's rows for the given titles (and only those). */

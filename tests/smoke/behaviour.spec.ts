@@ -101,8 +101,9 @@ test.describe("behaviour (signed in)", () => {
       await page.getByRole("button", { name: /watching this now/ }).click();
       await page.waitForURL(/\/watching/, { timeout: 30_000 });
       await expect(page.getByRole("status").filter({ hasText: `${chernobyl.title}: added to Watching` })).toBeVisible({ timeout: 15_000 });
-      await expect.poll(async () => (await progress(chernobyl.tmdb_id))?.progress_season, { timeout: 15_000 }).toBe(1);
-      expect((await progress(chernobyl.tmdb_id))?.status).toBe("watching");
+      await expect.poll(async () => (await progress(chernobyl.tmdb_id))?.status, { timeout: 15_000 }).toBe("watching");
+      // The place is S1 E1 (the episode being watched), so nothing is finished yet: no progress is written.
+      expect((await progress(chernobyl.tmdb_id))?.progress_season ?? null).toBeNull();
       // Stop watching with nothing beyond the start saved: gone again.
       await page.getByRole("button", { name: "End this watch" }).click({ timeout: 30_000 });
       await page.getByRole("button", { name: "Stop watching" }).click();
@@ -117,10 +118,11 @@ test.describe("behaviour (signed in)", () => {
       await page.getByRole("button", { name: "Stop watching" }).click();
       await expect.poll(async () => (await progress(st.tmdb_id))?.status, { timeout: 15_000 }).toBe("watchlist");
 
-      // Breaking Bad is Watching in the library: /watching?k= opens at the saved S2 E3 with no cookie, and Next saves S2 E4.
+      // Breaking Bad is Watching in the library with progress S2 E3 (watched up to there): /watching?k= opens at the NEXT episode, S2 E4, with no cookie,
+      // and Next marks S2 E4 as watched (progress S2 E4).
       await page.goto(`/watching?k=tv-${bb.tmdb_id}`);
       const main = page.getByRole("main", { name: /Watching now: Breaking Bad/ });
-      await expect(main.getByRole("button", { name: /^Episode: E3/ })).toBeVisible({ timeout: 30_000 });
+      await expect(main.getByRole("button", { name: /^Episode: E4/ })).toBeVisible({ timeout: 30_000 });
       const next = main.getByRole("button", { name: /^Next episode/ });
       await expect(next).toBeEnabled({ timeout: 30_000 });
       await next.click();
@@ -150,7 +152,7 @@ test.describe("behaviour (signed in)", () => {
       const h = (await header.boundingBox())!.height;
       await chev.click();
       const menu = page.getByRole("navigation", { name: /Switch from Chernobyl/ });
-      await expect(menu.getByRole("link", { name: /Breaking Bad/ })).toContainText("S2 E3");
+      await expect(menu.getByRole("link", { name: /Breaking Bad/ })).toContainText("S2 E4"); // the episode to continue with (progress S2 E3)
       await expect(menu.getByRole("link", { name: /^Chernobyl/ })).toHaveCount(0);
       expect(Math.abs((await header.boundingBox())!.height - h), "opening the menu must not change the header height").toBeLessThan(1);
       // Esc closes it and puts focus back on the chevron.
@@ -166,7 +168,7 @@ test.describe("behaviour (signed in)", () => {
       await page.goto(`/watching?k=tv-${show.tmdb_id}&s=1&e=2`);
       await chev.click();
       await menu.getByRole("link", { name: /Breaking Bad/ }).click();
-      await page.waitForURL(/\/watching\?k=tv-1396&s=2&e=3/, { timeout: 30_000 });
+      await page.waitForURL(/\/watching\?k=tv-1396&s=2&e=4/, { timeout: 30_000 });
       await expect(page.getByRole("main", { name: /Watching now: Breaking Bad/ })).toBeVisible({ timeout: 30_000 });
       await page.waitForTimeout(1500);
       expect(await row(show.tmdb_id)).toMatchObject({ status: "watching", progress_season: 1, progress_episode: 2 });
@@ -179,6 +181,36 @@ test.describe("behaviour (signed in)", () => {
     } finally {
       await deleteRows(sb, userId, [show]);
       await sb.from("library_items").update({ status: "watching", progress_season: 2, progress_episode: 3 }).eq("user_id", userId).eq("tmdb_type", "tv").eq("tmdb_id", bb.tmdb_id);
+    }
+  });
+
+  // Next means "I finished this episode": the episode you were on becomes the saved progress (ONE write, toast with Undo); Undo puts the old progress back.
+  // Scratch title Band of Brothers (read by no other test), Watching with progress S1 E2, so the page opens at S1 E3.
+  test("Watching now: Next marks the episode you were on as watched, with Undo", async ({ page }) => {
+    const { sb, userId } = await smokeClient();
+    const show = SCRATCH[3];
+    const row = async () => (await rowOf(sb, userId, "tv", show.tmdb_id)) as { status: string; progress_season?: number | null; progress_episode?: number | null } | null;
+    try {
+      const { error } = await sb.from("library_items").upsert({ user_id: userId, ...show, year: "2001", poster_path: null, status: "watching", priority: "someday", rating: 0, note: "",
+        progress_season: 1, progress_episode: 2 }, { onConflict: "user_id,tmdb_type,tmdb_id" });
+      expect(error?.message).toBeUndefined();
+      await page.goto(`/watching?k=tv-${show.tmdb_id}`);
+      const main = page.getByRole("main", { name: /Watching now: Band of Brothers/ });
+      await expect(main.getByRole("button", { name: /^Episode: E3/ })).toBeVisible({ timeout: 30_000 });
+      await page.waitForTimeout(1500);
+      expect(await row(), "opening the page writes nothing").toMatchObject({ progress_season: 1, progress_episode: 2 });
+      const next = main.getByRole("button", { name: /^Next episode/ });
+      await expect(next).toBeEnabled({ timeout: 30_000 });
+      await next.click();
+      await expect(page.getByRole("status").filter({ hasText: "S1 E3 marked watched" })).toBeVisible({ timeout: 15_000 });
+      await expect.poll(async () => (await row())?.progress_episode, { timeout: 15_000 }).toBe(3);
+      await expect(main.getByRole("button", { name: /^Episode: E4/ })).toBeVisible();
+      // Undo brings the old progress back.
+      await page.getByRole("status").getByRole("button", { name: "Undo" }).click();
+      await expect.poll(async () => (await row())?.progress_episode, { timeout: 15_000 }).toBe(2);
+      expect((await row())?.status).toBe("watching");
+    } finally {
+      await deleteRows(sb, userId, [show]);
     }
   });
 
