@@ -199,17 +199,18 @@ export function PersonNode({ node }: { node: PNode }) {
     return () => { live = false; };
   }, [old, thenQ, node.photo, data?.photo, node.name, face?.role, brief.title]);
   const mainPh = data?.photo ?? node.photo ?? null;
-  const looks = mainPh ? [mainPh, ...(data?.images ?? []).filter((x) => x !== mainPh)] : (data?.images ?? []);
   const [thenBad, setThenBad] = useState(false);
   useEffect(() => { setThenBad(false); }, [thenImg]);
   const hasThen = !!thenImg && !thenBad;
   const showThen = thenOn && hasThen;
-  const thenZoom = () => { if (thenImg) zoom({ path: thenImg, name: `${node.name} in ${brief.title}`, size: "original" }); };
+  // One carousel for the header photo and every look: the "then" picture (when found), the main photo, then the rest.
+  const looks = [...(hasThen && thenImg ? [thenImg] : []), ...[mainPh, ...(data?.images ?? [])].filter((x, i, a): x is string => !!x && a.indexOf(x) === i)];
+  const thenZoom = () => { if (thenImg) zoom({ path: thenImg, name: `${node.name} in ${brief.title}`, gallery: looks }); };
 
   return (
     <div className="wx-node wx-person" data-node={nodeId(node)}>
       <header className="wx-phead">
-        <button type="button" className="wx-pphoto" onClick={() => { if (showThen) { thenZoom(); return; } const ph = data?.photo ?? node.photo; if (ph) zoom({ path: ph, name: node.name }); }} aria-label={showThen ? `Enlarge photo of ${node.name} in ${brief.title}` : `Enlarge photo of ${node.name}`} disabled={!showThen && !node.photo && !data?.photo}>
+        <button type="button" className="wx-pphoto" onClick={() => { if (showThen) { thenZoom(); return; } if (mainPh) zoom({ path: mainPh, name: node.name, gallery: looks }); }} aria-label={showThen ? `Enlarge photo of ${node.name} in ${brief.title}` : `Enlarge photo of ${node.name}`} disabled={!showThen && !node.photo && !data?.photo}>
           {showThen ? (
             /* eslint-disable-next-line @next/next/no-img-element */
             <span className="wx-thenw"><img className="wx-pimg wx-then" src={thenImg!} alt="" decoding="async" referrerPolicy="no-referrer" onError={() => setThenBad(true)} />{brief.year && <span className="wx-thenb">{brief.year}</span>}</span>
