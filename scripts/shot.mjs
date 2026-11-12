@@ -5,7 +5,7 @@
  *   node scripts/shot.mjs "/watching?k=tv-79744&s=3&e=8" --click "Brent Huff" --sel "section:has-text('episodes of')" --out /tmp/here.png
  *
  * Flags: --out FILE (default shot.png in the scratchpad or /tmp)   --phone (390x844, default laptop-ish 820x900; or --w N --h N)
- *        --click TEXT (repeatable: click the element with this exact text, in order)   --sel CSS (screenshot only that element)
+ *        --click TEXT (repeatable: click the element with this exact text, in order; "aria:About Foo" clicks the button with that accessible name)   --sel CSS (screenshot only that element)
  *        --mock 'GLOB={json}' (repeatable, fake an API answer)   --scroll PX (scroll the Finder list first)   --full (whole page)   --wait MS (extra settle time, default 1500)   --text TEXT (wait until the page shows it)
  * It builds if .next is missing or older than src, starts `next start` on :3199 if SMOKE_BASE_URL is unset (and stops it after),
  * signs in with SMOKE_EMAIL / SMOKE_PASSWORD, and prints the file path. Then send it with SendUserFile. Needs the smoke env (see CLAUDE.md).
@@ -52,7 +52,7 @@ try {
   await page.waitForURL((u) => !u.pathname.startsWith("/login"), { timeout: 30_000 });
   await page.goto(base + route);
   await page.waitForLoadState("networkidle").catch(() => {});
-  for (const t of vals("click")) { await page.getByText(t, { exact: true }).first().click({ timeout: 30_000 }); await page.waitForTimeout(800); }
+  for (const t of vals("click")) { await (t.startsWith("aria:") ? page.getByRole("button", { name: t.slice(5) }) : page.getByText(t, { exact: true })).first().click({ timeout: 30_000 }); await page.waitForTimeout(800); }
   if (one("scroll")) { await page.locator(".wx-left").evaluate((e, y) => { e.scrollTop = y; }, Number(one("scroll"))); await page.waitForTimeout(600); }
   for (const t of vals("text")) await page.getByText(t).first().waitFor({ timeout: 40_000 });
   await page.waitForTimeout(Number(one("wait", 1500)));
