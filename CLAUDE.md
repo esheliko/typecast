@@ -60,6 +60,7 @@ Next.js 16 (App Router) + Supabase (email/password auth, RLS) + TMDB. See README
 - Enforced two ways: `.claude/hooks/session-start.sh` prints the rule every session, and `.claude/hooks/prompt-submit.sh` repeats it on any message that contains an image. Keep both when editing hooks.
 
 ## Smoke credentials
+- Preferred: `SUPABASE_SERVICE_ROLE_KEY` (CI repo secret) makes every smoke run create and delete its own temporary account, so nothing below is needed and runs never collide (`DEPLOYING.md` > Temporary smoke accounts). The rest of this section is the shared-account fallback used when the key is absent (cloud sessions).
 - CI reads them from GitHub repo secrets (`SMOKE_EMAIL`, `SMOKE_PASSWORD`, Supabase URL/anon key, `TMDB_TOKEN`); sessions cannot read those. In a cloud session they come from the environment `typecast` (variables set in its settings): `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` (public), `SMOKE_EMAIL` and a dummy `TMDB_TOKEN` (the proxy injects the real one) are saved there. `SMOKE_PASSWORD` is NOT saved: the environment tool refuses to store secrets as variables. The session-start hook prints `SMOKE ENV:` with what is missing; trust that line, not memory. Never write the password into the repo, a commit, a log or a doc.
 
 ## Known gaps

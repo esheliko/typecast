@@ -24,6 +24,8 @@ jobs:
       TMDB_TOKEN: ${{ secrets.TMDB_TOKEN || 'dummy' }}
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://example.supabase.co' }}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'dummy' }}
+      # With the service-role key every smoke run creates and deletes its own temporary account (tests/smoke/account.ts); without it the suite falls back to the shared SMOKE_* account.
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       SMOKE_EMAIL: ${{ secrets.SMOKE_EMAIL }}
       SMOKE_PASSWORD: ${{ secrets.SMOKE_PASSWORD }}
       NEXT_TELEMETRY_DISABLED: '1'
