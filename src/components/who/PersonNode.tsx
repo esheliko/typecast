@@ -10,7 +10,7 @@ import { defaultChoice } from "@/lib/who-readout";
 import { rankByRecognition, sortByRelease } from "@/lib/who-known";
 import { nodeId, useWho, type Node } from "./WhoContext";
 import { img } from "@/lib/img";
-import { pickThen } from "@/lib/then-pick";
+import { fetchThen } from "@/lib/then-pick";
 import { roleLabel } from "@/lib/roster";
 import { ofKind, type Kind } from "@/lib/kind";
 import { fmtMonth, fmtRange, lifeLine, yearsLabel } from "@/lib/who-dates";
@@ -19,10 +19,8 @@ import { whoApi } from "@/lib/who-client";
 import { showRunLabel } from "@/lib/who-spans";
 import { posCode, posLabel, scopeKind } from "@/lib/who-scope";
 import { castSpec, charOf, creditSpec, scopeSpec, withLibRoles } from "@/lib/glimpse";
-import { getJson } from "@/lib/who-client";
 import { isOldTitle } from "@/lib/then-photo";
 import { useThen } from "./useThen";
-import type { GlimpseImage } from "@/app/api/glimpse/route";
 import type { PCredit, PersonData, Range, Span } from "@/lib/who-types";
 import type { SharedBrief } from "@/lib/who-data";
 
@@ -196,8 +194,8 @@ export function PersonNode({ node }: { node: PNode }) {
     setThenImg(null);
     if (!thenOn || !old || !thenQ) return;
     let live = true;
-    getJson<{ configured?: boolean; images?: GlimpseImage[] }>(`/api/glimpse?q=${encodeURIComponent(thenQ)}`)
-      .then((r) => pickThen(r.images, node.photo ?? data?.photo, { actor: node.name, char: charOf(face?.role), title: brief.title })).then((u) => { if (live) setThenImg(u); }).catch(() => {});
+    fetchThen(thenQ, node.photo ?? data?.photo, { actor: node.name, char: charOf(face?.role), title: brief.title })
+      .then((r) => { if (live) setThenImg(r.url); }).catch(() => {});
     return () => { live = false; };
   }, [thenOn, old, thenQ, node.photo, data?.photo, node.name, face?.role, brief.title]);
   const [thenBad, setThenBad] = useState(false);

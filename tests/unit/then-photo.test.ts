@@ -51,3 +51,13 @@ test("ranking keeps the search order for ties and handles missing fields", () =>
   const a = { thumb: "https://x/1.jpg" }, b = { thumb: "https://x/2.jpg" };
   assert.deepEqual(rankThenImages([a, b], who).map((x) => x.thumb), [a.thumb, b.thumb]);
 });
+
+test("strict pick skips a candidate whose pixels cannot be read, and re-hosted copies of the Now photo", async () => {
+  const now = "https://image.tmdb.org/t/p/w185/aaaaaaaaaaaa.jpg";
+  const hashes: Record<string, string | null> = { [now]: "0".repeat(64), "https://x/copy.jpg": "0".repeat(10) + "1".repeat(8) + "0".repeat(46), "https://x/unreadable.jpg": null, "https://x/other.jpg": "1".repeat(64) };
+  const hashOf = async (u: string) => hashes[u] ?? null;
+  const c = ["https://x/copy.jpg", "https://x/unreadable.jpg", "https://x/other.jpg"];
+  assert.equal(await pickThenUrl(c, now, hashOf, 6, true), "https://x/other.jpg");
+  assert.equal(await pickThenUrl(c.slice(0, 2), now, hashOf, 6, true), null);
+  assert.equal(await pickThenUrl(c.slice(1, 2), now, hashOf), "https://x/unreadable.jpg"); // lenient mode keeps the old behaviour
+});

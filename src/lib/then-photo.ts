@@ -34,7 +34,7 @@ export function hashDistance(a: string, b: string): number {
 }
 
 /** At or below this many differing bits (of 64) two photos are treated as the same picture (a crop, resize or re-encode of it). */
-export const SAME_PHOTO_BITS = 14;
+export const SAME_PHOTO_BITS = 18;
 
 /** First candidate that is not the Now photo. `hashOf` may return null (image unreadable): then only the address check applies. */
 export async function pickThenUrl(
@@ -42,6 +42,8 @@ export async function pickThenUrl(
   nowUrl: string | null | undefined,
   hashOf: (url: string) => Promise<string | null>,
   limit = 6,
+  /** Skip a candidate whose pixels cannot be read: it cannot be shown to differ from the Now photo. */
+  strict = false,
 ): Promise<string | null> {
   const nowHash = nowUrl ? await hashOf(nowUrl) : null;
   const seen = new Set<string>();
@@ -52,6 +54,7 @@ export async function pickThenUrl(
     if (nowHash) {
       const h = await hashOf(url);
       if (h && hashDistance(h, nowHash) <= SAME_PHOTO_BITS) continue;
+      if (!h && strict) continue;
     }
     return url;
   }

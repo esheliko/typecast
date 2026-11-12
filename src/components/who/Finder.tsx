@@ -5,17 +5,15 @@ import { Photo, SEEN_STATUS, Sk } from "./bits";
 import { useWho } from "./WhoContext";
 import { peopleHere, titlesForQuery, titlesWithPeople, type FoundTitle } from "@/lib/who-common";
 import { img } from "@/lib/img";
-import { pickThen } from "@/lib/then-pick";
+import { fetchThen } from "@/lib/then-pick";
 import type { ThenWho } from "@/lib/then-photo";
 import { whoApi, type RecentTrail } from "@/lib/who-client";
 import { byCast, byGender, groupWhoFaces, matchFaces, type CastFilter, type GenderFilter } from "@/lib/who-scope";
 import { RecentRow } from "./Trail";
 import { GlimpseButton } from "../Glimpse";
 import { castSpec, charOf, scopeSpec, withLibRoles } from "@/lib/glimpse";
-import { getJson } from "@/lib/who-client";
 import { isOldTitle } from "@/lib/then-photo";
 import { useThen } from "./useThen";
-import type { GlimpseImage } from "@/app/api/glimpse/route";
 import { roleLabel } from "@/lib/roster";
 import { pickSeenIn, seenInText, type KnownTitle } from "@/lib/who-known";
 import type { WhoFace, WhoRoster } from "@/lib/who-types";
@@ -96,9 +94,9 @@ export function Finder({ roster, loading, err, q, setQ, inputRef, recents, onOpe
         // Retried twice: image search can fail for a moment (rate limit), and a face must not stay without its photo for that.
         for (let a = 0; a < 3; a++) {
           try {
-            const r = await getJson<{ configured?: boolean; images?: GlimpseImage[] }>(`/api/glimpse?q=${encodeURIComponent(job.q)}`);
-            if (r.configured === false) { thenQueue.current = []; setThenOk(false); return; }
-            const url = await pickThen(r.images, job.photo, job.who); // never the Now photo again, by address or by look
+            const r = await fetchThen(job.q, job.photo, job.who); // never the Now photo again, checked on the server
+            if (!r.configured) { thenQueue.current = []; setThenOk(false); return; }
+            const url = r.url;
             if (url) { const pre = new Image(); pre.referrerPolicy = "no-referrer"; pre.src = url; }
             setThenImg((m) => ({ ...m, [job.id]: url }));
             return;
