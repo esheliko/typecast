@@ -29,6 +29,8 @@ interface Ctx {
   markRich: (key: string) => void;
   /** What the one-tap To watch button adds a title as. Saved on this device. */
   defaultPriority: Priority;
+  /** A plain toast, with an optional Undo (used for saved places, which are not marks). */
+  notify: (msg: string, undo?: () => void) => void;
 }
 const LibCtx = createContext<Ctx | null>(null);
 
@@ -183,6 +185,10 @@ export function LibProvider({ packed, children }: { packed: PackedMarks; childre
     return save(it, status, prev, priority);
   }, [save]);
 
+  const notify = useCallback((msg: string, undo?: () => void) => {
+    show({ msg, undo: undo ? () => { setToast(null); undo(); } : undefined });
+  }, [show]);
+
   const markRich = useCallback((key: string) => {
     setOver((o) => {
       const m = key in o ? o[key] : live.current[key];
@@ -227,7 +233,7 @@ export function LibProvider({ packed, children }: { packed: PackedMarks; childre
   }, [show, writeSkipped]);
 
   return (
-    <LibCtx.Provider value={{ get, mark, markMany, openRelated, groupsOf: franchise, marked, skipped, skip, put, touch, markRich, defaultPriority }}>
+    <LibCtx.Provider value={{ get, mark, markMany, openRelated, groupsOf: franchise, marked, skipped, skip, put, touch, markRich, defaultPriority, notify }}>
       {children}
       {sheet && <FranchiseSheet it={sheet} load={franchise} loadSimilar={similar} onClose={() => setSheet(null)} />}
       <div className="toast-slot" aria-live="polite">

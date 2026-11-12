@@ -205,19 +205,19 @@ test.describe("signed in", () => {
     await healthy(page, bad);
   });
 
-  // Watching now, empty page: "Pick up where you left off" lists the Watching titles of the library (seeded Breaking Bad, S2 E3) and reopens /watching at that place.
+  // Watching now, empty page: "Pick up where you left off" lists the Watching titles of the library (seeded Breaking Bad, progress S2 E3) and shows "after S2 E3" and reopens /watching at the episode to continue with, S2 E4.
   test("Watching now: pick up where you left off", async ({ page }) => {
     const bad = watch(page);
     await visit(page, "/watching", bad);
     const block = page.getByRole("region", { name: "Pick up where you left off" });
     await expect(block).toBeVisible({ timeout: 30_000 });
     const card = block.getByRole("link", { name: /Breaking Bad/ });
-    await expect(card).toContainText("S2 E3");
+    await expect(card).toContainText("after S2 E3");
     expect(await block.getByRole("link").count()).toBeLessThanOrEqual(6);
     await card.click();
-    await page.waitForURL(/\/watching\?k=tv-1396&s=2&e=3/, { timeout: 30_000 });
+    await page.waitForURL(/\/watching\?k=tv-1396&s=2&e=4/, { timeout: 30_000 });
     const main = page.getByRole("main", { name: /Watching now: Breaking Bad/ });
-    await expect(main.getByRole("button", { name: /^Episode: E3/ })).toBeVisible({ timeout: 30_000 });
+    await expect(main.getByRole("button", { name: /^Episode: E4/ })).toBeVisible({ timeout: 30_000 });
     await healthy(page, bad);
   });
 
@@ -230,18 +230,18 @@ test.describe("signed in", () => {
     await page.waitForURL(/\/watching/, { timeout: 30_000 });
     const main = page.getByRole("main", { name: /Watching now: Breaking Bad/ });
     await expect(main).toBeVisible({ timeout: 30_000 });
-    // Starts where the seeded progress is (S2 E3); the regulars are listed.
+    // Starts at the episode after the seeded progress (watched up to S2 E3): S2 E4; the regulars are listed.
     await expect(main.getByRole("button", { name: /^Season: Season 2$/ })).toBeVisible();
-    await expect(main.getByRole("button", { name: /^Episode: E3/ })).toBeVisible();
+    await expect(main.getByRole("button", { name: /^Episode: E4/ })).toBeVisible();
     await expect(main.locator(".wx-tile", { hasText: "Bryan Cranston" }).first()).toBeVisible({ timeout: 30_000 });
     // The Next button sits in the same pill as the episode picker.
     const next = main.getByRole("button", { name: /^Next episode/ });
     await expect(next).toBeEnabled({ timeout: 30_000 });
     await next.click();
-    await expect(main.getByRole("button", { name: /^Episode: E4/ })).toBeVisible();
+    await expect(main.getByRole("button", { name: /^Episode: E5/ })).toBeVisible();
     await visit(page, "/library", bad);
     const bar = page.getByRole("region", { name: "Watching now" });
-    await expect(bar).toContainText("S2 E4");
+    await expect(bar).toContainText("S2 E5");
     await expect(bar.getByText(/Who.s that/)).toHaveCount(0);
     await bar.getByRole("link").click();
     await page.waitForURL(/\/watching/, { timeout: 30_000 });
@@ -250,7 +250,7 @@ test.describe("signed in", () => {
     await expect(page.getByRole("region", { name: "Watching now" })).toHaveCount(0, { timeout: 30_000 });
     expect((await page.request.get("/api/ask")).status()).toBe(405);
     await healthy(page, bad);
-    // Next saved S2 E4 to the library (the title is Watching there): put the seeded place back.
+    // Next marked S2 E4 watched in the library (the title is Watching there): put the seeded progress back.
     const { sb, userId } = await smokeClient();
     await sb.from("library_items").update({ progress_season: 2, progress_episode: 3 }).eq("user_id", userId).eq("tmdb_type", "tv").eq("tmdb_id", 1396);
   });

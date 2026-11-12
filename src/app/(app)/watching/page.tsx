@@ -5,7 +5,7 @@ import { WhoStart } from "@/components/who/WhoStart";
 import { loadBrief } from "@/lib/who-data";
 import { parseUrlKey, posFromParams } from "@/lib/who-scope";
 import { getLibrary, getProfile } from "@/lib/library";
-import { openingPos, pickUpCards, resumePlace, switchCards } from "@/lib/watch-library";
+import { normalizePlace, openingPos, pickUpCards, resumePlace, switchCards } from "@/lib/watch-library";
 import { todayFor } from "@/lib/today";
 import { parseWatch, WATCH_COOKIE } from "@/lib/watching";
 import type { Pos } from "@/lib/who-types";
@@ -42,14 +42,19 @@ export default async function WhoPage({ searchParams }: { searchParams: Promise<
     );
   }
   let pos: Pos | null = null;
+  let savedProgress: { s: number; e: number } | null = null;
   if (target.type === "tv") {
     const mine = watch && watch.key === brief.key ? watch : null;
-    // No place in the URL: this device's watch, else the place saved in the library (the page never writes it back just for opening).
-    const saved = one(sp.s) != null || mine ? null : resumePlace(lib?.find((l) => l.key === brief.key));
+    const row = lib?.find((l) => l.key === brief.key);
+    savedProgress = row?.progress ?? null;
+    // No place in the URL: this device's watch, else the episode AFTER the library's progress ("watched up to"), else not set (the page never writes it back just for opening).
+    const saved = one(sp.s) != null || mine ? null : resumePlace(row, brief.seasons);
     pos = openingPos(one(sp.s) != null, posFromParams(one(sp.s), one(sp.e)), mine ? (mine.pos ?? { s: mine.s ?? 1, e: mine.e ?? 1 }) : null, saved);
+    // A link built without season sizes ("S3 E23" after a 22-episode season) rolls over to the next season's first episode.
+    if (pos.s != null && pos.e != null && pos.s > 0 && pos.e > 0) pos = normalizePlace({ s: pos.s, e: pos.e }, brief.seasons);
   }
   const today = todayFor((await getProfile().catch(() => null))?.country);
   // Decoration: no switcher on any failure or when there is no other Watching title.
   const others = lib ? switchCards(lib, brief.key) : [];
-  return <WhoApp key={`${brief.key}`} brief={brief} initialPos={pos} today={today} others={others} />;
+  return <WhoApp key={`${brief.key}`} brief={brief} initialPos={pos} today={today} others={others} savedProgress={savedProgress} />;
 }

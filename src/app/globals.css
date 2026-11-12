@@ -1332,7 +1332,7 @@ main:focus { outline: none; }
 .wx-tswp { width: 28px; height: 42px; flex: none; border-radius: 4px; object-fit: cover; background: var(--chip); }
 .wx-tswp.wx-noph { display: flex; align-items: center; justify-content: center; font: 700 14px var(--display); color: var(--muted); }
 .wx-tswt { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; font-size: 14px; }
-.wx-tswe { flex: none; color: var(--muted); font-size: 13px; }
+.wx-tswe { flex: none; color: var(--muted); font-size: 12px; white-space: nowrap; }
 .wx-tswq { min-height: 44px; color: var(--muted); font-size: 14px; border-top: 1px solid var(--line); border-radius: 0 0 10px 10px; margin-top: 2px; }
 .wx-topgrid .wx-billedg { top: 4px; bottom: auto; }
 
@@ -1343,3 +1343,8 @@ main:focus { outline: none; }
 .sgate-h { flex: 1 1 100%; }
 .sgate-c { display: inline-flex; margin: 0; padding: 0; border: 0; background: none; font-size: 13px; gap: 0 8px; max-width: 100%; }
 .sgate-c .sgate-t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; color: var(--muted); }
+
+/* Finished? prompts (film clock, last episode of an ended series): one quiet line, dismissible. */
+.wx-finish { flex: 1 0 100%; font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 10px; }
+.wx-pos:has(.wx-finish) { flex-wrap: wrap; }
+.wx-finale { margin: 0; padding: 6px 14px; }

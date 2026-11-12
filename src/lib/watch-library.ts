@@ -1,6 +1,7 @@
 import type { Pos } from "./who-types";
 import type { MediaType, Priority, Status } from "./types";
 import type { Watch, WatchPrev } from "./watching";
+import { prevEpisode } from "./episodes";
 
 /**
  * How "Watching now" meets the library. Pure decisions only (unit tested); the components do the writes through LibProvider and `setProgress`.
@@ -35,11 +36,110 @@ export function restorePlan(w: Pick<Watch, "prev" | "type" | "s" | "e">, cur: { 
   return { do: "remove" };
 }
 
-/** The place saved in the library for a series, for opening /watching with no season and episode in the URL. Watchlist rows carry none. */
-export function resumePlace(item: { status: Status; progress: { s: number; e: number } | null } | null | undefined): { s: number; e: number } | null {
-  if (!item || item.status === "watchlist" || !item.progress) return null;
-  const { s, e } = item.progress;
-  return s >= 1 && e >= 1 ? { s, e } : null;
+type Ep = { s: number; e: number };
+type SeasonCount = { n: number; eps: number };
+
+/**
+ * ONE explicit mapping between the two meanings of "where you are".
+ * - Page place (s, e): the episode being watched NOW (what /watching, the watch cookie and the pickers hold).
+ * - Library progress (`progress_season/progress_episode`): "watched up to and including this episode" (`upTo`, `seenIn`, "Watched up to here").
+ * So progress is the episode BEFORE the place, and the place to continue with is the episode AFTER the progress.
+ */
+
+/** Library progress to write for a page place: the episode before it. null = nothing to write (S1 E1, or a place whose previous episode is unknown, or specials). */
+export function placeToProgress(place: Ep | null | undefined, seasons: readonly SeasonCount[] = []): Ep | null {
+  if (!place || !(place.s >= 1) || !(place.e >= 1)) return null;
+  if (place.e > 1) return { s: place.s, e: place.e - 1 };
+  return prevEpisode(place, seasons.map((x) => ({ n: x.n, eps: x.eps })));
+}
+
+/**
+ * The page place to continue with for saved library progress: the episode after it. With season sizes it rolls into the next season after a season's last
+ * episode (and stays on the last episode when nothing follows); without them it is simply the next number (the page normalises it with `normalizePlace`).
+ */
+export function continuePlace(progress: Ep | null | undefined, seasons?: readonly SeasonCount[]): Ep | null {
+  if (!progress || !(progress.s >= 1) || !(progress.e >= 1)) return null;
+  const next = { s: progress.s, e: progress.e + 1 };
+  return seasons ? normalizePlace(next, seasons, true) : next;
+}
+
+/** A place past the end of its season rolls to the first episode of the next season that has episodes; with `keepLast` and no later season it falls back to the season's last episode. */
+export function normalizePlace(p: Ep, seasons: readonly SeasonCount[], keepLast = false): Ep {
+  const cur = seasons.find((x) => x.n === p.s);
+  if (!cur || cur.eps <= 0 || p.e <= cur.eps) return p;
+  const later = seasons.filter((x) => x.n > p.s && x.eps > 0).sort((a, b) => a.n - b.n)[0];
+  if (later) return { s: later.n, e: 1 };
+  return keepLast ? { s: cur.n, e: cur.eps } : p;
+}
+
+/** 1-based position of an episode in the whole series (specials not counted), or null when it cannot be told. */
+export function episodeOrdinal(p: Ep, seasons: readonly SeasonCount[]): number | null {
+  if (!(p.s >= 1) || !(p.e >= 1)) return null;
+  let n = 0;
+  for (const x of seasons) if (x.n >= 1 && x.n < p.s) n += x.eps;
+  return n + p.e;
+}
+
+/** Is `a` strictly after `b`? A missing `b` (no progress) is before everything. */
+export const isAhead = (a: Ep, b: Ep | null | undefined) => !b || a.s > b.s || (a.s === b.s && a.e > b.e);
+
+/**
+ * FORWARD-ONLY autosave: the progress to write when the place moves to `place`, or null (nothing). Only a progress strictly beyond the saved one is written, so
+ * checking an earlier episode's cast never rolls progress back. `jump` is true when the move is more than one episode ahead of the saved place (the page then
+ * says "Place saved"); a single step is silent.
+ */
+export function forwardSave(place: Ep | null, saved: Ep | null, seasons: readonly SeasonCount[]): { write: Ep; jump: boolean } | null {
+  const write = placeToProgress(place, seasons);
+  if (!write || !isAhead(write, saved)) return null;
+  const from = continuePlace(saved, seasons) ?? { s: 1, e: 1 };
+  const a = episodeOrdinal(place!, seasons), b = episodeOrdinal(from, seasons);
+  return { write, jump: a != null && b != null ? a - b > 1 : (place!.s !== from.s || place!.e - from.e > 1) };
+}
+
+/**
+ * What "Next" saves: the episode you were on is now watched. Written only when it is beyond the saved progress; a Watched title (rewatch) keeps its status and
+ * is only ever moved forward from an existing progress (no progress on a Watched title means "all of it", which a place must not narrow).
+ */
+export function nextWrite(status: Status | undefined, from: Ep | null, saved: Ep | null): Ep | null {
+  if (!from || !(from.s >= 1) || !(from.e >= 1)) return null;
+  if (status === "watched" && !saved) return null;
+  return isAhead(from, saved) ? from : null;
+}
+
+/** The first and last episodes of a series in season order (specials excluded), for "was that the last episode?". */
+export function isLastEpisode(p: Ep, seasons: readonly SeasonCount[]): boolean {
+  const real = seasons.filter((x) => x.n >= 1 && x.eps > 0).sort((a, b) => a.n - b.n);
+  const last = real[real.length - 1];
+  return !!last && p.s === last.n && p.e >= last.eps;
+}
+
+/** TMDB says the series is over (Ended or Canceled), so finishing its last episode can offer "Mark the series watched". */
+export const seriesEnded = (status: string) => status === "Ended" || status === "Canceled";
+
+/** Does a promoting signal ("I am watching this") need to move the title to Watching? Same rule as the start button. */
+export const needsPromotion = (cur: Current) => !cur || cur.status === "watchlist" || cur.status === "partial";
+
+/** The film clock has reached the runtime: time for the quiet "Finished?" prompt. */
+export const filmDone = (elapsedMin: number, runtime: number | null) => !!runtime && runtime > 0 && elapsedMin >= runtime;
+
+/* ---------- partly-origin promotions revert after inactivity (device-local, best effort) ---------- */
+
+export const REVERT_AFTER_MS = 12 * 3600 * 1000;
+export const REVERT_DROP_MS = 30 * 24 * 3600 * 1000;
+export interface PrevRecord { prev: "partial"; lastActive: number }
+
+/** What to do with a stored `typecast.watchPrev.<key>` record on app load: put the title back, forget the record, or leave it. */
+export function revertDecision(rec: PrevRecord, o: { now: number; activeWatch: boolean; status: Status | undefined }): "revert" | "drop" | "keep" {
+  if (o.activeWatch) return "keep";
+  if (o.status !== "watching") return "drop";
+  if (o.now - rec.lastActive > REVERT_DROP_MS) return "drop";
+  return o.now - rec.lastActive > REVERT_AFTER_MS ? "revert" : "keep";
+}
+
+/** The page place to open a series at when the URL and the watch say nothing: the episode AFTER the saved progress (Watching, Partly, or Watched with progress; never To watch). */
+export function resumePlace(item: { status: Status; progress: Ep | null } | null | undefined, seasons?: readonly SeasonCount[]): Ep | null {
+  if (!item || item.status === "watchlist") return null;
+  return continuePlace(item.progress, seasons);
 }
 
 /** Where /watching opens a series: the URL says so, else this device's watch, else the library's saved place, else not set. */
@@ -62,11 +162,24 @@ export function pickUpCards(rows: readonly ResumeRow[], max = 6): ResumeCard[] {
   return rows.filter((r) => r.status === "watching").sort((a, b) => b.updated - a.updated).slice(0, max).map((r) => {
     const k = r.key.replace(":", "-");
     const p = r.type === "tv" ? resumePlace(r) : null;
-    return { key: r.key, title: r.title, poster: r.poster, place: p ? `S${p.s} E${p.e}` : null, href: `/watching?k=${k}${p ? `&s=${p.s}&e=${p.e}` : ""}` };
+    // The label names the last FINISHED episode ("after S3 E22"): always true without season sizes. The link opens at the episode to continue with.
+    return { key: r.key, title: r.title, poster: r.poster, place: p && r.progress ? `after S${r.progress.s} E${r.progress.e}` : null, href: `/watching?k=${k}${p ? `&s=${p.s}&e=${p.e}` : ""}` };
   });
 }
 
 /** The title switcher on /watching: the OTHER Watching titles (never the one on the page), same shape and order as `pickUpCards`. Title, poster and place only: nothing that could spoil. */
 export function switchCards(rows: readonly ResumeRow[], currentKey: string, max = 6): ResumeCard[] {
   return pickUpCards(rows.filter((r) => r.key !== currentKey), max);
+}
+
+/**
+ * The watch a "start" or an "I am watching this" signal leaves behind. The same title keeps its watch (clock, place) and only gains `prev` when it was promoted;
+ * ANOTHER title replaces the current watch outright, so the old watch's `prev` never leaks into it and Stop restores only the new title's own `prev`.
+ */
+export function watchAfterSignal(existing: Watch | null, it: { key: string; type: MediaType; id: number; title: string; year: string; poster: string | null }, runtime: number | null,
+  place: { s: number; e: number } | null, plan: { promote: false } | { promote: true; prev: WatchPrev }, now: number): { watch: Watch; replaced: boolean; created: boolean } {
+  const mine = existing && existing.key === it.key ? existing : null;
+  let w: Watch = mine ?? { key: it.key, type: it.type, id: it.id, title: it.title, year: it.year, poster: it.poster, started: now, runtime, ...(place ? { s: place.s, e: place.e } : {}) };
+  if (plan.promote) w = { ...w, prev: plan.prev };
+  return { watch: w, replaced: !!existing && !mine, created: !mine };
 }

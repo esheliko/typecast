@@ -99,6 +99,10 @@ async function patch(type: MediaType, id: number, values: Record<string, unknown
   const { error } = await sb.from("library_items").update({ ...values, updated_at: new Date().toISOString() }).eq("user_id", user.id).match(where(type, id));
   if (error) throw dbError(error);
 }
+/** Clears a series' progress (Undo of a Next/place save that started from none): ONE update, no revalidation (a quick write). */
+export async function clearProgress(type: MediaType, id: number) {
+  await patch(type, id, { progress_season: null, progress_episode: null });
+}
 export async function setPriority(type: MediaType, id: number, priority: Priority) {
   if (priority !== "someday" && priority !== "must") throw new Error("Bad priority");
   await patch(type, id, { priority });
