@@ -142,7 +142,7 @@ export async function setWatchedUpTo(item: { id: number; title: string; year: st
     const { data: ne } = await sb.from("library_items").select("new_episode_s,new_episode_e").eq("user_id", user.id).match(where("tv", item.id)).maybeSingle();
     if (ne?.new_episode_s && progressPassed({ s: season, e: episode }, { s: ne.new_episode_s, e: ne.new_episode_e ?? 1 })) await clearNewEp(sb, user.id, "tv", item.id);
   }
-  done();
+  // No done(): a progress tick is a quick mark (see docs/features/marks.md). The client calls touch() and refreshes once on the next page change.
   return status;
 }
 
