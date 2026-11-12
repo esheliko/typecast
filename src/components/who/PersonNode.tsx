@@ -198,6 +198,8 @@ export function PersonNode({ node }: { node: PNode }) {
       .then((r) => { if (live) setThenImg(r.url); }).catch(() => {});
     return () => { live = false; };
   }, [old, thenQ, node.photo, data?.photo, node.name, face?.role, brief.title]);
+  const mainPh = data?.photo ?? node.photo ?? null;
+  const looks = mainPh ? [mainPh, ...(data?.images ?? []).filter((x) => x !== mainPh)] : (data?.images ?? []);
   const [thenBad, setThenBad] = useState(false);
   useEffect(() => { setThenBad(false); }, [thenImg]);
   const hasThen = !!thenImg && !thenBad;
@@ -230,7 +232,7 @@ export function PersonNode({ node }: { node: PNode }) {
                   </button>
                 )}
                 {data.images.map((p) => (
-                  <button key={p} type="button" className="wx-look" onClick={() => zoom({ path: p, name: node.name, gallery: data.images })} aria-label={`Enlarge another photo of ${node.name}`}>
+                  <button key={p} type="button" className="wx-look" onClick={() => zoom({ path: p, name: node.name, gallery: looks })} aria-label={`Enlarge another photo of ${node.name}`}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={img(p, "w185")} alt="" loading="lazy" decoding="async" />
                   </button>
