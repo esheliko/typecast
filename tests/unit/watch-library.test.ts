@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { continuePlace, episodeOrdinal, filmDone, forwardSave, isAhead, isLastEpisode, needsPromotion, nextWrite, normalizePlace, openingPos, pickUpCards, placeToProgress, restorePlan, resumePlace, revertDecision, REVERT_AFTER_MS, REVERT_DROP_MS, seriesEnded, shouldSavePlace, startPlan, switchCards } from "../../src/lib/watch-library";
+import { watchAfterSignal, continuePlace, episodeOrdinal, filmDone, forwardSave, isAhead, isLastEpisode, needsPromotion, nextWrite, normalizePlace, openingPos, pickUpCards, placeToProgress, restorePlan, resumePlace, revertDecision, REVERT_AFTER_MS, REVERT_DROP_MS, seriesEnded, shouldSavePlace, startPlan, switchCards } from "../../src/lib/watch-library";
 
 test("startPlan: missing, To watch and Partly are promoted and remembered; Watching and Watched are left alone", () => {
   assert.deepEqual(startPlan(null, "tv", { s: 1, e: 1 }), { promote: true, prev: { st: "none", s: 1, e: 1 } });
@@ -185,7 +185,7 @@ test("pickUpCards: Watching only, newest first, at most 6, with a place and a li
   assert.equal(cards[0].place, null);
   assert.equal(cards[0].href, "/watching?k=tv-11");
   assert.equal(cards[1].href, "/watching?k=movie-10");
-  assert.equal(cards[2].place, "S3 E9"); // the episode to CONTINUE with, after the one watched up to
+  assert.equal(cards[2].place, "after S3 E8"); // the last FINISHED episode: always true, no season sizes needed. The link opens at the episode to continue with
   assert.equal(cards[2].href, "/watching?k=tv-9&s=3&e=9");
   assert.deepEqual(pickUpCards([row(1, { status: "watchlist" })]), []);
 });
@@ -200,4 +200,31 @@ test("switchCards: the other Watching titles, never the current one, newest firs
   assert.deepEqual(switchCards([row(1)], "tv:1"), []);
   assert.deepEqual(switchCards([row(1, { status: "partial" })], "tv:2"), []);
   assert.equal(switchCards([row(5, { type: "movie", key: "movie:5", progress: null })], "tv:1")[0].place, null);
+});
+
+test("pickUpCards: a finished season is labelled by what was finished, and the link opens at the next number", () => {
+  const c = pickUpCards([{ key: "tv:1", type: "tv", title: "T", poster: null, status: "watching", progress: { s: 3, e: 22 }, updated: 1 }]);
+  assert.equal(c[0].place, "after S3 E22");
+  assert.equal(c[0].href, "/watching?k=tv-1&s=3&e=23"); // the page rolls this over to S4 E1
+});
+
+test("watchAfterSignal: another title replaces the watch and never inherits its prev; the same title keeps its clock", () => {
+  const it = (n: number) => ({ key: `tv:${n}`, type: "tv" as const, id: n, title: `T${n}`, year: "2020", poster: null });
+  const old = { ...it(1), started: 1000, runtime: 40, s: 2, e: 3, prev: { st: "partial" as const, s: 2, e: 3 } };
+  const promote = { promote: true as const, prev: { st: "watchlist" as const, s: 1, e: 1 } };
+  // switching to a title that needs promotion: a fresh watch with ONLY its own prev
+  const a = watchAfterSignal(old, it(2), 45, { s: 1, e: 1 }, promote, 5000);
+  assert.deepEqual(a.watch, { ...it(2), started: 5000, runtime: 45, s: 1, e: 1, prev: promote.prev });
+  assert.equal(a.replaced, true); assert.equal(a.created, true);
+  // Stop on it restores only its own prev (the watchlist), not the old title's Partly
+  assert.deepEqual(restorePlan(a.watch, { status: "watching", rich: false }), { do: "set", status: "watchlist", priority: "someday" });
+  // switching to a title that is already Watching: a fresh watch with no prev at all
+  const b = watchAfterSignal(old, it(3), null, { s: 4, e: 2 }, { promote: false }, 6000);
+  assert.equal(b.watch.prev, undefined); assert.equal(b.replaced, true);
+  // the same title: its watch is kept (clock and place), only prev is added when promoted
+  const c = watchAfterSignal({ ...old, prev: undefined }, it(1), 40, { s: 9, e: 9 }, promote, 7000);
+  assert.equal(c.watch.started, 1000); assert.equal(c.watch.s, 2); assert.deepEqual(c.watch.prev, promote.prev);
+  assert.equal(c.replaced, false); assert.equal(c.created, false);
+  // no watch at all: created, not "replaced"
+  assert.equal(watchAfterSignal(null, it(1), null, { s: 1, e: 1 }, { promote: false }, 1).replaced, false);
 });

@@ -1,6 +1,6 @@
 "use client";
 import { useCallback, useEffect, useRef } from "react";
-import { setProgress, setWatchedUpTo } from "@/app/actions";
+import { clearProgress, setProgress } from "@/app/actions";
 import { useLib } from "../cast/LibState";
 import { useWatchControl } from "../Watching";
 import { forwardSave, isAhead, needsPromotion, nextWrite, shouldSavePlace } from "@/lib/watch-library";
@@ -33,7 +33,7 @@ export function useSavedPlace(item: Item, runtime: number | null, seasons: { n: 
     const { item: it, lib: l } = live.current;
     const prior = saved.current;
     saved.current = to;
-    (to ? setProgress(it.type, it.id, to.s, to.e) : setWatchedUpTo({ id: it.id, title: it.title, year: it.year, poster: it.poster }, 1, 0))
+    (to ? setProgress(it.type, it.id, to.s, to.e) : clearProgress(it.type, it.id))
       .then(() => l.touch()).catch(() => { saved.current = prior; });
   }, []);
 

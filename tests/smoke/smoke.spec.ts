@@ -205,14 +205,14 @@ test.describe("signed in", () => {
     await healthy(page, bad);
   });
 
-  // Watching now, empty page: "Pick up where you left off" lists the Watching titles of the library (seeded Breaking Bad, progress S2 E3) and reopens /watching at the episode to continue with, S2 E4.
+  // Watching now, empty page: "Pick up where you left off" lists the Watching titles of the library (seeded Breaking Bad, progress S2 E3) and shows "after S2 E3" and reopens /watching at the episode to continue with, S2 E4.
   test("Watching now: pick up where you left off", async ({ page }) => {
     const bad = watch(page);
     await visit(page, "/watching", bad);
     const block = page.getByRole("region", { name: "Pick up where you left off" });
     await expect(block).toBeVisible({ timeout: 30_000 });
     const card = block.getByRole("link", { name: /Breaking Bad/ });
-    await expect(card).toContainText("S2 E4");
+    await expect(card).toContainText("after S2 E3");
     expect(await block.getByRole("link").count()).toBeLessThanOrEqual(6);
     await card.click();
     await page.waitForURL(/\/watching\?k=tv-1396&s=2&e=4/, { timeout: 30_000 });

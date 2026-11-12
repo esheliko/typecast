@@ -162,11 +162,24 @@ export function pickUpCards(rows: readonly ResumeRow[], max = 6): ResumeCard[] {
   return rows.filter((r) => r.status === "watching").sort((a, b) => b.updated - a.updated).slice(0, max).map((r) => {
     const k = r.key.replace(":", "-");
     const p = r.type === "tv" ? resumePlace(r) : null;
-    return { key: r.key, title: r.title, poster: r.poster, place: p ? `S${p.s} E${p.e}` : null, href: `/watching?k=${k}${p ? `&s=${p.s}&e=${p.e}` : ""}` };
+    // The label names the last FINISHED episode ("after S3 E22"): always true without season sizes. The link opens at the episode to continue with.
+    return { key: r.key, title: r.title, poster: r.poster, place: p && r.progress ? `after S${r.progress.s} E${r.progress.e}` : null, href: `/watching?k=${k}${p ? `&s=${p.s}&e=${p.e}` : ""}` };
   });
 }
 
 /** The title switcher on /watching: the OTHER Watching titles (never the one on the page), same shape and order as `pickUpCards`. Title, poster and place only: nothing that could spoil. */
 export function switchCards(rows: readonly ResumeRow[], currentKey: string, max = 6): ResumeCard[] {
   return pickUpCards(rows.filter((r) => r.key !== currentKey), max);
+}
+
+/**
+ * The watch a "start" or an "I am watching this" signal leaves behind. The same title keeps its watch (clock, place) and only gains `prev` when it was promoted;
+ * ANOTHER title replaces the current watch outright, so the old watch's `prev` never leaks into it and Stop restores only the new title's own `prev`.
+ */
+export function watchAfterSignal(existing: Watch | null, it: { key: string; type: MediaType; id: number; title: string; year: string; poster: string | null }, runtime: number | null,
+  place: { s: number; e: number } | null, plan: { promote: false } | { promote: true; prev: WatchPrev }, now: number): { watch: Watch; replaced: boolean; created: boolean } {
+  const mine = existing && existing.key === it.key ? existing : null;
+  let w: Watch = mine ?? { key: it.key, type: it.type, id: it.id, title: it.title, year: it.year, poster: it.poster, started: now, runtime, ...(place ? { s: place.s, e: place.e } : {}) };
+  if (plan.promote) w = { ...w, prev: plan.prev };
+  return { watch: w, replaced: !!existing && !mine, created: !mine };
 }

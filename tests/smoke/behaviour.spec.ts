@@ -152,7 +152,7 @@ test.describe("behaviour (signed in)", () => {
       const h = (await header.boundingBox())!.height;
       await chev.click();
       const menu = page.getByRole("navigation", { name: /Switch from Chernobyl/ });
-      await expect(menu.getByRole("link", { name: /Breaking Bad/ })).toContainText("S2 E4"); // the episode to continue with (progress S2 E3)
+      await expect(menu.getByRole("link", { name: /Breaking Bad/ })).toContainText("after S2 E3"); // the last finished episode; the link opens at S2 E4
       await expect(menu.getByRole("link", { name: /^Chernobyl/ })).toHaveCount(0);
       expect(Math.abs((await header.boundingBox())!.height - h), "opening the menu must not change the header height").toBeLessThan(1);
       // Esc closes it and puts focus back on the chevron.

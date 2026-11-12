@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { PersonLink, TitleLink } from "./Modal";
 import { useLib } from "./cast/LibState";
-import { continuePlace, restorePlan, revertDecision, startPlan } from "@/lib/watch-library";
+import { continuePlace, restorePlan, revertDecision, startPlan, watchAfterSignal } from "@/lib/watch-library";
 import { clearPrompt, forgetPartly, readPartly, refreshPartly, rememberPartly } from "@/lib/watch-prev";
 import { img } from "@/lib/img";
 import { serializeWatch, WATCH_COOKIE, WATCH_MAX_MS, whereLabel, type Watch } from "@/lib/watching";
@@ -52,14 +52,10 @@ export function WatchProvider({ initial, children }: { initial: Watch | null; ch
     const place = it.type === "tv" ? (ep ?? (mine ? { s: mine.s ?? 1, e: mine.e ?? 1 } : { s: 1, e: 1 })) : null;
     // The explicit start and the "I am watching this" signals are the only intents that touch the library: a title that is missing, To watch or Partly watched becomes Watching.
     const plan = startPlan(lib.get(it.key), it.type, place);
-    let w: Watch;
-    if (mine) w = mine;
-    else {
-      w = { key: it.key, type: it.type, id: it.id, title: it.title, year: it.year, poster: it.poster, started: Date.now(), runtime };
-      if (place) { w.s = place.s; w.e = place.e; }
-    }
-    if (plan.promote) w = { ...w, prev: plan.prev };
-    if (w !== mine) save(w);
+    const r = watchAfterSignal(watchRef.current, it, runtime, place, plan, Date.now());
+    if (r.created || plan.promote) save(r.watch);
+    // Switching to a title that is already Watching changes the bar without any other sign, so say it.
+    if (r.replaced && !plan.promote) lib.notify(`${it.title}: now your current watch`);
     refreshPartly(it.key);
     if (!plan.promote) return Promise.resolve(true);
     if (plan.prev.st === "partial") rememberPartly(it);
