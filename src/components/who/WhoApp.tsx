@@ -37,6 +37,7 @@ export function WhoApp({ brief, initialPos, today }: { brief: WhoBrief; initialP
   const [trail, setTrail] = useState(() => emptyTrail(bid()));
   /** Phones: whether the details cover the finder. (Wide screens always show them.) */
   const [open, setOpen] = useState(false);
+  const [compact, setCompact] = useState(false); // phones: the header slims down once the face list is scrolled (hysteresis so it never flickers at the edge)
   const [q, setQ] = useState("");
   const [recents, setRecents] = useState<RecentTrail[]>([]);
   const [zoomed, setZoomed] = useState<{ path: string; name: string; size?: string } | null>(null);
@@ -260,7 +261,7 @@ export function WhoApp({ brief, initialPos, today }: { brief: WhoBrief; initialP
 
   return (
     <WhoProvider value={ctx}>
-      <div className="wx" role="main" aria-label={`Watching now: ${brief.title}`}>
+      <div className="wx" data-compact={compact} role="main" aria-label={`Watching now: ${brief.title}`}>
         <header className="wx-top">
           <ZoomBtn path={brief.poster} name={brief.title} className="wx-posterb"><Photo path={brief.poster} name={brief.title} w="w92" className="wx-poster" eager /></ZoomBtn>
           <div className="wx-ttl">
@@ -271,15 +272,15 @@ export function WhoApp({ brief, initialPos, today }: { brief: WhoBrief; initialP
           {tv && pos && <PositionControl brief={brief} pos={pos} onChange={changePos} />}
           {!tv && <FilmClock briefKey={brief.key} />}
           <div className="wx-topr">
-            <button type="button" role="switch" aria-checked={spoilers} className="wx-nospoil" onClick={toggleSpoilers}
+            <button type="button" role="switch" aria-checked={spoilers} className="wx-nospoil" aria-label={spoilers ? "Show spoilers" : "No spoilers"} onClick={toggleSpoilers}
               title={spoilers ? "Spoilers are shown: the whole series, past where you are" : "Spoilers are hidden: everything stops at where you are"}>
-              <span className="wx-sw" aria-hidden="true" /><span>{spoilers ? "Show spoilers" : "No spoilers"}</span>
+              <span className="wx-sw" aria-hidden="true" /><span className="wx-nsl">{spoilers ? "Show spoilers" : "No spoilers"}</span>
             </button>
             <button type="button" className="back wx-close" aria-label="Close" onClick={close}><span aria-hidden="true">&#215;</span><span className="wx-closet"> Close</span></button>
           </div>
         </header>
         <div className="wx-main">
-          <div className="wx-left" aria-label="Finder">
+          <div className="wx-left" aria-label="Finder" onScroll={(ev) => { const t = ev.currentTarget.scrollTop; setCompact((c) => (c ? t > 12 : t > 72)); }}>
             <Finder roster={roster4finder} loading={!roster && !rosterErr} err={rosterErr && !roster} q={q} setQ={setQ} inputRef={input} recents={recents.filter((r) => r.k === brief.key)}
               onOpen={openFromFinder} onRestore={restore} onRetry={() => setRetry((n) => n + 1)} />
           </div>

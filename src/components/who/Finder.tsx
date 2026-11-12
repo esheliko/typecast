@@ -171,7 +171,7 @@ export function Finder({ roster, loading, err, q, setQ, inputRef, recents, onOpe
           {([["all", "All"], ["f", "Women"], ["m", "Men"]] as const).map(([v, t]) => <button key={v} type="button" aria-pressed={gender === v} onClick={() => setGender(v)}>{t}</button>)}
         </div>
         <div className="seg" role="group" aria-label="Cast">
-          {([["all", "All"], ["main", "Main cast"], ["guests", film ? "Others" : "Guests"]] as const).map(([v, t]) => <button key={v} type="button" aria-pressed={cast === v} onClick={() => setCast(v)}>{t}</button>)}
+          {([["all", "All"], ["main", <>Main<span className="wx-xl"> cast</span></>], ["guests", film ? "Others" : "Guests"]] as const).map(([v, t]) => <button key={v} type="button" aria-pressed={cast === v} onClick={() => setCast(v)}>{t}</button>)}
         </div>
         {old && thenOk && (
           <div className="seg" role="group" aria-label="Photos">
