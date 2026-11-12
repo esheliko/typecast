@@ -55,8 +55,11 @@ export function useLimit(total: number, n = 5): { shown: number; all: boolean; t
   const [all, setAll] = useState(false);
   return { shown: all ? total : Math.min(total, n), all, toggle: () => setAll((v) => !v) };
 }
-export function More({ total, shown, all, toggle, noun = "" }: { total: number; shown: number; all: boolean; toggle: () => void; noun?: string }) {
+export function More({ total, shown, all, toggle, noun = "", inline = false }: { total: number; shown: number; all: boolean; toggle: () => void; noun?: string; inline?: boolean }) {
   if (total <= shown && !all) return null;
+  const label = all ? "Show fewer" : `Show all ${total}${noun ? ` ${noun}` : ""}`;
+  /** `inline`: a chip-styled item inside a chip row (put it inside the `ul`). */
+  if (inline) return <li><button type="button" className="wx-epchip" onClick={toggle} aria-expanded={all}>{label}</button></li>;
   return <button type="button" className="chip wx-more" onClick={toggle} aria-expanded={all}>{all ? "Show fewer" : `Show all ${total}${noun ? ` ${noun}` : ""}`}</button>;
 }
 

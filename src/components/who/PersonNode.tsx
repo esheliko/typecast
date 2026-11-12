@@ -351,8 +351,8 @@ function HereEpisodes({ span, loading, failed, regular, inScope }: { span: Span 
             </li>
           );
         })}
+        <More total={eps.length} {...lim} inline />
       </ul>
-      <More total={eps.length} {...lim} />
     </>
   );
 }
