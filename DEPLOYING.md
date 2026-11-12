@@ -1,6 +1,6 @@
 # Deploying Typecast (Deploy Manager)
 
-Vercel Hobby limits deployments, so **a push no longer deploys by itself** (`vercel.json` → `git.deploymentEnabled: false`).
+Vercel Hobby limits deployments, so **a merge or push no longer deploys by itself** (`vercel.json` → `git.deploymentEnabled: false`).
 `scripts/deploy-manager.mjs` is the only thing that deploys. It deploys the head of `main` as ONE deployment per burst of pushes.
 
 ## How it runs
@@ -35,8 +35,11 @@ With `SUPABASE_SERVICE_ROLE_KEY` set (GitHub repo secret; the same value the app
 Without the key the suite falls back to the shared `SMOKE_EMAIL`/`SMOKE_PASSWORD` account and the old rules apply (one run at a time; `visual` is started with `SMOKE_SKIP_SETUP=1`; never run a local smoke while CI runs on main). Cloud sessions do not have the key, so they use that fallback.
 
 ## For sessions
-Commit, run lint/typecheck/build, push to `main`, done. Do not deploy, redeploy, or touch Vercel deployments. Your change goes live
-in roughly 5-15 min; check issue #1 if you need to know.
+Since 2026-11-12 nobody pushes to `main` directly: every change is a branch + pull request, `verify` must be green on the PR, then the PR is squash-merged (CLAUDE.md standing rule).
+A merge is what queues a change for the Deploy Manager; it still batches merges into one deployment (5-15 min after merges quiet down, `[deploy-now]` in the squash commit message for a real hotfix).
+Sessions do not deploy, redeploy or touch Vercel deployments, and check issue #1 only if they need to know what is live. Because a PR's `verify` has already passed before it reaches `main`,
+the "batch can ship before its own CI finishes" case in the section below is now rare: it only applies to `[deploy-now]` hotfixes and to a merge whose push CI on `main` is still running. The push CI on `main` still runs after each merge
+and still feeds issue #2 and the Owner mechanism.
 
 ## Lessons log
 - 2026-11-08: ~45 deployments in 5h from parallel sessions pushing one by one; Vercel then refused all deployments.
@@ -70,7 +73,7 @@ The supervisor has nothing to refresh there. `scripts/dashboard-data.mjs` is gon
 - 2026-11-09 (owner request): failing tests must be fixed by whoever broke them. Mechanism: (1) `scripts/ci-status.mjs` reads the failing tests from the `verify` check, finds
   the last green commit and ranks the commits since by overlap with the failing tests; the `Claude-Session:` trailer on each commit names the responsible session.
   (2) The Deploy Manager runs it whenever CI finishes and keeps issue #2 current; it comments once when main turns red and once when it is green again.
-  (3) CLAUDE.md rule 6: every session runs `node scripts/ci-status.mjs --wait` after pushing and fixes its own red; the start hook prints a red main to every new
+  (3) CLAUDE.md rule 6 (now rule 7, after a merge instead of a push): every session runs `node scripts/ci-status.mjs --wait` after pushing and fixes its own red; the start hook prints a red main to every new
   session. (4) Claude sessions can also be messaged directly (send_message) with the failing tests when the owner asks. Why attribution is fuzzy: CI cancels
   in-progress runs, so in a burst of pushes most commits never get their own verdict (2026-11-08 20:00: ~25 pushes, one verdict).
 - 2026-11-09 (19:55 IST): the first red after the ownership mechanism showed the loophole: two sessions both wrote the red off as the other's. Now `ci-status.mjs` always names
@@ -106,3 +109,8 @@ popup Watched test 2 of 3 times. Suspects: TMDB errors from the runner (Library 
 Rule for whoever sees such a red first: re-run CI on the same commit before blaming anyone; if it goes green with no change it is a flake and the OWNER of the flake (the smoke-infra session) fixes the suite, not the pusher.
 `Claude-Session:` trailers are typed by the sessions and can be wrong (a mistyped id sent a red alert nowhere, twice): match the owner by commit and session title when send_message says the id is invalid.
 Found cause (smoke-speed session): every smoke run, in CI or in a cloud session, seeds the one smoke user in global setup and DELETES its rows in teardown. A local `npm run smoke` that overlaps a CI run therefore empties the library under it (the failing page snapshot shows an empty library with only suggestions: "Watch next" offering Se7en; the export test says "missing The Matrix"). CI serializes its own runs but cannot see a session's local run. Do not run `npm run smoke` in a cloud session while a CI run on main is in progress (`node scripts/ci-status.mjs`), and expect a red from that overlap to go green on re-run.
+
+### Branch + PR workflow (2026-11-12, owner request)
+Replaced "every session pushes straight to main". Why: a red or half-tested change could land on `main` and be deployed before its CI finished. Now `verify` runs on the PR first (`ci.yml` already triggers on `pull_request`, cancelling superseded runs),
+and only a green PR is merged. The Deploy Manager itself is unchanged: it still reads `main`'s head and its `verify`, and still batches. Watch for: (1) more, smaller commits on `main` (one squash commit per PR), so `main` may be quiet less often and the 12-min cap matters more;
+(2) each PR push costs one CI run and each merge one more on `main`, so keep changes to one push per PR; (3) PR runs of different PRs can overlap, which is safe with `SUPABASE_SERVICE_ROLE_KEY` (temporary accounts) but not on the shared smoke account fallback.
