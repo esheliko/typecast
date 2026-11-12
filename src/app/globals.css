@@ -993,13 +993,15 @@ body:has(.modal) .toast-slot { bottom: calc(84px + env(safe-area-inset-bottom, 0
 .wx-hint { margin: 2px 0 0; }
 .wx-place { margin: 0; font-size: 15px; line-height: 1.45; }
 
-.wx-chiprow { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
-.wx-epchip { display: inline-flex; align-items: center; gap: 4px; min-height: 30px; padding: 2px 11px; position: relative; border-radius: 999px; background: var(--bg); border: 1px solid var(--line); font-size: 12.5px; white-space: nowrap; }
-button.wx-epchip:hover { border-color: var(--gold-fill); }
+.wx-chiprow { list-style: none; margin: 0; padding: 0; font-size: 13.5px; line-height: 2; }
+.wx-chiprow li { display: inline; }
+.wx-chiprow li:not(:last-child)::after { content: " \00b7 "; color: var(--muted); margin: 0 3px; }
+.wx-epchip { display: inline; position: relative; padding: 0; border: 0; background: none; font: inherit; color: inherit; text-align: left; }
+button.wx-epchip:hover b { color: var(--gold); }
 button.wx-epchip::after { content: ""; position: absolute; inset: -7px -2px; }
-button.wx-epmore { background: transparent; border-style: dashed; color: var(--muted); font-weight: 600; }
+button.wx-epmore { color: var(--muted); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
 button.wx-epmore:hover { color: inherit; }
-.wx-epchip.here { background: var(--gold-fill); color: var(--on-gold); border-color: var(--gold-fill); font-weight: 600; }
+.wx-epchip.here { color: var(--gold); font-weight: 600; }
 
 .wx-krow, .wx-wrow { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 64px; padding: 6px 10px 6px 6px; margin-bottom: 6px; border-radius: 12px; background: var(--bg); border: 1px solid var(--line); text-align: left; }
 .wx-krow .wx-kbtn { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 12px; text-align: left; padding: 0; border-radius: 8px; }

@@ -344,8 +344,8 @@ function HereEpisodes({ span, loading, failed, regular, inScope }: { span: Span 
           return (
             <li key={`${x.s}-${x.e}`}>
               {here
-                ? <span className="wx-epchip here" aria-current="true"><b>{name}</b> · You are here</span>
-                : <button type="button" className="wx-epchip" onClick={() => push({ t: "episode", s: x.s, e: x.e })} title={`Open ${name}`} aria-label={`Open ${name}`}><b>{name}</b>{x.air ? ` · ${fmtMonth(x.air)}` : ""}</button>}
+                ? <span className="wx-epchip here" aria-current="true"><b>{name}</b> You are here</span>
+                : <button type="button" className="wx-epchip" onClick={() => push({ t: "episode", s: x.s, e: x.e })} title={`Open ${name}`} aria-label={`Open ${name}`}><b>{name}</b>{x.air && <span className="muted"> {fmtMonth(x.air)}</span>}</button>}
             </li>
           );
         })}
