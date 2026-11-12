@@ -25,6 +25,6 @@ export async function GET(req: NextRequest) {
     // The watched title is governed by the page (cur / pg); a revealed key is lifted for this request only.
     for (const k of revealedKeys(q.get("reveal"), keys)) lines[k] = NONE_LINE;
     if (cur) lines[cur.key] = NONE_LINE;
-    return okWho(await loadSpans(p, keys, cur?.type === "tv" ? { key: cur.key, pos: posParam(q), cids } : undefined, lines), 0);
+    return okWho(await loadSpans(p, keys, cur?.type === "tv" ? { key: cur.key, pos: q.get("s") == null ? null : posParam(q), cids } : undefined, lines), 0);
   } catch (e) { return failWho(e); }
 }

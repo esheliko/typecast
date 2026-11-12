@@ -105,8 +105,8 @@ export function More({ total, shown, all, toggle, noun = "", inline = false }: {
  * `undefined` means not loaded yet (draw a skeleton); `null` means TMDB has nothing usable. `cur` is the show being watched:
  * its dates come back clipped to the position, so nothing later is given away.
  */
-export function useSpans(pid: number, keys: string[], cur: { k: string; pos: Pos; cids: string[] } | null, page?: PageRef | null, reveal?: ReadonlySet<string>): { spans: Record<string, Span | null>; failed: boolean } {
-  const tok = `${pid}|${cur ? `${cur.k}|${posKey(cur.pos)}` : ""}`;
+export function useSpans(pid: number, keys: string[], cur: { k: string; pos: Pos | null; cids: string[] } | null, page?: PageRef | null, reveal?: ReadonlySet<string>): { spans: Record<string, Span | null>; failed: boolean } {
+  const tok = `${pid}|${cur ? `${cur.k}|${cur.pos ? posKey(cur.pos) : "all"}|${cur.cids.length}` : ""}`;
   const store = useRef<{ tok: string; data: Record<string, Span | null>; asked: Set<string> }>({ tok, data: {}, asked: new Set() });
   const [, bump] = useState(0);
   const [failed, setFailed] = useState(false);

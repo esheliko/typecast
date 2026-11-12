@@ -45,8 +45,8 @@ export const whoApi = {
   season: (tv: number, s: number, e?: number | null) => getJson<{ air: string; episodes: WhoEp[]; detail: WhoEpDetail | null }>(`/api/who/season?${q({ tv, s, e })}`),
   person: (id: number) => getJson<PersonData>(`/api/who/person?id=${id}`),
   /** `page` names the /watching title and its switch; `reveal` lists the keys whose spoiler line the reader lifted (this request only). */
-  spans: (p: number, keys: string[], cur?: { k: string; pos: Pos; cids: string[] } | null, line?: { page?: PageRef | null; reveal?: string[] }) =>
-    getJson<Record<string, Span | null>>(`/api/who/spans?${q({ p, keys: keys.join(","), cur: cur?.k, s: cur?.pos.s, e: cur?.pos.e, cids: cur?.cids.join(","), ...lineParams({ page: line?.page }), reveal: line?.reveal?.length ? line.reveal.join(",") : undefined })}`, LINE_TTL_MS),
+  spans: (p: number, keys: string[], cur?: { k: string; pos: Pos | null; cids: string[] } | null, line?: { page?: PageRef | null; reveal?: string[] }) =>
+    getJson<Record<string, Span | null>>(`/api/who/spans?${q({ p, keys: keys.join(","), cur: cur?.k, s: cur?.pos?.s, e: cur?.pos?.e, cids: cur?.cids.join(","), ...lineParams({ page: line?.page }), reveal: line?.reveal?.length ? line.reveal.join(",") : undefined })}`, LINE_TTL_MS),
   known: (ids: number[]) => getJson<{ known: Record<number, { top: KnownTitle[] }> }>(`/api/who/known?ids=${ids.join(",")}`),
   shared: (id: number, others: number[], cur: string) => getJson<{ shared: SharedBrief[] }>(`/api/who/shared?${q({ id, with: others.join(","), cur })}`),
   pair: (a: number, b: number) => getJson<{ a: PersonData; b: PersonData; titles: Shared[] }>(`/api/who/pair?a=${a}&b=${b}`),

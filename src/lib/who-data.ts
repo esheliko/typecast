@@ -272,23 +272,24 @@ async function creditEpisodes(cids: string[]): Promise<{ eps: CreditEp[]; season
  * whose dates are clipped to what has happened so far; `extraCids` are the credit ids the roster already knows for that show.
  * Films have no span: their date is the release date, already on the credit.
  */
-export async function loadSpans(personId: number, keys: string[], scope?: { key: string; pos: Pos; cids: string[] }, lines: Record<string, SpoilerLine> = {}): Promise<Record<string, Span | null>> {
+export async function loadSpans(personId: number, keys: string[], scope?: { key: string; pos: Pos | null; cids: string[] }, lines: Record<string, SpoilerLine> = {}): Promise<Record<string, Span | null>> {
   const p = await loadWhoPerson(personId);
   const wanted = keys.filter((k) => k.startsWith("tv:")).slice(0, 14);
   const res = await pool(wanted, 3, async (key) => {
     const c = p.credits.find((x) => x.key === key);
     const isScope = scope?.key === key;
+    const clip = isScope ? scope!.pos : null; // no position (spoilers shown): extra credit ids only, nothing is clipped
     const cids = [...new Set([...(c?.cids ?? []), ...(isScope ? scope!.cids : [])])];
     if (!c && !isScope) return null;
     // A series that is Watching in the library keeps a spoiler line (spoiler-line.ts): with no saved place there is no TMDB lookup at all, with
     // one only what is up to and including it. The show's own run (its end, whether it still airs) is never sent for it.
     const line = isScope ? undefined : lines[key];
     if (line && isHidden(line) && c) return spanUnderLine(key, line, c.eps ?? 0, line.kind === "upto" ? await creditEpisodes(c.cids).catch(() => ({ eps: [], seasons: [] })) : { eps: [], seasons: [] });
-    const [{ eps, seasons }, run] = await Promise.all([creditEpisodes(cids), isScope ? Promise.resolve(null) : showRun(Number(key.slice(3)))]);
+    const [{ eps, seasons }, run] = await Promise.all([creditEpisodes(cids), clip ? Promise.resolve(null) : showRun(Number(key.slice(3)))]);
     const expected = c?.eps ?? 0;
     // The show's own run is only needed when neither the person's episode list nor their seasons give dates.
-    const needRun = !isScope && !seasons.length && (eps.filter((x) => x.air).length === 0 || (expected > 0 && eps.filter((x) => x.air).length < expected));
-    const sp = spanFromEpisodes(key, eps, expected, needRun ? run : null, isScope ? scope!.pos : null, seasons);
+    const needRun = !clip && !seasons.length && (eps.filter((x) => x.air).length === 0 || (expected > 0 && eps.filter((x) => x.air).length < expected));
+    const sp = spanFromEpisodes(key, eps, expected, needRun ? run : null, clip, seasons);
     return sp && run ? { ...sp, show: run } : sp;
   });
   return Object.fromEntries(wanted.map((k, i) => [k, res[i]]));

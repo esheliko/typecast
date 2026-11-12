@@ -518,6 +518,12 @@ export async function getEpisodeImdbId(tv: number, s: number, e: number): Promis
 }
 
 /** Every episode of one season with its air date, guest stars and who directed and wrote it. Cached 6 hours (new episodes get dates). */
+/** The cast of one season of a series (TMDB aggregates per season), most episodes first. Cached a day. */
+export async function getSeasonCast(tv: number, s: number): Promise<CastMember[]> {
+  const d = await tmdb(`/tv/${tv}/season/${s}/aggregate_credits`, {}, 24 * HOUR);
+  return ((d.cast ?? []) as any[]).slice(0, 40).map((c) => member("tv", c));
+}
+
 export async function getSeason(tv: number, s: number, opts: { selves?: boolean } = {}): Promise<{ name: string; air: string; episodes: Episode[] }> {
   const d = await tmdb(`/tv/${tv}/season/${s}`, {}, 6 * HOUR);
   const crew = (x: any, jobs: string[]) => [...new Set<string>((x.crew ?? []).filter((c: any) => jobs.includes(c.job)).map((c: any) => c.name))].slice(0, 3);

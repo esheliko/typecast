@@ -12,7 +12,7 @@ import { byCast, byGender, groupWhoFaces, matchFaces, type CastFilter, type Gend
 import { RecentRow } from "./Trail";
 import { GlimpseButton } from "../Glimpse";
 import { castSpec, charOf, scopeSpec, withLibRoles } from "@/lib/glimpse";
-import { isOldTitle, sharedThenIds } from "@/lib/then-photo";
+import { sharedThenIds } from "@/lib/then-photo";
 import { useThen } from "./useThen";
 import { roleLabel } from "@/lib/roster";
 import { pickSeenIn, seenInText, type KnownTitle } from "@/lib/who-known";
@@ -76,7 +76,7 @@ export function Finder({ roster, loading, more, err, q, setQ, inputRef, recents,
 
   // "Then" photos: how each person looked in this title (the Glimpse "In the role" image search, cached 30 days server-side). Opt-in, only for older titles,
   // only the faces on screen, a few at a time. The tile keeps its box, so nothing moves; a face with no image keeps the profile photo.
-  const old = isOldTitle(brief.first, new Date().getFullYear());
+  const old = true; // the Now/Then switch is offered for every title, whatever its release date
   const [then, flipThen] = useThen();
   const [thenOk, setThenOk] = useState(true);
   const [thenRaw, setThenImg] = useState<Record<number, string | null>>({});
