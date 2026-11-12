@@ -19,7 +19,6 @@ import { whoApi } from "@/lib/who-client";
 import { showRunLabel } from "@/lib/who-spans";
 import { posCode, posLabel, scopeKind } from "@/lib/who-scope";
 import { castSpec, charOf, creditSpec, scopeSpec, withLibRoles } from "@/lib/glimpse";
-import { isOldTitle } from "@/lib/then-photo";
 import { useThen } from "./useThen";
 import type { PCredit, PersonData, Range, Span } from "@/lib/who-types";
 import type { SharedBrief } from "@/lib/who-data";
@@ -186,7 +185,7 @@ export function PersonNode({ node }: { node: PNode }) {
 
   // Same as the cast faces: the character note for this person in the watched title, and the opt-in "Then" photo (shares the Finder's switch and the 30-day image cache).
   const [thenOn] = useThen();
-  const old = isOldTitle(brief.first, new Date().getFullYear());
+  const old = true; // the Now/Then switch is offered for every title, whatever its release date
   const hereQ = face ? castSpec(node.name, face.role, { title: brief.title, year: brief.year, type: brief.type, key: brief.key }, "Acting", node.id) : null;
   const hereSpec = hereQ ? scopeSpec(withLibRoles(hereQ, node.name), { key: brief.key, title: brief.title, clip, spoilers }) : null;
   const thenQ = hereQ?.tabs[0].q;
