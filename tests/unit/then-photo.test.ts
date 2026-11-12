@@ -63,12 +63,12 @@ test("strict pick skips a candidate whose pixels cannot be read, and re-hosted c
 });
 
 // Real Serper rows (checked live): the first hit was IMDb's own headshot, the role pictures came after it.
-test("real results: IMDb character page beats the headshot and the TVmaze thumbnail", () => {
+test("real results: IMDb character page is never a Then photo (it is a poster collage); the TVmaze thumbnail still is", () => {
   const w = { actor: "Tamyra Gray", char: "3Eyez", title: "The Rookie" };
   const head = { thumb: "h", page: "https://www.imdb.com/name/nm1223951/", title: "Tamyra Gray - IMDb", w: 1000, h: 1455 };
   const role = { thumb: "r", page: "https://www.imdb.com/title/tt7587890/characters/nm1223951/", title: "The Rookie (TV Series 2018– ) - Tamyra Gray as 3Eyez - IMDb", w: 380, h: 214 };
   const tvm = { thumb: "t", page: "https://www.tvmaze.com/characters/855231/the-rookie-3eyez", title: "3Eyez - The Rookie | TVmaze", w: 210, h: 295 };
-  assert.deepEqual(rankThenImages([head, tvm, role], w).map((x) => x.thumb), ["r", "t"]);
+  assert.deepEqual(rankThenImages([head, tvm, role], w).map((x) => x.thumb), ["t"]);
 });
 test("real results: an actor's own wiki page is a portrait, a generic title gallery ranks below the actor's tagged page", () => {
   const w = { actor: "Melissa O'Neil", char: "Lucy Chen", title: "The Rookie" };
@@ -78,7 +78,7 @@ test("real results: an actor's own wiki page is a portrait, a generic title gall
   const w2 = { actor: "Lisa Arturo", char: "Cindy", title: "American Pie 2" };
   const gal = { thumb: "g", page: "https://www.imdb.com/title/tt0252866/mediaviewer/rm3535959808/", title: "American Pie 2 (2001)", w: 1437, h: 783 };
   const tag = { thumb: "c", page: "https://www.imdb.com/title/tt0252866/characters/nm0037970/", title: "American Pie 2 (2001) - Lisa Arturo as Amber - IMDb", w: 1439, h: 779 };
-  assert.ok(thenScore(tag, w2) >= thenScore(gal, w2));
+  assert.ok(thenScore(tag, w2) < thenScore(gal, w2)); // IMDb's "Actor as Character" page shows unrelated artwork under the character's name
 });
 
 test("a picture with no tie to the role (another film's poster) is never a Then photo, even when nothing better is left", () => {
@@ -89,17 +89,17 @@ test("a picture with no tie to the role (another film's poster) is never a Then 
   assert.deepEqual(rankThenImages([vq], w), []);
   const montage = { thumb: "m", page: "https://www.example.com/tamyra-gray-movies-and-tv-shows-the-rookie", title: "Tamyra Gray movies and TV: The Rookie, VisionQuest", w: 900, h: 900 };
   const scene = { thumb: "s", page: "https://www.tvline.com/the-rookie-season-4", title: "The Rookie season 4 episode 8", w: 1000, h: 560 };
-  assert.deepEqual(rankThenImages([vq, poster, montage, scene, role], w).map((x) => x.thumb), ["r"]); // a scene naming only the show could be anyone in it
+  assert.deepEqual(rankThenImages([vq, poster, montage, scene, role], w).map((x) => x.thumb), []); // a scene naming only the show could be anyone in it; IMDb's character page is artwork
   const named = { thumb: "n", page: "https://www.tvline.com/the-rookie-season-4", title: "The Rookie season 4: Tamyra Gray episode 8", w: 1000, h: 560 };
-  assert.deepEqual(rankThenImages([scene, named, role], w).map((x) => x.thumb), ["r", "n"]);
-  assert.ok(thenScore(role, w) > thenScore(poster, w));
+  assert.deepEqual(rankThenImages([scene, named, role], w).map((x) => x.thumb), ["n"]);
 });
 
-test("real case: IMDb's tagged page also serves a tall 'known for' poster collage under the same title; only its landscape stills count", () => {
+test("real case: IMDb's character page serves a 'known for' poster collage (wide or tall) and key art under the character's name; none of it counts", () => {
   const w = { actor: "Tamyra Gray", char: "3Eyez", title: "The Rookie" };
   const page = "https://www.imdb.com/title/tt7587890/characters/nm1223951/", title = "The Rookie (TV Series 2018– ) - Tamyra Gray as 3Eyez - IMDb";
   const collage = { thumb: "c", page, title, w: 1000, h: 1250 }, still = { thumb: "s", page, title, w: 380, h: 214 }, art = { thumb: "a", page, title, w: 1350, h: 1688 };
-  assert.deepEqual(rankThenImages([collage, art, still], w).map((x) => x.thumb), ["s"]);
+  const wide = { thumb: "w", page, title, w: 480, h: 270 }; // the wide three-poster collage seen on Google for Linara Washington as Alice Hicks
+  assert.deepEqual(rankThenImages([collage, art, still, wide], w).map((x) => x.thumb), []);
 });
 
 test("a generic role ('Kidnapper 1') is not evidence: another man's scene from the same show must not become Then", () => {
