@@ -13,9 +13,9 @@ import type { CastMember, EnrichedMember } from "@/lib/types";
 /** `light` rows (the long tail of a series cast, shown when searched) skip the other-credits lookup. */
 export function CreditRow({ c, title, pending, tv, light, hidden }: {
   c: EnrichedMember; libKeys?: Record<string, string>; title?: { title: string; year?: string | number; type: string }; pending?: boolean;
-  tv?: { id: number; episodes: number }; light?: boolean; hidden?: boolean;
+  tv?: { id: number; episodes: number; /** A series that is Watching: no episode count next to the name. */ hold?: boolean }; light?: boolean; hidden?: boolean;
 }) {
-  const eps = tv ? epsLabel(c.eps, tv.episodes) : "";
+  const eps = tv && !tv.hold ? epsLabel(c.eps, tv.episodes) : "";
   return (
     <li className={`credit has-gl${light ? " extra" : ""}`} hidden={hidden} data-q={`${c.name} ${c.role}`.toLowerCase()}>
       <span className="credit-gl"><GlimpseButton spec={castSpec(c.name, c.role, title, undefined, c.id)} label={title && c.role ? `About ${c.name} as ${c.role}: the role and images` : undefined} /></span>

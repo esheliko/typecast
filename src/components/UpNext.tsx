@@ -110,8 +110,8 @@ export default function UpNext({ picks: all, services, prefs }: { picks: Pick[];
               {p.go && p.length && <span className="mono upnext-len">{p.length}</span>}
               {p.kind === "still" && (
                 <span className="upnext-ask">
-                  <button type="button" onClick={() => snooze(p.key)}>Keep</button>
-                  <button type="button" onClick={() => toPartly(p)}>Move to Partly watched</button>
+                  <button type="button" title="Keep watching: ask again in a month" onClick={() => snooze(p.key)}>Keep</button>
+                  <button type="button" aria-label="Move to Partly watched" title="Move to Partly watched" onClick={() => toPartly(p)}>Move to Partly</button>
                 </span>
               )}
               <button type="button" className="upnext-x" aria-label={`Not now: ${p.title}`} title="Not now (hide for a month)" onClick={() => snooze(p.key)}>×</button>

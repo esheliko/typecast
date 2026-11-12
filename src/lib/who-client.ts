@@ -11,14 +11,18 @@ import { lineParams } from "./spoiler-line";
  */
 const mem = new Map<string, { t: number; p: Promise<unknown> }>();
 
-/** Library-aware answers (a series under a spoiler line, docs/features/spoilers.md) are kept this long: the saved place moves as the user ticks episodes and this cache cannot see it. */
-export const LINE_TTL_MS = 30_000;
-
 /** Is a cached answer still good? No `ttl` means for the whole session. Pure; unit tested. */
 export const fresh = (t: number, now: number, ttl?: number): boolean => ttl === undefined || now - t < ttl;
 
-export function getJson<T>(url: string, ttl?: number): Promise<T> {
-  const hit = mem.get(url);
+/**
+ * `tag` is what the server decided the answer from besides the URL: the spoiler line of each title asked about (`lineTags`, spoiler-line.ts). The browser knows the
+ * saved place (`Mark.progress`), so a moved place is another cache entry and no short TTL is needed (docs/features/spoilers.md).
+ */
+export const cacheKey = (url: string, tag?: string): string => (tag ? `${url}#${tag}` : url);
+
+export function getJson<T>(url: string, ttl?: number, tag?: string): Promise<T> {
+  const key = cacheKey(url, tag);
+  const hit = mem.get(key);
   if (hit && fresh(hit.t, Date.now(), ttl)) return hit.p as Promise<T>;
   const p = fetch(url).then(async (r) => {
     const j = await r.json().catch(() => ({}));
@@ -26,8 +30,8 @@ export function getJson<T>(url: string, ttl?: number): Promise<T> {
     return j as T;
   });
   const entry = { t: Date.now(), p };
-  mem.set(url, entry);
-  p.catch(() => { if (mem.get(url) === entry) mem.delete(url); });
+  mem.set(key, entry);
+  p.catch(() => { if (mem.get(key) === entry) mem.delete(key); });
   if (mem.size > 400) mem.delete(mem.keys().next().value!);
   return p;
 }
@@ -44,13 +48,13 @@ export const whoApi = {
   roster: (k: string, pos: Pos | null, fast = false) => getJson<WhoRoster>(`/api/who/roster?${q({ k, s: pos?.s, e: pos?.e, fast: fast ? 1 : undefined })}`),
   season: (tv: number, s: number, e?: number | null) => getJson<{ air: string; episodes: WhoEp[]; detail: WhoEpDetail | null }>(`/api/who/season?${q({ tv, s, e })}`),
   person: (id: number) => getJson<PersonData>(`/api/who/person?id=${id}`),
-  /** `page` names the /watching title and its switch; `reveal` lists the keys whose spoiler line the reader lifted (this request only). */
-  spans: (p: number, keys: string[], cur?: { k: string; pos: Pos | null; cids: string[] } | null, line?: { page?: PageRef | null; reveal?: string[] }) =>
-    getJson<Record<string, Span | null>>(`/api/who/spans?${q({ p, keys: keys.join(","), cur: cur?.k, s: cur?.pos?.s, e: cur?.pos?.e, cids: cur?.cids.join(","), ...lineParams({ page: line?.page }), reveal: line?.reveal?.length ? line.reveal.join(",") : undefined })}`, LINE_TTL_MS),
+  /** `page` names the /watching title and its switch; `reveal` lists the keys whose spoiler line the reader lifted (this request only); `tag` is `lineTags` of the keys asked (the cache key). */
+  spans: (p: number, keys: string[], cur?: { k: string; pos: Pos | null; cids: string[] } | null, line?: { page?: PageRef | null; reveal?: string[]; tag?: string }) =>
+    getJson<Record<string, Span | null>>(`/api/who/spans?${q({ p, keys: keys.join(","), cur: cur?.k, s: cur?.pos?.s, e: cur?.pos?.e, cids: cur?.cids.join(","), ...lineParams({ page: line?.page }), reveal: line?.reveal?.length ? line.reveal.join(",") : undefined })}`, undefined, line?.tag),
   known: (ids: number[]) => getJson<{ known: Record<number, { top: KnownTitle[] }> }>(`/api/who/known?ids=${ids.join(",")}`),
   shared: (id: number, others: number[], cur: string) => getJson<{ shared: SharedBrief[] }>(`/api/who/shared?${q({ id, with: others.join(","), cur })}`),
   pair: (a: number, b: number) => getJson<{ a: PersonData; b: PersonData; titles: Shared[] }>(`/api/who/pair?a=${a}&b=${b}`),
-  title: (k: string, line?: { page?: PageRef | null; reveal?: boolean }) => getJson<TitleNode>(`/api/who/title?${q({ k, ...lineParams({ page: line?.page, reveal: line?.reveal }) })}`, LINE_TTL_MS),
+  title: (k: string, line?: { page?: PageRef | null; reveal?: boolean; tag?: string }) => getJson<TitleNode>(`/api/who/title?${q({ k, ...lineParams({ page: line?.page, reveal: line?.reveal }) })}`, undefined, line?.tag),
   common: (query: string, k: string, pos: Pos | null) => getJson<{ titles: FoundTitle[] }>(`/api/who/common?${q({ q: query, k, s: pos?.s, e: pos?.e })}`),
 };
 

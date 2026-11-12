@@ -564,4 +564,52 @@ test.describe("behaviour (signed in)", () => {
     const after = await rowOf(sb, userId, "tv", bb.tmdb_id);
     expect(after).toEqual(before);
   });
+  // Step 4B-1 (docs/features/spoilers.md): the browser knows the saved place (`Mark.progress`), so moving it changes what the page tells without a reload (the popup-over-/watching switch is a manual QA view, see the doc). Breaking Bad is seeded Watching at S2 E3. NOT RUN by the author (shared smoke user): needs the lock.
+  test("spoiler line: ticking an episode moves the line on screen with no reload", async ({ page }) => {
+    const { sb, userId } = await smokeClient();
+    const bb = SEED.find((r) => r.tmdb_id === 1396)!;
+    const before = await rowOf(sb, userId, "tv", bb.tmdb_id);
+    await page.goto(`/title/tv/${bb.tmdb_id}?full=1`);
+    const gate = page.getByRole("group", { name: /Spoilers hidden for Breaking Bad/ }).first();
+    await expect(gate).toBeVisible({ timeout: 30_000 });
+    // Tick S2 E5: the saved place moves; E5 (and E4) are now told, E6 is still held back, all without a page load.
+    const row = (n: number) => page.locator(`li.ep[data-ep="${n}"] .ep-name`);
+    expect(await row(5).innerText()).toBe("Episode 5");
+    await page.getByRole("button", { name: "Mark watched up to S2 E5" }).click();
+    await expect(row(5)).not.toHaveText("Episode 5", { timeout: 30_000 });
+    await expect(row(4)).not.toHaveText("Episode 4");
+    await expect(row(6)).toHaveText("Episode 6");
+    // Back to where it was (unticking a tick steps back one episode: E5 -> E4 -> E3): E5 and E4 are held back again.
+    await page.getByRole("button", { name: /Watched S2 E5\. Tap to untick/ }).click();
+    await expect(row(5)).toHaveText("Episode 5", { timeout: 30_000 });
+    await page.getByRole("button", { name: /Watched S2 E4\. Tap to untick/ }).click();
+    await expect(row(4)).toHaveText("Episode 4", { timeout: 30_000 });
+    // setWatchedUpTo legitimately writes poster_path and updated_at: only the status and the place must be as found.
+    const pick = (r: Awaited<ReturnType<typeof rowOf>>) => { const x = r as (typeof r & { progress_season?: number | null; progress_episode?: number | null }) | null; return { status: x?.status, s: x?.progress_season, e: x?.progress_episode }; };
+    expect(pick(await rowOf(sb, userId, "tv", bb.tmdb_id))).toEqual(pick(before));
+  });
+
+  // Step 4B-2 (docs/features/spoilers.md): credits of a person who is in a Watching series. Bryan Cranston (TMDB person 17419) is in Breaking Bad, seeded Watching.
+  // NOT RUN by the author (shared smoke user): needs the lock.
+  test("spoiler line: a person's credits give no episode count for a Watching series, and Seen in does not count it", async ({ page }) => {
+    const bb = SEED.find((r) => r.tmdb_id === 1396)!, got = SEED.find((r) => r.tmdb_id === 1399)!;
+    type P = { credits: { key: string; eps: number; cids: string[]; hidden?: { kind: string } }[] };
+    const person = async (extra = "") => (await (await page.request.get(`/api/who/person?id=17419${extra}`)).json()) as P;
+    const held = (await person()).credits.find((c) => c.key === `tv:${bb.tmdb_id}`)!;
+    expect([held.eps, held.cids.length, !!held.hidden]).toEqual([0, 0, true]);
+    // The page's own title and Show (reveal) lift it; a Watched series is never held back.
+    expect((await person(`&pg=tv-${bb.tmdb_id}`)).credits.find((c) => c.key === `tv:${bb.tmdb_id}`)?.hidden).toBeUndefined();
+    expect((await person("&reveal=1")).credits.find((c) => c.key === `tv:${bb.tmdb_id}`)?.eps).toBeGreaterThan(0);
+    expect((await person()).credits.find((c) => c.key === `tv:${got.tmdb_id}`)?.hidden).toBeUndefined();
+    // Season cast (title popup "Cast by season"): no per-person episode counts for the held-back series, counts for a Watched one.
+    const sc = async (id: number) => (await (await page.request.get(`/api/season-cast?tv=${id}&s=1`)).json()) as { eps?: number }[];
+    expect((await sc(bb.tmdb_id)).some((c) => c.eps)).toBe(false);
+    expect((await sc(got.tmdb_id)).some((c) => c.eps)).toBe(true);
+    // Finder tile: on a title Bryan Cranston is in (not Breaking Bad), his tile does not say "in Breaking Bad" (Watching is not "seen" there). Check by hand in QA:
+    //   open /watching on a series he is in, find his tile: no "... in Breaking Bad" line; his person node "You know them from" shows the
+    //   "Spoilers hidden for Breaking Bad" row, and Show reveals the role and dates for that row only.
+    // Title popup credit rows: opening a cast member's row on another title lists Breaking Bad without "N eps": no "ep(s)" text on that row.
+    await page.goto(`/title/tv/${bb.tmdb_id}?full=1`);
+    await expect(page.locator(".credit .role .eps")).toHaveCount(0, { timeout: 30_000 });
+  });
 });

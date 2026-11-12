@@ -2,6 +2,8 @@
 import { useEffect, useRef, useState } from "react";
 import { img } from "@/lib/img";
 import { posKey, whoApi, type PageRef } from "@/lib/who-client";
+import { useLib } from "../cast/LibState";
+import { NONE, lineTag, lineTags, markLine, type SpoilerLine } from "@/lib/spoiler-line";
 import { useWho } from "./WhoContext";
 import type { Pos, Span } from "@/lib/who-types";
 
@@ -114,7 +116,7 @@ export function useSpans(pid: number, keys: string[], cur: { k: string; pos: Pos
     // Same person, another position: only the show being watched changes, so every other row keeps its dates (no flash of skeletons).
     const same = store.current.tok.split("|")[0] === String(pid);
     const old = store.current;
-    store.current = { tok, data: same ? Object.fromEntries(Object.entries(old.data).filter(([k]) => k !== cur?.k)) : {}, asked: same ? new Set([...old.asked].filter((k) => k !== cur?.k)) : new Set() };
+    store.current = { tok, data: same ? Object.fromEntries(Object.entries(old.data).filter(([k]) => k !== cur?.k)) : {}, asked: same ? new Set([...old.asked].filter((k) => k.split("@")[0] !== cur?.k)) : new Set() };
   }
   const joined = keys.filter((k) => k.startsWith("tv:")).join(",");
   const curRef = useRef(cur); curRef.current = cur;
@@ -122,9 +124,14 @@ export function useSpans(pid: number, keys: string[], cur: { k: string; pos: Pos
   const pageRef = useRef(page); pageRef.current = page;
   const revealRef = useRef(reveal); revealRef.current = reveal;
   const revealTok = reveal ? [...reveal].sort().join(",") : "";
+  // Each row's spoiler line, from the saved place the library marks carry: a row is asked again when its line moves, and the answer is cached under it.
+  const lib = useLib();
+  const lineOfRef = useRef<(k: string) => SpoilerLine>(() => NONE);
+  lineOfRef.current = (k) => markLine(k, lib.get(k), { page: pageRef.current ? { key: pageRef.current.key, spoilersShown: pageRef.current.spoilersShown } : null, revealed: !!revealRef.current?.has(k) });
+  const lineTok = lineTags(joined.split(",").filter(Boolean), lineOfRef.current);
   useEffect(() => {
     const st = store.current;
-    const ask = (k: string) => (revealRef.current?.has(k) ? `${k}!` : k);
+    const ask = (k: string) => `${k}@${lineTag(lineOfRef.current(k))}${revealRef.current?.has(k) ? "!" : ""}`;
     const need = joined.split(",").filter((k) => k && !st.asked.has(ask(k)));
     if (!need.length) return;
     const names = need.map(ask);
@@ -136,14 +143,14 @@ export function useSpans(pid: number, keys: string[], cur: { k: string; pos: Pos
     const run = async () => {
       for (let c = next++; c < chunks.length; c = next++) {
         try {
-          const r = await whoApi.spans(pid, chunks[c], curRef.current, { page: pageRef.current, reveal: chunks[c].filter((k) => revealRef.current?.has(k)) });
+          const r = await whoApi.spans(pid, chunks[c], curRef.current, { page: pageRef.current, reveal: chunks[c].filter((k) => revealRef.current?.has(k)), tag: lineTags(chunks[c], lineOfRef.current) });
           if (alive && store.current === st) { st.data = { ...st.data, ...r }; bump((n) => n + 1); }
         } catch { if (alive) { st.data = { ...st.data, ...Object.fromEntries(chunks[c].map((k) => [k, null])) }; setFailed(true); bump((n) => n + 1); } }
       }
     };
     void Promise.all([run(), run()]);
     return () => { alive = false; need.forEach((k, i) => { if (!(k in st.data)) st.asked.delete(names[i]); }); };
-  }, [pid, joined, tok, revealTok]);
+  }, [pid, joined, tok, revealTok, lineTok]);
   return { spans: store.current.data, failed };
 }
 

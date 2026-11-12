@@ -5,7 +5,8 @@ import { CreditRow } from "./CreditRow";
 import { aired, airsLabel, epCode, fmtDate, nextAfter, plural, prevEpisode, untilLabel, upTo } from "@/lib/episodes";
 import { useLib } from "./cast/LibState";
 import { SpoilerGate } from "./SpoilerGate";
-import type { HiddenLine } from "@/lib/spoiler-line";
+import { lineCacheKey, lineParams, markLine, pageFor, type HiddenLine, type SpoilerLine } from "@/lib/spoiler-line";
+import { usePageLine } from "./PageLine";
 import { img } from "@/lib/img";
 import type { EnrichedMember, Episode, EpisodeLite, Status } from "@/lib/types";
 
@@ -13,19 +14,21 @@ interface Season { name: string; air: string; episodes: (Episode & { hidden?: tr
 interface EpCast { guests: EnrichedMember[]; cast: EnrichedMember[] }
 
 const seasonCache = new Map<string, Promise<Season>>();
-/** `lk` is where the saved place was when this was asked (the server decides from the library; it only keeps an answer for one place apart from the next), `reveal` the gate's Show. */
-function loadSeason(tv: number, s: number, lk: string, reveal: boolean): Promise<Season> {
-  const k = `${tv}:${s}:${lk}${reveal ? ":!" : ""}`;
+/**
+ * `line` is the spoiler line the browser expects the server to use for this series (the saved place is in `Mark.progress`), `page` the /watching page when its
+ * switch shows spoilers for this very title, `reveal` the gate's Show: together the exact cache key and the request, so a moved place is simply another entry.
+ */
+function loadSeason(tv: number, s: number, line: SpoilerLine, page: { key: string; spoilersShown: boolean } | null, reveal: boolean): Promise<Season> {
+  const k = `${tv}:${s}:${lineCacheKey({ page, reveal, line })}`;
   let p = seasonCache.get(k);
   if (!p) {
-    p = fetch(`/api/season?tv=${tv}&s=${s}${reveal ? "&reveal=1" : ""}`).then(async (r) => { if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error ?? "Could not load this season."); return r.json(); });
+    const extra = new URLSearchParams(lineParams({ page, reveal })).toString();
+    p = fetch(`/api/season?tv=${tv}&s=${s}${extra ? `&${extra}` : ""}`).then(async (r) => { if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error ?? "Could not load this season."); return r.json(); });
     p.catch(() => seasonCache.delete(k));
     seasonCache.set(k, p);
   }
   return p;
 }
-/** The place the server's line is built from, as a cache key: "n" when the series is not Watching, "s" with no place. */
-const placeKey = (p: { s: number; e: number } | null, st: Status | null) => (st !== "watching" ? "n" : p ? `${p.s}.${p.e}` : "s");
 
 type P = { s: number; e: number } | null;
 const light = (c: EnrichedMember | Episode["guests"][number]): EnrichedMember => ({ hits: [], also: [], top: [], ...c });
@@ -56,8 +59,13 @@ export default function Episodes({ item, seasons, progress, status, today, ended
   const [st, setSt] = useState(status);
   const [s, setS] = useState(() => startSeason(seasons, progress));
   const [data, setData] = useState<Season | null>(null);
-  // Where the SAVED place is (updated once a save has landed, not while it is in flight): the key the season answers are cached under.
-  const [lk, setLk] = useState(() => placeKey(progress, status));
+  // The saved place is in the library marks (set only once a save has landed, never while it is in flight): the line, and so the cache key, follow it exactly.
+  const pageCtx = usePageLine();
+  const tvKey = `tv:${item.id}`;
+  const reqPage = pageFor(pageCtx, tvKey);
+  const line = markLine(tvKey, lib.get(tvKey), { page: reqPage });
+  const lineRef = useRef(line); lineRef.current = line;
+  const lineTagKey = lineCacheKey({ page: reqPage, line });
   // Seasons whose gate was opened with Show: this view only, nothing is saved.
   const [shown, setShown] = useState<ReadonlySet<number>>(new Set());
   const lastSeason = useRef("");
@@ -75,9 +83,11 @@ export default function Episodes({ item, seasons, progress, status, today, ended
     const here = `${item.id}:${s}`;
     if (lastSeason.current !== here) { lastSeason.current = here; setData(null); }
     setErr("");
-    loadSeason(item.id, s, lk, shown.has(s)).then((d) => { if (live) setData(d); }, (e: Error) => { if (live) setErr(e.message); });
+    loadSeason(item.id, s, lineRef.current, reqPage, shown.has(s)).then((d) => { if (live) setData(d); }, (e: Error) => { if (live) setErr(e.message); });
     return () => { live = false; };
-  }, [item.id, s, lk, shown]);
+    // `lineTagKey` stands for the line and the page: the effect reruns exactly when the question changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [item.id, s, lineTagKey, shown]);
 
   // Once the asked-for episode is on screen, open it and bring it into view.
   useEffect(() => {
@@ -105,7 +115,7 @@ export default function Episodes({ item, seasons, progress, status, today, ended
     try {
       const now = await setWatchedUpTo(item, to?.s ?? 1, to?.e ?? 0);
       setSt(now);
-      setLk(placeKey(to, now));
+      lib.setPlace(tvKey, to, now);
       setUndo(offerUndo ? { to: before } : null);
       lib.touch();
     } catch { setP(before); setSt(beforeSt); setFail("Could not save. Check your connection and try again."); }
@@ -192,7 +202,7 @@ export default function Episodes({ item, seasons, progress, status, today, ended
                     onClick={() => (seen ? untick(x) : markUpTo(x))}>✓</button>
                 )}
                 {isOpen && x.hidden && <div className="ep-panel"><p className="small muted" style={{ margin: 0 }}>The plot, crew and guest stars of {epCode(x.s, x.e)} are hidden. Use Show above to see this season.</p></div>}
-                {isOpen && !x.hidden && <EpisodePanel tv={item.id} x={x} mine={!!p && p.s === x.s && p.e === x.e} canMark={out} saving={saving} onMark={() => markUpTo(x)} status={st} />}
+                {isOpen && !x.hidden && <EpisodePanel tv={item.id} x={x} mine={!!p && p.s === x.s && p.e === x.e} canMark={out} saving={saving} onMark={() => markUpTo(x)} status={st} lk={lineTagKey} page={reqPage} />}
               </li>
             );
           })}
@@ -203,11 +213,12 @@ export default function Episodes({ item, seasons, progress, status, today, ended
 }
 
 const castCache = new Map<string, Promise<EpCast>>();
-function loadCast(tv: number, s: number, e: number): Promise<EpCast> {
-  const k = `${tv}:${s}:${e}`;
+function loadCast(tv: number, s: number, e: number, lk: string, page: { key: string; spoilersShown: boolean } | null): Promise<EpCast> {
+  const k = `${tv}:${s}:${e}:${lk}`;
   let p = castCache.get(k);
   if (!p) {
-    p = fetch(`/api/episode?tv=${tv}&s=${s}&e=${e}`).then(async (r) => { if (!r.ok) throw new Error("lookup failed"); return r.json(); });
+    const extra = new URLSearchParams(lineParams({ page })).toString();
+    p = fetch(`/api/episode?tv=${tv}&s=${s}&e=${e}${extra ? `&${extra}` : ""}`).then(async (r) => { if (!r.ok) throw new Error("lookup failed"); return r.json(); });
     p.catch(() => castCache.delete(k));
     castCache.set(k, p);
   }
@@ -215,13 +226,15 @@ function loadCast(tv: number, s: number, e: number): Promise<EpCast> {
 }
 
 /** One opened episode: still, plot, director and writers, guest stars (where you know them from fills in), and the progress button. */
-function EpisodePanel({ tv, x, mine, canMark, saving, onMark, status }: { tv: number; x: Episode; mine: boolean; canMark: boolean; saving: boolean; onMark: () => void; status: Status | null }) {
+function EpisodePanel({ tv, x, mine, canMark, saving, onMark, status, lk, page }: { lk: string; page: { key: string; spoilersShown: boolean } | null; tv: number; x: Episode; mine: boolean; canMark: boolean; saving: boolean; onMark: () => void; status: Status | null }) {
   const [cast, setCast] = useState<EpCast | null>(null);
   useEffect(() => {
     let live = true;
-    loadCast(tv, x.s, x.e).then((c) => { if (live) setCast(c); }, () => { /* keep the plain guest list */ });
+    loadCast(tv, x.s, x.e, lk, page).then((c) => { if (live) setCast(c); }, () => { /* keep the plain guest list */ });
     return () => { live = false; };
-  }, [tv, x.s, x.e]);
+    // `lk` stands for the line and the page.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tv, x.s, x.e, lk]);
   const byId = new Map((cast?.guests ?? []).map((g) => [g.id, g]));
   const guests = x.guests.length ? x.guests.map((g) => ({ ...light(g), ...byId.get(g.id), credits: g.credits })) : (cast?.guests ?? []);
   const regulars = cast?.cast.filter((c) => !guests.some((g) => g.id === c.id)) ?? [];

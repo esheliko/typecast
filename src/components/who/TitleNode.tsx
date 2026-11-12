@@ -13,6 +13,7 @@ import { roleLabel } from "@/lib/roster";
 import { fmtRange } from "@/lib/who-dates";
 import { fmtDate } from "@/lib/episodes";
 import { whoApi, type PageRef } from "@/lib/who-client";
+import { lineTag, markLine } from "@/lib/spoiler-line";
 import { markLabel, type Item } from "@/lib/types";
 import { urlKey } from "@/lib/who-scope";
 import type { GlimpseSpec } from "@/lib/glimpse";
@@ -36,14 +37,18 @@ export function TitleNode({ node }: { node: TNode }) {
   const [revealed, setRevealed] = useState(false);
   const page = useMemo(() => ({ key: cur.key, spoilersShown: spoilers }), [cur.key, spoilers]);
   const revealSet = useMemo<ReadonlySet<string>>(() => (revealed ? new Set([node.key]) : new Set<string>()), [revealed, node.key]);
+  const lineNow = markLine(node.key, lib.get(node.key), { page, revealed });
+  const lineTagNow = lineTag(lineNow);
   const type = node.key.startsWith("tv:") ? "tv" : "movie";
   const id = Number(node.key.slice(node.key.indexOf(":") + 1));
   useEffect(() => {
     let live = true;
     setErr(false);
-    whoApi.title(urlKey(node.key), { page, reveal: revealed }).then((d) => { if (live) setData(d); }).catch(() => { if (live) setErr(true); });
+    whoApi.title(urlKey(node.key), { page, reveal: revealed, tag: lineTag(lineNow) }).then((d) => { if (live) setData(d); }).catch(() => { if (live) setErr(true); });
     return () => { live = false; };
-  }, [node.key, page, revealed]);
+    // `lineTagNow` stands for the saved place: the title is asked again when it moves.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [node.key, page, revealed, lineTagNow]);
   useEffect(() => { setData(null); setRevealed(false); }, [node.key]);
 
   const it: Item = { key: node.key, type, id, title: node.title, year: node.year, poster: node.poster };
@@ -72,7 +77,7 @@ export function TitleNode({ node }: { node: TNode }) {
         </div>
       </header>
 
-      {err && <Soft>Couldn&rsquo;t load this title just now. <button type="button" className="linkish" onClick={() => { setErr(false); whoApi.title(urlKey(node.key), { page, reveal: revealed }).then(setData).catch(() => setErr(true)); }}>Try again</button></Soft>}
+      {err && <Soft>Couldn&rsquo;t load this title just now. <button type="button" className="linkish" onClick={() => { setErr(false); whoApi.title(urlKey(node.key), { page, reveal: revealed, tag: lineTagNow }).then(setData).catch(() => setErr(true)); }}>Try again</button></Soft>}
 
       {data?.hidden && <SpoilerGate title={node.title} hidden={data.hidden} what="end date and later dates" hintKey={node.key} placeHref={`/watching?k=${urlKey(node.key)}`} onShow={() => setRevealed(true)} />}
 

@@ -34,7 +34,7 @@ export function useSavedPlace(item: Item, runtime: number | null, seasons: { n: 
     const prior = saved.current;
     saved.current = to;
     (to ? setProgress(it.type, it.id, to.s, to.e) : clearProgress(it.type, it.id))
-      .then(() => l.touch()).catch(() => { saved.current = prior; });
+      .then(() => { l.touch(); l.setPlace(it.key, to); }).catch(() => { saved.current = prior; });
   }, []);
 
   const flush = useCallback(() => {
@@ -46,7 +46,7 @@ export function useSavedPlace(item: Item, runtime: number | null, seasons: { n: 
     const prior = saved.current;
     saved.current = p.write;
     setProgress(it.type, it.id, p.write.s, p.write.e).then(() => {
-      l.touch(); refreshPartly(it.key);
+      l.touch(); l.setPlace(it.key, p.write); refreshPartly(it.key);
       if (p.jump) l.notify(`Place saved: S${p.place.s} E${p.place.e}`, () => restore(prior));
     }).catch(() => { saved.current = prior; /* a place is a convenience: the next change tries again */ });
   }, [restore]);
@@ -80,7 +80,7 @@ export function useSavedPlace(item: Item, runtime: number | null, seasons: { n: 
     const engaged = w ? w.signal(it, rt, to ?? from) : Promise.resolve(true);
     engaged.then((ok) => {
       if (!ok) { saved.current = prior; return; }
-      if (write) return setProgress(it.type, it.id, write.s, write.e).then(() => { l.touch(); l.notify(`S${from.s} E${from.e} marked watched`, () => restore(prior)); }).catch(() => { saved.current = prior; });
+      if (write) return setProgress(it.type, it.id, write.s, write.e).then(() => { l.touch(); l.setPlace(it.key, write); l.notify(`S${from.s} E${from.e} marked watched`, () => restore(prior)); }).catch(() => { saved.current = prior; });
     }).catch(() => { saved.current = prior; });
     refreshPartly(it.key);
   }, [restore]);

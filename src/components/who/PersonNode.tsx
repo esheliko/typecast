@@ -5,6 +5,7 @@ import { SpoilerGate } from "../SpoilerGate";
 import { urlKey } from "@/lib/who-scope";
 import type { HiddenLine } from "@/lib/spoiler-line";
 import { KindSeg } from "../KindSeg";
+import { isWatchingSeries } from "@/lib/spoiler-mask";
 import { GlimpseButton } from "../Glimpse";
 import { PersonLink } from "../Modal";
 import { More, Photo, Section, SEEN_STATUS, Sk, Soft, useLimit, useSpans } from "./bits";
@@ -277,18 +278,22 @@ export function PersonNode({ node }: { node: PNode }) {
           const w = whenRow(c);
           const st = lib.get(c.key)?.status;
           const n = epsIn(c, spansEff[c.key]);
+          // A series that is Watching keeps its spoiler line: no role, dates or episode count until the reader lifts it for this row (this view only).
+          const held = isWatchingSeries(c.key, st) && !shown.has(c.key);
+          const gate: HiddenLine = spansEff[c.key]?.hidden ?? c.hidden ?? { kind: "series-only" };
           return (
-            <div key={c.key} className="wx-krow">
+            <div key={c.key} className="wx-krow" style={held ? { flexWrap: "wrap" } : undefined}>
               <button type="button" className="wx-kbtn" onClick={() => push({ t: "title", key: c.key, title: c.title, year: c.year, poster: c.poster })}>
                 <Photo path={c.poster} name={c.title} w="w92" className="wx-kpos" />
                 <span className="wx-kmain"><b>{c.title}</b> <span className="muted">{c.type === "tv" ? yearsLabel(c.year, spansEff[c.key]?.show) : c.year}</span>
-                  <span className="small muted wx-kline">{[c.role && `as ${roleLabel(c.role) || c.role}`, whenText(c, w), n ? epsLabel(n) : ""].filter(Boolean).join(" · ")}{w.kind === "loading" && <Sk w={90} h={11} style={{ marginLeft: 4 }} />}</span>
+                  {!held && <span className="small muted wx-kline">{[c.role && `as ${roleLabel(c.role) || c.role}`, whenText(c, w), n ? epsLabel(n) : ""].filter(Boolean).join(" · ")}{w.kind === "loading" && <Sk w={90} h={11} style={{ marginLeft: 4 }} />}</span>}
                 </span>
                 <span className="wx-kright">
-                  <span className={`ask-st ${st === "watchlist" ? "list" : "seen"}`}>{st === "watchlist" ? "On your list" : "Seen"}</span>
+                  {!held && <span className={`ask-st ${st === "watchlist" ? "list" : "seen"}`}>{st === "watchlist" ? "On your list" : "Seen"}</span>}
                 </span>
               </button>
-              <GlimpseButton spec={scopeSpec(creditSpec(node.name, c.role, { title: c.title, year: c.year, type: c.type, key: c.key }, node.id), { key: brief.key, title: brief.title, clip, spoilers })} label={`About ${node.name}${c.role ? ` as ${roleLabel(c.role) || c.role}` : ""} in ${c.title}: the role, episodes and images`} />
+              <GlimpseButton spec={scopeSpec(creditSpec(node.name, c.role, { title: c.title, year: c.year, type: c.type, key: c.key }, node.id), { key: brief.key, title: brief.title, clip, spoilers })} label={held ? `About ${node.name} in ${c.title}` : `About ${node.name}${c.role ? ` as ${roleLabel(c.role) || c.role}` : ""} in ${c.title}: the role, episodes and images`} />
+              {held && <div style={{ flex: "1 1 100%", minWidth: 0 }}><SpoilerGate compact title={c.title} hidden={gate} onShow={() => show(c.key)} placeHref={`/watching?k=${urlKey(c.key)}`} /></div>}
             </div>
           );
         })}
@@ -406,7 +411,7 @@ function TRow({ c, actor, actorId, when, eps, sel, hot, reg, onOpen, onSelect, o
       <span className="wx-tline">
         <button type="button" className="wx-ttitle" onClick={onOpen}>{c.title}</button>
         <span className="pill wx-kind">{c.type === "tv" ? "Series" : "Film"}</span>
-        {seen && <span className="ask-st seen" title="You have seen this">&#10003; Seen</span>}
+        {seen && !hidden && <span className="ask-st seen" title="You have seen this">&#10003; Seen</span>}
       </span>
       <span className="small muted wx-trole" title={role}>{hidden ? <SpoilerGate compact title={c.title} hidden={hidden} onShow={onShow} placeHref={`/watching?k=${urlKey(c.key)}`} /> : role}</span>
       <span className="wx-tgl"><GlimpseButton spec={scopeSpec(creditSpec(actor, c.role, { title: c.title, year: c.year, type: c.type, key: c.key }, actorId), { key: brief.key, title: brief.title, clip, spoilers })} label={`About ${actor}${c.role ? ` as ${roleLabel(c.role) || c.role}` : ""} in ${c.title}: the role, episodes and images`} /></span>
