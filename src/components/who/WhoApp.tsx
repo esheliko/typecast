@@ -1,6 +1,7 @@
 "use client";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { TitleLink } from "../Modal";
 import { useWatchControl } from "../Watching";
 import { Finder } from "./Finder";
 import { PairNode } from "./PairNode";
@@ -248,6 +249,7 @@ export function WhoApp({ brief, initialPos, today }: { brief: WhoBrief; initialP
             <span className="wbar-k"><span className="live-dot" aria-hidden="true" />Watching now</span>
             <b className="wx-title">{brief.title}</b>
             <span className="small muted">{[brief.year, tv ? posLabel(pos) : "Film"].filter(Boolean).join(" · ")}</span>
+            <TitleLink k={brief.key} it={{ title: brief.title, year: brief.year, poster: brief.poster }} className="linkish small wx-details">Title details</TitleLink>
           </div>
           {tv && pos && <PositionControl brief={brief} pos={pos} onChange={changePos} />}
           {!tv && <FilmClock briefKey={brief.key} />}

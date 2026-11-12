@@ -2,6 +2,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { useLib } from "../cast/LibState";
+import { TitleLink } from "../Modal";
 import { FactView, useWatchControl } from "../Watching";
 import { EpisodeCard } from "./EpisodeCard";
 import { Section, Sk, ZoomBtn, Photo } from "./bits";
@@ -47,6 +48,7 @@ export function RootNode() {
     <div className="wx-node" data-node="root">
       <header className="wx-thead">
         <h2 className="wx-pname" tabIndex={-1} data-focus-target>{rootLabel}</h2>
+        <TitleLink k={brief.key} it={{ title: brief.title, year: brief.year, poster: brief.poster }} className="linkish small wx-full">Open title details</TitleLink>
       </header>
 
       <section className="wx-sec" aria-label={tv ? "Where you are" : "The film"}>
