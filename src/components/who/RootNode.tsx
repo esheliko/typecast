@@ -1,13 +1,14 @@
 "use client";
 import { useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLib } from "../cast/LibState";
 import { FactView, useWatchControl } from "../Watching";
 import { EpisodeCard } from "./EpisodeCard";
 import { Section, Sk, ZoomBtn, Photo } from "./bits";
 import { useWho } from "./WhoContext";
 import { fmtDay } from "@/lib/who-dates";
-import { factButtons, FACT_GROUPS } from "@/lib/watching";
+import { factButtons, FACT_GROUPS, type FactGroup } from "@/lib/watching";
+import { FactIcon } from "./FactIcon";
 import { posLabel, scopeKind, urlKey } from "@/lib/who-scope";
 import type { Answer } from "@/lib/answer";
 
@@ -28,20 +29,25 @@ export function RootNode() {
     router.push("/");
   };
   const [facts, setFacts] = useState<Record<string, Answer | "loading">>({});
-  const [open, setOpen] = useState<Record<string, boolean>>({});
-  useEffect(() => { setFacts({}); setOpen({}); setSummary(false); }, [brief.key, pos?.s, pos?.e, spoilers]);
-  const ask = async (label: string, q: string) => {
-    const isOpen = !!open[label];
-    setOpen((o) => ({ ...o, [label]: !isOpen }));
-    if (isOpen || facts[label]) return;
-    setFacts((f) => ({ ...f, [label]: "loading" }));
-    try {
-      const r = await fetch("/api/ask", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ q, spoilers, k: urlKey(brief.key), s: pos?.s ?? undefined, e: pos?.e ?? undefined }) });
-      const j = await r.json().catch(() => ({}));
-      setFacts((f) => ({ ...f, [label]: r.ok && typeof j.text === "string" ? j : { text: j.error ?? `Couldn't look that up (${r.status}). Try again.` } }));
-    } catch { setFacts((f) => ({ ...f, [label]: { text: "Couldn't reach Typecast. Check your connection." } })); }
+  const [tab, setTab] = useState<FactGroup>(FACT_GROUPS[0]);
+  const started = useRef(new Set<string>());
+  useEffect(() => { setSummary(false); setTab(FACT_GROUPS[0]); }, [brief.key]);
+  const scope = `${brief.key}|${pos?.s ?? ""}|${pos?.e ?? ""}|${spoilers ? 1 : 0}`;
+  const load = (label: string, q: string) => {
+    const id = `${scope}|${label}`;
+    if (started.current.has(id)) return;
+    started.current.add(id);
+    setFacts((f) => ({ ...f, [id]: "loading" }));
+    const done = (a: Answer) => setFacts((f) => ({ ...f, [id]: a }));
+    fetch("/api/ask", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ q, spoilers, k: urlKey(brief.key), s: pos?.s ?? undefined, e: pos?.e ?? undefined }) })
+      .then(async (r) => { const j = await r.json().catch(() => ({})); done(r.ok && typeof j.text === "string" ? j : { text: j.error ?? `Couldn't look that up (${r.status}). Tap the tab again to retry.` }); if (!r.ok) started.current.delete(id); })
+      .catch(() => { done({ text: "Couldn't reach Typecast. Check your connection." }); started.current.delete(id); });
   };
   const buttons = factButtons(brief.type).filter((b) => exact || !["Episodes left", "This episode"].includes(b.label));
+  const tabs = FACT_GROUPS.filter((g) => buttons.some((b) => b.group === g));
+  const cur = tabs.includes(tab) ? tab : tabs[0];
+  const inTab = buttons.filter((b) => b.group === cur);
+  useEffect(() => { for (const b of inTab) load(b.label, b.q); }, [cur, scope]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="wx-node" data-node="root">
@@ -68,33 +74,29 @@ export function RootNode() {
         )}
       </section>
 
-      <Section title="About this title" note="Tap a card to open it.">
-        {FACT_GROUPS.map((g) => {
-          const items = buttons.filter((b) => b.group === g);
-          if (!items.length) return null;
-          return (
-            <div key={g} className="wx-factgroup" role="group" aria-label={g}>
-              <h4 className="wx-grouph">{g}</h4>
-              <ul className="wx-facts">
-                {items.map((b) => {
-                  const isOpen = !!open[b.label], f = facts[b.label];
-                  return (
-                    <li key={b.label} className={`wx-fact${isOpen ? " open" : ""}`}>
-                      <button type="button" className="wx-factb" aria-expanded={isOpen} onClick={() => ask(b.label, b.q)}>
-                        <span>{b.label}</span><span aria-hidden="true" className="wx-caret">{isOpen ? "▴" : "▾"}</span>
-                      </button>
-                      {isOpen && (
-                        <div className="wx-factbody" aria-live="polite">
-                          {f === "loading" || !f ? <div aria-hidden="true"><Sk w="90%" h={13} /><Sk w="70%" h={13} style={{ marginTop: 8 }} /></div> : <FactView a={f} onLeave={() => {}} />}
-                        </div>
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          );
-        })}
+      <Section title="About this title">
+        <div className="wx-ftabs" role="tablist" aria-label="About this title">
+          {tabs.map((g) => (
+            <button key={g} type="button" role="tab" id={`wx-tab-${g}`} aria-selected={g === cur} aria-controls="wx-fpanel" tabIndex={g === cur ? 0 : -1} className={`wx-ftab${g === cur ? " on" : ""}`} data-g={g}
+              onClick={() => setTab(g)}
+              onKeyDown={(e) => { const d = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0; if (!d) return; e.preventDefault(); const n = tabs[(tabs.indexOf(g) + d + tabs.length) % tabs.length]; setTab(n); document.getElementById(`wx-tab-${n}`)?.focus(); }}>
+              <FactIcon name={g} /><span>{g}</span>
+            </button>
+          ))}
+        </div>
+        <div id="wx-fpanel" role="tabpanel" aria-labelledby={`wx-tab-${cur}`} className="wx-fpanel" data-g={cur}>
+          {inTab.map((b) => {
+            const f = facts[`${scope}|${b.label}`];
+            return (
+              <section key={b.label} className="wx-frow" aria-label={b.label}>
+                <h4 className="wx-frowh"><span className="wx-ficon" aria-hidden="true"><FactIcon name={b.label} /></span>{b.label}</h4>
+                <div className="wx-factbody" aria-live="polite">
+                  {f === "loading" || !f ? <div aria-hidden="true"><Sk w="90%" h={13} /><Sk w="70%" h={13} style={{ marginTop: 8 }} /></div> : <FactView a={f} onLeave={() => {}} />}
+                </div>
+              </section>
+            );
+          })}
+        </div>
       </Section>
 
       {mine && (

@@ -45,8 +45,11 @@ export async function rowOf(sb: SB, userId: string, type: string, id: number) {
   return data as { status: string; priority: string; rating: number; title: string; new_episode_at?: string | null } | null;
 }
 
+/** Signed-in tests can run: Supabase is configured and there is either the service-role key (a temporary account per run, account.ts)
+ *  or the shared SMOKE_EMAIL/SMOKE_PASSWORD account. Does not depend on global setup having run (workers evaluate it while loading files). */
 export function configured() {
-  return Boolean(process.env.SMOKE_EMAIL && process.env.SMOKE_PASSWORD && process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+  const base = Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+  return base && Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY || (process.env.SMOKE_EMAIL && process.env.SMOKE_PASSWORD));
 }
 
 /** Signed-in Supabase client for the smoke user. Refuses anything that does not look like a dedicated test account. */
