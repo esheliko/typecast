@@ -1363,5 +1363,5 @@ main:focus { outline: none; }
 .upnext-card:has(.upnext-go) { display: flex; flex-direction: column; gap: 4px; }
 .upnext-go { color: var(--gold); text-decoration: underline dotted; text-underline-offset: 3px; white-space: nowrap; }
 .upnext-card.k-still .upnext-poster { opacity: .55; filter: grayscale(.6); }
-.upnext-ask { position: absolute; left: 0; top: 96px; width: 112px; height: 72px; display: flex; flex-direction: column; justify-content: flex-end; gap: 4px; padding: 5px; border-radius: 0 0 8px 8px; background: linear-gradient(transparent, rgba(0, 0, 0, .8) 45%); }
-.upnext-ask button { padding: 3px 4px; border-radius: 4px; background: rgba(0, 0, 0, .72); color: #fff; font: 600 10px/1.3 var(--sans, system-ui); border: 1px solid rgba(255, 255, 255, .35); white-space: normal; }
+.upnext-ask { position: absolute; left: 0; top: 112px; width: 112px; height: 56px; display: flex; flex-direction: column; justify-content: flex-end; gap: 4px; padding: 5px; }
+.upnext-ask button { padding: 3px 8px; border-radius: 999px; background: var(--surface); color: var(--ink); font: 600 11px/1.3 var(--sans, system-ui); border: 1px solid var(--line); white-space: nowrap; }
