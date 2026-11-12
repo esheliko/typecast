@@ -5,7 +5,7 @@ import { enrich } from "./enrich";
 import { detailLabel, type CrewId } from "./details";
 import { fmtDate, plural } from "./episodes";
 import { followUps, parseQuestion, type Intent, type Who } from "./ask-intent";
-import { getAllCredits, getEpisode, getPersonBasics, getSeason, getTitle, getTitleFacts, search, type TitleFacts } from "./tmdb";
+import { getAllCredits, getEpisode, getEpisodeImdbId, getPersonBasics, getSeason, getTitle, getTitleFacts, search, type TitleFacts } from "./tmdb";
 import { getArticle, getWikiFacts, type Article } from "./wiki";
 import { basedOnPhrase, bestSentences, sentences, SPOILER_SECTIONS } from "./wiki-text";
 import { elapsedMin, type Watch } from "./watching";
@@ -350,8 +350,22 @@ async function moneyQ(ctx: Ctx): Promise<Answer> {
 }
 
 async function rating(ctx: Ctx): Promise<Answer> {
-  const f = await ctx.facts();
+  const { w } = ctx;
   const mine = ctx.lib.find((l) => l.key === ctx.t.key)?.rating;
+  if (w.type === "tv" && w.s && w.e) {
+    // An episode has its own rating: never answer with the whole show's.
+    const [ep, imdb] = await Promise.all([
+      getSeason(w.id, w.s).then((x) => x.episodes.find((e) => e.e === w.e)).catch(() => undefined),
+      getEpisodeImdbId(w.id, w.s, w.e),
+    ]);
+    const label = `S${w.s}E${w.e}`;
+    return {
+      text: [ep && ep.votes > 0 && ep.rating ? `**${ep.rating.toFixed(1)}/10 on TMDB** for this episode (${label}) from ${ep.votes.toLocaleString("en-US")} votes.` : `Not enough TMDB votes for a rating of ${label}.`,
+        "TMDB's score is its own; the IMDb score for this episode is on its IMDb page.", mine ? `You gave the show ${"★".repeat(mine)}.` : ""].filter(Boolean).join(" "),
+      links: [{ label: `IMDb ${label}`, url: imdb ? `https://www.imdb.com/title/${imdb}/ratings/` : google(`${ctx.t.title} ${label} imdb rating`) }],
+    };
+  }
+  const f = await ctx.facts();
   return {
     text: [f?.votes ? `**${f.rating}/10 on TMDB** from ${f.votes.toLocaleString("en-US")} votes.` : "Not enough TMDB votes for a rating.", mine ? `You gave it ${"★".repeat(mine)}.` : ""].filter(Boolean).join(" "),
     links: [...(ctx.t.imdbId ? [{ label: "IMDb", url: `https://www.imdb.com/title/${ctx.t.imdbId}/` }] : []), { label: "Rotten Tomatoes", url: google(`${ctx.t.title}${yr(ctx.t)} rotten tomatoes`) }],

@@ -508,6 +508,12 @@ export async function getEpisode(tv: number, s: number, e: number) {
   return { name: (d.name ?? "") as string, cast: map(d.credits?.cast).slice(0, 12), guests: map(d.credits?.guest_stars).slice(0, 20) };
 }
 
+/** The IMDb id of one episode (its own page and rating, not the show's); null when TMDB has none. */
+export async function getEpisodeImdbId(tv: number, s: number, e: number): Promise<string | null> {
+  const d = await tmdb(`/tv/${tv}/season/${s}/episode/${e}/external_ids`, {}, 24 * HOUR).catch(() => null);
+  return (d?.imdb_id as string | undefined) || null;
+}
+
 /** Every episode of one season with its air date, guest stars and who directed and wrote it. Cached 6 hours (new episodes get dates). */
 export async function getSeason(tv: number, s: number, opts: { selves?: boolean } = {}): Promise<{ name: string; air: string; episodes: Episode[] }> {
   const d = await tmdb(`/tv/${tv}/season/${s}`, {}, 6 * HOUR);
