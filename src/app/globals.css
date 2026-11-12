@@ -469,7 +469,7 @@ button:not([disabled]):active, a.row:active, a.tab:active, .person-chip:active, 
 .gl-b svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .gl-b:hover, .gl-b:focus-visible { color: var(--gold); }
 .gl-wrap { position: fixed; inset: 0; z-index: 90; background: rgb(0 0 0 / .55); display: flex; align-items: flex-end; justify-content: center; animation: modal-fade .15s ease-out; }
-.gl { width: 100%; max-width: 680px; max-height: 88dvh; display: flex; flex-direction: column; background: var(--bg); border-radius: 18px 18px 0 0; box-shadow: 0 -8px 40px rgb(0 0 0 / .35); outline: none; padding-bottom: env(safe-area-inset-bottom, 0px); }
+.gl { width: 100%; max-width: 680px; height: 88dvh; display: flex; flex-direction: column; background: var(--bg); border-radius: 18px 18px 0 0; box-shadow: 0 -8px 40px rgb(0 0 0 / .35); outline: none; padding-bottom: env(safe-area-inset-bottom, 0px); }
 .gl-bar { display: flex; flex: none; align-items: center; justify-content: space-between; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
 .gl-h { font: 700 20px/1.15 var(--display); letter-spacing: .03em; text-transform: uppercase; overflow-wrap: anywhere; }
 .gl-tabs { display: flex; flex: none; gap: 6px; padding: 0 0 10px; overflow-x: auto; }

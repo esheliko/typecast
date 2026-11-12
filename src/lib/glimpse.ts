@@ -2,7 +2,15 @@
  * One thing to look at: a heading, one or more image searches (shown as tabs) and, when we know which title / person it is,
  * `info` so the panel can also tell about them (summary, the character, which episodes). Pure; unit tested in tests/unit/glimpse.test.ts.
  */
-export interface GlimpseSpec { heading: string; tabs: { label: string; q: string }[]; info?: GlimpseInfo }
+export interface GlimpseSpec {
+  heading: string;
+  /** `info` on a tab: the About text follows that tab (a library role of the same actor) instead of the panel's own `info`. */
+  tabs: GlimpseTab[];
+  info?: GlimpseInfo;
+  /** Also add a tab for each other role this actor plays in a title in the user's library (`/api/glimpse/roles`). Set on Watching-now cast buttons. */
+  libRoles?: { actor: string };
+}
+export interface GlimpseTab { label: string; q: string; info?: GlimpseInfo }
 
 /**
  * What the About part of the panel asks the server. A title (`key`), a person (`pid`) or both (that person in that title, where `char`
@@ -42,7 +50,7 @@ export const castSpec = (name: string, role: string, title?: TitleBits, dept?: s
   const char = charOf(role);
   if (!title || !char) return title ? { ...base, ...info({ pid, key: keyOf(title), char: char || undefined }) } : base;
   const kind = title.type === "tv" ? "TV series" : "film";
-  return { heading: `${name} as ${char}`, tabs: [{ label: "In the role", q: `${name} as ${char} ${title.title} ${title.year || ""} ${kind}`.replace(/\s+/g, " ").trim() }, ...base.tabs.map((t) => ({ ...t, label: name }))], ...info({ pid, key: keyOf(title), char }) };
+  return { heading: `${name} as ${char}`, tabs: [{ label: char, q: `${name} as ${char} ${title.title} ${title.year || ""} ${kind}`.replace(/\s+/g, " ").trim() }, ...base.tabs.map((t) => ({ ...t, label: name }))], ...info({ pid, key: keyOf(title), char }) };
 };
 /** A title in an actor's filmography: their character in that title first, then the title's own scenes and poster. */
 export const creditSpec = (actor: string, role: string | undefined, title: TitleBits, pid?: number): GlimpseSpec => {
@@ -83,4 +91,41 @@ export function infoQuery(i: GlimpseInfo): string {
   if (i.nospoil) p.set("ns", "1");
   if (i.hide) p.set("h", i.hide.slice(0, 80));
   return p.toString();
+}
+
+/** One of the actor's other roles that sits in the user's library. */
+export interface LibRole { key: string; type: "movie" | "tv"; title: string; year: string; char: string }
+const MAX_LIB_ROLES = 6;
+
+/**
+ * The actor's roles in titles the user has in their library, other than the title being looked at. Skips talk-show / "Self" style credits (`extra`)
+ * and credits with no character name, one tab per title. Pure; unit tested.
+ */
+export function libraryRoles(credits: { key: string; type: "movie" | "tv"; title: string; year: string; role: string; extra?: boolean }[], libKeys: ReadonlySet<string>, exclude?: string): LibRole[] {
+  const out: LibRole[] = [];
+  for (const c of credits) {
+    if (out.length >= MAX_LIB_ROLES) break;
+    const char = charOf(c.role);
+    if (c.extra || !char || c.key === exclude || !libKeys.has(c.key) || out.some((o) => o.key === c.key)) continue;
+    out.push({ key: c.key, type: c.type, title: c.title, year: c.year, char });
+  }
+  return out;
+}
+
+/** The tab for one library role: images of the actor as that character, and About for that role. */
+export function libRoleTab(actor: string, pid: number | undefined, r: LibRole, rules?: Pick<GlimpseInfo, "nospoil" | "hide">): GlimpseTab {
+  const kind = r.type === "tv" ? "TV series" : "film";
+  const q = `${actor} as ${r.char} ${r.title} ${r.year || ""} ${kind}`.replace(/\s+/g, " ").trim();
+  return { label: `${r.char} · ${r.title}`, q, info: info({ pid, key: r.key, char: r.char, ...(rules?.nospoil ? { nospoil: true, hide: rules.hide } : {}) }).info };
+}
+
+/** Mark a cast spec as one that also lists the actor's other library roles. */
+export const withLibRoles = (spec: GlimpseSpec, actor: string): GlimpseSpec => (spec.info?.pid ? { ...spec, libRoles: { actor } } : spec);
+
+/** The tabs to show: the spec's own, with the library roles after the first (the role being looked at). */
+export function tabsWithRoles(spec: GlimpseSpec, roles: LibRole[] | null): GlimpseTab[] {
+  if (!roles?.length || !spec.info?.pid || !spec.libRoles) return spec.tabs;
+  const seen = new Set(spec.tabs.map((t) => t.q));
+  const extra = roles.map((r) => libRoleTab(spec.libRoles!.actor, spec.info!.pid, r, spec.info)).filter((t) => !seen.has(t.q));
+  return [spec.tabs[0], ...extra, ...spec.tabs.slice(1)];
 }

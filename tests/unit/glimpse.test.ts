@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { castSpec, charOf, creditSpec, infoQuery, personInTitleSpec, personSpec, scopeSpec, titleSpec } from "../../src/lib/glimpse";
+import { castSpec, charOf, creditSpec, infoQuery, libraryRoles, personInTitleSpec, personSpec, scopeSpec, tabsWithRoles, titleSpec, withLibRoles } from "../../src/lib/glimpse";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const expect = (v: any) => ({
@@ -45,3 +45,23 @@ const show = { title: "The Rookie", year: "2018", type: "tv", key: "tv:79744" };
     expect(infoQuery({ key: "tv:1", pid: 2, char: "Nell", clip: { s: 2, e: 8 }, nospoil: true, hide: "X" })).toBe("k=tv%3A1&p=2&ch=Nell&c=1&s=2&e=8&ns=1&h=X");
     expect(infoQuery({ key: "tv:1", clip: { s: null, e: null } })).toBe("k=tv%3A1&c=1");
   });
+  test("the cast tab is named after the character, not 'In the role'", () => expect(castSpec("Sara Rue", "Nell", show, undefined, 123).tabs.map((t) => t.label)).toEqual(["Nell", "Sara Rue"]));
+
+  {
+    const c = (key: string, role: string, extra = false) => ({ key, type: key.startsWith("tv") ? "tv" as const : "movie" as const, title: `T${key}`, year: "2001", role, extra });
+    const lib = new Set(["tv:1", "tv:2", "movie:3", "tv:79744"]);
+    test("only library titles, not the current one, not extras or nameless parts", () => {
+      const r = libraryRoles([c("tv:79744", "Nell"), c("tv:1", "Ann (voice)"), c("tv:9", "Zed"), c("tv:2", "Self", true), c("movie:3", ""), c("tv:1", "Again")], lib, "tv:79744");
+      expect(r.map((x) => [x.key, x.char])).toEqual([["tv:1", "Ann"]]);
+    });
+    test("capped", () => expect(libraryRoles(Array.from({ length: 20 }, (_, i) => c(`tv:${i}`, "X")), new Set(Array.from({ length: 20 }, (_, i) => `tv:${i}`))).length).toBe(6));
+    test("tabs go after the role being looked at and carry their own About", () => {
+      const spec = withLibRoles(castSpec("Sara Rue", "Nell", show, undefined, 123), "Sara Rue");
+      const tabs = tabsWithRoles(spec, [{ key: "tv:1", type: "tv", title: "Other", year: "2001", char: "Ann" }]);
+      expect(tabs.map((t) => t.label)).toEqual(["Nell", "Ann · Other", "Sara Rue"]);
+      expect(tabs[1].info).toEqual({ pid: 123, key: "tv:1", char: "Ann" });
+      expect(tabs[1].q).toMatch(/Sara Rue as Ann Other/);
+    });
+    test("no id, no extra tabs", () => expect(withLibRoles(personSpec("A"), "A").libRoles).toBeUndefined());
+  }
+

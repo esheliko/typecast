@@ -10,7 +10,7 @@ import { whoApi, type RecentTrail } from "@/lib/who-client";
 import { byCast, byGender, groupWhoFaces, matchFaces, type CastFilter, type GenderFilter } from "@/lib/who-scope";
 import { RecentRow } from "./Trail";
 import { GlimpseButton } from "../Glimpse";
-import { castSpec, scopeSpec } from "@/lib/glimpse";
+import { castSpec, scopeSpec, withLibRoles } from "@/lib/glimpse";
 import { getJson } from "@/lib/who-client";
 import { isOldTitle } from "@/lib/then-photo";
 import { useThen } from "./useThen";
@@ -298,7 +298,7 @@ function Tile({ f, known, eager, then, year, onOpen, onPop }: { f: WhoFace; know
   const best = known?.find(([k]) => k !== brief.key);
   const role = roleLabel(f.role);
   const n = f.part === "main" || f.n < 1 || (f.part === "episode" && f.n <= 1) ? 0 : f.n;
-  const spec = scopeSpec(castSpec(f.name, f.role, { title: brief.title, year: brief.year, type: brief.type, key: brief.key }, "Acting", f.id), { key: brief.key, title: brief.title, clip, spoilers });
+  const spec = scopeSpec(withLibRoles(castSpec(f.name, f.role, { title: brief.title, year: brief.year, type: brief.type, key: brief.key }, "Acting", f.id), f.name), { key: brief.key, title: brief.title, clip, spoilers });
   const ch = roleLabel(f.role);
   return (
     <li className="wx-tli">

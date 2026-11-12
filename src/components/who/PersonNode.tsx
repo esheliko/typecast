@@ -17,7 +17,7 @@ import { pairLabels } from "@/lib/who-common";
 import { whoApi } from "@/lib/who-client";
 import { showRunLabel } from "@/lib/who-spans";
 import { posCode, posLabel, scopeKind } from "@/lib/who-scope";
-import { castSpec, creditSpec, scopeSpec } from "@/lib/glimpse";
+import { castSpec, creditSpec, scopeSpec, withLibRoles } from "@/lib/glimpse";
 import { getJson } from "@/lib/who-client";
 import { isOldTitle } from "@/lib/then-photo";
 import { useThen } from "./useThen";
@@ -188,7 +188,7 @@ export function PersonNode({ node }: { node: PNode }) {
   const [thenOn] = useThen();
   const old = isOldTitle(brief.first, new Date().getFullYear());
   const hereQ = face ? castSpec(node.name, face.role, { title: brief.title, year: brief.year, type: brief.type, key: brief.key }, "Acting", node.id) : null;
-  const hereSpec = hereQ ? scopeSpec(hereQ, { key: brief.key, title: brief.title, clip, spoilers }) : null;
+  const hereSpec = hereQ ? scopeSpec(withLibRoles(hereQ, node.name), { key: brief.key, title: brief.title, clip, spoilers }) : null;
   const thenQ = hereQ?.tabs[0].q;
   const [thenImg, setThenImg] = useState<string | null>(null);
   useEffect(() => {

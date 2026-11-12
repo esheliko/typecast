@@ -4,7 +4,7 @@ import { useLib } from "../cast/LibState";
 import QuickMark from "../cast/QuickMark";
 import { TitleLink } from "../Modal";
 import { GlimpseButton } from "../Glimpse";
-import { castSpec, scopeSpec } from "@/lib/glimpse";
+import { castSpec, scopeSpec, withLibRoles } from "@/lib/glimpse";
 import { More, Photo, Section, Sk, Soft, useLimit, useSpans, ZoomBtn } from "./bits";
 import { nodeId, useWho, type Node } from "./WhoContext";
 import { typeLabel } from "@/lib/img";
@@ -46,7 +46,7 @@ export function TitleNode({ node }: { node: TNode }) {
 
   const fromCast = useMemo(() => (data ? data.cast.filter(([pid]) => faces.has(pid)).map(([pid, role, n]) => ({ f: faces.get(pid)!, role, n })) : []), [data, faces]);
   const lim = useLimit(fromCast.length, 5);
-  const spec = (name: string, role: string, pid: number) => scopeSpec(castSpec(name, role, { title: node.title, year: node.year, type, key: node.key }, "Acting", pid), { key: cur.key, title: cur.title, clip, spoilers });
+  const spec = (name: string, role: string, pid: number) => scopeSpec(withLibRoles(castSpec(name, role, { title: node.title, year: node.year, type, key: node.key }, "Acting", pid), name), { key: cur.key, title: cur.title, clip, spoilers });
 
   return (
     <div className="wx-node" data-node={nodeId(node)}>
