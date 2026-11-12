@@ -10,15 +10,22 @@ import { isSmokeAccount, isStaleSmokeAccount, smokeEmail } from "./account-rules
  */
 export const hasServiceKey = () => Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.NEXT_PUBLIC_SUPABASE_URL);
 
+/** The key as pasted into a secret: stray whitespace or quotes are a common slip. */
+const serviceKey = () => (process.env.SUPABASE_SERVICE_ROLE_KEY ?? "").trim().replace(/^["']|["']$/g, "");
+
 function admin() {
-  return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false, autoRefreshToken: false } });
+  return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, serviceKey(), { auth: { persistSession: false, autoRefreshToken: false } });
 }
 
 export async function createSmokeAccount() {
   const email = smokeEmail(randomBytes(6).toString("hex"));
   const password = randomBytes(18).toString("base64url");
   const { data, error } = await admin().auth.admin.createUser({ email, password, email_confirm: true });
-  if (error || !data.user) throw new Error(`Cannot create the smoke account: ${error?.message}`);
+  if (error || !data.user) {
+    const k = serviceKey();
+    const hint = /^eyJ/.test(k) ? "" : ` (SUPABASE_SERVICE_ROLE_KEY does not look like the legacy service_role JWT: it should start with "eyJ", not "sb_" and not the anon key; it has ${k.length} characters)`;
+    throw new Error(`Cannot create the smoke account: ${error?.message}${hint}`);
+  }
   return { email, password, userId: data.user.id };
 }
 
