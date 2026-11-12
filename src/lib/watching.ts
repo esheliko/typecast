@@ -1,11 +1,18 @@
 import type { MediaType } from "./types";
 
 /**
- * "Watching now": the one title the user is in the middle of right now. Kept in a cookie (this device only, ends by itself
- * after 12 hours) so the layout can draw the Watching-now bar without waiting on anything, and the Ask sheet knows how far in they are.
+ * "Watching now": the one title the user is in the middle of right now. Kept in a cookie (this device, ends by itself
+ * after 12 hours; the title's status and place also live in the library, see lib/watch-library.ts) so the layout can draw the Watching-now bar without waiting on anything, and the Ask sheet knows how far in they are.
  */
 export const WATCH_COOKIE = "tc_watch";
 export const WATCH_MAX_MS = 12 * 3600 * 1000;
+
+/**
+ * What the title was in the library before this watch promoted it to Watching: "none" (not in the library), "watchlist", "must"
+ * (Watchlist, Must watch) or "partial". For a series, `s`/`e` are the place saved when the watch started. Only set when the watch changed the status.
+ */
+export interface WatchPrev { st: "none" | "watchlist" | "must" | "partial"; s?: number; e?: number }
+const PREV_ST = ["none", "watchlist", "must", "partial"] as const;
 
 export interface Watch {
   key: string; type: MediaType; id: number; title: string; year: string; poster: string | null;
@@ -22,6 +29,8 @@ export interface Watch {
    * nearest exact guess (1 for an unknown part) so the older sheet keeps working; /who reads `pos` first. The older sheet clears it when it sets an episode.
    */
   pos?: { s: number | null; e: number | null };
+  /** Set only when starting this watch moved the title to Watching: how it stood before, so "Stop watching" can put it back. */
+  prev?: WatchPrev;
 }
 
 const str = (v: unknown, max: number) => (typeof v === "string" ? v.slice(0, max) : "");
@@ -47,6 +56,14 @@ export function parseWatch(raw: string | undefined | null, now = Date.now()): Wa
       const ps = n(p.s), pe = n(p.e);
       if (ps !== undefined && pe !== undefined && (ps !== null || pe === null)) w.pos = { s: ps, e: ps === null ? null : pe };
     }
+  }
+  const pv = j.prev as Record<string, unknown> | undefined;
+  if (pv && typeof pv === "object" && PREV_ST.includes(pv.st as WatchPrev["st"])) {
+    const place = (v: unknown) => (typeof v === "number" && Number.isInteger(v) && v >= 1 && v < 1000 ? v : undefined);
+    const ps = place(pv.s), pe = place(pv.e);
+    const prev: WatchPrev = { st: pv.st as WatchPrev["st"] };
+    if (type === "tv" && ps !== undefined && pe !== undefined) { prev.s = ps; prev.e = pe; }
+    w.prev = prev;
   }
   return w;
 }

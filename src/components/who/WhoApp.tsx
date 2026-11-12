@@ -3,6 +3,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { TitleLink } from "../Modal";
 import { useWatchControl } from "../Watching";
+import { useSavedPlace } from "./useSavedPlace";
 import { Finder } from "./Finder";
 import { PairNode } from "./PairNode";
 import { PersonNode } from "./PersonNode";
@@ -30,6 +31,7 @@ export function WhoApp({ brief, initialPos, today }: { brief: WhoBrief; initialP
   const router = useRouter();
   const wc = useWatchControl();
   const tv = brief.type === "tv";
+  const savePlace = useSavedPlace(brief.key, brief.type, brief.id);
   const [pos, setPos] = useState<Pos | null>(tv ? initialPos ?? { s: null, e: null } : null);
   const [roster, setRoster] = useState<WhoRoster | null>(null);
   const [rosterErr, setRosterErr] = useState(false);
@@ -91,12 +93,13 @@ export function WhoApp({ brief, initialPos, today }: { brief: WhoBrief; initialP
     if (p.s != null) u.set("s", String(p.s));
     if (p.s != null && p.e != null) u.set("e", String(p.e));
     try { window.history.replaceState(window.history.state, "", `/watching?${u}`); } catch { /* the URL is a convenience */ }
+    savePlace(p);
     const w = wc?.watch;
     if (w && w.key === brief.key) {
       const exact = p.s != null && p.s > 0 && p.e != null && p.e > 0;
       wc.save({ ...w, s: p.s && p.s > 0 ? p.s : 1, e: p.e && p.e > 0 ? p.e : 1, pos: exact ? undefined : p });
     }
-  }, [brief.key, wc]);
+  }, [brief.key, wc, savePlace]);
   const setExact = useCallback((s: number, e: number) => changePos({ s, e }), [changePos]);
 
   /* ----- what is being watched, as a date (the default thing every gap is measured from) ----- */

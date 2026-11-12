@@ -86,6 +86,55 @@ test.describe("behaviour (signed in)", () => {
     }
   });
 
+  // Watching now and the library: only the explicit start button writes (missing / To watch become Watching with the place saved), Stop watching puts it back,
+  // and moving the episode while the title is Watching saves ONE debounced place. Titles: Chernobyl (scratch, not in the library), Stranger Things and Breaking Bad (seeded).
+  test("Watching now: start adds to Watching, stop restores, the place is saved while Watching", async ({ page }) => {
+    const { sb, userId } = await smokeClient();
+    const progress = async (id: number) => (await rowOf(sb, userId, "tv", id)) as { status: string; progress_season?: number | null; progress_episode?: number | null } | null;
+    const chernobyl = SCRATCH[2], st = SEED.find((r) => r.tmdb_id === 66732)!, bb = SEED.find((r) => r.tmdb_id === 1396)!;
+    try {
+      expect(await progress(chernobyl.tmdb_id), "scratch title must start unsaved").toBeNull();
+      // Looking is free: /watching?k=... and the pickers write nothing.
+      await page.goto(`/watching?k=tv-${chernobyl.tmdb_id}&s=1&e=2`);
+      await expect(page.getByRole("main", { name: /Watching now: Chernobyl/ })).toBeVisible({ timeout: 30_000 });
+      await page.waitForTimeout(1500);
+      expect(await progress(chernobyl.tmdb_id)).toBeNull();
+      // Not in the library: start adds it as Watching at S1 E1 and says so.
+      await page.goto(`/title/tv/${chernobyl.tmdb_id}?full=1`);
+      await page.getByRole("button", { name: /watching this now/ }).click();
+      await page.waitForURL(/\/watching/, { timeout: 30_000 });
+      await expect(page.getByRole("status").filter({ hasText: `${chernobyl.title}: added to Watching` })).toBeVisible({ timeout: 15_000 });
+      await expect.poll(async () => (await progress(chernobyl.tmdb_id))?.progress_season, { timeout: 15_000 }).toBe(1);
+      expect((await progress(chernobyl.tmdb_id))?.status).toBe("watching");
+      // Stop watching with nothing beyond the start saved: gone again.
+      await page.getByRole("button", { name: "End this watch" }).click({ timeout: 30_000 });
+      await page.getByRole("button", { name: "Stop watching" }).click();
+      await expect.poll(() => progress(chernobyl.tmdb_id), { timeout: 15_000 }).toBeNull();
+
+      // To watch: start promotes, stop puts it back on the Watchlist.
+      await page.goto(`/title/tv/${st.tmdb_id}?full=1`);
+      await page.getByRole("button", { name: /watching this now/ }).click();
+      await page.waitForURL(/\/watching/, { timeout: 30_000 });
+      await expect.poll(async () => (await progress(st.tmdb_id))?.status, { timeout: 15_000 }).toBe("watching");
+      await page.getByRole("button", { name: "End this watch" }).click({ timeout: 30_000 });
+      await page.getByRole("button", { name: "Stop watching" }).click();
+      await expect.poll(async () => (await progress(st.tmdb_id))?.status, { timeout: 15_000 }).toBe("watchlist");
+
+      // Breaking Bad is Watching in the library: /watching?k= opens at the saved S2 E3 with no cookie, and Next saves S2 E4.
+      await page.goto(`/watching?k=tv-${bb.tmdb_id}`);
+      const main = page.getByRole("main", { name: /Watching now: Breaking Bad/ });
+      await expect(main.getByRole("button", { name: /^Episode: E3/ })).toBeVisible({ timeout: 30_000 });
+      const next = main.getByRole("button", { name: /^Next episode/ });
+      await expect(next).toBeEnabled({ timeout: 30_000 });
+      await next.click();
+      await expect.poll(async () => (await progress(bb.tmdb_id))?.progress_episode, { timeout: 15_000 }).toBe(4);
+    } finally {
+      await deleteRows(sb, userId, [chernobyl]);
+      await sb.from("library_items").update({ status: "watchlist", progress_season: null, progress_episode: null }).eq("user_id", userId).eq("tmdb_type", "tv").eq("tmdb_id", st.tmdb_id);
+      await sb.from("library_items").update({ progress_season: 2, progress_episode: 3 }).eq("user_id", userId).eq("tmdb_type", "tv").eq("tmdb_id", bb.tmdb_id);
+    }
+  });
+
   test("Browse: quick-mark a poster, then Undo from the toast leaves nothing saved", async ({ page }) => {
     const { sb, userId } = await smokeClient();
     let made: { type: string; id: number } | null = null;

@@ -1138,6 +1138,15 @@ button.wx-tdates:disabled { cursor: default; }
 .wx-startlist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .wx-starthit { display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 6px 12px 6px 6px; border-radius: 12px; background: var(--surface); border: 1px solid var(--line); color: var(--ink); text-decoration: none; }
 .wx-starthit:hover { border-color: var(--gold-fill); }
+.wx-resume { display: flex; flex-direction: column; gap: 8px; margin: 4px 0 6px; }
+.wx-resumet { margin: 0; font: 600 13px/1.2 var(--display); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.wx-resumel { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 168px), 1fr)); gap: 8px; }
+.wx-resumec { display: flex; align-items: center; gap: 10px; min-height: 56px; padding: 5px 10px 5px 5px; border-radius: 12px; background: var(--surface); border: 1px solid var(--line); color: var(--ink); text-decoration: none; }
+.wx-resumec:hover { border-color: var(--gold-fill); }
+.wx-resumep { width: 34px; height: 51px; flex: none; border-radius: 5px; object-fit: cover; background: var(--chip); }
+.wx-resumep.wx-noph { display: flex; align-items: center; justify-content: center; font: 700 18px var(--display); color: var(--muted); }
+.wx-resumex { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+.wx-resumex b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
 
 .wx button:focus-visible, .wx select:focus-visible, .wx input:focus-visible, .wx a:focus-visible { outline: 2px solid var(--gold-fill); outline-offset: 2px; }
 @media (hover: hover) { .wx-fact .wx-factb:hover { background: var(--chip); } }

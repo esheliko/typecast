@@ -9,7 +9,7 @@ import { PRIORITY_LABEL, STATUS_LABEL, markLabel, type Item, type Mark, type Pri
 interface Ctx {
   get: (key: string) => Mark | undefined;
   /** `quiet` turns off the "related titles" suggestion that follows a Watched mark. */
-  mark: (it: Item, status: Status | null, priority?: Priority, quiet?: boolean) => void;
+  mark: (it: Item, status: Status | null, priority?: Priority, quiet?: boolean, opts?: { msg?: string }) => Promise<boolean>;
   /** Mark several unmarked titles at once, with one Undo. */
   markMany: (its: Item[], status: Status) => void;
   /** Open the franchise sheet for a title; says so in a toast instead when it has no related titles. */
@@ -139,14 +139,14 @@ export function LibProvider({ packed, children }: { packed: PackedMarks; childre
     return run;
   }, [show]);
 
-  const mark = useCallback((it: Item, status: Status | null, priority?: Priority, quiet?: boolean) => {
+  const mark = useCallback((it: Item, status: Status | null, priority?: Priority, quiet?: boolean, opts?: { msg?: string }): Promise<boolean> => {
     const k = it.key;
     const prev = (k in overRef.current ? overRef.current[k] : live.current[k]) ?? null;
-    if ((prev?.status ?? null) === status && (priority === undefined || prev?.priority === priority)) return;
-    if (status === null && prev?.rich && !window.confirm(`Remove ${it.title}? Your rating and notes for it will be deleted.`)) return;
+    if ((prev?.status ?? null) === status && (priority === undefined || prev?.priority === priority)) return Promise.resolve(true);
+    if (status === null && prev?.rich && !window.confirm(`Remove ${it.title}? Your rating and notes for it will be deleted.`)) return Promise.resolve(false);
     const saved = save(it, status, prev, priority);
     {
-      const msg = status ? `${it.title}: ${markLabel(status, priority ?? prev?.priority)}` : `Removed ${it.title}`;
+      const msg = status ? opts?.msg ?? `${it.title}: ${markLabel(status, priority ?? prev?.priority)}` : `Removed ${it.title}`;
       // Undo after removing a title with a rating or note cannot bring those back, so offer it only when it can.
       const canUndo = !(status === null && prev?.rich);
       // One orange pill names the change it makes. Using it applies the change and offers the way back, so you can flip back and forth
@@ -173,6 +173,7 @@ export function LibProvider({ packed, children }: { packed: PackedMarks; childre
       // The message is already up and its buttons work; this only clears the spinner. A failure shows its own error message instead.
       saved.then((ok) => { if (ok) setToast((t) => (t && t.id === id ? { ...t, pending: false } : t)); });
     }
+    return saved;
   }, [save, show, franchise, current]);
 
   const touch = useCallback(() => { dirty.current = true; }, []);
