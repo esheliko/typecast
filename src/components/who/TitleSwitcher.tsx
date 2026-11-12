@@ -5,7 +5,7 @@ import { Photo } from "./bits";
 import type { ResumeCard } from "@/lib/watch-library";
 
 /**
- * The quiet chevron after the title in the /watching header: a small list of the user's OTHER Watching titles (poster, title, saved place; never anything that
+ * The quiet chevron after the title in the /watching header: a small list of the user's OTHER Watching titles (poster, title, last finished episode; never anything that
  * could spoil) and a way to search another one. Looking at another title changes nothing in the library or the watch. Renders nothing with no other title.
  * The button sits in the title row; its tap target is a ::before hit area, so it adds no height at any width.
  */

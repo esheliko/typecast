@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { TitleLink } from "../Modal";
 import { TitleSwitcher } from "./TitleSwitcher";
 import { useWatchControl } from "../Watching";
+import { useLib } from "../cast/LibState";
 import { useSavedPlace } from "./useSavedPlace";
 import { Finder } from "./Finder";
 import { PairNode } from "./PairNode";
@@ -19,6 +20,8 @@ import { lockScroll } from "@/lib/scroll-lock";
 import { day } from "@/lib/who-dates";
 import { posKey, readRecent, saveRecent, whoApi, type RecentTrail } from "@/lib/who-client";
 import { posCode, posLabel, scopeKind, urlKey } from "@/lib/who-scope";
+import { isLastEpisode, seriesEnded } from "@/lib/watch-library";
+import { markPromptDone, promptDone } from "@/lib/watch-prev";
 import { cleanSession, currentNode, emptyTrail, jumpTo, pushNode, startTrail } from "@/lib/who-trail";
 import type { WhoBrief } from "@/lib/who-data";
 import type { ResumeCard } from "@/lib/watch-library";
@@ -29,11 +32,16 @@ const safe = <T,>(f: () => T, d: T): T => { try { return f(); } catch { return d
 const bid = () => Math.random().toString(36).slice(2, 9);
 
 /** The /who page: top bar, the finder (left) and the node you opened (right), joined by a trail. Position lives in the watch cookie when there is a watch, else the URL. */
-export function WhoApp({ brief, initialPos, today, others = [] }: { brief: WhoBrief; initialPos: Pos | null; today: string; others?: ResumeCard[] }) {
+export function WhoApp({ brief, initialPos, today, others = [], savedProgress = null }: { brief: WhoBrief; initialPos: Pos | null; today: string; others?: ResumeCard[]; savedProgress?: { s: number; e: number } | null }) {
   const router = useRouter();
   const wc = useWatchControl();
   const tv = brief.type === "tv";
-  const savePlace = useSavedPlace(brief.key, brief.type, brief.id);
+  const lib = useLib();
+  const item = useMemo(() => ({ key: brief.key, type: brief.type, id: brief.id, title: brief.title, year: brief.year, poster: brief.poster }), [brief]);
+  const counts = useMemo(() => brief.seasons.map((x) => ({ n: x.n, eps: x.eps })), [brief.seasons]);
+  const { place: savePlace, next: saveNext } = useSavedPlace(item, brief.runtime, counts, savedProgress);
+  /** The "That was the last episode" prompt (ended series, Next on its final episode). */
+  const [finale, setFinale] = useState(false);
   const [pos, setPos] = useState<Pos | null>(tv ? initialPos ?? { s: null, e: null } : null);
   const [roster, setRoster] = useState<WhoRoster | null>(null);
   const [rosterErr, setRosterErr] = useState(false);
@@ -96,12 +104,15 @@ export function WhoApp({ brief, initialPos, today, others = [] }: { brief: WhoBr
     if (p.s != null && p.e != null) u.set("e", String(p.e));
     try { window.history.replaceState(window.history.state, "", `/watching?${u}`); } catch { /* the URL is a convenience */ }
     savePlace(p);
-    const w = wc?.watch;
-    if (w && w.key === brief.key) {
-      const exact = p.s != null && p.s > 0 && p.e != null && p.e > 0;
-      wc.save({ ...w, s: p.s && p.s > 0 ? p.s : 1, e: p.e && p.e > 0 ? p.e : 1, pos: exact ? undefined : p });
-    }
+    const exact = p.s != null && p.s > 0 && p.e != null && p.e > 0;
+    wc?.patchWatch(brief.key, (w) => ({ ...w, s: p.s && p.s > 0 ? p.s : 1, e: p.e && p.e > 0 ? p.e : 1, pos: exact ? undefined : p }));
   }, [brief.key, wc, savePlace]);
+  /** Next: the episode you were on is watched; go to the next one (or, on the final episode of an ended series, offer to mark the series watched). */
+  const onNext = useCallback((from: { s: number; e: number } | null, to: Pos | null) => {
+    if (from) saveNext(from, to && to.s != null && to.e != null ? { s: to.s, e: to.e } : null);
+    if (to) changePos(to);
+    else if (from && seriesEnded(brief.status) && isLastEpisode(from, brief.seasons) && !promptDone(brief.key)) setFinale(true);
+  }, [saveNext, changePos, brief.key, brief.status, brief.seasons]);
   const setExact = useCallback((s: number, e: number) => changePos({ s, e }), [changePos]);
 
   /* ----- what is being watched, as a date (the default thing every gap is measured from) ----- */
@@ -287,8 +298,8 @@ export function WhoApp({ brief, initialPos, today, others = [] }: { brief: WhoBr
             </div>
             <span className="small muted">{[brief.year, tv ? posLabel(pos) : "Film"].filter(Boolean).join(" · ")}</span>
           </div>
-          {tv && pos && <PositionControl brief={brief} pos={pos} onChange={changePos} />}
-          {!tv && <FilmClock briefKey={brief.key} />}
+          {tv && pos && <PositionControl brief={brief} pos={pos} onChange={changePos} onNext={onNext} />}
+          {!tv && <FilmClock item={item} runtime={brief.runtime} />}
           <div className="wx-topr">
             <button type="button" role="switch" aria-checked={spoilers} className="wx-nospoil" aria-label={spoilers ? "Show spoilers" : "No spoilers"} onClick={toggleSpoilers}
               title={spoilers ? "Spoilers are shown: the whole series, past where you are" : "Spoilers are hidden: everything stops at where you are"}>
@@ -297,6 +308,13 @@ export function WhoApp({ brief, initialPos, today, others = [] }: { brief: WhoBr
             <button type="button" className="back wx-close" aria-label="Close" onClick={close}><span aria-hidden="true">&#215;</span><span className="wx-closet"> Close</span></button>
           </div>
         </header>
+        {finale && (
+          <p className="wx-finish wx-finale" role="status">
+            That was the last episode. Mark the series watched?
+            <button type="button" className="linkish" onClick={() => { markPromptDone(brief.key); setFinale(false); lib.mark(item, "watched", undefined, true); wc?.stop({ restore: false }); }}>Mark watched</button>
+            <button type="button" className="linkish muted" aria-label="Dismiss" onClick={() => { markPromptDone(brief.key); setFinale(false); }}>&#215;</button>
+          </p>
+        )}
         <div className="wx-main">
           <div className="wx-left" aria-label="Finder" onScroll={(ev) => { const t = ev.currentTarget.scrollTop; setCompact((c) => (c ? t > 12 : t > 72)); }}>
             <Finder roster={roster4finder} loading={!rosterFresh && !rosterErr} more={more} err={rosterErr && !roster} q={q} setQ={setQ} inputRef={input} recents={recents.filter((r) => r.k === brief.key)}

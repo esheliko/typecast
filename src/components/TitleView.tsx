@@ -288,7 +288,7 @@ export default async function TitleView({ t, origin, focus }: { t: Title; origin
       </div>
       <section className="mark-card" aria-label="Your list">
         <StatusControls item={t} lib={mine} />
-        <WatchButton it={{ key: t.key, type: t.type, id: t.id, title: t.title, year: t.year, poster: t.poster }} runtime={t.runtime} progress={mine?.progress ?? null} />
+        <WatchButton it={{ key: t.key, type: t.type, id: t.id, title: t.title, year: t.year, poster: t.poster }} runtime={t.runtime} progress={mine?.progress ?? null} seasons={t.type === "tv" ? t.seasons : undefined} />
       </section>
       {focus && <Focus t={t} id={focus} />}
       <Where t={t} profile={profile} />

@@ -4,8 +4,8 @@ import { useRouter } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { PersonLink, TitleLink } from "./Modal";
 import { useLib } from "./cast/LibState";
-import { setProgress } from "@/app/actions";
-import { restorePlan, startPlan } from "@/lib/watch-library";
+import { continuePlace, restorePlan, revertDecision, startPlan, watchAfterSignal } from "@/lib/watch-library";
+import { clearPrompt, forgetPartly, readPartly, refreshPartly, rememberPartly } from "@/lib/watch-prev";
 import { img } from "@/lib/img";
 import { serializeWatch, WATCH_COOKIE, WATCH_MAX_MS, whereLabel, type Watch } from "@/lib/watching";
 import type { Item } from "@/lib/types";
@@ -16,13 +16,20 @@ interface Ctx {
   /** Replace the stored watch (the /watching page moves the position with it, so the bar stays in step). */
   save: (w: Watch | null) => void;
   start: (it: Item, runtime: number | null, ep?: { s: number; e: number } | null) => void;
+  /**
+   * A real "I am watching this" signal (Next, the film clock's play and +-5 min): makes `it` the current watch if it is not, and moves a title that is missing,
+   * To watch or Partly watched to Watching (same rules, `prev` and toast as the start button, without leaving the page). Resolves true once the library row is in place.
+   */
+  signal: (it: Item, runtime: number | null, ep?: { s: number; e: number } | null) => Promise<boolean>;
+  /** Changes the current watch if it is for `key` (reads the latest watch, so it never undoes a change made a moment earlier). */
+  patchWatch: (key: string, f: (w: Watch) => Watch) => void;
   /** Ends the watch. Unless `restore` is false, a title this watch moved to Watching goes back to what it was (see `restorePlan`). */
   stop: (opts?: { restore?: boolean }) => void;
 }
 const WatchCtx = createContext<Ctx | null>(null);
 const useWatch = () => useContext(WatchCtx);
 /** The current watch, a way to change it and a way to end it, for the /watching page. */
-export function useWatchControl(): { watch: Watch | null; save: (w: Watch | null) => void; stop: (opts?: { restore?: boolean }) => void } | null { return useContext(WatchCtx); }
+export function useWatchControl(): Ctx | null { return useContext(WatchCtx); }
 
 function writeCookie(w: Watch | null) {
   document.cookie = w
@@ -34,26 +41,37 @@ function writeCookie(w: Watch | null) {
 export function WatchProvider({ initial, children }: { initial: Watch | null; children: React.ReactNode }) {
   const [watch, setWatch] = useState<Watch | null>(initial);
   const router = useRouter();
-  const save = useCallback((w: Watch | null) => { writeCookie(w); setWatch(w); }, []);
+  // The ref is also set by `save`, so a watch saved a moment ago is already what `patchWatch` and `signal` see (before React re-renders).
+  const watchRef = useRef(watch);
+  const save = useCallback((w: Watch | null) => { watchRef.current = w; writeCookie(w); setWatch(w); }, []);
 
   const lib = useLib();
-  const watchRef = useRef(watch); watchRef.current = watch;
+
+  const engage = useCallback((it: Item, runtime: number | null, ep?: { s: number; e: number } | null): Promise<boolean> => {
+    const mine = watchRef.current?.key === it.key ? watchRef.current : null;
+    const place = it.type === "tv" ? (ep ?? (mine ? { s: mine.s ?? 1, e: mine.e ?? 1 } : { s: 1, e: 1 })) : null;
+    // The explicit start and the "I am watching this" signals are the only intents that touch the library: a title that is missing, To watch or Partly watched becomes Watching.
+    const plan = startPlan(lib.get(it.key), it.type, place);
+    const r = watchAfterSignal(watchRef.current, it, runtime, place, plan, Date.now());
+    if (r.created || plan.promote) save(r.watch);
+    // Switching to a title that is already Watching changes the bar without any other sign, so say it.
+    if (r.replaced && !plan.promote) lib.notify(`${it.title}: now your current watch`);
+    refreshPartly(it.key);
+    if (!plan.promote) return Promise.resolve(true);
+    if (plan.prev.st === "partial") rememberPartly(it);
+    return lib.mark(it, "watching", undefined, true, { msg: `${it.title}: added to Watching${firstTime() ? " It will show in your Library." : ""}` });
+  }, [save, lib]);
 
   const start = useCallback((it: Item, runtime: number | null, ep?: { s: number; e: number } | null) => {
-    const w: Watch = { key: it.key, type: it.type, id: it.id, title: it.title, year: it.year, poster: it.poster, started: Date.now(), runtime };
-    if (it.type === "tv") { w.s = ep?.s || 1; w.e = ep?.e || 1; }
-    // The explicit "I'm watching this now" is the only intent that touches the library: a title that is missing, To watch or Partly watched becomes Watching.
-    const cur = lib.get(it.key);
-    const plan = startPlan(cur, it.type, it.type === "tv" ? { s: w.s!, e: w.e! } : null);
-    if (plan.promote) w.prev = plan.prev;
-    save(w);
-    if (plan.promote) {
-      const saved = lib.mark(it, "watching", undefined, true, { msg: `${it.title}: added to Watching${firstTime() ? " It will show in your Library." : ""}` });
-      // The place is one more write after the status has landed (progress is an update, so the row must exist).
-      if (it.type === "tv") saved.then((ok) => (ok ? setProgress("tv", it.id, w.s!, w.e!).then(() => lib.touch()) : undefined)).catch(() => {});
-    }
+    // The saved place needs no write here: the title opens at the episode AFTER its progress, so progress stays as it is (see lib/watch-library.ts).
+    engage(it, runtime, it.type === "tv" ? ep ?? { s: 1, e: 1 } : null).catch(() => {});
     router.push("/watching");
-  }, [save, router, lib]);
+  }, [engage, router]);
+
+  const patchWatch = useCallback((key: string, f: (w: Watch) => Watch) => {
+    const w = watchRef.current;
+    if (w && w.key === key) save(f(w));
+  }, [save]);
 
   const stop = useCallback((opts?: { restore?: boolean }) => {
     const w = watchRef.current;
@@ -64,11 +82,28 @@ export function WatchProvider({ initial, children }: { initial: Watch | null; ch
       if (plan.do === "set") lib.mark(it, plan.status, plan.priority, true);
       else if (plan.do === "remove") lib.mark(it, null, undefined, true);
     }
+    if (w) { forgetPartly(w.key); clearPrompt(w.key); }
     save(null);
   }, [save, lib]);
 
+  // Titles this device moved from Partly watched to Watching go back after 12 hours with no watch (best effort, never blocks rendering).
+  useEffect(() => {
+    const t = setTimeout(() => {
+      try {
+        for (const { key, rec } of readPartly()) {
+          const d = revertDecision(rec, { now: Date.now(), activeWatch: watchRef.current?.key === key, status: lib.get(key)?.status });
+          if (d === "keep") continue;
+          forgetPartly(key);
+          if (d === "revert") lib.mark({ key, type: rec.type, id: rec.id, title: rec.title, year: rec.year, poster: rec.poster }, "partial", undefined, true, { msg: `${rec.title} went back to Partly watched` });
+        }
+      } catch { /* best effort */ }
+    }, 1500);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
-    <WatchCtx.Provider value={{ watch, save, start, stop }}>
+    <WatchCtx.Provider value={{ watch, save, start, signal: engage, patchWatch, stop }}>
       {children}
       {watch && <WatchBar w={watch} />}
     </WatchCtx.Provider>
@@ -106,7 +141,8 @@ function WatchBar({ w }: { w: Watch }) {
 }
 
 /** On a title: start watching it now, or, when it is the current watch, open the Watching now page. */
-export function WatchButton({ it, runtime, progress }: { it: Item; runtime: number | null; progress?: { s: number; e: number } | null }) {
+/** `progress` is the library's "watched up to"; the watch starts at the episode after it. */
+export function WatchButton({ it, runtime, progress, seasons }: { it: Item; runtime: number | null; progress?: { s: number; e: number } | null; seasons?: { n: number; eps: number }[] }) {
   const c = useWatch();
   if (!c) return null;
   const mine = c.watch?.key === it.key;
@@ -115,7 +151,7 @@ export function WatchButton({ it, runtime, progress }: { it: Item; runtime: numb
       {mine ? (
         <Link className="btn gold" href="/watching"><span className="live-dot" aria-hidden="true" />Watching now</Link>
       ) : (
-        <button type="button" className="btn" onClick={() => c.start(it, runtime, progress)}>
+        <button type="button" className="btn" onClick={() => c.start(it, runtime, continuePlace(progress, seasons))}>
           <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z" fill="currentColor" /></svg>
           {c.watch ? "Watch this now instead" : "I’m watching this now"}
         </button>
