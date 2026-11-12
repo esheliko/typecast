@@ -143,7 +143,7 @@ async function fillGuests(sd: SeasonData, brief: WhoBrief, upto: number): Promis
   return { ...sd, episodes: sd.episodes.map((ep) => (byEp.get(ep.e)?.length ? { ...ep, guests: [...ep.guests, ...byEp.get(ep.e)!] } : ep)) };
 }
 
-async function rosterFor(type: MediaType, id: number, pos: Pos | null): Promise<WhoRoster> {
+async function rosterFor(type: MediaType, id: number, pos: Pos | null, fast = false): Promise<WhoRoster> {
   if (type === "movie") {
     const d = await tmdb(`/movie/${id}/credits`, {}, 24 * HOUR);
     const faces: WhoFace[] = ((d.cast ?? []) as any[]).slice(0, 220).map((c, i) => ({
@@ -165,7 +165,7 @@ async function rosterFor(type: MediaType, id: number, pos: Pos | null): Promise<
     const wanted = p.s === 0 ? [0] : brief.seasons.filter((x) => x.n > 0 && x.n <= p.s!).map((x) => x.n);
     const list = await pool(wanted, 5, (n) => fetchSeasonData(id, n, n === p.s));
     const seasons = list.filter((x): x is SeasonData => !!x);
-    if (kind === "exact") {
+    if (kind === "exact" && !fast) {
       const i = seasons.findIndex((x) => x.n === p.s);
       if (i >= 0) seasons[i] = await fillGuests(seasons[i], brief, p.e!).catch(() => seasons[i]);
     }
@@ -177,14 +177,14 @@ async function rosterFor(type: MediaType, id: number, pos: Pos | null): Promise<
   return { key: `tv:${id}`, type, pos: p, scope: kind, faces: faces.slice(0, MAX_FACES), note, partial };
 }
 
-const rosterCached = cached(rosterFor, "who-roster-v3");
+const rosterCached = cached(rosterFor, "who-roster-v4");
 const hot = new Map<string, { t: number; v: Promise<WhoRoster> }>();
-/** The roster for a position. Cached in Next's data cache for six hours and in this process for ten minutes. */
-export function loadWhoRoster(type: MediaType, id: number, pos: Pos | null): Promise<WhoRoster> {
-  const k = `${type}:${id}:${pos?.s ?? "-"}:${pos?.e ?? "-"}`;
+/** The roster for a position. `fast` skips the TVmaze/Fandom guest fill (the slow part) so the page can show TMDB's cast at once. Cached in Next's data cache for six hours and in this process for ten minutes. */
+export function loadWhoRoster(type: MediaType, id: number, pos: Pos | null, fast = false): Promise<WhoRoster> {
+  const k = `${type}:${id}:${pos?.s ?? "-"}:${pos?.e ?? "-"}:${fast ? "f" : ""}`;
   const h = hot.get(k);
   if (h && Date.now() - h.t < 10 * 60_000) return h.v;
-  const v = rosterCached(type, id, pos).catch((e) => { hot.delete(k); throw e; });
+  const v = rosterCached(type, id, pos, fast).catch((e) => { hot.delete(k); throw e; });
   hot.set(k, { t: Date.now(), v });
   if (hot.size > 60) hot.delete(hot.keys().next().value!);
   return v;

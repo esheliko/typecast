@@ -30,7 +30,7 @@ const q = (o: Record<string, string | number | null | undefined>) =>
 export const posKey = (p: Pos | null) => (p ? `${p.s ?? "-"}.${p.e ?? "-"}` : "film");
 
 export const whoApi = {
-  roster: (k: string, pos: Pos | null) => getJson<WhoRoster>(`/api/who/roster?${q({ k, s: pos?.s, e: pos?.e })}`),
+  roster: (k: string, pos: Pos | null, fast = false) => getJson<WhoRoster>(`/api/who/roster?${q({ k, s: pos?.s, e: pos?.e, fast: fast ? 1 : undefined })}`),
   season: (tv: number, s: number, e?: number | null) => getJson<{ air: string; episodes: WhoEp[]; detail: WhoEpDetail | null }>(`/api/who/season?${q({ tv, s, e })}`),
   person: (id: number) => getJson<PersonData>(`/api/who/person?id=${id}`),
   spans: (p: number, keys: string[], cur?: { k: string; pos: Pos; cids: string[] } | null) =>

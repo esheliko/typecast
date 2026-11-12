@@ -23,8 +23,8 @@ const PER_GROUP = 12;
 const perGroup = (cols: number) => (cols > 0 ? cols * Math.max(1, Math.ceil(PER_GROUP / cols)) : PER_GROUP);
 
 /** The left pane: finder input, filter chips, "recently opened", the face grid. The input filters and finds; it never answers. */
-export function Finder({ roster, loading, err, q, setQ, inputRef, recents, onOpen, onRestore, onRetry }: {
-  roster: WhoRoster | null; loading: boolean; err: boolean; q: string; setQ: (q: string) => void; inputRef: React.RefObject<HTMLInputElement | null>;
+export function Finder({ roster, loading, more, err, q, setQ, inputRef, recents, onOpen, onRestore, onRetry }: {
+  roster: WhoRoster | null; loading: boolean; more?: boolean; err: boolean; q: string; setQ: (q: string) => void; inputRef: React.RefObject<HTMLInputElement | null>;
   recents: RecentTrail[]; onOpen: (f: { id: number; name: string; photo: string | null }, opts?: { hl?: string }) => void; onRestore: (r: RecentTrail) => void; onRetry: () => void;
 }) {
   const { brief, pos, prefetchPerson, spoilers } = useWho();
@@ -156,7 +156,7 @@ export function Finder({ roster, loading, err, q, setQ, inputRef, recents, onOpe
   const faceById = useMemo(() => new Map(faces.map((f) => [f.id, f])), [faces]);
   const cmTitles = useMemo(() => (common?.titles ? titlesWithPeople(titlesForQuery(query, common.titles, shown.length > 0), (id) => { const f = faceById.get(id); return !!f && byGender([f], gender).length > 0; }) : null), [common, query, shown.length, gender, faceById]);
   const cmPending = !!common && common.titles === null && query.length >= 3;
-  const noMatch = !!roster && !groups.length && !cmPending && !cmTitles?.length;
+  const noMatch = !!roster && !loading && !groups.length && !cmPending && !cmTitles?.length;
   const total = faces.length;
   return (
     <div className="wx-finder">
@@ -186,10 +186,11 @@ export function Finder({ roster, loading, err, q, setQ, inputRef, recents, onOpe
 
       <RecentRow recents={recents} onRestore={onRestore} onWarm={prefetchPerson} />
 
-      {loading && !roster && !err && <GridSkeleton />}
+      {loading && !err && <GridSkeleton />}
+      {more && !loading && <p className="small muted wx-soft" role="status">Checking more sources for guest stars&hellip;</p>}
       {err && <p className="small muted wx-soft" role="alert">Couldn&rsquo;t load who&rsquo;s in it. <button type="button" className="linkish" onClick={onRetry}>Try again</button></p>}
       {noMatch && <p className="small muted">{query ? `No one in this cast matches “${query}”.${common?.err ? " Couldn’t search titles just now." : ""}` : "No one to show for this filter."}</p>}
-      <div ref={wrap} onKeyDown={arrows}>
+      <div ref={wrap} onKeyDown={arrows} hidden={loading && !err}>
         {groups.map((g) => {
           const all = !!open[g.id];
           const list = all ? g.faces : g.faces.slice(0, lim);

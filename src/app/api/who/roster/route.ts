@@ -9,5 +9,5 @@ export async function GET(req: NextRequest) {
   const p = req.nextUrl.searchParams;
   const t = titleParam(p.get("k"));
   if (!t) return bad("Missing or invalid title");
-  try { return okWho(await loadWhoRoster(t.type, t.id, t.type === "tv" ? posParam(p) : null)); } catch (e) { return failWho(e); }
+  try { return okWho(await loadWhoRoster(t.type, t.id, t.type === "tv" ? posParam(p) : null, p.get("fast") === "1")); } catch (e) { return failWho(e); }
 }

@@ -33,6 +33,7 @@ export function WhoApp({ brief, initialPos, today }: { brief: WhoBrief; initialP
   const [pos, setPos] = useState<Pos | null>(tv ? initialPos ?? { s: null, e: null } : null);
   const [roster, setRoster] = useState<WhoRoster | null>(null);
   const [rosterErr, setRosterErr] = useState(false);
+  const [more, setMore] = useState(false);
   const [retry, setRetry] = useState(0);
   const [trail, setTrail] = useState(() => emptyTrail(bid()));
   /** Phones: whether the details cover the finder. (Wide screens always show them.) */
@@ -60,7 +61,16 @@ export function WhoApp({ brief, initialPos, today }: { brief: WhoBrief; initialP
   useEffect(() => {
     const id = ++reqId.current;
     setRosterErr(false);
-    whoApi.roster(urlKey(brief.key), rpos).then((r) => { if (id === reqId.current) setRoster(r); }).catch(() => { if (id === reqId.current) setRosterErr(true); });
+    const exact = tv && scopeKind(rpos) === "exact";
+    setMore(false);
+    // An exact episode: show TMDB's cast at once, then swap in the list with TVmaze/Fandom guests when it arrives.
+    whoApi.roster(urlKey(brief.key), rpos, exact).then((r) => {
+      if (id !== reqId.current) return;
+      setRoster(r);
+      if (!exact) return;
+      setMore(true);
+      whoApi.roster(urlKey(brief.key), rpos).then((f) => { if (id === reqId.current) { setRoster(f); setMore(false); } }).catch(() => { if (id === reqId.current) setMore(false); });
+    }).catch(() => { if (id === reqId.current) setRosterErr(true); });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [brief.key, pk, retry]);
   const rosterFresh = roster && roster.key === brief.key && posKey(roster.pos) === pk ? roster : null;
@@ -281,7 +291,7 @@ export function WhoApp({ brief, initialPos, today }: { brief: WhoBrief; initialP
         </header>
         <div className="wx-main">
           <div className="wx-left" aria-label="Finder" onScroll={(ev) => { const t = ev.currentTarget.scrollTop; setCompact((c) => (c ? t > 12 : t > 72)); }}>
-            <Finder roster={roster4finder} loading={!roster && !rosterErr} err={rosterErr && !roster} q={q} setQ={setQ} inputRef={input} recents={recents.filter((r) => r.k === brief.key)}
+            <Finder roster={roster4finder} loading={!rosterFresh && !rosterErr} more={more} err={rosterErr && !roster} q={q} setQ={setQ} inputRef={input} recents={recents.filter((r) => r.k === brief.key)}
               onOpen={openFromFinder} onRestore={restore} onRetry={() => setRetry((n) => n + 1)} />
           </div>
           <aside className={`wx-right${rosterFresh ? "" : " loading"}`} data-open={open} aria-label="Details" ref={pane} aria-busy={!rosterFresh}>
