@@ -91,3 +91,7 @@ The supervisor has nothing to refresh there. `scripts/dashboard-data.mjs` is gon
   12-min cap never ran: the manager lived entirely on GitHub starting a run. Fix: a second, independent executor. A Claude session that is alive runs `node scripts/deploy-manager.mjs --no-poll`
   every 2 min under the Monitor tool (the "deploy guard"; it prints only when it deploys). The script is idempotent (it checks in-flight deployments and keeps a 2-min minimum gap), so two executors
   cannot double-deploy. Limit: the guard exists only while that Claude session lives; re-arm it when its Monitor expires, and treat "Last tick" on issue #1 older than ~15 min with pending commits as an alarm.
+
+### A red commit can reach production (2026-11-12, f82fca3)
+The CI gate waits for `verify` only up to `ciMaxWaitMin` (12 min) and smoke takes 10-25 min, so a batch can ship before its own CI result. When that happens and `verify`
+turns red, the manager now posts a 🚨 comment on issue #2 ("the red commit is in production", once per red head) and the owner ships the fix with `[deploy-now]`.

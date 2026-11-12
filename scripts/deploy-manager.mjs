@@ -209,11 +209,21 @@ export function decide(ctx) {
 
 // ---------------------------------------------------------------- who broke CI
 /** Keep the CI status issue current and tell the owner once when main turns red / green again. Best effort: never blocks a deployment. */
-function reportCi(st, head, headAt) {
+function reportCi(st, head, headAt, liveSha = null) {
   if (DRY || !ISSUE) return;
   try {
     const v = ciState(head, headAt);
     if (v !== 'fail' && v !== 'pass') return;
+    // A red commit that is already deployed (or building) is the worst case: say so, once per red head, even if the red alert went out earlier.
+    if (v === 'fail' && liveSha && st.redLiveNoted !== head) {
+      let inProd = false;
+      try { execFileSync('git', ['merge-base', '--is-ancestor', head, liveSha], { stdio: 'ignore' }); inProd = true; } catch { /* not in the live/in-flight build */ }
+      if (inProd) {
+        st.redLiveNoted = head;
+        gh(['api', '-X', 'POST', `repos/${CFG.repo}/issues/${CFG.ciIssue}/comments`, '--input', '-'], JSON.stringify({ body: `🚨 **The red commit is in production** (\`${head.slice(0, 7)}\` is live or building; its CI \`verify\` failed). Users may be hitting the bug now. The owner must fix it immediately; once CI is green, add \`[deploy-now]\` to the fix commit so it ships without batching.` }));
+        event(st, 'ci', `RED COMMIT IS IN PRODUCTION: ${head.slice(0, 7)}`);
+      }
+    }
     if (st.ciReported === `${head}:${v}`) return;
     execFileSync('node', ['scripts/ci-status.mjs', '--issue', String(CFG.ciIssue)], { stdio: 'ignore' });
     st.ciReported = `${head}:${v}`;
@@ -354,7 +364,7 @@ async function tick() {
     const base = inflight?.sha ?? ready?.sha ?? null;
     const pending = pendingCommits(base);
     const ctx = { now, list, inflight, ready, pending, st };
-    reportCi(st, pending.head, pending.commits[0]?.at ?? null);
+    reportCi(st, pending.head, pending.commits[0]?.at ?? null, inflight?.sha ?? ready?.sha ?? null);
     const d = decide(ctx);
     log(`${d.action}: ${d.why} [used ${d.used}/${CFG.dailyLimit}, pending ${pending.relevant.length}]`);
 
