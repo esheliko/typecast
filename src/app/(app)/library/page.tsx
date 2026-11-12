@@ -3,6 +3,8 @@ import Link from "next/link";
 import { Suspense } from "react";
 import LibraryView from "@/components/LibraryView";
 import UpNext from "@/components/UpNext";
+import { cookies } from "next/headers";
+import { parseUi, UI_COOKIE, type UiPrefs } from "@/lib/ui-prefs";
 import Upcoming, { UpcomingSkeleton } from "@/components/Upcoming";
 import { rankUpNext, realServices } from "@/lib/upnext";
 import { loadUpNext } from "@/lib/upnext-data";
@@ -52,23 +54,23 @@ async function suggestionsInner(lib: LibItem[]) {
 const quickPicks = (lib: LibItem[]) => rankUpNext(lib, { now: Date.now(), facts: new Map(), hasServices: false }, new Set(), 32);
 
 /** Watch next with TMDB facts (streaming, taste, new episodes, discoveries). Decoration: on any failure it keeps the quick ranking. */
-async function WatchNext({ lib }: { lib: LibItem[] }) {
+async function WatchNext({ lib, prefs }: { lib: LibItem[]; prefs: UiPrefs }) {
   try {
     const profile = await getProfile();
-    return <UpNext picks={await loadUpNext(lib, profile)} services={realServices(profile.services).length ? "yes" : "no"} />;
+    return <UpNext picks={await loadUpNext(lib, profile)} services={realServices(profile.services).length ? "yes" : "no"} prefs={prefs} />;
   } catch (e) {
     console.error("Watch next failed", e);
-    return <UpNext picks={quickPicks(lib)} services="failed" />;
+    return <UpNext picks={quickPicks(lib)} services="failed" prefs={prefs} />;
   }
 }
 
 /** Decoration: unreleased films and next episodes from the library. On any failure it renders nothing. */
-async function UpcomingFromList({ lib }: { lib: LibItem[] }) {
+async function UpcomingFromList({ lib, prefs }: { lib: LibItem[]; prefs: UiPrefs }) {
   try {
     const now = Date.now();
     const profile = await getProfile();
     const entries = await loadUpcoming(lib, profile, now);
-    return entries.length ? <Upcoming entries={entries} today={dayOf(now, tzOf(profile.country))} /> : null;
+    return entries.length ? <Upcoming entries={entries} today={dayOf(now, tzOf(profile.country))} open={prefs.upOpen} /> : null;
   } catch (e) {
     console.error("Upcoming failed", e);
     return null;
@@ -82,6 +84,7 @@ export default async function Library({ searchParams }: { searchParams: Promise<
   catch (e) {
     return <div className="page"><p className="muted" style={{ marginTop: 20 }}>Could not load your library: {userMessage(e, "library load")}</p></div>;
   }
+  const prefs = parseUi((await cookies()).get(UI_COOKIE)?.value);
   const filter = (["watching", "partial", "watchlist", "watched"] as string[]).includes(f ?? "") ? (f as Status) : "all";
   return (
     <div className="page">
@@ -93,8 +96,8 @@ export default async function Library({ searchParams }: { searchParams: Promise<
         </div>
       ) : <><div className="page-head"><h1>Library</h1><Link href="/library/stats">Stats <span aria-hidden="true">›</span></Link></div><LibraryView items={lib} initial={filter} initialSort={isSort(s) ? s : "added"} initialKind={isKind(k) && k !== "all" ? k : "all"}
         top={<>
-          <Suspense fallback={<UpNext picks={quickPicks(lib)} services="pending" />}><WatchNext lib={lib} /></Suspense>
-          <Suspense fallback={hasUpcomingCandidates(lib) ? <UpcomingSkeleton /> : null}><UpcomingFromList lib={lib} /></Suspense>
+          <Suspense fallback={<UpNext picks={quickPicks(lib)} services="pending" prefs={prefs} />}><WatchNext lib={lib} prefs={prefs} /></Suspense>
+          <Suspense fallback={hasUpcomingCandidates(lib) ? <UpcomingSkeleton /> : null}><UpcomingFromList lib={lib} prefs={prefs} /></Suspense>
         </>} /></>}
       {lib.length > 0 && <Suspense fallback={null}><Suggestions lib={lib} /></Suspense>}
     </div>
