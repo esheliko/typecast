@@ -89,12 +89,12 @@ export function thenScore(c: ThenCand, who: ThenWho): number {
   if (/imdb\.com\/title\/tt\d+\/characters\/nm\d+/i.test(page)) s += 4; // IMDb's page for this actor in this title: pictures tagged with them
   else if (/imdb\.com\/title\/.*\/(mediaviewer|mediaindex)/i.test(page)) s += 1; // a title's gallery: stills, but not necessarily of this actor
   else if (WORK_PAGE.test(page)) s += 3;
-  if (PORTRAIT_WORDS.test(title)) s -= 3;
+  if (PORTRAIT_WORDS.test(title) && !/imdb\.com\/(?:[a-z]{2}\/)?title\/tt\d+\/characters\//i.test(page)) s -= 3; // ("- IMDb" in the title of the tagged page is not a portrait sign)
   if (/\b(imdb)\s*$/i.test(title) && !has(title, who.title)) s -= 2; // "Name - IMDb"
   if (WORK_WORDS.test(title)) s += 1;
   const t = has(hay, who.title), ch = !!who.char && has(hay, who.char);
   if (t) s += 2;
-  if (ch) s += 3;
+  if (ch) s += 5; // the character's name is the strongest sign it is this role, above a generic scene from the show
   // A page named after the actor (a wiki's actor article, a bio) rather than the role: its picture is their portrait.
   const slug = decodeURIComponent(page).toLowerCase().replace(/[^a-z0-9]+/g, " ");
   const cw = words(who.char ?? "").filter((w) => w.length > 2);
@@ -104,20 +104,22 @@ export function thenScore(c: ThenCand, who: ThenWho): number {
   if (c.w && c.h) {
     const r = c.w / c.h;
     if (r >= 1.3) s += 2; // a wide frame is nearly always a scene
-    else if (r < 0.9) s -= ch ? 1 : 3; // a tall frame is a poster or a portrait; only one naming the character is plausibly of them
+    else if (r < 0.9) s -= /imdb\.com\/(?:[a-z]{2}\/)?title\/tt\d+\/characters\//i.test(page) ? 30 : ch ? 1 : 3; // a tall frame is a poster or a portrait; on IMDb's tagged page it is the "known for" poster collage or the show's key art (the real stills are landscape), whatever its title says; elsewhere only one naming the character is plausibly of them
     if (c.w < 200) s -= 1;
   }
   return s;
 }
 
 /**
- * Does anything in the result tie it to this role: the character or the show in its title, page address or file name, or IMDb's tagged page for this actor in a title?
- * Without that, a picture is just something the search returned for the actor (another film's poster, a fan montage) and must never stand in for the role.
+ * Does the result show this role? Yes when it names the character (title, page address or file name), or is IMDb's tagged page for this actor in a title, or is a wide
+ * frame (a scene) from the show. The show's name alone is not enough on a tall or square image: that is a poster, a filmography montage or another work listed on a page
+ * about the actor, and it must never stand in for the role.
  */
 export function hasRoleEvidence(c: ThenCand, who: ThenWho): boolean {
   const hay = `${c.title ?? ""} ${c.page ?? ""} ${c.thumb ?? ""}`;
   if (/imdb\.com\/(?:[a-z]{2}\/)?title\/tt\d+\/characters\/nm\d+/i.test(c.page ?? "")) return true;
-  return (!!who.char && has(hay, who.char)) || has(hay, who.title);
+  if (who.char && has(hay, who.char)) return true;
+  return has(hay, who.title) && !!c.w && !!c.h && c.w / c.h >= 1.3;
 }
 
 /** Candidates best first (stable for equal scores, so the search's own order breaks ties). Strong headshot lookalikes and pictures with no tie to the role are dropped. */

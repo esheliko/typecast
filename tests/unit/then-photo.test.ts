@@ -48,7 +48,7 @@ test("ranking puts the role picture first and drops lookalike headshots", () => 
   assert.deepEqual(r.map((x) => x.thumb), [still.thumb, scene.thumb]);
 });
 test("ranking keeps the search order for ties and handles missing fields", () => {
-  const a = { thumb: "https://x/1.jpg", title: "The Rookie" }, b = { thumb: "https://x/2.jpg", title: "The Rookie" };
+  const a = { thumb: "https://x/1.jpg", title: "John Nolan" }, b = { thumb: "https://x/2.jpg", title: "John Nolan" };
   assert.deepEqual(rankThenImages([a, b], who).map((x) => x.thumb), [a.thumb, b.thumb]);
 });
 
@@ -87,6 +87,15 @@ test("a picture with no tie to the role (another film's poster) is never a Then 
   const role = { thumb: "r", page: "https://www.imdb.com/title/tt13433318/characters/nm1223951/", title: "The Rookie Bad Blood - Tamyra Gray as 3Eyez - IMDb", w: 1263, h: 1121 };
   const poster = { thumb: "p", page: "https://live-action.fandom.com/wiki/The_Rookie_(2018)", title: "The Rookie (2018) | Live Action Wiki | Fandom", w: 780, h: 1170 };
   assert.deepEqual(rankThenImages([vq], w), []);
-  assert.deepEqual(rankThenImages([vq, poster, role], w).map((x) => x.thumb), ["r", "p"]);
+  const montage = { thumb: "m", page: "https://www.example.com/tamyra-gray-movies-and-tv-shows-the-rookie", title: "Tamyra Gray movies and TV: The Rookie, VisionQuest", w: 900, h: 900 };
+  const scene = { thumb: "s", page: "https://www.tvline.com/the-rookie-season-4", title: "The Rookie season 4 episode 8", w: 1000, h: 560 };
+  assert.deepEqual(rankThenImages([vq, poster, montage, scene, role], w).map((x) => x.thumb), ["r", "s"]);
   assert.ok(thenScore(role, w) > thenScore(poster, w));
+});
+
+test("real case: IMDb's tagged page also serves a tall 'known for' poster collage under the same title; only its landscape stills count", () => {
+  const w = { actor: "Tamyra Gray", char: "3Eyez", title: "The Rookie" };
+  const page = "https://www.imdb.com/title/tt7587890/characters/nm1223951/", title = "The Rookie (TV Series 2018– ) - Tamyra Gray as 3Eyez - IMDb";
+  const collage = { thumb: "c", page, title, w: 1000, h: 1250 }, still = { thumb: "s", page, title, w: 380, h: 214 }, art = { thumb: "a", page, title, w: 1350, h: 1688 };
+  assert.deepEqual(rankThenImages([collage, art, still], w).map((x) => x.thumb), ["s"]);
 });
