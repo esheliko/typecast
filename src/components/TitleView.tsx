@@ -16,6 +16,7 @@ import NoteBox from "@/components/NoteBox";
 import NewEpPill from "@/components/NewEp";
 import { newEpDetail } from "@/lib/new-episode";
 import StatusControls from "@/components/StatusControls";
+import SeasonCast from "@/components/SeasonCast";
 import RelatedButton from "@/components/cast/RelatedButton";
 import { GlimpseButton } from "@/components/Glimpse";
 import { titleSpec } from "@/lib/glimpse";
@@ -97,6 +98,7 @@ function CastBlock({ part, t, lib, people, first, last, pending }: CastProps & {
           <div className={`card pad${part === "cast_main" ? " cast-main" : ""}`}>{shown.length > MAIN_CAST || extras.length ? <CastFilter total={extras.length ? total : undefined}>{list}</CastFilter> : list}</div>
         </>
       )}
+      {part === "cast_main" && t.type === "tv" && t.seasons.length > 1 && <SeasonCast tv={t.id} seasons={t.seasons.map((x) => x.n)} />}
       {pending && last && shown.length > 0 && <p className="muted small" style={{ marginTop: 14 }}><span className="spin" />Finding where you know them from</p>}
       {linked.length > 0 && (
         <details className="cw" style={{ marginTop: 18 }}>
