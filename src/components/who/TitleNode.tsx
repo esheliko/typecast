@@ -4,7 +4,7 @@ import { useLib } from "../cast/LibState";
 import QuickMark from "../cast/QuickMark";
 import { TitleLink } from "../Modal";
 import { GlimpseButton } from "../Glimpse";
-import { castSpec, scopeSpec, withLibRoles } from "@/lib/glimpse";
+import { castSpec, scopeSpec, titleSpec, withLibRoles } from "@/lib/glimpse";
 import { More, Photo, Section, Sk, Soft, useLimit, useSpans, ZoomBtn } from "./bits";
 import { nodeId, useWho, type Node } from "./WhoContext";
 import { typeLabel } from "@/lib/img";
@@ -48,6 +48,8 @@ export function TitleNode({ node }: { node: TNode }) {
   const lim = useLimit(fromCast.length, 5);
   const spec = (name: string, role: string, pid: number) => scopeSpec(withLibRoles(castSpec(name, role, { title: node.title, year: node.year, type, key: node.key }, "Acting", pid), name), { key: cur.key, title: cur.title, clip, spoilers });
 
+  const titleG = scopeSpec(titleSpec({ title: node.title, year: node.year, type, key: node.key }), { key: cur.key, title: cur.title, clip, spoilers });
+
   return (
     <div className="wx-node" data-node={nodeId(node)}>
       <header className="wx-thead">
@@ -57,6 +59,7 @@ export function TitleNode({ node }: { node: TNode }) {
           <p className="small muted" style={{ margin: "2px 0 8px" }}>{[typeLabel(type), <span key="y" title={data ? fmtDate(data.brief.first) || undefined : undefined}>{data ? (type === "movie" || self ? yr(data.brief.first) || node.year : range?.start ? years(range.start, range.end) : node.year) : node.year}</span>, data?.brief.genres.slice(0, 2).join(", ")].filter((x) => x && (typeof x !== "object" || x.props.children)).map((x, i) => <Fragment key={i}>{i ? " · " : null}{x}</Fragment>)}</p>
           <div className="wx-mark-row">
             <QuickMark it={it} variant="inline" />
+            <GlimpseButton spec={titleG} label={`About ${node.title}: the story and images`} />
             <span className="small muted">{m ? markLabel(m.status, m.priority) : "Not marked"}</span>
           </div>
           <TitleLink k={node.key} it={it} className="linkish small wx-full">Open the full page</TitleLink>
@@ -74,7 +77,7 @@ export function TitleNode({ node }: { node: TNode }) {
         {data && !fromCast.length && <p className="small muted" style={{ margin: 0 }}>No one from the cast here is in this title.</p>}
         {fromCast.slice(0, lim.shown).map(({ f, role }) => (
           <CastRow key={f.id} f={f} role={role} spec={spec(f.name, role, f.id)} titleKey={node.key} type={type} release={data?.brief.first ?? ""} hideDates={self}
-            onOpen={() => push({ t: "person", id: f.id, name: f.name, photo: f.photo, hl: node.key })} />
+            onOpen={() => push({ t: "person", id: f.id, name: f.name, photo: f.photo, hl: node.key, still: true })} />
         ))}
         {data && <More total={fromCast.length} {...lim} />}
       </Section>
@@ -89,6 +92,7 @@ export function TitleNode({ node }: { node: TNode }) {
                   <Photo path={p.photo} name={p.name} className="wx-ph" />
                   <b>{p.name}</b><span className="small muted wx-role">{roleLabel(p.role) || " "}</span>
                 </button>
+                <span className="wx-tileg wx-billedg"><GlimpseButton spec={spec(p.name, p.role, p.id)} label={`About ${p.name}${p.role ? ` as ${roleLabel(p.role) || p.role}` : ""}: the character, episodes and images`} /></span>
               </li>
             ))}
           </ul>

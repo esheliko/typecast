@@ -25,5 +25,5 @@ export default defineConfig({
   },
   globalSetup: "./tests/smoke/global-setup.ts",
   globalTeardown: "./tests/smoke/global-teardown.ts",
-  webServer: base ? undefined : { command: "npm run start -- -p 3100", url: "http://localhost:3100/login", reuseExistingServer: !process.env.CI, timeout: 60_000 },
+  webServer: base ? undefined : { env: process.env.HTTPS_PROXY || process.env.https_proxy ? { NODE_USE_ENV_PROXY: "1" } : {}, command: "npm run start -- -p 3100", url: "http://localhost:3100/login", reuseExistingServer: !process.env.CI, timeout: 60_000 },
 });

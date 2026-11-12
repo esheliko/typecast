@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { signIn } from "./auth";
 import { configured, smokeClient } from "./seed";
 
 /** Errors that mean a page is broken. Image 404s and the like are not. */
@@ -55,11 +56,7 @@ test.describe("signed in", () => {
   test.skip(!configured(), "no SMOKE_EMAIL/SMOKE_PASSWORD: authenticated pages not tested");
 
   test.beforeEach(async ({ page }) => {
-    await page.goto("/login");
-    await page.getByLabel("Email").fill(process.env.SMOKE_EMAIL!);
-    await page.getByLabel("Password").fill(process.env.SMOKE_PASSWORD!);
-    await page.getByRole("button", { name: "Sign in" }).click();
-    await page.waitForURL((u) => !u.pathname.startsWith("/login"), { timeout: 30_000 });
+    await signIn(page);
   });
 
   test("Browse", async ({ page }) => {
@@ -80,7 +77,7 @@ test.describe("signed in", () => {
     // Upcoming: the seeded series are all candidates, but whether any has a future episode depends on TMDB today, so the section is
     // optional. When it is there it must open, and every row needs a date and a countdown (never "Invalid" or an empty cell).
     const upcoming = page.getByRole("region", { name: "Upcoming" });
-    await page.waitForTimeout(3000);
+    await upcoming.waitFor({ timeout: 3000 }).catch(() => {}); // optional section: wait for it, but only as long as it takes to show
     if (await upcoming.count()) {
       await upcoming.getByRole("button", { name: /Upcoming/ }).click();
       const rows = upcoming.locator(".up-row");

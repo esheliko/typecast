@@ -91,21 +91,25 @@ export function whereLabel(w: Watch, now = Date.now()): string {
   return w.type === "tv" ? `S${w.s} E${w.e} · ${t}` : t;
 }
 
-/** The facts offered under "About": a label and the question the built-in answer engine (lib/answer.ts) is given. */
-export function factButtons(type: MediaType): { label: string; q: string }[] {
+/** Fact groups, in the order the title view shows them. */
+export const FACT_GROUPS = ["The story", "Behind the scenes", "Verdict and viewing"] as const;
+export type FactGroup = (typeof FACT_GROUPS)[number];
+
+/** The facts offered under "About": a label, the group it sits in, and the question the built-in answer engine (lib/answer.ts) is given. */
+export function factButtons(type: MediaType): { label: string; q: string; group: FactGroup }[] {
   const tv = type === "tv";
   return [
-    { label: "Story so far", q: tv ? "Recap the story so far, up to this episode" : "Recap the story so far" },
-    { label: tv ? "This episode" : "What it's about", q: tv ? "Which episode is this?" : "What is it about?" },
-    { label: tv ? "Episodes left" : "How long is left", q: tv ? "How many episodes are left this season?" : "How much longer is it?" },
-    ...(tv ? [] : [{ label: "Post-credits scene?", q: "Is there a post-credits scene?" }]),
-    { label: "Based on a true story?", q: "Is this based on a true story?" },
-    { label: "Where it was filmed", q: "Where was this filmed?" },
-    { label: "Who made it", q: "Who directed this?" },
-    { label: "Music", q: "Who did the music?" },
-    { label: "Trivia", q: "Tell me some trivia" },
-    { label: "Awards", q: "Did it win any awards?" },
-    { label: "Rating", q: "What is the rating?" },
-    { label: "Where to stream", q: "Where can I watch this?" },
+    { group: "The story", label: "Story so far", q: tv ? "Recap the story so far, up to this episode" : "Recap the story so far" },
+    { group: "The story", label: tv ? "This episode" : "What it's about", q: tv ? "Which episode is this?" : "What is it about?" },
+    { group: "The story", label: tv ? "Episodes left" : "How long is left", q: tv ? "How many episodes are left this season?" : "How much longer is it?" },
+    ...(tv ? [] : [{ group: "The story" as const, label: "Post-credits scene?", q: "Is there a post-credits scene?" }]),
+    { group: "Behind the scenes", label: "Who made it", q: "Who directed this?" },
+    { group: "Behind the scenes", label: "Music", q: "Who did the music?" },
+    { group: "Behind the scenes", label: "Where it was filmed", q: "Where was this filmed?" },
+    { group: "Behind the scenes", label: "Based on a true story?", q: "Is this based on a true story?" },
+    { group: "Behind the scenes", label: "Trivia", q: "Tell me some trivia" },
+    { group: "Verdict and viewing", label: "Rating", q: "What is the rating?" },
+    { group: "Verdict and viewing", label: "Awards", q: "Did it win any awards?" },
+    { group: "Verdict and viewing", label: "Where to stream", q: "Where can I watch this?" },
   ];
 }

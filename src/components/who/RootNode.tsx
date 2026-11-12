@@ -7,7 +7,7 @@ import { EpisodeCard } from "./EpisodeCard";
 import { Section, Sk, ZoomBtn, Photo } from "./bits";
 import { useWho } from "./WhoContext";
 import { fmtDay } from "@/lib/who-dates";
-import { factButtons } from "@/lib/watching";
+import { factButtons, FACT_GROUPS } from "@/lib/watching";
 import { posLabel, scopeKind, urlKey } from "@/lib/who-scope";
 import type { Answer } from "@/lib/answer";
 
@@ -69,23 +69,32 @@ export function RootNode() {
       </section>
 
       <Section title="About this title" note="Tap a card to open it.">
-        <ul className="wx-facts">
-          {buttons.map((b) => {
-            const isOpen = !!open[b.label], f = facts[b.label];
-            return (
-              <li key={b.label} className={`wx-fact${isOpen ? " open" : ""}`}>
-                <button type="button" className="wx-factb" aria-expanded={isOpen} onClick={() => ask(b.label, b.q)}>
-                  <span>{b.label}</span><span aria-hidden="true" className="wx-caret">{isOpen ? "▴" : "▾"}</span>
-                </button>
-                {isOpen && (
-                  <div className="wx-factbody" aria-live="polite">
-                    {f === "loading" || !f ? <div aria-hidden="true"><Sk w="90%" h={13} /><Sk w="70%" h={13} style={{ marginTop: 8 }} /></div> : <FactView a={f} onLeave={() => {}} />}
-                  </div>
-                )}
-              </li>
-            );
-          })}
-        </ul>
+        {FACT_GROUPS.map((g) => {
+          const items = buttons.filter((b) => b.group === g);
+          if (!items.length) return null;
+          return (
+            <div key={g} className="wx-factgroup" role="group" aria-label={g}>
+              <h4 className="wx-grouph">{g}</h4>
+              <ul className="wx-facts">
+                {items.map((b) => {
+                  const isOpen = !!open[b.label], f = facts[b.label];
+                  return (
+                    <li key={b.label} className={`wx-fact${isOpen ? " open" : ""}`}>
+                      <button type="button" className="wx-factb" aria-expanded={isOpen} onClick={() => ask(b.label, b.q)}>
+                        <span>{b.label}</span><span aria-hidden="true" className="wx-caret">{isOpen ? "▴" : "▾"}</span>
+                      </button>
+                      {isOpen && (
+                        <div className="wx-factbody" aria-live="polite">
+                          {f === "loading" || !f ? <div aria-hidden="true"><Sk w="90%" h={13} /><Sk w="70%" h={13} style={{ marginTop: 8 }} /></div> : <FactView a={f} onLeave={() => {}} />}
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          );
+        })}
       </Section>
 
       {mine && (

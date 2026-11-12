@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { signIn } from "./auth";
 import { configured, deleteRows, rowOf, smokeClient, SCRATCH, SEED } from "./seed";
 
 /**
@@ -21,11 +22,7 @@ test.describe("behaviour (signed in)", () => {
   test.setTimeout(90_000);
 
   test.beforeEach(async ({ page }) => {
-    await page.goto("/login");
-    await page.getByLabel("Email").fill(process.env.SMOKE_EMAIL!);
-    await page.getByLabel("Password").fill(process.env.SMOKE_PASSWORD!);
-    await page.getByRole("button", { name: "Sign in" }).click();
-    await page.waitForURL((u) => !u.pathname.startsWith("/login"), { timeout: 30_000 });
+    await signIn(page);
   });
 
   const rowTitles = (page: Page) => page.locator(".lib-row .row-title");

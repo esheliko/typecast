@@ -109,6 +109,7 @@ export function GlimpseProvider({ children }: { children: React.ReactNode }) {
   }, [spec, big, close]);
 
   const cur = q ? imgDone.get(q) ?? res[q] : undefined;
+  const about = curTab ? curTab.info ?? spec?.info : undefined;
   return (
     <Ctx.Provider value={open}>
       {children}
@@ -124,34 +125,37 @@ export function GlimpseProvider({ children }: { children: React.ReactNode }) {
                 {tabs.map((t) => <button key={t.q} type="button" role="tab" aria-selected={t.q === q} className={t.q === q ? "on" : ""} onClick={() => { setTabQ(t.q); setBig(null); }}>{t.label}</button>)}
               </div>
             )}
-            <div className="gl-body">
-              {(!cur || cur.state === "loading") && <p className="muted" role="status"><span className="spin" aria-hidden="true" />Finding images…</p>}
-              {cur?.state === "error" && <p className="err">{cur.msg}</p>}
-              {cur?.state === "ok" && !cur.configured && <p className="small muted">Image search is not set up here yet. Use “More in Google Images” below.</p>}
-              {cur?.state === "ok" && cur.configured && cur.images.length === 0 && <p className="muted">No images found.</p>}
-              {big && (
-                <figure className="gl-big">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={big.full} alt={big.title} referrerPolicy="no-referrer" onError={(e) => { (e.currentTarget as HTMLImageElement).src = big.thumb; }} />
-                  <figcaption className="small"><a href={big.page} target="_blank" rel="noopener noreferrer">Source page</a> · <button type="button" className="linkish" onClick={() => setBig(null)}>Back to results</button></figcaption>
-                </figure>
-              )}
-              {!big && cur?.state === "ok" && cur.images.length > 0 && (
-                <ul className="gl-grid">
-                  {cur.images.map((im) => (
-                    <li key={im.full}>
-                      <button type="button" onClick={() => setBig(im)} aria-label={im.title || "View image"}>
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={im.thumb} alt="" loading="lazy" referrerPolicy="no-referrer" />
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              <a className="btn sm gold" href={gUrl(q)} target="_blank" rel="noopener noreferrer" style={{ marginTop: 12 }}>More in Google Images</a>
-              <p className="small muted" style={{ margin: "8px 0 0" }}>Searching: {q}</p>
-              {/* The images come first: that is what the panel is opened for. The words about it follow below them. */}
-              {(curTab.info ?? spec.info) && <div style={{ marginTop: 16 }}><About info={(curTab.info ?? spec.info)!} /></div>}
+            {/* Two panes that scroll on their own: the pictures never move when the words arrive, and the words are visible with them (side by side
+                on wide screens, stacked on a phone). No words for this spec (images only) -> one pane. */}
+            <div className={`gl-main${about ? "" : " solo"}`}>
+              <div className="gl-media">
+                {(!cur || cur.state === "loading") && <p className="muted" role="status"><span className="spin" aria-hidden="true" />Finding images…</p>}
+                {cur?.state === "error" && <p className="err">{cur.msg}</p>}
+                {cur?.state === "ok" && !cur.configured && <p className="small muted">Image search is not set up here yet. Use “More in Google Images” below.</p>}
+                {cur?.state === "ok" && cur.configured && cur.images.length === 0 && <p className="muted">No images found.</p>}
+                {big && (
+                  <figure className="gl-big">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={big.full} alt={big.title} referrerPolicy="no-referrer" onError={(e) => { (e.currentTarget as HTMLImageElement).src = big.thumb; }} />
+                    <figcaption className="small"><a href={big.page} target="_blank" rel="noopener noreferrer">Source page</a> · <button type="button" className="linkish" onClick={() => setBig(null)}>Back to results</button></figcaption>
+                  </figure>
+                )}
+                {!big && cur?.state === "ok" && cur.images.length > 0 && (
+                  <ul className="gl-grid">
+                    {cur.images.map((im) => (
+                      <li key={im.full}>
+                        <button type="button" onClick={() => setBig(im)} aria-label={im.title || "View image"}>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={im.thumb} alt="" loading="lazy" referrerPolicy="no-referrer" />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <a className="btn sm gold" href={gUrl(q)} target="_blank" rel="noopener noreferrer" style={{ marginTop: 12 }}>More in Google Images</a>
+                <p className="small muted" style={{ margin: "8px 0 0" }}>Searching: {q}</p>
+              </div>
+              {about && <div className="gl-side" key={q}><About info={about} /></div>}
             </div>
           </div>
         </div>

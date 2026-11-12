@@ -81,6 +81,29 @@ export function characterBlurb(secs: Section[], character: string, actor: string
 }
 
 /**
+ * Last resort for a film whose cast list is only "Actor as Character" (no description): the plot summary sentence that says who the
+ * character is ("Sean is a detective with the State Police whose wife left him"). Needs the character named by full name or by a
+ * first/last name with "is/was a(n)" right after it; a mere mention in a list of names ("Jimmy, Sean and Dave are playing") is not a description.
+ */
+export function plotNote(secs: Section[], character: string): { text: string; section: string } | null {
+  const ch = character.replace(/\(.*?\)/g, "").replace(/["“”].*?["“”]/g, "").trim();
+  const parts = norm(ch).split(" ").filter((w) => w.length > 2);
+  if (!parts.length) return null;
+  const names = [...new Set([parts.join(" "), parts[0], parts[parts.length - 1]])].map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  const re = new RegExp(`\\b(?:${names.join("|")})\\b[^.]{0,12}?\\b(?:is|was|,?\\s+an?|,?\\s+the)\\s`, "i");
+  for (const sec of secs) {
+    if (!/\b(plot|synopsis|premise)\b/i.test(sec.name)) continue;
+    for (const raw of sec.text.split(/\n+/)) {
+      const hit = sentences(raw.replace(/\s+/g, " ")).find((x) => re.test(x) && x.length > 30);
+      if (!hit) continue;
+      // "25 years later, Jimmy is an ex-convict and Sean is a detective…": keep the clause about this character when the sentence is a chain.
+      return { text: hit.replace(/^(?:\d+ years later|[A-Z][a-z]+ years later),\s*/, ""), section: sec.name };
+    }
+  }
+  return null;
+}
+
+/**
  * Small parts are one clause in a run-on cast line ("Hy Pyke as Taffey Lewis, Robert Okazaki as Howie Lee, ..."), often under another
  * first name or role name than TMDB uses ("Bob" vs "Robert", "Sushi Master" vs "Howie Lee"). Match on the actor's surname in an
  * "<Given name> <Surname> as <role>" clause and give back just that clause, so the panel has something true instead of nothing, and the role name it gives ("Howie Lee") is a better search word for the show's wiki than TMDB's "Sushi Master". Used after Fandom, never before it.

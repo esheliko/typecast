@@ -9,7 +9,7 @@
 export interface PRef { id: number; name: string; photo: string | null }
 export type Node =
   | { t: "root" }
-  | { t: "person"; id: number; name: string; photo: string | null; /** Title key to highlight in the person's timeline. */ hl?: string }
+  | { t: "person"; id: number; name: string; photo: string | null; /** Title key to highlight in the person's timeline. */ hl?: string; /** Reached from a title in the trail: highlight the row but never scroll the details to it. */ still?: boolean }
   | { t: "title"; key: string; title: string; year: string; poster: string | null }
   | { t: "pair"; a: PRef; b: PRef }
   /** One episode of the series being watched, opened from a person's episode list. It never changes where you are. */

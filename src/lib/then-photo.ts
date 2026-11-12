@@ -70,6 +70,8 @@ const has = (hay: string, needle: string | undefined): boolean => { const n = wo
 
 /** Pages that hold an actor's own portrait (profile headshots, agency and fan-site galleries) rather than a picture from the work. */
 const PORTRAIT_PAGE = /(imdb\.com\/(name|(?:[a-z]{2}\/)?name)\/|themoviedb\.org\/person|rottentomatoes\.com\/celebrity|wikipedia\.org|wikimedia\.org|wikidata\.org|famousbirthdays|biography\.com|tvguide\.com\/celebrities|instagram\.com|facebook\.com|twitter\.com|x\.com\/|pinterest\.|gettyimages|shutterstock|alamy|ranker\.com|fandango\.com\/people|justjared|zimbio|fanpop\.com\/(?:celebrity|people)|castingnetworks)/i;
+/** IMDb's page for one actor in one title. Its image is unrelated artwork labelled with the character's name, so it never counts as a picture of the role. */
+const IMDB_CHARACTER_PAGE = /imdb\.com\/(?:[a-z]{2}\/)?title\/tt\d+\/characters\/nm\d+/i;
 /** Words in a result's title that say it is a portrait or an event photo, not a still. */
 const PORTRAIT_WORDS = /\b(headshots?|portraits?|photoshoot|photo ?call|red carpet|premiere|arrivals?|attends?|attending|festival|comic[- ]?con|panel|interview|wallpapers?|biography|bio|height|net worth|wife|husband|girlfriend|boyfriend|instagram|profile|imdb)\b/i;
 /** Pages and words that say the picture is from the show or film itself. */
@@ -95,8 +97,8 @@ export function thenScore(c: ThenCand, who: ThenWho): number {
   const hay = `${title} ${page} ${thumb}`;
   let s = 0;
   if (PORTRAIT_PAGE.test(page)) s -= 4;
-  if (/imdb\.com\/title\/tt\d+\/characters\/nm\d+/i.test(page)) s += 4; // IMDb's page for this actor in this title: pictures tagged with them
-  else if (/imdb\.com\/title\/.*\/(mediaviewer|mediaindex)/i.test(page)) s += 1; // a title's gallery: stills, but not necessarily of this actor
+  if (IMDB_CHARACTER_PAGE.test(page)) return -30; // IMDb's "Actor as Character" page: its picture is a collage of the actor's other posters or the show's key art, never a still of the role (any shape)
+  if (/imdb\.com\/title\/.*\/(mediaviewer|mediaindex)/i.test(page)) s += 1; // a title's gallery: stills, but not necessarily of this actor
   else if (WORK_PAGE.test(page)) s += 3;
   if (PORTRAIT_WORDS.test(title) && !/imdb\.com\/(?:[a-z]{2}\/)?title\/tt\d+\/characters\//i.test(page)) s -= 3; // ("- IMDb" in the title of the tagged page is not a portrait sign)
   if (/\b(imdb)\s*$/i.test(title) && !has(title, who.title)) s -= 2; // "Name - IMDb"
@@ -126,7 +128,7 @@ export function thenScore(c: ThenCand, who: ThenWho): number {
  */
 export function hasRoleEvidence(c: ThenCand, who: ThenWho): boolean {
   const hay = `${c.title ?? ""} ${c.page ?? ""} ${c.thumb ?? ""}`;
-  if (/imdb\.com\/(?:[a-z]{2}\/)?title\/tt\d+\/characters\/nm\d+/i.test(c.page ?? "")) return true;
+  if (IMDB_CHARACTER_PAGE.test(c.page ?? "")) return false;
   if (namesChar(hay, who)) return true;
   // The show alone is not enough, even on a wide frame: that is a scene of anyone in it (a "Kidnapper 1" got another man's photo). It must name the actor too.
   if (c.w && c.h && c.w / c.h < 1.1) return false; // a poster or a square filmography montage
