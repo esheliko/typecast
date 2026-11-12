@@ -194,10 +194,10 @@ export function PersonNode({ node }: { node: PNode }) {
     setThenImg(null);
     if (!old || !thenQ) return; // fetched whether or not the Then switch is on: the details always offer it
     let live = true;
-    fetchThen(thenQ, node.photo ?? data?.photo, { actor: node.name, char: charOf(face?.role), title: brief.title })
+    fetchThen(thenQ, node.photo ?? data?.photo, { actor: node.name, char: charOf(face?.role), title: brief.title }, brief.type === "tv" && pos?.s && pos.e ? { tv: brief.id, imdb: brief.imdbId, s: pos.s, e: pos.e } : null)
       .then((r) => { if (live) setThenImg(r.url); }).catch(() => {});
     return () => { live = false; };
-  }, [old, thenQ, node.photo, data?.photo, node.name, face?.role, brief.title]);
+  }, [old, thenQ, node.photo, data?.photo, node.name, face?.role, brief.title, brief.id, brief.imdbId, brief.type, pos?.s, pos?.e]);
   const mainPh = data?.photo ?? node.photo ?? null;
   const [thenBad, setThenBad] = useState(false);
   useEffect(() => { setThenBad(false); }, [thenImg]);

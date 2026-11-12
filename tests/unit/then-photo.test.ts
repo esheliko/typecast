@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { isOldTitle } from "../../src/lib/then-photo";
+import { isOldTitle, sharedThenIds } from "../../src/lib/then-photo";
 
 test("old enough", () => { assert.equal(isOldTitle("1981-06-12", 2026), true); assert.equal(isOldTitle("2018-01-01", 2026), true); });
 test("recent", () => { assert.equal(isOldTitle("2020-05-01", 2026), false); assert.equal(isOldTitle("2026-01-01", 2026), false); });
@@ -108,4 +108,9 @@ test("a generic role ('Kidnapper 1') is not evidence: another man's scene from t
   const other = { thumb: "o", page: "https://www.example.com/westworld-kidnapper-scene", title: "Westworld kidnapper crime scene", w: 1200, h: 700 };
   const mine = { thumb: "m", page: "https://www.example.com/westworld-s2", title: "Dusty Sorg in Westworld", w: 1200, h: 700 };
   assert.deepEqual(rankThenImages([other, mine], w).map((x) => x.thumb), ["m"]);
+});
+
+test("sharedThenIds flags faces that got the same picture, at any size", () => {
+  const m = { 1: "https://i.x/abcdefgh12.jpg", 2: "https://i.x/s/abcdefgh12.jpg?w=2", 3: "https://i.x/otherpic99.jpg", 4: null };
+  assert.deepEqual([...sharedThenIds(m)].sort(), [1, 2]);
 });

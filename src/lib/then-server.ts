@@ -2,6 +2,9 @@ import sharp from "sharp";
 import { dHash, pickThenUrl, rankThenImages, type ThenWho } from "./then-photo";
 import { img } from "./img";
 import { searchImages } from "./image-search";
+import { getFandomEpisodeGallery } from "./fandom";
+import { galleryFor } from "./wiki-cast";
+import { tmdb } from "./tmdb";
 
 const cache = new Map<string, Promise<string | null>>();
 
@@ -30,7 +33,21 @@ async function hashOf(url: string): Promise<string | null> {
  * The "Then" photo for one face: from the role search, the best-ranked picture that looks like the role (not a headshot) and is not the Now (profile) photo,
  * compared by address and by look, with the pixels read here. A candidate that cannot be read is skipped, so Now and Then are never the same picture.
  */
-export async function chooseThen(q: string, profilePath: string | null, who: ThenWho): Promise<{ configured: boolean; url: string | null }> {
+export interface ThenEp { tv: number; imdb: string | null; s: number; e: number }
+
+/** The still of this actor from the show's Fandom gallery page for the episode being watched ("Actor as Character" captions), when the wiki has one. */
+async function galleryThen(ep: ThenEp, profilePath: string | null, who: ThenWho): Promise<string | null> {
+  try {
+    const season = await tmdb(`/tv/${ep.tv}/season/${ep.s}`, {}, 6 * 3600);
+    const name = String(((season.episodes ?? []) as { episode_number: number; name?: string }[]).find((x) => x.episode_number === ep.e)?.name ?? "");
+    const pics = galleryFor(await getFandomEpisodeGallery(ep.imdb, who.title ?? "", ep.s, name), who.actor, who.char);
+    return await pickThenUrl(pics.map((p) => p.url), profilePath ? img(profilePath, "w185") : null, hashOf, 3, false);
+  } catch { return null; }
+}
+
+export async function chooseThen(q: string, profilePath: string | null, who: ThenWho, ep?: ThenEp | null): Promise<{ configured: boolean; url: string | null }> {
+  // The episode's own gallery first: a still captioned with this actor in this very episode (the web search can only guess, and returned the show's key art for many faces).
+  if (ep) { const g = await galleryThen(ep, profilePath, who); if (g) return { configured: true, url: g }; }
   const r = await searchImages(q);
   if (!r.configured) return { configured: false, url: null };
   if (r.error) throw new Error(r.error);

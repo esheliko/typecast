@@ -141,3 +141,15 @@ export function rankThenImages<T extends ThenCand>(items: T[], who: ThenWho, flo
     .sort((a, b) => b.s - a.s || a.i - b.i)
     .map((x) => x.c);
 }
+
+/**
+ * Faces whose Then picture is one that other faces got too (same file): the web search sometimes hands every guest of an episode the show's key art or the
+ * episode's still. A picture that stands for several people shows none of them, so those faces keep their own photo.
+ */
+export function sharedThenIds(m: Record<number, string | null | undefined>): Set<number> {
+  const by = new Map<string, number[]>();
+  for (const [id, u] of Object.entries(m)) { if (!u) continue; const k = imageKey(u).length >= 8 ? imageKey(u) : u; by.set(k, [...(by.get(k) ?? []), Number(id)]); }
+  const out = new Set<number>();
+  for (const ids of by.values()) if (ids.length > 1) for (const i of ids) out.add(i);
+  return out;
+}

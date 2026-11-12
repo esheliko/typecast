@@ -12,7 +12,7 @@ import { byCast, byGender, groupWhoFaces, matchFaces, type CastFilter, type Gend
 import { RecentRow } from "./Trail";
 import { GlimpseButton } from "../Glimpse";
 import { castSpec, charOf, scopeSpec, withLibRoles } from "@/lib/glimpse";
-import { isOldTitle } from "@/lib/then-photo";
+import { isOldTitle, sharedThenIds } from "@/lib/then-photo";
 import { useThen } from "./useThen";
 import { roleLabel } from "@/lib/roster";
 import { pickSeenIn, seenInText, type KnownTitle } from "@/lib/who-known";
@@ -79,11 +79,13 @@ export function Finder({ roster, loading, more, err, q, setQ, inputRef, recents,
   const old = isOldTitle(brief.first, new Date().getFullYear());
   const [then, flipThen] = useThen();
   const [thenOk, setThenOk] = useState(true);
-  const [thenImg, setThenImg] = useState<Record<number, string | null>>({});
+  const [thenRaw, setThenImg] = useState<Record<number, string | null>>({});
+  // One picture for several faces is the show's key art, not any of them: those faces keep their own photo.
+  const thenImg = useMemo(() => { const bad = sharedThenIds(thenRaw); return Object.fromEntries(Object.entries(thenRaw).map(([k, v]) => [k, bad.has(Number(k)) ? null : v])) as Record<number, string | null>; }, [thenRaw]);
   const thenSpecs = useMemo(() => new Map(visible.map((f) => [f.id, castSpec(f.name, f.role, { title: brief.title, year: brief.year, type: brief.type, key: brief.key }, "Acting", f.id).tabs[0].q])), [visible, brief]);
   // A queue that outlives the effect: when the grid re-measures (`visible` changes) while lookups are running, nothing queued is lost or fetched twice.
   const askedThen = useRef(new Set<number>());
-  const thenQueue = useRef<{ id: number; q: string; photo: string | null; who: ThenWho }[]>([]);
+  const thenQueue = useRef<{ id: number; q: string; photo: string | null; who: ThenWho; at: { tv: number; imdb: string | null; s: number | null; e: number | null } | null }[]>([]);
   const thenBusy = useRef(0);
   const pumpThen = useRef<() => void>(() => {});
   pumpThen.current = () => {
@@ -94,7 +96,7 @@ export function Finder({ roster, loading, more, err, q, setQ, inputRef, recents,
         // Retried twice: image search can fail for a moment (rate limit), and a face must not stay without its photo for that.
         for (let a = 0; a < 3; a++) {
           try {
-            const r = await fetchThen(job.q, job.photo, job.who); // never the Now photo again, checked on the server
+            const r = await fetchThen(job.q, job.photo, job.who, job.at); // never the Now photo again, checked on the server
             if (!r.configured) { thenQueue.current = []; setThenOk(false); return; }
             const url = r.url;
             if (url) { const pre = new Image(); pre.referrerPolicy = "no-referrer"; pre.src = url; }
@@ -113,10 +115,10 @@ export function Finder({ roster, loading, more, err, q, setQ, inputRef, recents,
     for (const f of visible) {
       if (asked.has(f.id)) continue;
       asked.add(f.id);
-      thenQueue.current.push({ id: f.id, q: thenSpecs.get(f.id) ?? "", photo: f.photo ?? null, who: { actor: f.name, char: charOf(f.role), title: brief.title } });
+      thenQueue.current.push({ id: f.id, q: thenSpecs.get(f.id) ?? "", photo: f.photo ?? null, who: { actor: f.name, char: charOf(f.role), title: brief.title }, at: !film && pos?.s && pos.e ? { tv: brief.id, imdb: brief.imdbId, s: pos.s, e: pos.e } : null });
     }
     pumpThen.current();
-  }, [old, thenOk, visible, thenSpecs, brief.title]);
+  }, [old, thenOk, visible, thenSpecs, brief.title, brief.id, brief.imdbId, film, pos?.s, pos?.e]);
   const showThen = then && old && thenOk;
 
   useLayoutEffect(() => {

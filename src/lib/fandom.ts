@@ -1,6 +1,6 @@
 import { unstable_cache } from "next/cache";
 import { fandomNote, introFromHtml, pickFandomPage } from "./glimpse-info";
-import { pageIsSeason, parseWikiCameos, parseWikiCast, type WikiCastEntry } from "./wiki-cast";
+import { pageIsSeason, parseGalleryCaptions, parseWikiCameos, parseWikiCast, type WikiCastEntry } from "./wiki-cast";
 
 /**
  * Character notes from a show's Fandom wiki (MediaWiki API, no key). The wiki is found through Wikidata's "Fandom article ID" (P6262) by IMDb id,
@@ -114,5 +114,36 @@ export async function getFandomEpisodeCast(imdb: string | null, show: string, se
     if (!episodeTitle.trim()) return [];
     const wiki = await findWiki(imdb ?? "", show);
     return wiki ? await castOf(wiki, episodeTitle.trim(), season) : [];
+  } catch { return []; }
+}
+
+export interface GalleryPhoto { caption: string; url: string }
+
+const galleryOf = cached(async (wiki: string, title: string, season: number): Promise<GalleryPhoto[]> => {
+  for (const page of [title, `${title} (episode)`]) {
+    try {
+      const main = await api(wiki, { action: "parse", page, prop: "wikitext", redirects: "1" });
+      if (!pageIsSeason(String(main.parse?.wikitext ?? ""), season)) continue;
+      const g = await api(wiki, { action: "parse", page: `${String(main.parse?.title ?? page)}/Gallery`, prop: "wikitext", redirects: "1" });
+      const pics = parseGalleryCaptions(String(g.parse?.wikitext ?? "")).slice(0, 50);
+      if (!pics.length) continue;
+      const q = await api(wiki, { action: "query", titles: pics.map((p) => `File:${p.file}`).join("|"), prop: "imageinfo", iiprop: "url" });
+      const url = new Map<string, string>();
+      for (const pg of (q.query?.pages ?? []) as { title?: string; imageinfo?: { url?: string }[] }[]) {
+        const u = pg.imageinfo?.[0]?.url;
+        if (pg.title && u) url.set(pg.title.replace(/^File:/i, "").replace(/_/g, " ").toLowerCase(), u);
+      }
+      return pics.flatMap((p) => { const u = url.get(p.file.replace(/_/g, " ").toLowerCase()); return u ? [{ caption: p.caption, url: u.replace(/\/revision\/latest(\?|$)/, "/revision/latest/scale-to-width-down/480$1") }] : []; });
+    } catch { /* no such gallery: try the next title */ }
+  }
+  return [];
+}, "fandom-ep-gallery-v1");
+
+/** The captioned pictures ("Actor as Character") of the show's Fandom gallery page for one episode: stills of each guest in that very episode. [] when there is none. */
+export async function getFandomEpisodeGallery(imdb: string | null, show: string, season: number, episodeTitle: string): Promise<GalleryPhoto[]> {
+  try {
+    if (!episodeTitle.trim()) return [];
+    const wiki = await findWiki(imdb ?? "", show);
+    return wiki ? await galleryOf(wiki, episodeTitle.trim(), season) : [];
   } catch { return []; }
 }

@@ -63,3 +63,29 @@ export function pageIsSeason(wikitext: string, season: number): boolean {
   const re = new RegExp(`(\\[\\[season ${season}\\b|\\bseason ${season}\\b${ORD[season] ? `|\\b${ORD[season]} season\\b` : ""})`, "i");
   return re.test(wikitext);
 }
+
+/** One captioned picture of a wiki's episode gallery page: `File:3x05 042.jpg|Brady Smith as Rico`. Pictures without a caption are skipped (they cannot be tied to a person). */
+export interface GalleryPic { file: string; caption: string }
+
+export function parseGalleryCaptions(wikitext: string): GalleryPic[] {
+  const out: GalleryPic[] = [];
+  for (const m of wikitext.matchAll(/^\s*(?:File|Image):([^|\n]+)\|([^\n]+)$/gim)) {
+    const caption = m[2].replace(/\[\[(?:[^\]|]*\|)?([^\]]*)\]\]/g, "$1").replace(/'{2,}/g, "").replace(/<[^>]+>/g, "").trim();
+    if (caption) out.push({ file: m[1].trim(), caption });
+  }
+  return out;
+}
+
+const plain = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").split(/[^a-z0-9]+/).filter((w) => w.length > 1);
+
+/** The gallery pictures captioned with this actor ("Shelly Bhalla as Dr. Melody Etz"): every word of their name is in the caption. Best first: the one that also names the character. */
+export function galleryFor<T extends { caption: string }>(pics: T[], actor: string, char?: string): T[] {
+  const a = plain(actor);
+  if (!a.length) return [];
+  const c = plain(char ?? "");
+  return pics
+    .filter((p) => { const h = new Set(plain(p.caption)); return a.every((w) => h.has(w)); })
+    .map((p, i) => { const h = new Set(plain(p.caption)); return { p, i, s: c.length && c.some((w) => h.has(w)) ? 1 : 0 }; })
+    .sort((x, y) => y.s - x.s || x.i - y.i)
+    .map((x) => x.p);
+}
