@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 // @ts-expect-error plain .mjs script, no types
-import { ciVerdict, markRelevant } from "../../scripts/deploy-manager.mjs";
+import { ciVerdict, markRelevant, deployRefusal } from "../../scripts/deploy-manager.mjs";
 
 const run = (o: object) => ({ name: "verify", started_at: "2026-01-01T00:00:00Z", status: "completed", conclusion: "success", ...o });
 
@@ -71,4 +71,15 @@ test("pickOwner: best match wins, else the earliest push after green, never nobo
 test("parseFailures also reads lines prefixed with a Playwright project name ([core] ›)", () => {
   const txt = "  1 failed\n    [core] › tests/smoke/smoke.spec.ts:213:3 › signed in › Watching now: start, next episode, bar, end \n  1 flaky\n    [core] › tests/smoke/behaviour.spec.ts:187:3 › behaviour › Library: filter chips\n  32 passed (2.9m)";
   assert.deepEqual(parseFailures([txt]), ["tests/smoke/smoke.spec.ts › signed in › Watching now: start, next episode, bar, end"]); // the flaky one passed on retry
+});
+
+const dep = (o: object) => ({ id: "d1", target: "production", state: "READY", sha: "c52b683aaa", ...o });
+test("never deploys a sha that already has a live or in-flight production deployment", () => {
+  for (const state of ["READY", "QUEUED", "INITIALIZING", "BUILDING"]) assert.match(deployRefusal([dep({ state })], "c52b683aaa"), /already has/, state);
+});
+test("a failed or preview deployment of the sha does not block; another build in flight does", () => {
+  assert.equal(deployRefusal([dep({ state: "ERROR" }), dep({ state: "CANCELED", id: "d2" })], "c52b683aaa"), null);
+  assert.equal(deployRefusal([dep({ target: "preview" })], "c52b683aaa"), null);
+  assert.match(deployRefusal([dep({ sha: "other", state: "BUILDING" })], "c52b683aaa"), /in flight/);
+  assert.equal(deployRefusal([dep({ sha: "other" })], "c52b683aaa"), null);
 });

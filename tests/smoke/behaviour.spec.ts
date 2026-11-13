@@ -282,6 +282,33 @@ test.describe("behaviour (signed in)", () => {
     }
   });
 
+  test("popup trail: shows from the 3rd step on, on one line, and a crumb jumps back", async ({ page }) => {
+    await page.goto("/");
+    const first = page.locator(".pc a.pc-link:visible").first();
+    await expect(first).toBeVisible({ timeout: 30_000 });
+    await first.click();
+    const sheet = page.locator(".sheet");
+    await expect(sheet.locator("h1").first()).toBeVisible({ timeout: 30_000 });
+    await expect(page).toHaveURL(/\/title\//, { timeout: 30_000 });
+    const startUrl = new URL(page.url()).pathname;
+    await sheet.locator('a[href^="/person/"]').first().click();
+    await expect(page).toHaveURL(/\/person\//, { timeout: 30_000 });
+    await expect(page.locator(".ptrail")).toHaveCount(0); // two steps: no trail yet
+    await expect(sheet.locator("h1").first()).toBeVisible({ timeout: 30_000 });
+    await sheet.locator('a[href^="/title/"]').first().click();
+    await expect(page.locator(".ptrail")).toBeVisible({ timeout: 30_000 });
+    const chips = page.locator(".ptrail-chip");
+    await expect(chips).toHaveCount(3);
+    await expect(chips.last()).toHaveAttribute("aria-current", "step");
+    const row = page.locator(".ptrail-row");
+    expect(await row.evaluate((el) => el.getBoundingClientRect().height < 60)).toBe(true); // one line
+    await chips.first().click();
+    await expect.poll(() => new URL(page.url()).pathname, { timeout: 15_000 }).toBe(startUrl);
+    await expect(chips).toHaveCount(3); // the steps ahead stay reachable
+    await page.getByRole("button", { name: "Forward" }).click();
+    await expect(page).toHaveURL(/\/person\//, { timeout: 15_000 });
+  });
+
   test("popup: mark in the popup, close it, the poster underneath shows the mark", async ({ page }) => {
     const { sb, userId } = await smokeClient();
     let made: { type: string; id: number } | null = null;
