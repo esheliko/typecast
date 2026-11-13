@@ -72,3 +72,13 @@ test("tipCoveredByPr: a merged or open PR containing the tip covers it; none or 
   assert.equal(tipCoveredByPr([]), false);
   assert.equal(tipCoveredByPr(undefined), false);
 });
+test("renderPipeline: a failed part says so and the other part still renders (degrades per part)", () => {
+  const noPrs = renderPipeline({ prs: null, branches: [{ name: "claude/x", ahead: 1, at: 0, files: 1, inMain: "no" }], mergedLeft: 0, inMainLeft: 0, pendingMerged: 3 }, 3600e3).join("\n");
+  assert.match(noPrs, /Open PRs unavailable this tick/);
+  assert.match(noPrs, /claude\/x/);
+  assert.doesNotMatch(noPrs, /Nothing in flight/);
+  const noBranches = renderPipeline({ prs: [pr({ number: 7 })], branches: null, pendingMerged: 0 }, 3600e3).join("\n");
+  assert.match(noBranches, /1 open PR/);
+  assert.match(noBranches, /Branch data unavailable this tick/);
+  assert.notEqual(pipelineDigest({ prs: [], branches: [], pendingMerged: 0 }), pipelineDigest({ prs: null, branches: [], pendingMerged: 0 }));
+});

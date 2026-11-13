@@ -227,7 +227,7 @@ const STAGE_ORDER = ['ready', 'behind', 'running', 'red', 'conflicts', 'unverifi
 export const prOfSubject = (subject) => Number(/\(#(\d+)\)\s*$/.exec(subject ?? '')?.[1]) || null;
 
 /** Pure. A short key that changes only when the pipeline's content does (ages excluded), so an idle board is not rewritten. */
-export const pipelineDigest = (pl) => (pl ? [...pl.prs.map((p) => `${p.number}:${prStage(p)}:${commitMarker(p.files)}`), '|', ...pl.branches.map((b) => `${b.name}:${b.ahead}:${b.inMain}`), '|', pl.mergedLeft ?? 0, pl.inMainLeft ?? 0].join(',') : '');
+export const pipelineDigest = (pl) => (pl ? [pl.prs ? 'p' : 'P?', pl.branches ? 'b' : 'B?', ...(pl.prs ?? []).map((p) => `${p.number}:${prStage(p)}:${commitMarker(p.files)}`), '|', ...(pl.branches ?? []).map((b) => `${b.name}:${b.ahead}:${b.inMain}`), '|', pl.mergedLeft ?? 0, pl.inMainLeft ?? 0].join(',') : '');
 
 /**
  * Pure. Where does a branch stand?  'open' (has an open PR: shown in the PR table), 'merged' (a PR of any other state exists: this repo SQUASH-merges,
@@ -255,35 +255,52 @@ export function renderPipeline(pl, now, repo = CFG.repo) {
   if (!pl) return ['', '### Pipeline', '_PR and branch data unavailable this tick (GitHub API failed); main-only view above is still correct._'];
   const lines = ['', '### Pipeline: branch → PR → main → live'];
   const counts = {};
-  for (const p of pl.prs) counts[prStage(p)] = (counts[prStage(p)] ?? 0) + 1;
+  const prs = pl.prs ?? [];
+  const branches = pl.branches ?? [];
+  for (const p of prs) counts[prStage(p)] = (counts[prStage(p)] ?? 0) + 1;
   const parts = STAGE_ORDER.filter((k) => counts[k]).map((k) => `${counts[k]} ${STAGE_LABEL[k].replace(/^\S+ /, '')}`);
-  lines.push(`**${pl.prs.length} open PR${pl.prs.length === 1 ? '' : 's'}**${parts.length ? ` (${parts.join(' · ')})` : ''} → merged, waiting to deploy: **${pl.pendingMerged}** → live`);
-  if (pl.prs.length) {
+  if (pl.prs) lines.push(`**${prs.length} open PR${prs.length === 1 ? '' : 's'}**${parts.length ? ` (${parts.join(' · ')})` : ''} → merged, waiting to deploy: **${pl.pendingMerged}** → live`);
+  else lines.push(`_Open PRs unavailable this tick (GitHub API failed)._ Merged, waiting to deploy: ${pl.pendingMerged}`);
+  if (prs.length) {
     lines.push('', '| PR | change | branch | state | CI `verify` | age |', '|---|---|---|---|---|---|');
-    const sorted = [...pl.prs].sort((a, b) => STAGE_ORDER.indexOf(prStage(a)) - STAGE_ORDER.indexOf(prStage(b)) || a.at - b.at);
+    const sorted = [...prs].sort((a, b) => STAGE_ORDER.indexOf(prStage(a)) - STAGE_ORDER.indexOf(prStage(b)) || a.at - b.at);
     for (const p of sorted) {
       const ci = { pass: 'green', fail: 'red', pending: 'running', none: 'none' }[p.ci] ?? p.ci;
       lines.push(`| [#${p.number}](https://github.com/${repo}/pull/${p.number}) ${String(p.title).replace(/\|/g, '/').slice(0, 70)} | ${commitMarker(p.files)} | \`${String(p.branch).slice(0, 40)}\` | ${STAGE_LABEL[prStage(p)]} | ${ci} | ${ago(now - p.at)} |`);
     }
   }
-  if (pl.branches.length) {
+  if (!pl.branches) lines.push('', '_Branch data unavailable this tick (GitHub API failed)._');
+  if (branches.length) {
     lines.push('', '**Loose branches** (commits ahead of `main`, no PR of any state, changes not already in `main`; the owner decides: delete, keep or open a PR):');
-    for (const b of pl.branches) lines.push(`- \`${b.name.slice(0, 50)}\` · ${b.ahead} commit${b.ahead === 1 ? '' : 's'} ahead of main · ${b.files} file${b.files === 1 ? '' : 's'} · already in main: ${b.inMain} · last push ${ago(now - b.at)} ago`);
+    for (const b of branches) lines.push(`- \`${b.name.slice(0, 50)}\` · ${b.ahead} commit${b.ahead === 1 ? '' : 's'} ahead of main · ${b.files} file${b.files === 1 ? '' : 's'} · already in main: ${b.inMain} · last push ${ago(now - b.at)} ago`);
   }
   const left = [];
   if (pl.mergedLeft) left.push(`- ${pl.mergedLeft} merged branch${pl.mergedLeft === 1 ? '' : 'es'} not deleted (squash-merge leaves them "ahead of main"; leftovers, not work)`);
   if (pl.inMainLeft) left.push(`- ${pl.inMainLeft} branch${pl.inMainLeft === 1 ? '' : 'es'} with no PR whose changes are already in main (safe to delete)`);
   if (left.length) lines.push('', ...left);
-  if (!pl.prs.length && !pl.branches.length) lines.push('_Nothing in flight upstream of `main`._');
+  if (pl.prs && pl.branches && !prs.length && !branches.length) lines.push('_Nothing in flight upstream of `main`._');
   return lines;
 }
 
 let pipelineCache = { at: 0, value: null };
-/** IO. Open PRs (with their `verify` result and mergeability) and recent branches that have no PR. Never throws: null when GitHub fails. */
+const notFound = (e) => /HTTP 404|Not Found/i.test(`${e?.message ?? ''} ${e?.stderr ?? ''}`);
+/**
+ * IO. The pipeline in two independent parts: `prs` (open PRs with `verify` result, mergeability, files) and the branch split
+ * (`branches`, `mergedLeft`, `inMainLeft`). A part that fails (GitHub 5xx, rate limit) keeps its last good value, or is null
+ * (rendered as "unavailable") when there never was one: one failing call must not blank the other part. Never throws.
+ */
 function pipelineSnapshot(pendingMerged) {
   if (Date.now() - pipelineCache.at < CFG.pipelineCacheSec * 1000 && pipelineCache.value) return { ...pipelineCache.value, pendingMerged };
-  try {
-    const api = (path) => JSON.parse(gh(['api', `repos/${CFG.repo}/${path}`]));
+  const api = (path) => JSON.parse(gh(['api', `repos/${CFG.repo}/${path}`]));
+  const apiOrNull = (path) => { try { return api(path); } catch (e) { if (notFound(e)) return null; throw e; } }; // 404 = absent; anything else (5xx, rate limit) must NOT read as "absent"
+  const last = pipelineCache.value ?? {};
+  const part = (name, fn, keep) => {
+    try { return { ...fn(), failed: false }; } catch (e) {
+      log(`pipeline ${name} unavailable:`, String(e.message).slice(0, 120));
+      return { ...keep, failed: true };
+    }
+  };
+  const prsPart = part('prs', () => {
     const open = api('pulls?state=open&per_page=50&sort=created&direction=desc');
     const prs = open.slice(0, CFG.maxPrs).map((p) => {
       let ci = 'none';
@@ -294,6 +311,9 @@ function pipelineSnapshot(pendingMerged) {
       try { files = api(`pulls/${p.number}/files?per_page=100`).map((f) => f.filename); } catch { /* marker becomes ❓ */ }
       return { number: p.number, title: p.title, branch: p.head.ref, author: p.user?.login ?? '', at: Date.parse(p.created_at), ci, draft: !!p.draft, mergeable: m.mergeable ?? null, mergeableState: m.mergeable_state ?? null, files };
     });
+    return { prs };
+  }, { prs: last.prs ?? null });
+  const brPart = part('branches', () => {
     // PRs of ANY state (merged and closed too), by head branch: a branch with a PR in any state is never "loose".
     const prStates = new Map();
     for (const p of api('pulls?state=all&per_page=100')) {
@@ -308,28 +328,33 @@ function pipelineSnapshot(pendingMerged) {
       const kind = branchKind(b.name, prStates);
       if (kind === 'open') continue;
       seen++;
-      try {
-        const c = api(`compare/${CFG.branch}...${encodeURIComponent(b.name)}`);
-        if (!(c.ahead_by > 0)) continue;
-        if (kind === 'merged') { mergedLeft++; continue; }
-        // A stacked branch whose tip commit was merged through another branch's PR (e.g. wip/step5b-polish inside wip/qa-integration-2) is a leftover too.
-        try { if (tipCoveredByPr(api(`commits/${b.commit.sha}/pulls`))) { mergedLeft++; continue; } } catch { /* keep checking by content */ }
-        const at = Date.parse(c.commits?.[c.commits.length - 1]?.commit?.committer?.date ?? 0);
-        const files = (c.files ?? []).slice(0, CFG.maxBranchFiles);
-        const mainShas = new Map();
-        for (const f of files) {
-          if (f.status === 'removed') { try { api(`contents/${f.filename.split('/').map(encodeURIComponent).join('/')}?ref=${CFG.branch}`); mainShas.set(f.filename, 'present'); } catch { /* absent on main */ } continue; }
-          try { mainShas.set(f.filename, api(`contents/${f.filename.split('/').map(encodeURIComponent).join('/')}?ref=${CFG.branch}`).sha); } catch { /* absent on main */ }
-        }
-        const inMain = inMainState(files, mainShas);
-        if (inMain === 'yes') { inMainLeft++; continue; }
-        branches.push({ name: b.name, ahead: c.ahead_by, at, files: c.files?.length ?? files.length, inMain });
-      } catch { /* skip an unreadable branch */ }
+      const c = api(`compare/${CFG.branch}...${encodeURIComponent(b.name)}`); // any failure fails the whole part: a skipped branch would silently change the counts
+      if (!(c.ahead_by > 0)) continue;
+      if (kind === 'merged') { mergedLeft++; continue; }
+      // A stacked branch whose tip commit was merged through another branch's PR (e.g. wip/step5b-polish inside wip/qa-integration-2) is a leftover too.
+      if (tipCoveredByPr(api(`commits/${b.commit.sha}/pulls`))) { mergedLeft++; continue; }
+      const at = Date.parse(c.commits?.[c.commits.length - 1]?.commit?.committer?.date ?? 0);
+      const files = (c.files ?? []).slice(0, CFG.maxBranchFiles);
+      const mainShas = new Map();
+      for (const f of files) {
+        const onMain = apiOrNull(`contents/${f.filename.split('/').map(encodeURIComponent).join('/')}?ref=${CFG.branch}`);
+        if (onMain) mainShas.set(f.filename, f.status === 'removed' ? 'present' : onMain.sha);
+      }
+      const inMain = inMainState(files, mainShas);
+      if (inMain === 'yes') { inMainLeft++; continue; }
+      branches.push({ name: b.name, ahead: c.ahead_by, at, files: c.files?.length ?? files.length, inMain });
     }
     branches.sort((a, b) => a.at - b.at);
-    pipelineCache = { at: Date.now(), value: { prs, branches, mergedLeft, inMainLeft } };
-    return { prs, branches, mergedLeft, inMainLeft, pendingMerged };
-  } catch (e) { log('pipeline unavailable:', String(e.message).slice(0, 120)); return null; }
+    return { branches, mergedLeft, inMainLeft };
+  }, { branches: last.branches ?? null, mergedLeft: last.mergedLeft ?? 0, inMainLeft: last.inMainLeft ?? 0 });
+  const { failed: prsFailed, ...prsOnly } = prsPart;
+  const { failed: brFailed, ...brOnly } = brPart;
+  const value = { ...prsOnly, ...brOnly };
+  if (prsFailed && brFailed && !last.prs && !last.branches) return null; // nothing at all: the whole section says "unavailable"
+  // A fully good snapshot is cached; a partly failed one is retried next tick instead of being pinned for 2 minutes.
+  if (!prsFailed && !brFailed) pipelineCache = { at: Date.now(), value };
+  else pipelineCache = { at: 0, value };
+  return { ...value, pendingMerged };
 }
 
 // ---------------------------------------------------------------- the decision
