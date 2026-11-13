@@ -12,7 +12,7 @@ import { hiddenNote, labelOf, type HiddenLine } from "@/lib/spoiler-line";
 const HINT = "typecast.placeHint.";
 const safe = <T,>(f: () => T, d: T): T => { try { return f(); } catch { return d; } };
 
-export function SpoilerGate({ title, hidden, onShow, placeHref, hintKey, compact, what }: {
+export function SpoilerGate({ title, hidden, onShow, placeHref, hintKey, compact, what, label }: {
   title: string; hidden: HiddenLine; onShow: () => void;
   /** Where "Set my place" goes (e.g. /watching?k=tv-79744). Left out, the link is not drawn. */
   placeHref?: string;
@@ -22,11 +22,13 @@ export function SpoilerGate({ title, hidden, onShow, placeHref, hintKey, compact
   compact?: boolean;
   /** What is held back, in words ("episode names and plots"). */
   what?: string;
+  /** Own wording instead of "Spoilers hidden for <Title>" (the cast note says "Later episodes hidden"). */
+  label?: string;
 }) {
   const [gone, setGone] = useState(true);
   useEffect(() => { setGone(safe(() => localStorage.getItem(HINT + hintKey) === "1", false)); }, [hintKey]);
   const note = hiddenNote(hidden);
-  const text = labelOf(hidden.kind === "upto" ? { kind: "upto", s: hidden.s, e: hidden.e } : { kind: "series-only" }, title);
+  const text = label ?? labelOf(hidden.kind === "upto" ? { kind: "upto", s: hidden.s, e: hidden.e } : { kind: "series-only" }, title);
   const suggest = hidden.kind === "series-only" && !!hintKey && !compact && !gone;
   return (
     <div className={`sgate${compact ? " sgate-c" : ""}`} role="group" aria-label={text}>
