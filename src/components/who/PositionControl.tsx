@@ -47,6 +47,9 @@ export function PositionPicker({ brief, pos, seasons, onChange, onNext, strip }:
   const list = useRef<HTMLDivElement>(null);
   const bar = useRef<HTMLDivElement>(null);
   const [splitS, setSplitS] = useState<number | null>(null); // the season the sticky bar's "Whole season" half refers to (null: bar shows only Whole series)
+  const lastSplit = useRef<number | null>(null); // keeps the season named while the split animates out
+  if (splitS != null) lastSplit.current = splitS;
+  const shownS = splitS ?? lastSplit.current;
   const s = pos.s;
 
   // Episodes load per season (cached for the session by whoApi): the chosen season at once (the label names the episode), the others when opened.
@@ -157,11 +160,12 @@ export function PositionPicker({ brief, pos, seasons, onChange, onNext, strip }:
           <div className="wx-eplist" role="dialog" aria-label="Season and episode" ref={list} onKeyDown={key} onScroll={measure}>
             {!strip && <div className="wx-epstick" data-split={splitS != null} ref={bar}>
               <button type="button" aria-current={s == null} className="wx-epo" onClick={() => pick({ s: null, e: null })}>
-                <span className="wx-epn">?</span><span className="wx-epm"><b>Whole series</b><span className="small muted">{splitS != null ? "All seasons" : "Everyone in the whole series counts"}</span></span>
+                <span className="wx-epn">?</span><span className="wx-epm"><b>Whole series</b><span className="small muted">All seasons</span></span>
               </button>
-              {splitS != null && <button type="button" aria-current={s === splitS && pos.e == null} className="wx-epo" onClick={() => pick({ s: splitS, e: null })}>
-                <span className="wx-epn">?</span><span className="wx-epm"><b>Whole season</b><span className="small muted">{splitS === 0 ? "Specials" : `Season ${splitS}`}</span></span>
-              </button>}
+              {/* Always mounted so it can grow in and shrink out (see .wx-epsplit); disabled while hidden so it is out of the tab order. */}
+              <button type="button" disabled={splitS == null} aria-hidden={splitS == null} tabIndex={splitS == null ? -1 : 0} aria-current={s === shownS && pos.e == null} className="wx-epo wx-epsplit" onClick={() => shownS != null && pick({ s: shownS, e: null })}>
+                <span className="wx-epn">?</span><span className="wx-epm"><b>Whole season</b><span className="small muted">{shownS === 0 ? "Specials" : `Season ${shownS}`}</span></span>
+              </button>
             </div>}
             {seasons.map((x) => {
               const isOpen = openS === x.n;
