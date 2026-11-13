@@ -1129,7 +1129,7 @@ button.wx-epmore:hover { color: inherit; }
 .wx-tdates { min-height: 44px; min-width: 0; display: flex; align-items: center; text-align: left; font-size: 12.5px; line-height: 1.2; padding: 0 6px 0 0; border-radius: 6px; white-space: normal; overflow-wrap: anywhere; }
 button.wx-tdates:disabled { cursor: default; }
 .wx-tline { min-width: 0; display: flex; align-items: center; gap: 6px; overflow: hidden; }
-.wx-kind { font-size: 10px; padding: 0 6px; flex: none; }
+.wx-kindi { width: 16px; height: 16px; flex: none; color: var(--muted); fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .wx-tline .ask-st { flex: none; white-space: nowrap; }
 .wx-ttitle { font-weight: 700; font-size: 14.5px; text-align: left; padding: 0; min-height: 44px; border-radius: 6px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wx-ttitle:hover { color: var(--gold); text-decoration: underline; }

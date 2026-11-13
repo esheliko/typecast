@@ -1,5 +1,6 @@
 "use client";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { KindIcon } from "@/components/KindIcon";
 import { useLib } from "../cast/LibState";
 import { SpoilerGate } from "../SpoilerGate";
 import { urlKey } from "@/lib/who-scope";
@@ -410,7 +411,7 @@ function TRow({ c, actor, actorId, when, eps, sel, hot, reg, onOpen, onSelect, o
         </button>}
       <span className="wx-tline">
         <button type="button" className="wx-ttitle" onClick={onOpen}>{c.title}</button>
-        <span className="pill wx-kind">{c.type === "tv" ? "Series" : "Film"}</span>
+        <KindIcon type={c.type} className="wx-kindi" />
         {seen && !hidden && <span className="ask-st seen" title="You have seen this">&#10003; Seen</span>}
       </span>
       <span className="small muted wx-trole" title={role}>{hidden ? <SpoilerGate compact title={c.title} hidden={hidden} onShow={onShow} placeHref={`/watching?k=${urlKey(c.key)}`} /> : role}</span>

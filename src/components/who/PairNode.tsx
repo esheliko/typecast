@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
+import { KindIcon } from "@/components/KindIcon";
 import { More, Photo, Section, Sk, Soft, useLimit, useSpans } from "./bits";
 import { nodeId, useWho, type Node } from "./WhoContext";
 import { roleLabel } from "@/lib/roster";
@@ -62,7 +63,7 @@ export function PairNode({ node }: { node: PNode }) {
           {rows.slice(0, lim.shown).map((t) => (
             <li key={t.key} className="wx-pairrow">
               <button type="button" className="wx-ttitle" onClick={() => push({ t: "title", key: t.key, title: t.title, year: t.year, poster: t.a.poster })}>{t.title}</button>
-              <span className="pill">{t.type === "tv" ? "Series" : "Film"}</span>{t.key === brief.key && <span className="small muted"> · up to where you are</span>}
+              <KindIcon type={t.type} className="wx-kindi" />{t.key === brief.key && <span className="small muted"> · up to where you are</span>}
               <div className="wx-pairline"><span className="wx-pairwho">{first(node.a.name)}</span><span className="small muted">{t.a.role ? `as ${roleLabel(t.a.role) || t.a.role}` : ""}</span><span className="wx-pairwhen">{when(t.a, A.spans, node.a.id)}</span></div>
               <div className="wx-pairline"><span className="wx-pairwho">{first(node.b.name)}</span><span className="small muted">{t.b.role ? `as ${roleLabel(t.b.role) || t.b.role}` : ""}</span><span className="wx-pairwhen">{when(t.b, B.spans, node.b.id)}</span></div>
             </li>
