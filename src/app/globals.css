@@ -1260,7 +1260,7 @@ main:focus { outline: none; }
 .wx-tli { position: relative; container-type: inline-size; }
 /* Bottom-right of the 2:3 photo (photo height = 150cqw): faces sit in the upper half, so the button never covers one. The year badge is bottom-left. */
 .wx-tileg { position: absolute; top: calc(150cqw - 34px); right: 4px; z-index: 1; }
-.wx-tileg .gl-b { width: 30px; height: 30px; background: rgba(0, 0, 0, .55); color: #fff; backdrop-filter: blur(2px); }
+.wx-tileg .gl-b { width: 30px; height: 30px; background: rgba(0, 0, 0, .62); color: #fff; /* no backdrop-filter: its blur layer trails the scroll on phones */ }
 .wx-tileg .gl-b:hover, .wx-tileg .gl-b:focus-visible { color: var(--gold); background: rgba(0, 0, 0, .75); }
 
 /* "Then" photos: the same 2:3 box as the profile photo (nothing moves); a small year badge says it is from the title. */
