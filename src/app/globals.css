@@ -99,7 +99,7 @@ textarea { width: 100%; resize: vertical; min-height: 72px; }
 .marks { display: none; padding-left: 42px; }
 .credit:has(details[open]) .marks { display: block; margin-top: 8px; }
 @media (hover: hover) {
-  .credit:hover:not(:has(details[open])) .marks { display: block; position: absolute; z-index: 20; left: 42px; right: 0; top: 100%; margin-top: -4px; padding: 8px 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 6px 20px rgba(0,0,0,.25); pointer-events: none; }
+  .credit:hover:not(:has(details[open])) .marks { display: block; position: absolute; z-index: 20; left: 106px; right: 0; top: 100%; margin-top: -4px; padding: 8px 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 6px 20px rgba(0,0,0,.25); pointer-events: none; }
 }
 .seen { margin-top: 3px; font-size: 13px; color: var(--gold); font-weight: 600; }
 .also { margin-top: 1px; font-size: 13px; color: var(--muted); }
@@ -586,9 +586,12 @@ button.aw-chip:hover { filter: brightness(1.08); }
 .credit .avatar { width: 32px; height: 32px; font-size: 13px; position: relative; }
 @media (hover: hover) {
   .credit .avatar { transform-origin: left center; }
-  .credit:has(.avatar:hover) { z-index: 30; }
+  .credit:has(.avatar:hover), .credit:has(.credit-face:hover) { z-index: 30; } /* the whole hovered row (photo + note card) stacks above its neighbours */
   .credit details[open] > summary:has(.avatar:hover) { z-index: 5; } /* the open row's summary is sticky (z 3) like the Full profile bar under it: lift it so the enlarged photo sits in front */
-  .credit .avatar:hover, .credit:has(.credit-face:hover) .avatar { transform: scale(3); z-index: 30; border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.45); filter: none; }
+  /* Rows with a face button: the button (original size, never moves) owns the hover, the enlarged photo ignores the pointer, so growing under the cursor can't flip hover off and on (the flicker). */
+  .credit:has(.credit-face) .avatar { pointer-events: none; transition: transform .12s ease; }
+  .credit:has(.credit-face) .credit-face { z-index: 31; }
+  .credit:not(:has(.credit-face)) .avatar:hover, .credit:has(.credit-face:hover) .avatar { transform: scale(3); z-index: 30; border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.45); filter: none; }
 }
 .crew-card { padding-top: 8px; padding-bottom: 8px; }
 .crew-group { display: grid; grid-template-columns: 84px 1fr; gap: 8px; align-items: start; padding: 2px 0; border-top: 1px solid var(--line); }
@@ -612,8 +615,8 @@ button.aw-chip:hover { filter: brightness(1.08); }
 .cast-main .marks { padding-left: 56px; }
 .cast-main .credit-gl { top: 12px; }
 @media (hover: hover) {
-  .cast-main .credit:hover:not(:has(details[open])) .marks { left: 56px; }
-  .cast-main .credit .avatar:hover { transform: scale(2.4); }
+  .cast-main .credit:hover:not(:has(details[open])) .marks { left: 118px; } /* clear of the enlarged photo (44px x 2.4) */
+  .cast-main .credit:not(:has(.credit-face)) .avatar:hover, .cast-main .credit:has(.credit-face:hover) .avatar { transform: scale(2.4); }
 }
 
 /* Library: one suggested next watch above the chips */
@@ -800,6 +803,12 @@ body:has(.modal) .toast-slot { bottom: calc(84px + env(safe-area-inset-bottom, 0
 .ep-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .ep-name { font-weight: 600; overflow-wrap: anywhere; }
 .ep-sub { font-size: 12.5px; color: var(--muted); }
+.epf { display: flex; align-items: center; gap: 7px; margin-top: 3px; min-width: 0; font-size: 12px; color: var(--muted); }
+.epf-stack { display: flex; flex: none; }
+.epf-face { width: 20px; height: 20px; border-radius: 50%; object-fit: cover; background: var(--chip); border: 1.5px solid var(--card, var(--bg)); margin-left: -6px; display: grid; place-items: center; font: 600 10px var(--display); }
+.epf-face:first-child { margin-left: 0; }
+.epf-txt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.epf-hid { font-size: 11px; opacity: .75; align-self: flex-start; padding: 1px 8px; border: 1px dashed var(--line); border-radius: 999px; }
 .ep.ep-seen .ep-name { color: var(--muted); }
 .ep.ep-soon .ep-n, .ep.ep-soon .ep-name { opacity: .6; }
 .ep.ep-open { background: color-mix(in srgb, var(--chip) 45%, transparent); }
@@ -1409,3 +1418,21 @@ main:focus { outline: none; }
 .rs-act { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
 .upnext-card .rs-go { color: var(--gold); text-decoration: underline dotted; text-underline-offset: 3px; white-space: nowrap; padding: 0; font-size: 11px; }
 .upnext-card:has(.rs-go) { display: flex; flex-direction: column; gap: 4px; }
+/* Search > Who's that? (components/WhoSearch.tsx) */
+.whs { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
+.whs-intro { margin: 0; font-size: 14px; }
+.whs-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.whs-l { font-size: 13px; font-weight: 600; color: var(--muted); }
+.whs-sel { display: inline-flex; align-items: center; gap: 8px; }
+.whs-poster { width: 28px; height: 42px; border-radius: 4px; object-fit: cover; }
+.whs-pick .wx-epgroup .wx-epb { border-radius: 999px; padding-right: 14px; }
+.whs-q { display: flex; flex-direction: column; gap: 6px; }
+.whs-q input, .whs-t { width: 100%; }
+.whs-hits { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.whs-hit { display: flex; justify-content: space-between; gap: 10px; width: 100%; min-height: 44px; align-items: center; padding: 6px 4px; text-align: left; border-bottom: 1px solid var(--line); }
+.whs-list { list-style: none; margin: 0; padding: 0; }
+.whs-person { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 6px 0; border-bottom: 1px solid var(--line); text-decoration: none; color: inherit; }
+.whs-text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.whs-text .nm, .whs-text .row-sub { overflow: hidden; text-overflow: ellipsis; }
+.whs-n { flex: none; font-size: 12px; color: var(--muted); white-space: nowrap; }
+.whs-mark { background: color-mix(in srgb, var(--gold) 35%, transparent); color: inherit; border-radius: 3px; padding: 0 1px; }
