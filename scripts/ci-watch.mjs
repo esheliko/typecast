@@ -9,13 +9,13 @@
 // The watching session then messages the owner (send_message) with the failing tests. Nothing here can reach a session by itself: GitHub Actions has no
 // access to Claude, so a Claude session that stays alive and listens is the delivery channel (see DEPLOYING.md).
 import { execFileSync } from 'node:child_process';
+import { pathToFileURL } from 'node:url';
 
 const REPO = 'esheliko/typecast';
-const once = process.argv.includes('--once');
 const sh = (c, a) => execFileSync(c, a, { encoding: 'utf8', maxBuffer: 64e6 }).trim();
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-function newestFinished() {
+export function newestFinished() {
   sh('git', ['fetch', '-q', 'origin', 'main']);
   const shas = sh('git', ['log', '--format=%H', '-8', 'origin/main']).split('\n');
   for (const sha of shas) {
@@ -27,6 +27,24 @@ function newestFinished() {
   return null;
 }
 
+// Parse `ci-status.mjs --sha` stdout into the CI_RED line body (shared with manager-watch.mjs).
+export function parseRed(out, sha) {
+  const owner = (out.match(/^::owner=(.*)$/m) ?? [])[1] ?? '';
+  const tests = [...out.matchAll(/^- (tests\/.+)$/gm)].map((m) => m[1].replace(/^tests\/smoke\//, ''));
+  return `CI_RED ${sha.slice(0, 7)} owner=${owner || 'none'} tests=${tests.length} :: ${tests.join(' | ')}`;
+}
+
+// ci-status exits 1 on a red head and prints the report on stdout: that is the normal case, so return stdout either way.
+export function redReport(sha) {
+  try { return sh('node', ['scripts/ci-status.mjs', '--sha', sha]); } catch (e) { if (e.stdout) return String(e.stdout); throw e; }
+}
+
+const isMain = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+if (isMain) main();
+
+async function main() {
+const once = process.argv.includes('--once');
+
 let last = null; // 'sha:red' | 'green'
 let lastRedAt = 0;
 for (;;) {
@@ -37,10 +55,7 @@ for (;;) {
       if (!f.ok) {
         const key = `${f.sha}:red`;
         if (last !== key || Date.now() - lastRedAt > 45 * 60e3) {
-          const out = sh('node', ['scripts/ci-status.mjs', '--sha', f.sha]).toString();
-          const owner = (out.match(/^::owner=(.*)$/m) ?? [])[1] ?? '';
-          const tests = [...out.matchAll(/^- (tests\/.+)$/gm)].map((m) => m[1].replace(/^tests\/smoke\//, ''));
-          console.log(`CI_RED ${f.sha.slice(0, 7)} owner=${owner || 'none'} tests=${tests.length} :: ${tests.join(' | ')}`);
+          console.log(parseRed(redReport(f.sha), f.sha));
           last = key; lastRedAt = Date.now();
         }
       }
@@ -50,12 +65,11 @@ for (;;) {
     if (e.stdout) {
       const out = String(e.stdout);
       const sha = (out.match(/@ `([0-9a-f]{7})`/) ?? [])[1] ?? '?';
-      const owner = (out.match(/^::owner=(.*)$/m) ?? [])[1] ?? '';
-      const tests = [...out.matchAll(/^- (tests\/.+)$/gm)].map((m) => m[1].replace(/^tests\/smoke\//, ''));
       const key = `${sha}:red`;
-      if (last !== key || Date.now() - lastRedAt > 45 * 60e3) { console.log(`CI_RED ${sha} owner=${owner || 'none'} tests=${tests.length} :: ${tests.join(' | ')}`); last = key; lastRedAt = Date.now(); }
+      if (last !== key || Date.now() - lastRedAt > 45 * 60e3) { console.log(parseRed(out, sha)); last = key; lastRedAt = Date.now(); }
     } else console.error('ci-watch error:', String(e.message).slice(0, 160));
   }
   if (once) break;
   await sleep(60e3);
+}
 }

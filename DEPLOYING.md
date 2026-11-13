@@ -115,6 +115,18 @@ Replaced "every session pushes straight to main". Why: a red or half-tested chan
 and only a green PR is merged. The Deploy Manager itself is unchanged: it still reads `main`'s head and its `verify`, and still batches. Watch for: (1) more, smaller commits on `main` (one squash commit per PR), so `main` may be quiet less often and the 12-min cap matters more;
 (2) each PR push costs one CI run and each merge one more on `main`, so keep changes to one push per PR; (3) PR runs of different PRs can overlap, which is safe with `SUPABASE_SERVICE_ROLE_KEY` (temporary accounts) but not on the shared smoke account fallback.
 
+## manager-watch (one quiet watcher for the manager, 2026-11-13)
+Replaces the two Monitors (ci-watch + the deploy-guard loop), which each expired every 30 min and woke the manager about 3 times per 30 min. Run it ONCE as a Bash command with `run_in_background: true` and `timeout: 7200000`:
+
+`node scripts/manager-watch.mjs`
+
+It prints nothing while main is green and runs the deploy guard (`git fetch`, then `deploy-manager.mjs --no-poll`, every 120 s) in the same process. It ends with exactly one stdout line, which wakes the manager:
+- `CI_RED <sha> owner=<session> tests=N :: names` (exit 0): main's `verify` is red. Run `node scripts/ci-status.mjs --sha <sha>`, triage, then start it again.
+- `REARM manager-watch (no red, N guard ticks, M deploys)` (exit 0): 115 min passed with no red. Start it again (before the 2 h timeout would kill it silently).
+- `WATCH_ERROR <reason>` (exit 1): CI or the deploy manager could not be read for over 10 min in a row. Silence never means broken: look at it, then start it again.
+
+Deploys the guard triggers are NOT printed; they go to `$TMPDIR/manager-watch.log` as `GUARD_DEPLOYED <HH:MM> IST :: DEPLOYING ...` (the notifier session reports deploys to the owner). A worker restart kills it silently, so re-arm it after every restart. It kills its children on exit and never prints the same red twice. `ci-watch.mjs` stays (its helpers are shared) for ad-hoc use.
+
 ## Manager succession (owner decisions, 2026-11-13)
 The manager session may RETIRE and create its successor whenever that is cheaper in tokens (long context, ~300k+ tokens, or 2-3 worker restarts that rewrite the cache). To retire: `create_session` for the successor with a SHORT handoff note (state, session ids, open items, and this section), make sure the successor opens the deploy board artifact for the owner (`Artifact` action `open`, https://claude.ai/artifact/UbFWzbLxByvYjzki19uuMv; never rewrite it), tell the notifier and smoke sessions the new manager id, tell the owner in one line, `TaskStop` your own monitors, then stop. **Naming rule (owner decision, 2026-11-13), for the manager AND the deploy-notifications session**: read your current title with `get_session`, then rename yourself with `mcp__claude-code-remote__set_session_title` to `(retired) <exact current title>` (prefix at the very start, nothing else changed), and create the successor with the exact previous title (no "(retired)", no suffix: pass it as `title` in `create_session`, then check it with `get_session`). So there is always exactly one live session per role name, found by its exact title in `list_sessions`; a title starting with `(retired)` is never the live one. A successor of a successor drops the prefix too: the retired session keeps `(retired) <name>` and the new one is `<name>`.
 
