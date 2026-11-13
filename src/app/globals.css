@@ -573,6 +573,8 @@ button:not([disabled]):active, a.row:active, a.tab:active, .person-chip:active, 
 .aw-k { flex: none; width: 82px; font: 500 11px var(--mono); text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
 .aw-list li.win .aw-k { color: var(--gold); }
 .aw-c { min-width: 0; overflow-wrap: anywhere; }
+.aw-w { display: block; font-size: 13px; color: var(--muted); }
+.aw-list li.win .aw-w { color: var(--gold); }
 .aw-y { margin-left: auto; flex: none; font: 400 12px var(--mono); color: var(--muted); }
 button.aw-chip { border: 0; cursor: pointer; }
 button.aw-chip:hover { filter: brightness(1.08); }
