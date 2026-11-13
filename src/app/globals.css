@@ -862,10 +862,11 @@ body:has(.modal) .toast-slot { bottom: calc(84px + env(safe-area-inset-bottom, 0
 .wx-posterb { flex: none; padding: 0; border-radius: 6px; line-height: 0; }
 .wx-posterb:hover .wx-poster { outline: 2px solid var(--gold-fill); }
 .wx-topr { margin-left: auto; display: flex; align-items: center; gap: 10px; }
-.wx-close { min-height: 44px; }
-.wx-nospoil { display: inline-flex; align-items: center; gap: 8px; min-width: 148px; min-height: 44px; padding: 4px 14px 4px 10px; border-radius: 999px; background: var(--chip); border: 1px solid transparent; font-weight: 600; font-size: 13.5px; color: var(--ink); white-space: nowrap; }
+.wx-close { min-height: 44px; background: transparent; }
+.wx-close:hover { background: var(--chip); }
+.wx-nospoil { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 4px 6px; border-radius: 999px; background: transparent; border: 1px solid transparent; font-weight: 600; font-size: 13.5px; color: var(--ink); white-space: nowrap; }
 .wx-nospoil:hover { border-color: var(--gold-fill); }
-.wx-nospoil[aria-checked="true"] { background: color-mix(in srgb, var(--gold-fill) 18%, var(--chip)); border-color: color-mix(in srgb, var(--gold-fill) 55%, transparent); }
+.wx-nospoil[aria-checked="true"] { background: transparent; }
 .wx-sw { position: relative; flex: none; width: 34px; height: 20px; border-radius: 999px; background: var(--line); transition: background .15s ease; }
 .wx-sw::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: var(--surface); box-shadow: 0 1px 3px rgb(0 0 0 / .35); transition: transform .15s ease; }
 .wx-nospoil[aria-checked="true"] .wx-sw { background: var(--gold-fill); }
@@ -896,6 +897,11 @@ body:has(.modal) .toast-slot { bottom: calc(84px + env(safe-area-inset-bottom, 0
 .wx-epm { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
 .wx-epm b { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wx-epsk { cursor: default; }
+/* The open season's row stays pinned at the top of the panel while its episodes scroll under it: one tap folds it and shows the other seasons. */
+.wx-epsec[data-open="true"] > .wx-epsh { position: sticky; top: -6px; z-index: 2; background: var(--surface); border-radius: 10px; box-shadow: 0 1px 0 var(--line); }
+.wx-epsec[data-open="true"] > .wx-epsh:hover { background: var(--chip); }
+.wx-epfold { margin-left: auto; padding-right: 4px; }
+.wx-epo[aria-current="true"] { background: var(--chip); }
 
 .wx-main { position: relative; flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(0, 55fr) minmax(0, 45fr); }
 .wx-left { min-width: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 max(20px, env(safe-area-inset-left, 0px)) 40px 20px; }

@@ -122,7 +122,7 @@ test.describe("behaviour (signed in)", () => {
       // and Next marks S2 E4 as watched (progress S2 E4).
       await page.goto(`/watching?k=tv-${bb.tmdb_id}`);
       const main = page.getByRole("main", { name: /Watching now: Breaking Bad/ });
-      await expect(main.getByRole("button", { name: /^Episode: E4/ })).toBeVisible({ timeout: 30_000 });
+      await expect(main.getByRole("button", { name: /^Where you are: S\d · E4/ })).toBeVisible({ timeout: 30_000 });
       const next = main.getByRole("button", { name: /^Next episode/ });
       await expect(next).toBeEnabled({ timeout: 30_000 });
       await next.click();
@@ -196,7 +196,7 @@ test.describe("behaviour (signed in)", () => {
       expect(error?.message).toBeUndefined();
       await page.goto(`/watching?k=tv-${show.tmdb_id}`);
       const main = page.getByRole("main", { name: /Watching now: Band of Brothers/ });
-      await expect(main.getByRole("button", { name: /^Episode: E3/ })).toBeVisible({ timeout: 30_000 });
+      await expect(main.getByRole("button", { name: /^Where you are: S\d · E3/ })).toBeVisible({ timeout: 30_000 });
       await page.waitForTimeout(1500);
       expect(await row(), "opening the page writes nothing").toMatchObject({ progress_season: 1, progress_episode: 2 });
       const next = main.getByRole("button", { name: /^Next episode/ });
@@ -204,7 +204,7 @@ test.describe("behaviour (signed in)", () => {
       await next.click();
       await expect(page.getByRole("status").filter({ hasText: "S1 E3 marked watched" })).toBeVisible({ timeout: 15_000 });
       await expect.poll(async () => (await row())?.progress_episode, { timeout: 15_000 }).toBe(3);
-      await expect(main.getByRole("button", { name: /^Episode: E4/ })).toBeVisible();
+      await expect(main.getByRole("button", { name: /^Where you are: S\d · E4/ })).toBeVisible();
       // Undo brings the old progress back.
       await page.getByRole("status").getByRole("button", { name: "Undo" }).click();
       await expect.poll(async () => (await row())?.progress_episode, { timeout: 15_000 }).toBe(2);

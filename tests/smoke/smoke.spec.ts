@@ -247,7 +247,7 @@ test.describe("signed in", () => {
     await card.click();
     await page.waitForURL(/\/watching\?k=tv-1396&s=2&e=4/, { timeout: 30_000 });
     const main = page.getByRole("main", { name: /Watching now: Breaking Bad/ });
-    await expect(main.getByRole("button", { name: /^Episode: E4/ })).toBeVisible({ timeout: 30_000 });
+    await expect(main.getByRole("button", { name: /^Where you are: S\d · E4/ })).toBeVisible({ timeout: 30_000 });
     await healthy(page, bad);
   });
 
@@ -261,14 +261,14 @@ test.describe("signed in", () => {
     const main = page.getByRole("main", { name: /Watching now: Breaking Bad/ });
     await expect(main).toBeVisible({ timeout: 30_000 });
     // Starts at the episode after the seeded progress (watched up to S2 E3): S2 E4; the regulars are listed.
-    await expect(main.getByRole("button", { name: /^Season: Season 2$/ })).toBeVisible();
-    await expect(main.getByRole("button", { name: /^Episode: E4/ })).toBeVisible();
+    await expect(main.getByRole("button", { name: /^Where you are: S2 / })).toBeVisible();
+    await expect(main.getByRole("button", { name: /^Where you are: S\d · E4/ })).toBeVisible();
     await expect(main.locator(".wx-tile", { hasText: "Bryan Cranston" }).first()).toBeVisible({ timeout: 30_000 });
     // The Next button sits in the same pill as the episode picker.
     const next = main.getByRole("button", { name: /^Next episode/ });
     await expect(next).toBeEnabled({ timeout: 30_000 });
     await next.click();
-    await expect(main.getByRole("button", { name: /^Episode: E5/ })).toBeVisible();
+    await expect(main.getByRole("button", { name: /^Where you are: S\d · E5/ })).toBeVisible();
     await visit(page, "/library", bad);
     const bar = page.getByRole("region", { name: "Watching now" });
     await expect(bar).toContainText("S2 E5");

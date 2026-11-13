@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useWatchControl } from "../Watching";
 import { useLib } from "../cast/LibState";
 import { filmDone, isLastEpisode, seriesEnded } from "@/lib/watch-library";
@@ -16,27 +16,38 @@ import type { Pos } from "@/lib/who-types";
 /** `onNext(from, to)`: the Next button. `from` is the episode you were on (null when it was not an exact episode), `to` where it goes (null on the final episode of an ended series: nowhere). */
 export function PositionControl({ brief, pos, onChange, onNext }: { brief: WhoBrief; pos: Pos; onChange: (p: Pos) => void; onNext: (from: { s: number; e: number } | null, to: Pos | null) => void }) {
   const seasons = [...brief.seasons.filter((s) => s.n > 0), ...brief.seasons.filter((s) => s.n === 0)];
-  const unsure = pos.s == null;
-  const id = useId();
   return (
     <div className="wx-pos" role="group" aria-label="Where are you?">
-      <span className="wx-pos-l" id={`${id}-l`}>Where are you?</span>
-      <SeasonPicker brief={brief} pos={pos} seasons={seasons} onChange={onChange} />
-      <EpisodePicker brief={brief} pos={pos} onChange={onChange} onNext={onNext} />
+      <span className="wx-pos-l">Where are you?</span>
+      <PositionPicker brief={brief} pos={pos} seasons={seasons} onChange={onChange} onNext={onNext} />
     </div>
   );
 }
 
-/** The season list: the same popup as the episode list, each season with the months it aired (first to last episode) and its episode count. */
-function SeasonPicker({ brief, pos, seasons, onChange }: { brief: WhoBrief; pos: Pos; seasons: WhoBrief["seasons"]; onChange: (p: Pos) => void }) {
+/**
+ * One picker for "where are you": a single button ("S3 · E8 Bad Blood") opens one panel. Every season is a row (number, name, the months it aired, its episode
+ * count); the open season shows its episodes (still, number, name, air date) and its row stays pinned at the top while you scroll them, so one tap on it
+ * folds the season and lets you pick another. "Whole series" and "Whole season" stay as the first rows. Next sits beside it in the same pill.
+ */
+function PositionPicker({ brief, pos, seasons, onChange, onNext }: { brief: WhoBrief; pos: Pos; seasons: WhoBrief["seasons"]; onChange: (p: Pos) => void; onNext: (from: { s: number; e: number } | null, to: Pos | null) => void }) {
   const [open, setOpen] = useState(false);
+  const [openS, setOpenS] = useState<number | null>(pos.s); // the season whose episodes are shown (null: all folded)
   const [ranges, setRanges] = useState<Record<number, { start: string; end: string }>>({});
+  const [bySeason, setBySeason] = useState<Record<number, WhoEp[] | "err">>({});
   const wrap = useRef<HTMLDivElement>(null);
   const btn = useRef<HTMLButtonElement>(null);
   const list = useRef<HTMLDivElement>(null);
   const s = pos.s;
 
-  // Season dates come from each season's episode list (cached for the session): fetched when the list first opens.
+  // Episodes load per season (cached for the session by whoApi): the chosen season at once (the label names the episode), the others when opened.
+  const load = (n: number) => {
+    setBySeason((m) => (m[n] ? m : { ...m, [n]: [] })); // placeholder so a season is only asked for once
+    whoApi.season(brief.id, n).then((r) => setBySeason((m) => ({ ...m, [n]: r.episodes }))).catch(() => setBySeason((m) => ({ ...m, [n]: "err" })));
+  };
+  useEffect(() => { setBySeason({}); setRanges({}); }, [brief.id]);
+  useEffect(() => { if (s != null && !bySeason[s]) load(s); }, [brief.id, s]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (open && openS != null && !bySeason[openS]) load(openS); }, [open, openS]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Season dates come from each season's episode list: fetched when the panel first opens.
   useEffect(() => {
     if (!open) return;
     let live = true;
@@ -48,6 +59,8 @@ function SeasonPicker({ brief, pos, seasons, onChange }: { brief: WhoBrief; pos:
     });
     return () => { live = false; };
   }, [open, brief.id, seasons]);
+
+  useEffect(() => { if (open) setOpenS(s); }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!open) return;
     const away = (ev: MouseEvent) => { if (!wrap.current?.contains(ev.target as Node)) setOpen(false); };
@@ -55,89 +68,34 @@ function SeasonPicker({ brief, pos, seasons, onChange }: { brief: WhoBrief; pos:
     document.addEventListener("mousedown", away); window.addEventListener("keydown", esc, true);
     return () => { document.removeEventListener("mousedown", away); window.removeEventListener("keydown", esc, true); };
   }, [open]);
+  // On open, focus the chosen episode (else the chosen season) and bring it into view.
+  const eps0 = s != null ? bySeason[s] : undefined;
   useEffect(() => {
     if (!open) return;
-    const t = setTimeout(() => (list.current?.querySelector<HTMLElement>('[aria-selected="true"]') ?? list.current?.querySelector<HTMLElement>("button:not(:disabled)"))?.focus(), 0);
+    const t = setTimeout(() => {
+      const el = list.current?.querySelector<HTMLElement>('[aria-current="true"]') ?? list.current?.querySelector<HTMLElement>("button:not(:disabled)");
+      el?.focus({ preventScroll: true }); el?.scrollIntoView({ block: "center" });
+    }, 0);
     return () => clearTimeout(t);
-  }, [open]);
+  }, [open, Array.isArray(eps0) && eps0.length > 0]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const key = (ev: React.KeyboardEvent) => {
     const items = [...(list.current?.querySelectorAll<HTMLElement>("button:not(:disabled)") ?? [])];
     const i = items.indexOf(document.activeElement as HTMLElement);
     const go = (n: number) => { ev.preventDefault(); items[(n + items.length) % items.length]?.focus(); };
     if (ev.key === "ArrowDown") go(i + 1); else if (ev.key === "ArrowUp") go(i - 1); else if (ev.key === "Home") go(0); else if (ev.key === "End") go(items.length - 1);
   };
-  const pick = (n: number | null) => { onChange({ s: n, e: null }); setOpen(false); btn.current?.focus(); };
+  const pick = (next: Pos) => { onChange(next); setOpen(false); btn.current?.focus(); };
   const when = (x: WhoBrief["seasons"][number]) => {
     const r = ranges[x.n];
     const d = r ? fmtRange(r.start, r.end) : x.air ? fmtRange(x.air, x.air) : "";
     return [d, x.eps ? `${x.eps} episode${x.eps === 1 ? "" : "s"}` : ""].filter(Boolean).join(" · ") || "Dates unknown";
   };
-  const label = s == null ? "Whole series" : s === 0 ? "Specials" : `Season ${s}`;
-  return (
-    <div className="wx-ep" ref={wrap}>
-      <button ref={btn} type="button" className="wx-epb" aria-haspopup="listbox" aria-expanded={open} aria-label={`Season: ${label}`} onClick={() => setOpen((v) => !v)}>
-        <span className="wx-epl">{label}</span><span aria-hidden="true" className="wx-caret">▾</span>
-      </button>
-      {open && (
-        <div className="wx-eplist" role="listbox" aria-label="Seasons" ref={list} onKeyDown={key}>
-          <button type="button" role="option" aria-selected={s == null} className="wx-epo" onClick={() => pick(null)}>
-            <span className="wx-epn">?</span><span className="wx-epm"><b>Whole series</b><span className="small muted">Everyone in the whole series counts</span></span>
-          </button>
-          {seasons.map((x) => (
-            <button key={x.n} type="button" role="option" aria-selected={s === x.n} className="wx-epo" onClick={() => pick(x.n)}>
-              <span className="wx-epn">{x.n === 0 ? "S" : x.n}</span>
-              <span className="wx-epm"><b>{x.n === 0 ? "Specials" : `Season ${x.n}`}</b><span className="small muted">{when(x)}</span></span>
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
 
-function EpisodePicker({ brief, pos, onChange, onNext }: { brief: WhoBrief; pos: Pos; onChange: (p: Pos) => void; onNext: (from: { s: number; e: number } | null, to: Pos | null) => void }) {
-  const [open, setOpen] = useState(false);
-  const [eps, setEps] = useState<WhoEp[] | null>(null);
-  const [err, setErr] = useState(false);
-  const wrap = useRef<HTMLDivElement>(null);
-  const btn = useRef<HTMLButtonElement>(null);
-  const list = useRef<HTMLDivElement>(null);
-  const s = pos.s;
-
-  // The season's episodes: fetched when the season changes (so the label can name the chosen episode) and cached for the session.
-  useEffect(() => {
-    if (s == null) { setEps(null); return; }
-    let live = true;
-    setEps(null); setErr(false);
-    whoApi.season(brief.id, s).then((r) => { if (live) setEps(r.episodes); }).catch(() => { if (live) setErr(true); });
-    return () => { live = false; };
-  }, [brief.id, s]);
-
-  useEffect(() => { setOpen(false); }, [s]);
-  useEffect(() => {
-    if (!open) return;
-    const away = (ev: MouseEvent) => { if (!wrap.current?.contains(ev.target as Node)) setOpen(false); };
-    const esc = (ev: KeyboardEvent) => { if (ev.key === "Escape") { ev.preventDefault(); ev.stopPropagation(); setOpen(false); btn.current?.focus(); } };
-    document.addEventListener("mousedown", away); window.addEventListener("keydown", esc, true);
-    return () => { document.removeEventListener("mousedown", away); window.removeEventListener("keydown", esc, true); };
-  }, [open]);
-  // Move focus into the list when it opens: the chosen episode, else "Not sure".
-  useEffect(() => {
-    if (!open) return;
-    const t = setTimeout(() => (list.current?.querySelector<HTMLElement>('[aria-selected="true"]') ?? list.current?.querySelector<HTMLElement>("button:not(:disabled)"))?.focus(), 0);
-    return () => clearTimeout(t);
-  }, [open, eps]);
-
-  const key = (ev: React.KeyboardEvent) => {
-    const items = [...(list.current?.querySelectorAll<HTMLElement>("button:not(:disabled)") ?? [])];
-    const i = items.indexOf(document.activeElement as HTMLElement);
-    const go = (n: number) => { ev.preventDefault(); items[(n + items.length) % items.length]?.focus(); };
-    if (ev.key === "ArrowDown") go(i + 1); else if (ev.key === "ArrowUp") go(i - 1); else if (ev.key === "Home") go(0); else if (ev.key === "End") go(items.length - 1);
-  };
-
+  const eps = s != null && Array.isArray(bySeason[s]) && (bySeason[s] as WhoEp[]).length ? (bySeason[s] as WhoEp[]) : null;
   const cur = pos.e != null ? eps?.find((x) => x.e === pos.e) : null;
-  const label = s == null ? "Pick a season first" : pos.e == null ? "Whole season" : `E${pos.e}${cur?.name ? ` · ${cur.name}` : ""}`;
-  const pick = (e: number | null) => { onChange({ s, e }); setOpen(false); btn.current?.focus(); };
+  const sl = s == null ? "Whole series" : s === 0 ? "Specials" : `S${s}`;
+  const label = s == null ? "Whole series" : pos.e == null ? `${s === 0 ? "Specials" : `Season ${s}`} · Whole season` : `${sl} · E${pos.e}${cur?.name ? ` ${cur.name}` : ""}`;
 
   // Next: the next aired episode of this season, else the first aired episode of the next season that has aired.
   const nextEp = s == null ? undefined : eps?.find((x) => x.e > (pos.e ?? 0) && x.aired);
@@ -159,30 +117,51 @@ function EpisodePicker({ brief, pos, onChange, onNext }: { brief: WhoBrief; pos:
     }
     if (finale) onNext(from, null);
   };
+
   return (
     <div className="wx-epgroup">
-    <div className="wx-ep" ref={wrap}>
-      <button ref={btn} type="button" className="wx-epb" disabled={s == null} aria-haspopup="listbox" aria-expanded={open} aria-label={`Episode: ${label}`} onClick={() => setOpen((v) => !v)}>
-        <span className="wx-epl">{label}</span><span aria-hidden="true" className="wx-caret">▾</span>
-      </button>
-      {open && (
-        <div className="wx-eplist" role="listbox" aria-label="Episodes" ref={list} onKeyDown={key}>
-          <button type="button" role="option" aria-selected={pos.e == null} className="wx-epo" onClick={() => pick(null)}>
-            <span className="wx-epn">?</span><span className="wx-epm"><b>Whole season</b><span className="small muted">Everyone in the whole season counts</span></span>
-          </button>
-          {!eps && !err && Array.from({ length: 6 }, (_, i) => <div key={i} className="wx-epo wx-epsk" aria-hidden="true"><span className="sk-b wx-epimg" /><span className="sk-b" style={{ flex: 1, height: 14 }} /></div>)}
-          {err && <p className="small muted" style={{ padding: 12 }}>Couldn&rsquo;t load the episodes. Close this and try again.</p>}
-          {eps?.map((x) => (
-            <button key={x.e} type="button" role="option" aria-selected={pos.e === x.e} disabled={!x.aired} className="wx-epo" onClick={() => pick(x.e)}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              {x.still ? <img className="wx-epimg" src={img(x.still, "w185")} alt="" loading="lazy" /> : <span className="wx-epimg wx-noph" aria-hidden="true" />}
-              <span className="wx-epn">{x.e}</span>
-              <span className="wx-epm"><b>{x.name || `Episode ${x.e}`}</b><span className="small muted">{x.aired ? fmtDay(x.air) : x.air ? `Not aired yet · ${fmtDay(x.air)}` : "Not aired yet"}</span></span>
+      <div className="wx-ep" ref={wrap}>
+        <button ref={btn} type="button" className="wx-epb" aria-haspopup="dialog" aria-expanded={open} aria-label={`Where you are: ${label}`} onClick={() => setOpen((v) => !v)}>
+          <span className="wx-epl">{label}</span><span aria-hidden="true" className="wx-caret">▾</span>
+        </button>
+        {open && (
+          <div className="wx-eplist" role="dialog" aria-label="Season and episode" ref={list} onKeyDown={key}>
+            <button type="button" aria-current={s == null} className="wx-epo" onClick={() => pick({ s: null, e: null })}>
+              <span className="wx-epn">?</span><span className="wx-epm"><b>Whole series</b><span className="small muted">Everyone in the whole series counts</span></span>
             </button>
-          ))}
-        </div>
-      )}
-    </div>
+            {seasons.map((x) => {
+              const isOpen = openS === x.n;
+              const data = bySeason[x.n];
+              return (
+                <div key={x.n} className="wx-epsec" data-open={isOpen}>
+                  <button type="button" className="wx-epo wx-epsh" aria-expanded={isOpen} aria-current={s === x.n && pos.e == null} onClick={() => setOpenS(isOpen ? null : x.n)}>
+                    <span className="wx-epn">{x.n === 0 ? "S" : x.n}</span>
+                    <span className="wx-epm"><b>{x.n === 0 ? "Specials" : `Season ${x.n}`}</b><span className="small muted">{when(x)}</span></span>
+                    <span aria-hidden="true" className="wx-caret wx-epfold">{isOpen ? "▴" : "▾"}</span>
+                  </button>
+                  {isOpen && (
+                    <>
+                      <button type="button" aria-current={s === x.n && pos.e == null} className="wx-epo" onClick={() => pick({ s: x.n, e: null })}>
+                        <span className="wx-epn">?</span><span className="wx-epm"><b>Whole season</b><span className="small muted">Everyone in the whole season counts</span></span>
+                      </button>
+                      {(!data || (Array.isArray(data) && !data.length)) && Array.from({ length: 4 }, (_, i) => <div key={i} className="wx-epo wx-epsk" aria-hidden="true"><span className="sk-b wx-epimg" /><span className="sk-b" style={{ flex: 1, height: 14 }} /></div>)}
+                      {data === "err" && <p className="small muted" style={{ padding: 12 }}>Couldn&rsquo;t load the episodes. Fold this season and open it again.</p>}
+                      {Array.isArray(data) && data.map((e) => (
+                        <button key={e.e} type="button" aria-current={s === x.n && pos.e === e.e} disabled={!e.aired} className="wx-epo" onClick={() => pick({ s: x.n, e: e.e })}>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          {e.still ? <img className="wx-epimg" src={img(e.still, "w185")} alt="" loading="lazy" /> : <span className="wx-epimg wx-noph" aria-hidden="true" />}
+                          <span className="wx-epn">{e.e}</span>
+                          <span className="wx-epm"><b>{e.name || `Episode ${e.e}`}</b><span className="small muted">{e.aired ? fmtDay(e.air) : e.air ? `Not aired yet · ${fmtDay(e.air)}` : "Not aired yet"}</span></span>
+                        </button>
+                      ))}
+                    </>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
       <button type="button" className="wx-epnext" disabled={!canNext} onClick={next} aria-label={nextEp ? `Next episode: E${nextEp.e}` : nextSeason ? `Next season: S${nextSeason.n}` : "Next episode"} title="Finished this one: go to the next episode">
         <span>Next</span>
         <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 5.5v13l8.5-6.5zM17 5.5v13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
