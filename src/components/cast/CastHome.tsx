@@ -36,7 +36,7 @@ export default function CastHome({ view: initialView, browse, connect, watching 
   return (
     <>
       <div className="page cast-home">
-        <Search onActive={onActive} />
+        <Search onActive={onActive} watching={watching.filter((w) => w.type === "tv").map((w) => ({ key: w.key, type: w.type, title: w.title, poster: w.poster }))} />
         <div hidden={searching}>
           <div className="views" role="tablist" aria-label="Browse tab">
             <button role="tab" type="button" aria-selected={view === "browse"} onClick={() => go("browse")}>Browse</button>

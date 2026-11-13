@@ -21,6 +21,7 @@ const PAGES: [string, string][] = [
   ["person-popup", "/person/6384"],
   ["watching", "/watching?k=tv-79744&s=2&e=8"],
   ["watching-film", "/watching?k=movie-603"],
+  ["search-who", "/?m=who"],
 ];
 
 async function shot(page: Page, name: string) {
