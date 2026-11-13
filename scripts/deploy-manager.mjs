@@ -414,7 +414,23 @@ export function renderMarkers(markers) {
   return ['', `### Commit markers (last ${markers.length} on main)`, '🔵 affects production · ⚪ no production effect · ❓ unclear', ...markers.map((m) => `- \`${m.sha.slice(0, 7)}\` ${m.marker}`)];
 }
 
-function render(st, ctx, d, pending) {
+/**
+ * THE BOARD CONTRACT. The deploy board artifact (DEPLOYING.md > Visual board) parses the text of issue #1 with these exact patterns
+ * (copied from its `mgr`, `pipeline*`, `markers`, `recent_live` calcs). tests/unit/deploy-board-format.test.ts runs them against `render`.
+ * If you must change the text, update the artifact in the same task (ArtifactData on its files/index.html) AND this constant, and say so in the PR.
+ */
+export const BOARD_CONTRACT = {
+  headline: /\*\*(.+?)\*\* — (.*)/,
+  pendingCommit: /^- `([0-9a-f]{7})` (.*) · \S+ ago$/gm,
+  pipelineSummary: /\*\*(\d+) open PRs?\*\*(?: \((.*?)\))? → merged, waiting to deploy: \*\*(\d+)\*\*/,
+  pipelinePr: /^\| \[#(\d+)\]\([^)]*\) (.*?) \| `([^`]*)` \| (.*?) \| (\w+) \| (.*?) \|$/gm,
+  pipelineBranch: /^- `([^`]+)` · (\d+) commits? ahead of main · last push (.+?) ago$/gm,
+  marker: /^- `([0-9a-f]{7})` (🔵|⚪|❓)$/gmu,
+  state: /<!--state ([\s\S]*?) state-->/,
+  // state JSON: deploys[] {at, sha, n, latencyMin, state, mix}, events[] {t, kind, msg}, lastWrite
+};
+
+export function render(st, ctx, d, pending) {
   const { now, ready } = ctx;
   const live = ready?.sha ? `\`${ready.sha.slice(0, 7)}\` (deployed ${ago(now - ready.created)} ago)` : 'unknown';
   const rel = pending.relevant;
