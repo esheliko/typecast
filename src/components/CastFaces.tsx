@@ -19,7 +19,7 @@ export function CastFaceScope({ title, titleKey, hidden, children }: { title: st
       {hidden && (
         <p className="small muted cast-face-note">
           Tap a face: character note, up to your place{" "}
-          {lifted ? <span>· Later episodes shown</span> : <SpoilerGate compact title={title} hidden={hidden} what="later episodes" onShow={() => setLifted(true)} placeHref={`/watching?k=${titleKey.replace(":", "-")}`} />}
+          {lifted ? <span>· Later episodes shown</span> : <SpoilerGate compact title={title} hidden={hidden} label="Later episodes hidden" onShow={() => setLifted(true)} placeHref={`/watching?k=${titleKey.replace(":", "-")}`} />}
         </p>
       )}
       {children}
