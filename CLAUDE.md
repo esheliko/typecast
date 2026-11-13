@@ -13,6 +13,20 @@
 > Docs-only changes (CLAUDE.md, `docs/`, `.claude/`) follow the same flow. If you were handed a different branch, use it as your PR branch (rebase it onto `main` first) instead of starting a new one.
 > `.claude/hooks/session-start.sh` checks this at the start of every session.
 
+> ## ⚠️ STANDING RULE: every reply is tagged, so the owner sees in one glance what is for them
+> Added by the owner on 2026-11-13. Sessions wake themselves (CI events, Monitors, background tasks, PR events, peer messages, wakeups), so the owner often arrives hours later to a screen of text that is mostly not theirs. **Line 1 of EVERY reply, including a reply to a woken turn, is a tag and a one-sentence headline.** Pick exactly one:
+> - `🔴 NEEDS YOU: <the ask>`: only a decision, answer, approval or action that nobody but the owner can give, or a real problem you could not fix. The headline IS the ask.
+> - `🟢 DONE: <result>`: the answer to the owner's own message, nothing needed from them.
+> - `⚙️ AUTO: <what happened, what you do next>`: any turn the owner did NOT type (woken by CI, a watcher, a finished background task, a PR event, a peer session, a wakeup, your own continuation).
+> Layout rules:
+> 1. **The ask goes first, never at the end.** In a `🔴` reply write the ask, your options and your recommendation in the first ~8 lines; background and long detail come after, under a `Details:` line. A question buried under a summary is lost as soon as later turns scroll past it.
+> 2. **`⚙️ AUTO` is at most 2 lines.** What happened and what comes next; no recap of earlier text, no tables, no restated plan. A watcher that found nothing says nothing (or one line). Never put an owner question in an `⚙️` turn: if the owner is needed, escalate it to `🔴` (rule 3).
+> 3. **Escalate in full.** A woken turn that finds something only the owner can decide starts with `🔴 NEEDS YOU:` and restates the whole ask so it stands alone (the owner may arrive hours and several turns later), plus one line on what happened since (`since 15:40 IST: CI failed once, fixed, merged`; times per rule 8).
+> 4. **Never mix.** Owner-facing content first; anything background goes in one trailing line. A `🟢`/`🔴` reply never carries a long account of work the session did on its own meanwhile.
+> 5. **Last line = what is open.** While an ask to the owner is unanswered, every later turn (even `⚙️`) ends with `⏳ Still waiting on you: <ask in under 12 words>`, and says so when something changes it (`⏳ no longer needed: <why>`). Nothing is open: no such line. Long-lived sessions keep the `Seniority:` line (DEPLOYING.md) as the very last line, after `⏳`.
+> 6. Every message you send the owner by any other route (PushNotification, a report relayed through another session, an issue or PR comment meant for them) starts with the same tag. Messages to peer sessions do not need one.
+> `.claude/hooks/session-start.sh` and `.claude/hooks/prompt-submit.sh` repeat this; keep both when editing hooks.
+
 Next.js 16 (App Router) + Supabase (email/password auth, RLS) + TMDB. See README.md for setup.
 
 ## Commands
