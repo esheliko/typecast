@@ -20,8 +20,10 @@ const ctx = {
   now,
   ready: { sha: "abcdef1234", created: now - 600e3 },
   pipeline: {
-    prs: [{ number: 12, title: "Fix a thing", branch: "claude/fix", author: "a", at: now - 3600e3, ci: "pass", draft: false, mergeable: true, mergeableState: "clean" }],
-    branches: [{ name: "claude/loose", ahead: 2, at: now - 7200e3 }],
+    prs: [{ number: 12, title: "Fix a thing", branch: "claude/fix", author: "a", at: now - 3600e3, ci: "pass", draft: false, mergeable: true, mergeableState: "clean", files: ["src/app/page.tsx"] }],
+    branches: [{ name: "claude/loose", ahead: 2, at: now - 7200e3, files: 3, inMain: "partly" }],
+    mergedLeft: 12,
+    inMainLeft: 2,
     pendingMerged: 1,
   },
 };
@@ -53,10 +55,12 @@ test("board format: pipeline summary, PR rows and loose branches", () => {
   assert.deepEqual([s[1], s[3]], ["1", "1"], HELP);
   const prs = all(C.pipelinePr, md);
   assert.equal(prs.length, 1, HELP);
-  assert.deepEqual([prs[0][1], prs[0][3], prs[0][5]], ["12", "claude/fix", "green"], HELP);
+  assert.deepEqual([prs[0][1], prs[0][3], prs[0][4], prs[0][6]], ["12", "🔵", "claude/fix", "green"], HELP);
   const b = all(C.pipelineBranch, md);
   assert.equal(b.length, 1, HELP);
-  assert.deepEqual([b[0][1], b[0][2]], ["claude/loose", "2"], HELP);
+  assert.deepEqual([b[0][1], b[0][2], b[0][3], b[0][4]], ["claude/loose", "2", "3", "partly"], HELP);
+  assert.equal(md.match(C.pipelineMergedLeft)?.[1], "12", HELP);
+  assert.equal(md.match(C.pipelineInMainLeft)?.[1], "2", HELP);
 });
 test("board format: commit markers section and lines", () => {
   assert.match(md, /^### Commit markers \(last 3 on main\)$/m, HELP);
