@@ -125,6 +125,7 @@ export function PositionPicker({ brief, pos, seasons, onChange, onNext, strip }:
   const hidden = (n: number, e: number) => !!strip && (n > strip.hideAfter.s || (n === strip.hideAfter.s && e > strip.hideAfter.e));
   const sl = s == null ? "Whole series" : s === 0 ? "Specials" : `S${s}`;
   const label = s == null ? "Whole series" : pos.e == null ? `${s === 0 ? "Specials" : `Season ${s}`} · Whole season` : `${sl} · E${pos.e}${cur?.name ? ` ${cur.name}` : ""}`;
+  const epName = s != null && pos.e != null && cur?.name ? ` ${cur.name}` : ""; // the long tail of the label; the slim phone header drops it
 
   // Next: the next aired episode of this season, else the first aired episode of the next season that has aired.
   const nextEp = s == null ? undefined : eps?.find((x) => x.e > (pos.e ?? 0) && x.aired);
@@ -154,7 +155,7 @@ export function PositionPicker({ brief, pos, seasons, onChange, onNext, strip }:
         {strip
           ? <button ref={btn} type="button" className="ps-trig" aria-haspopup="dialog" aria-expanded={open} aria-label="Change your place" onClick={() => setOpen((v) => !v)}>{strip.children}</button>
           : <button ref={btn} type="button" className="wx-epb" aria-haspopup="dialog" aria-expanded={open} aria-label={`Where you are: ${label}`} onClick={() => setOpen((v) => !v)}>
-              <span className="wx-epl">{label}</span><span aria-hidden="true" className="wx-caret">▾</span>
+              <span className="wx-epl">{epName ? label.slice(0, label.length - epName.length) : label}{epName && <span className="wx-epname">{epName}</span>}</span><span aria-hidden="true" className="wx-caret">▾</span>
             </button>}
         {open && (
           <div className="wx-eplist" role="dialog" aria-label="Season and episode" ref={list} onKeyDown={key} onScroll={measure}>
@@ -204,7 +205,7 @@ export function PositionPicker({ brief, pos, seasons, onChange, onNext, strip }:
         )}
       </div>
       {onNext && !strip && <button type="button" className="wx-epnext" disabled={!canNext} onClick={next} aria-label={nextEp ? `Next episode: E${nextEp.e}` : nextSeason ? `Next season: S${nextSeason.n}` : "Next episode"} title="Finished this one: go to the next episode">
-        <span>Next</span>
+        <span className="wx-epnt">Next</span>
         <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 5.5v13l8.5-6.5zM17 5.5v13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
       </button>}
     </div>
