@@ -50,8 +50,8 @@ export const CFG = {
   ciCancelledGraceMin: 3, // a cancelled verify older than this, with no newer run, no longer blocks
   pipelineCacheSec: 120, // PR/branch data is re-read at most this often (the hold loop ticks every 30 s)
   maxPrs: 15, // open PRs inspected one by one (CI + mergeability)
-  maxBranches: 10, // branches without a PR inspected (commits ahead of main)
-  branchRecentDays: 7, // a branch with no PR only shows while its last commit is this recent
+  maxBranches: 60, // branches inspected (commits ahead of main); the old 7-day window is gone: age is shown instead so the owner decides
+  maxBranchFiles: 40, // loose branch: files compared with main to tell whether its changes are already there
   ciMaxWaitMin: 12, // CI still running this long after the OLDEST pending commit => deploy anyway: no change waits longer than this, burst or not
 };
 
@@ -227,9 +227,30 @@ const STAGE_ORDER = ['ready', 'behind', 'running', 'red', 'conflicts', 'unverifi
 export const prOfSubject = (subject) => Number(/\(#(\d+)\)\s*$/.exec(subject ?? '')?.[1]) || null;
 
 /** Pure. A short key that changes only when the pipeline's content does (ages excluded), so an idle board is not rewritten. */
-export const pipelineDigest = (pl) => (pl ? [...pl.prs.map((p) => `${p.number}:${prStage(p)}`), '|', ...pl.branches.map((b) => `${b.name}:${b.ahead}`)].join(',') : '');
+export const pipelineDigest = (pl) => (pl ? [...pl.prs.map((p) => `${p.number}:${prStage(p)}:${commitMarker(p.files)}`), '|', ...pl.branches.map((b) => `${b.name}:${b.ahead}:${b.inMain}`), '|', pl.mergedLeft ?? 0, pl.inMainLeft ?? 0].join(',') : '');
 
-/** Pure. Markdown for the board. pl = { prs: [{number,title,branch,author,at,ci,draft,mergeable,mergeableState}], branches: [{name,ahead,at}], pendingMerged } */
+/**
+ * Pure. Where does a branch stand?  'open' (has an open PR: shown in the PR table), 'merged' (a PR of any other state exists: this repo SQUASH-merges,
+ * so the branch stays "ahead of main" for good, it is leftover, not work), 'loose' (no PR of any state). prState: map branch -> Set of PR states.
+ */
+export function branchKind(name, prStates) {
+  const st = prStates.get(name);
+  if (!st?.size) return 'loose';
+  return st.has('open') ? 'open' : 'merged';
+}
+/** Pure. PRs (any state) that contain a branch's tip commit (GET commits/<sha>/pulls): a merged or open one means the work went through a PR under another branch name. */
+export const tipCoveredByPr = (prs) => (prs ?? []).some((p) => p.merged_at || p.state === 'open');
+/**
+ * Pure. Is a loose branch's work already in main?  files = compare files [{filename,status,sha}] (sha = blob at the branch head),
+ * mainShas = Map filename -> blob sha on main (missing = absent there). 'yes' | 'no' | 'partly'. An empty diff counts as yes.
+ */
+export function inMainState(files, mainShas) {
+  if (!files.length) return 'yes';
+  const same = files.filter((f) => (f.status === 'removed' ? !mainShas.get(f.filename) : mainShas.get(f.filename) === f.sha)).length;
+  return same === files.length ? 'yes' : same === 0 ? 'no' : 'partly';
+}
+
+/** Pure. Markdown for the board. pl = { prs: [{number,title,branch,author,at,ci,draft,mergeable,mergeableState,files}], branches: [{name,ahead,at,files,inMain}] (loose only), mergedLeft, inMainLeft, pendingMerged } */
 export function renderPipeline(pl, now, repo = CFG.repo) {
   if (!pl) return ['', '### Pipeline', '_PR and branch data unavailable this tick (GitHub API failed); main-only view above is still correct._'];
   const lines = ['', '### Pipeline: branch → PR → main → live'];
@@ -238,17 +259,21 @@ export function renderPipeline(pl, now, repo = CFG.repo) {
   const parts = STAGE_ORDER.filter((k) => counts[k]).map((k) => `${counts[k]} ${STAGE_LABEL[k].replace(/^\S+ /, '')}`);
   lines.push(`**${pl.prs.length} open PR${pl.prs.length === 1 ? '' : 's'}**${parts.length ? ` (${parts.join(' · ')})` : ''} → merged, waiting to deploy: **${pl.pendingMerged}** → live`);
   if (pl.prs.length) {
-    lines.push('', '| PR | branch | state | CI `verify` | age |', '|---|---|---|---|---|');
+    lines.push('', '| PR | change | branch | state | CI `verify` | age |', '|---|---|---|---|---|---|');
     const sorted = [...pl.prs].sort((a, b) => STAGE_ORDER.indexOf(prStage(a)) - STAGE_ORDER.indexOf(prStage(b)) || a.at - b.at);
     for (const p of sorted) {
       const ci = { pass: 'green', fail: 'red', pending: 'running', none: 'none' }[p.ci] ?? p.ci;
-      lines.push(`| [#${p.number}](https://github.com/${repo}/pull/${p.number}) ${String(p.title).replace(/\|/g, '/').slice(0, 70)} | \`${String(p.branch).slice(0, 40)}\` | ${STAGE_LABEL[prStage(p)]} | ${ci} | ${ago(now - p.at)} |`);
+      lines.push(`| [#${p.number}](https://github.com/${repo}/pull/${p.number}) ${String(p.title).replace(/\|/g, '/').slice(0, 70)} | ${commitMarker(p.files)} | \`${String(p.branch).slice(0, 40)}\` | ${STAGE_LABEL[prStage(p)]} | ${ci} | ${ago(now - p.at)} |`);
     }
   }
   if (pl.branches.length) {
-    lines.push('', `**Branches with commits but no PR** (last ${CFG.branchRecentDays} days; not on the way to \`main\` yet):`);
-    for (const b of pl.branches) lines.push(`- \`${b.name.slice(0, 50)}\` · ${b.ahead} commit${b.ahead === 1 ? '' : 's'} ahead of main · last push ${ago(now - b.at)} ago`);
+    lines.push('', '**Loose branches** (commits ahead of `main`, no PR of any state, changes not already in `main`; the owner decides: delete, keep or open a PR):');
+    for (const b of pl.branches) lines.push(`- \`${b.name.slice(0, 50)}\` · ${b.ahead} commit${b.ahead === 1 ? '' : 's'} ahead of main · ${b.files} file${b.files === 1 ? '' : 's'} · already in main: ${b.inMain} · last push ${ago(now - b.at)} ago`);
   }
+  const left = [];
+  if (pl.mergedLeft) left.push(`- ${pl.mergedLeft} merged branch${pl.mergedLeft === 1 ? '' : 'es'} not deleted (squash-merge leaves them "ahead of main"; leftovers, not work)`);
+  if (pl.inMainLeft) left.push(`- ${pl.inMainLeft} branch${pl.inMainLeft === 1 ? '' : 'es'} with no PR whose changes are already in main (safe to delete)`);
+  if (left.length) lines.push('', ...left);
   if (!pl.prs.length && !pl.branches.length) lines.push('_Nothing in flight upstream of `main`._');
   return lines;
 }
@@ -265,22 +290,45 @@ function pipelineSnapshot(pendingMerged) {
       try { ci = ciVerdict(api(`commits/${p.head.sha}/check-runs?per_page=100`).check_runs, Date.now(), Date.parse(p.updated_at)); } catch { /* leave 'none' */ }
       let m = {};
       try { m = api(`pulls/${p.number}`); } catch { /* mergeability is a nicety */ }
-      return { number: p.number, title: p.title, branch: p.head.ref, author: p.user?.login ?? '', at: Date.parse(p.created_at), ci, draft: !!p.draft, mergeable: m.mergeable ?? null, mergeableState: m.mergeable_state ?? null };
+      let files = [];
+      try { files = api(`pulls/${p.number}/files?per_page=100`).map((f) => f.filename); } catch { /* marker becomes ❓ */ }
+      return { number: p.number, title: p.title, branch: p.head.ref, author: p.user?.login ?? '', at: Date.parse(p.created_at), ci, draft: !!p.draft, mergeable: m.mergeable ?? null, mergeableState: m.mergeable_state ?? null, files };
     });
-    const withPr = new Set(open.map((p) => p.head.ref));
+    // PRs of ANY state (merged and closed too), by head branch: a branch with a PR in any state is never "loose".
+    const prStates = new Map();
+    for (const p of api('pulls?state=all&per_page=100')) {
+      if (p.head?.repo?.full_name !== CFG.repo) continue;
+      if (!prStates.has(p.head.ref)) prStates.set(p.head.ref, new Set());
+      prStates.get(p.head.ref).add(p.state);
+    }
     const branches = [];
-    const since = Date.now() - CFG.branchRecentDays * 24 * 3600e3;
+    let mergedLeft = 0, inMainLeft = 0, seen = 0;
     for (const b of api('branches?per_page=100')) {
-      if (b.name === CFG.branch || withPr.has(b.name) || branches.length >= CFG.maxBranches) continue;
+      if (b.name === CFG.branch || seen >= CFG.maxBranches) continue;
+      const kind = branchKind(b.name, prStates);
+      if (kind === 'open') continue;
+      seen++;
       try {
         const c = api(`compare/${CFG.branch}...${encodeURIComponent(b.name)}`);
+        if (!(c.ahead_by > 0)) continue;
+        if (kind === 'merged') { mergedLeft++; continue; }
+        // A stacked branch whose tip commit was merged through another branch's PR (e.g. wip/step5b-polish inside wip/qa-integration-2) is a leftover too.
+        try { if (tipCoveredByPr(api(`commits/${b.commit.sha}/pulls`))) { mergedLeft++; continue; } } catch { /* keep checking by content */ }
         const at = Date.parse(c.commits?.[c.commits.length - 1]?.commit?.committer?.date ?? 0);
-        if (c.ahead_by > 0 && at >= since) branches.push({ name: b.name, ahead: c.ahead_by, at });
+        const files = (c.files ?? []).slice(0, CFG.maxBranchFiles);
+        const mainShas = new Map();
+        for (const f of files) {
+          if (f.status === 'removed') { try { api(`contents/${f.filename.split('/').map(encodeURIComponent).join('/')}?ref=${CFG.branch}`); mainShas.set(f.filename, 'present'); } catch { /* absent on main */ } continue; }
+          try { mainShas.set(f.filename, api(`contents/${f.filename.split('/').map(encodeURIComponent).join('/')}?ref=${CFG.branch}`).sha); } catch { /* absent on main */ }
+        }
+        const inMain = inMainState(files, mainShas);
+        if (inMain === 'yes') { inMainLeft++; continue; }
+        branches.push({ name: b.name, ahead: c.ahead_by, at, files: c.files?.length ?? files.length, inMain });
       } catch { /* skip an unreadable branch */ }
     }
-    branches.sort((a, b) => b.at - a.at);
-    pipelineCache = { at: Date.now(), value: { prs, branches } };
-    return { prs, branches, pendingMerged };
+    branches.sort((a, b) => a.at - b.at);
+    pipelineCache = { at: Date.now(), value: { prs, branches, mergedLeft, inMainLeft } };
+    return { prs, branches, mergedLeft, inMainLeft, pendingMerged };
   } catch (e) { log('pipeline unavailable:', String(e.message).slice(0, 120)); return null; }
 }
 
@@ -423,8 +471,13 @@ export const BOARD_CONTRACT = {
   headline: /\*\*(.+?)\*\* — (.*)/,
   pendingCommit: /^- `([0-9a-f]{7})` (.*) · \S+ ago$/gm,
   pipelineSummary: /\*\*(\d+) open PRs?\*\*(?: \((.*?)\))? → merged, waiting to deploy: \*\*(\d+)\*\*/,
-  pipelinePr: /^\| \[#(\d+)\]\([^)]*\) (.*?) \| `([^`]*)` \| (.*?) \| (\w+) \| (.*?) \|$/gm,
-  pipelineBranch: /^- `([^`]+)` · (\d+) commits? ahead of main · last push (.+?) ago$/gm,
+  // cells: #, title, marker, branch, state, CI, age
+  pipelinePr: /^\| \[#(\d+)\]\([^)]*\) (.*?) \| (🔵|⚪|❓) \| `([^`]*)` \| (.*?) \| (\w+) \| (.*?) \|$/gmu,
+  // loose branches only: name, commits, files, already-in-main (no|partly), age
+  pipelineBranch: /^- `([^`]+)` · (\d+) commits? ahead of main · (\d+) files? · already in main: (no|partly) · last push (.+?) ago$/gm,
+  // merged-PR leftovers and no-PR-but-already-in-main counts (each line optional)
+  pipelineMergedLeft: /^- (\d+) merged branch(?:es)? not deleted/m,
+  pipelineInMainLeft: /^- (\d+) branch(?:es)? with no PR whose changes are already in main/m,
   marker: /^- `([0-9a-f]{7})` (🔵|⚪|❓)$/gmu,
   state: /<!--state ([\s\S]*?) state-->/,
   // state JSON: deploys[] {at, sha, n, latencyMin, state, mix}, events[] {t, kind, msg}, lastWrite
