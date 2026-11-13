@@ -154,3 +154,6 @@ However many times either session is replaced, every incarnation must stay criti
 - Anything the owner has already decided stays decided (see Manager succession); otherwise do not wait to be asked to improve things.
 - Put this duty verbatim into every handoff note you write for a successor, and make sure the other session's note carries it too.
 - Put the naming rule (Manager succession: rename yourself `💀 (retired) <title>`, successor gets the exact previous title) into every handoff note too, and make sure the notifier follows it when it replaces itself.
+
+### Status-board state safety (2026-11-13)
+Issue #1's hidden `<!--state-->` JSON holds the deploy history. A failed or unparsable read of it must never lead to a write (a blank state once replaced 454 ticks and ~60 deployments): the tick is skipped instead (`parseStateBody` / `mayWriteState`). A rolling backup (comment on issue #1, `<!--state-backup-->`, refreshed at most every 30 min) restores it if the marker is genuinely gone; with no backup the deployments are rebuilt from Vercel + git (`rebuildDeploys`). Backfill by hand: `node scripts/deploy-manager.mjs --issue 1 --no-deploy --rebuild-state --no-poll` (`--no-deploy` can never create a deployment).
