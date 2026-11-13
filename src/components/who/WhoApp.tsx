@@ -51,6 +51,8 @@ export function WhoApp({ brief, initialPos, today, others = [], savedProgress = 
   const [trail, setTrail] = useState(() => emptyTrail(bid()));
   /** Phones: whether the details cover the finder. (Wide screens always show them.) */
   const [open, setOpen] = useState(false);
+  const lastTop = useRef(0);
+  const lastFlip = useRef(0);
   const [compact, setCompact] = useState(false); // phones: the header slims down once the face list is scrolled (hysteresis so it never flickers at the edge)
   const [q, setQ] = useState("");
   const [recents, setRecents] = useState<RecentTrail[]>([]);
@@ -282,6 +284,15 @@ export function WhoApp({ brief, initialPos, today, others = [], savedProgress = 
   const ctx = useMemo(() => ({ brief, today, pos, scope: scopeKind(pos), clip, spoilers, rootLabel, faces, watched, push, setExact, zoom, prefetchPerson }), [brief, today, pos, clip, spoilers, rootLabel, faces, watched, push, setExact, zoom, prefetchPerson]);
   const roster4finder = rosterFresh ?? roster;
 
+  // Phones: scrolling down past the first screen slims the header; ANY upward scroll brings it back (not only reaching the top).
+  // Right after a flip the header's own height change can nudge scrollTop, so that moment is ignored (no flicker loop).
+  const onFinderScroll = (t: number) => {
+    const d = t - lastTop.current;
+    lastTop.current = t;
+    if (Date.now() - lastFlip.current < 350) return;
+    if (t <= 12 || d < -3) { if (compact) { lastFlip.current = Date.now(); setCompact(false); } }
+    else if (d > 3 && t > 72 && !compact) { lastFlip.current = Date.now(); setCompact(true); }
+  };
   return (
     <WhoProvider value={ctx}>
       <div className="wx" data-compact={compact} role="main" aria-label={`Watching now: ${brief.title}`}>
@@ -314,7 +325,7 @@ export function WhoApp({ brief, initialPos, today, others = [], savedProgress = 
           </p>
         )}
         <div className="wx-main">
-          <div className="wx-left" aria-label="Finder" onScroll={(ev) => { const t = ev.currentTarget.scrollTop; setCompact((c) => (c ? t > 12 : t > 72)); }}>
+          <div className="wx-left" aria-label="Finder" onScroll={(ev) => onFinderScroll(ev.currentTarget.scrollTop)}>
             <Finder roster={roster4finder} loading={!rosterFresh && !rosterErr} more={more} err={rosterErr && !roster} q={q} setQ={setQ} inputRef={input} recents={recents.filter((r) => r.k === brief.key)}
               onOpen={openFromFinder} onRestore={restore} onRetry={() => setRetry((n) => n + 1)} />
           </div>
