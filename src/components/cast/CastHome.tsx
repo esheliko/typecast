@@ -4,9 +4,10 @@ import Search from "../Search";
 import { KindFilter } from "../KindSeg";
 import Browse, { Poster, type BrowseProps } from "./Browse";
 import Connect, { type Mode } from "./Connect";
+import WhoSearch from "../WhoSearch";
 import type { BrowseItem, Item, PersonLite } from "@/lib/types";
 
-export type View = "browse" | "connect";
+export type View = "browse" | "connect" | "who";
 export interface HomeProps {
   view: View;
   browse: BrowseProps;
@@ -19,6 +20,7 @@ export default function CastHome({ view: initialView, browse, connect, watching 
   const [view, setView] = useState<View>(initialView);
   const [searching, setSearching] = useState(false);
   const [connectOpened, setConnectOpened] = useState(initialView === "connect");
+  const [whoOpened, setWhoOpened] = useState(initialView === "who");
   const onActive = useCallback((on: boolean) => setSearching(on), []);
 
   // The title popup can link back here (Compare this cast…) while this page stays mounted, so follow new links in.
@@ -28,19 +30,22 @@ export default function CastHome({ view: initialView, browse, connect, watching 
   function go(v: View) {
     setView(v);
     if (v === "connect") setConnectOpened(true);
+    if (v === "who") setWhoOpened(true);
     const u = new URL(window.location.href);
-    if (v === "connect") u.searchParams.set("view", "connect"); else u.searchParams.delete("view");
+    u.searchParams.delete("m");
+    if (v === "browse") u.searchParams.delete("view"); else u.searchParams.set("view", v);
     window.history.replaceState(window.history.state, "", u);
   }
 
   return (
     <>
       <div className="page cast-home">
-        <Search onActive={onActive} watching={watching.filter((w) => w.type === "tv").map((w) => ({ key: w.key, type: w.type, title: w.title, poster: w.poster }))} />
+        <Search onActive={onActive} />
         <div hidden={searching}>
           <div className="views" role="tablist" aria-label="Browse tab">
             <button role="tab" type="button" aria-selected={view === "browse"} onClick={() => go("browse")}>Browse</button>
             <button role="tab" type="button" aria-selected={view === "connect"} onClick={() => go("connect")}>Connections</button>
+            <button role="tab" type="button" aria-selected={view === "who"} onClick={() => go("who")}>Who&rsquo;s that?</button>
           </div>
           {/* Both views stay mounted so switching back keeps your place, filters and picks. */}
           <div hidden={view !== "browse"}>
@@ -54,6 +59,7 @@ export default function CastHome({ view: initialView, browse, connect, watching 
             )}
             <Browse {...browse} /></div>
           <div hidden={view !== "connect"}>{connectOpened ? <Connect key={aKey} initialMode={connect.mode} initialA={connect.a} /> : null}</div>
+          <div hidden={view !== "who"}>{whoOpened ? <WhoSearch watching={watching.filter((w) => w.type === "tv").map((w) => ({ key: w.key, type: w.type, title: w.title, poster: w.poster }))} /> : null}</div>
         </div>
       </div>
     </>

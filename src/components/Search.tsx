@@ -6,7 +6,6 @@ import { Poster } from "./cast/Browse";
 import QuickMark from "./cast/QuickMark";
 import { useLib } from "./cast/LibState";
 import { KindFilter } from "./KindSeg";
-import WhoSearch, { type WhoTitle } from "./WhoSearch";
 import { img } from "@/lib/img";
 import { layoutSearch, pickCollections, youKnowFrom, type PersonHit, type TitleHit } from "@/lib/search-intent";
 import type { BrowseItem, SearchHit } from "@/lib/types";
@@ -19,17 +18,7 @@ const readRecent = (): string[] => { try { const v = JSON.parse(localStorage.get
 const writeRecent = (v: string[]) => { try { localStorage.setItem(RECENT, JSON.stringify(v)); } catch { /* private mode: no recents */ } };
 
 /** Search box for the cast tab. While it has a query, its results take the place of the page below it. */
-type Mode = "all" | "who";
-const modeFromUrl = (): Mode => { try { return new URLSearchParams(window.location.search).get("m") === "who" ? "who" : "all"; } catch { return "all"; } };
-
-export default function Search({ onActive, watching = [] }: { onActive: (on: boolean) => void; watching?: WhoTitle[] }) {
-  const [mode, setMode] = useState<Mode>("all");
-  // The mode lives in the URL (?m=who) so a refresh keeps it; nothing else about it is stored.
-  useEffect(() => { setMode(modeFromUrl()); }, []);
-  const pickMode = (m: Mode) => {
-    setMode(m);
-    try { const u = new URL(window.location.href); if (m === "all") u.searchParams.delete("m"); else u.searchParams.set("m", m); window.history.replaceState(window.history.state, "", u); } catch { /* the mode just is not remembered */ }
-  };
+export default function Search({ onActive }: { onActive: (on: boolean) => void }) {
   const [q, setQ] = useState("");
   const [hits, setHits] = useState<SearchHit[] | null>(null);
   const [colls, setColls] = useState<Coll[]>([]);
@@ -45,7 +34,7 @@ export default function Search({ onActive, watching = [] }: { onActive: (on: boo
   const term = q.trim();
   const { get } = useLib();
 
-  useEffect(() => { onActive(mode === "who" || term.length >= 2); }, [term, mode, onActive]);
+  useEffect(() => { onActive(term.length >= 2); }, [term, onActive]);
   useEffect(() => { setRecent(readRecent()); }, []);
   // A refresh keeps the typed query (a normal visit starts empty).
   useEffect(() => {
@@ -109,7 +98,6 @@ export default function Search({ onActive, watching = [] }: { onActive: (on: boo
   const people = lay?.people ?? [];
   const summary = !lay ? "" : `${hits?.length ?? 0} ${hits?.length === 1 ? "result" : "results"}${top ? `, top result ${top.kind === "person" ? top.name : top.title}` : ""}`;
   const recents = focused && !q && recent.length > 0;
-  if (mode === "who") return <><button type="button" className="chip" style={{ marginTop: 16 }} onClick={() => pickMode("all")}>← Back to search</button><WhoSearch watching={watching} /></>;
   return (
     <>
       <form className="search" role="search" onSubmit={(e) => { e.preventDefault(); submit(); }}>
@@ -127,9 +115,6 @@ export default function Search({ onActive, watching = [] }: { onActive: (on: boo
           </div>
         )}
       </form>
-      {term.length < 2 && !recents && (
-        <p className="row-sub" style={{ marginTop: 12 }}>Can&rsquo;t place an actor? <button type="button" className="linkish" onClick={() => pickMode("who")}>Who&rsquo;s that?</button></p>
-      )}
       {term.length >= 2 && (
         <div className="results" ref={box} onKeyDown={onResultsKey} onClick={(e) => { if ((e.target as HTMLElement).closest("a")) remember(); }}>
           <p className="sr-only" role="status" aria-live="polite">{state === "idle" ? summary : ""}</p>
