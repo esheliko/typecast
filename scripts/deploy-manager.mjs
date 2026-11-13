@@ -48,6 +48,10 @@ export const CFG = {
   ciIssue: 2, // issue that scripts/ci-status.mjs keeps up to date: verdict, failing tests, responsible sessions
   ciStartGraceMin: 4, // a head commit younger than this with no verify check yet: CI is about to start, hold
   ciCancelledGraceMin: 3, // a cancelled verify older than this, with no newer run, no longer blocks
+  pipelineCacheSec: 120, // PR/branch data is re-read at most this often (the hold loop ticks every 30 s)
+  maxPrs: 15, // open PRs inspected one by one (CI + mergeability)
+  maxBranches: 10, // branches without a PR inspected (commits ahead of main)
+  branchRecentDays: 7, // a branch with no PR only shows while its last commit is this recent
   ciMaxWaitMin: 12, // CI still running this long after the OLDEST pending commit => deploy anyway: no change waits longer than this, burst or not
 };
 
@@ -165,6 +169,89 @@ function event(st, kind, msg) {
   if (last && last.kind === kind && last.msg === msg) return;
   st.events.unshift({ t: Date.now(), kind, msg });
   st.events = st.events.slice(0, 40);
+}
+
+// ---------------------------------------------------------------- the pipeline: open PRs and loose branches (everything upstream of main)
+/** Pure. One open PR's place in the flow: 'draft' | 'conflicts' | 'red' | 'running' | 'behind' | 'ready' | 'unverified'. */
+export function prStage(pr) {
+  if (pr.draft) return 'draft';
+  if (pr.mergeable === false || pr.mergeableState === 'dirty') return 'conflicts';
+  if (pr.ci === 'fail') return 'red';
+  if (pr.ci === 'pending') return 'running';
+  if (pr.ci === 'none') return 'unverified';
+  if (pr.mergeableState === 'behind') return 'behind'; // green, but main moved: update the branch and wait for CI again
+  return 'ready'; // verify is green on its latest commit: mergeable now
+}
+const STAGE_LABEL = {
+  ready: '✅ ready to merge',
+  running: '⏳ CI running',
+  red: '🔴 CI red',
+  behind: '↻ behind main (update, re-run CI)',
+  conflicts: '⚠️ merge conflicts',
+  draft: '📝 draft',
+  unverified: '❔ no CI yet',
+};
+const STAGE_ORDER = ['ready', 'behind', 'running', 'red', 'conflicts', 'unverified', 'draft'];
+
+/** Pure. The "(#N)" a squash-merge title carries: which PR a commit on main came from. */
+export const prOfSubject = (subject) => Number(/\(#(\d+)\)\s*$/.exec(subject ?? '')?.[1]) || null;
+
+/** Pure. A short key that changes only when the pipeline's content does (ages excluded), so an idle board is not rewritten. */
+export const pipelineDigest = (pl) => (pl ? [...pl.prs.map((p) => `${p.number}:${prStage(p)}`), '|', ...pl.branches.map((b) => `${b.name}:${b.ahead}`)].join(',') : '');
+
+/** Pure. Markdown for the board. pl = { prs: [{number,title,branch,author,at,ci,draft,mergeable,mergeableState}], branches: [{name,ahead,at}], pendingMerged } */
+export function renderPipeline(pl, now, repo = CFG.repo) {
+  if (!pl) return ['', '### Pipeline', '_PR and branch data unavailable this tick (GitHub API failed); main-only view above is still correct._'];
+  const lines = ['', '### Pipeline: branch → PR → main → live'];
+  const counts = {};
+  for (const p of pl.prs) counts[prStage(p)] = (counts[prStage(p)] ?? 0) + 1;
+  const parts = STAGE_ORDER.filter((k) => counts[k]).map((k) => `${counts[k]} ${STAGE_LABEL[k].replace(/^\S+ /, '')}`);
+  lines.push(`**${pl.prs.length} open PR${pl.prs.length === 1 ? '' : 's'}**${parts.length ? ` (${parts.join(' · ')})` : ''} → merged, waiting to deploy: **${pl.pendingMerged}** → live`);
+  if (pl.prs.length) {
+    lines.push('', '| PR | branch | state | CI `verify` | age |', '|---|---|---|---|---|');
+    const sorted = [...pl.prs].sort((a, b) => STAGE_ORDER.indexOf(prStage(a)) - STAGE_ORDER.indexOf(prStage(b)) || a.at - b.at);
+    for (const p of sorted) {
+      const ci = { pass: 'green', fail: 'red', pending: 'running', none: 'none' }[p.ci] ?? p.ci;
+      lines.push(`| [#${p.number}](https://github.com/${repo}/pull/${p.number}) ${String(p.title).replace(/\|/g, '/').slice(0, 70)} | \`${String(p.branch).slice(0, 40)}\` | ${STAGE_LABEL[prStage(p)]} | ${ci} | ${ago(now - p.at)} |`);
+    }
+  }
+  if (pl.branches.length) {
+    lines.push('', `**Branches with commits but no PR** (last ${CFG.branchRecentDays} days; not on the way to \`main\` yet):`);
+    for (const b of pl.branches) lines.push(`- \`${b.name.slice(0, 50)}\` · ${b.ahead} commit${b.ahead === 1 ? '' : 's'} ahead of main · last push ${ago(now - b.at)} ago`);
+  }
+  if (!pl.prs.length && !pl.branches.length) lines.push('_Nothing in flight upstream of `main`._');
+  return lines;
+}
+
+let pipelineCache = { at: 0, value: null };
+/** IO. Open PRs (with their `verify` result and mergeability) and recent branches that have no PR. Never throws: null when GitHub fails. */
+function pipelineSnapshot(pendingMerged) {
+  if (Date.now() - pipelineCache.at < CFG.pipelineCacheSec * 1000 && pipelineCache.value) return { ...pipelineCache.value, pendingMerged };
+  try {
+    const api = (path) => JSON.parse(gh(['api', `repos/${CFG.repo}/${path}`]));
+    const open = api('pulls?state=open&per_page=50&sort=created&direction=desc');
+    const prs = open.slice(0, CFG.maxPrs).map((p) => {
+      let ci = 'none';
+      try { ci = ciVerdict(api(`commits/${p.head.sha}/check-runs?per_page=100`).check_runs, Date.now(), Date.parse(p.updated_at)); } catch { /* leave 'none' */ }
+      let m = {};
+      try { m = api(`pulls/${p.number}`); } catch { /* mergeability is a nicety */ }
+      return { number: p.number, title: p.title, branch: p.head.ref, author: p.user?.login ?? '', at: Date.parse(p.created_at), ci, draft: !!p.draft, mergeable: m.mergeable ?? null, mergeableState: m.mergeable_state ?? null };
+    });
+    const withPr = new Set(open.map((p) => p.head.ref));
+    const branches = [];
+    const since = Date.now() - CFG.branchRecentDays * 24 * 3600e3;
+    for (const b of api('branches?per_page=100')) {
+      if (b.name === CFG.branch || withPr.has(b.name) || branches.length >= CFG.maxBranches) continue;
+      try {
+        const c = api(`compare/${CFG.branch}...${encodeURIComponent(b.name)}`);
+        const at = Date.parse(c.commits?.[c.commits.length - 1]?.commit?.committer?.date ?? 0);
+        if (c.ahead_by > 0 && at >= since) branches.push({ name: b.name, ahead: c.ahead_by, at });
+      } catch { /* skip an unreadable branch */ }
+    }
+    branches.sort((a, b) => b.at - a.at);
+    pipelineCache = { at: Date.now(), value: { prs, branches } };
+    return { prs, branches, pendingMerged };
+  } catch (e) { log('pipeline unavailable:', String(e.message).slice(0, 120)); return null; }
 }
 
 // ---------------------------------------------------------------- the decision
@@ -297,7 +384,7 @@ function render(st, ctx, d, pending) {
   const rel = pending.relevant;
   const lines = [];
   lines.push('# Deploy Manager status board');
-  lines.push('_Auto-updated by `scripts/deploy-manager.mjs` (GitHub Actions: on every push and every 5 min). Do not edit by hand._');
+  lines.push('_Auto-updated by `scripts/deploy-manager.mjs` (GitHub Actions: after every CI run, PR or main, and every 5 min). Do not edit by hand._');
   lines.push('');
   const headline = { deploy: 'DEPLOYING', hold: 'HOLDING (batching pushes)', blocked: 'BLOCKED', idle: 'UP TO DATE' }[d.action] ?? d.action;
   lines.push(`**${headline}** — ${d.why}${d.dueAt && d.action !== 'idle' ? ` · due ${hhmm(d.dueAt)} UTC` : ''}`);
@@ -305,12 +392,13 @@ function render(st, ctx, d, pending) {
   lines.push('| | |');
   lines.push('|---|---|');
   lines.push(`| Live on production | ${live} |`);
-  lines.push(`| Pending (needs a deploy) | ${rel.length} commit${rel.length === 1 ? '' : 's'}${rel.length ? ` · oldest ${ago(now - Math.min(...rel.map((c) => c.at)))} ago` : ''} |`);
+  lines.push(`| Merged, needs a deploy | ${rel.length} commit${rel.length === 1 ? '' : 's'}${rel.length ? ` · oldest ${ago(now - Math.min(...rel.map((c) => c.at)))} ago` : ''} |`);
   lines.push(`| Deployments, last 24h | **${d.used}/${CFG.dailyLimit}** (${Math.max(d.spendable, 0)} spendable + ${CFG.reserve} reserve) |`);
   lines.push(`| Next free slot | ${d.free > 0 ? 'now' : `${hhmm(d.nextSlotAt)} UTC`} |`);
   lines.push(`| Last tick | ${iso(now)} (#${st.ticks}) |`);
+  lines.push(...renderPipeline(ctx.pipeline, now));
   if (rel.length) {
-    lines.push('', '### Pending commits');
+    lines.push('', '### Merged to main, waiting to deploy');
     for (const c of rel.slice(0, 12)) lines.push(`- \`${c.sha.slice(0, 7)}\` ${c.subject.slice(0, 90)} · ${ago(now - c.at)} ago`);
     if (rel.length > 12) lines.push(`- … and ${rel.length - 12} more`);
   }
@@ -337,9 +425,9 @@ function render(st, ctx, d, pending) {
 function writeBoard(st, ctx, d, pending, force) {
   const md = render(st, ctx, d, pending);
   if (!ISSUE || DRY) { if (DRY) console.log(md.replace(STATE_RE, '')); return; }
-  if (!force && ctx.now - st.lastWrite < 8 * 60e3 && JSON.stringify(st.lastDecision) === JSON.stringify([d.action, d.why])) return;
+  if (!force && ctx.now - st.lastWrite < 8 * 60e3 && JSON.stringify(st.lastDecision) === JSON.stringify([d.action, d.why, pipelineDigest(ctx.pipeline)])) return;
   st.lastWrite = ctx.now;
-  st.lastDecision = [d.action, d.why];
+  st.lastDecision = [d.action, d.why, pipelineDigest(ctx.pipeline)];
   const md2 = render(st, ctx, d, pending);
   try { gh(['api', '-X', 'PATCH', `repos/${CFG.repo}/issues/${ISSUE}`, '--input', '-'], JSON.stringify({ body: md2 })); }
   catch (e) { log('could not write status issue:', String(e.message).slice(0, 160)); }
@@ -363,7 +451,7 @@ async function tick() {
     const ready = latestReadyProd(list);
     const base = inflight?.sha ?? ready?.sha ?? null;
     const pending = pendingCommits(base);
-    const ctx = { now, list, inflight, ready, pending, st };
+    const ctx = { now, list, inflight, ready, pending, st, pipeline: pipelineSnapshot(pending.relevant.length) };
     reportCi(st, pending.head, pending.commits[0]?.at ?? null, inflight?.sha ?? ready?.sha ?? null);
     const d = decide(ctx);
     log(`${d.action}: ${d.why} [used ${d.used}/${CFG.dailyLimit}, pending ${pending.relevant.length}]`);
