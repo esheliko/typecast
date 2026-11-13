@@ -1369,9 +1369,9 @@ main:focus { outline: none; }
   }
   .wx-find { padding: 8px 0 6px; }
   .wx-find input { min-height: 44px; }
-  .wx-chips { flex-wrap: wrap; gap: 4px; margin: 0 0 4px; }
-  .wx-chips .seg { flex: none; padding: 2px; }
-  .wx-chips .seg button { padding: 5px 6px; font-size: 12.5px; white-space: nowrap; }
+  .wx-chips { flex-wrap: nowrap; gap: 3px; margin: 0 0 4px; }
+  .wx-chips .seg { flex: 0 1 auto; min-width: 0; padding: 2px; }
+  .wx-chips .seg button { padding: 5px 4px; font-size: 12px; white-space: nowrap; }
   .wx-xl { display: none; }
   .wx-count { display: none; }
   .wx-group { margin: 8px 0 6px; }
