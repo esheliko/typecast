@@ -9,7 +9,7 @@ Vercel Hobby limits deployments, so **a merge or push no longer deploys by itsel
   Without it the workflow idles.
 - **No Claude supervisor any more** (deleted 2026-11-09, see lessons). Actions is the only automatic executor. A Claude session can still run
   `STATUS_ISSUE=1 node scripts/deploy-manager.mjs` by hand as a one-off (Vercel auth is proxy-injected there).
-- **Board**: issue #1 shows live commit, pending commits, next deploy time, recent deployments and events.
+- **Board**: issue #1 shows live commit, a Pipeline section (open PRs with their `verify` state and whether they can merge now, merged-but-not-live count, recent branches that have no PR yet), commits merged to `main` waiting to deploy, next deploy time, recent deployments and events. PR/branch data is read from GitHub at most every 2 min and fails soft (the board then says it is unavailable and the main-only part stays correct). Deploy decisions still look only at `main`: a PR or branch never deploys until it is merged.
 
 ## Policy (see `CFG` in the script)
 - Wait until `main` has been quiet 3 min, or the oldest pending commit is 10 min old (slower tiers when the 24h count is high).
@@ -51,7 +51,7 @@ https://claude.ai/artifact/UbFWzbLxByvYjzki19uuMv. Fully live, no uploads: every
 the 24h/1h counts, the hourly chart and "Shipped to production"; GitHub connector (`list_commits` on main, `issue_read` on issue #1) gives "Waiting to deploy"
 (commits newer than the live one, minus ones the manager ignores) and the manager status, deployments table and events. The page re-checks every 10 s while open.
 Each viewer must approve both connectors (Vercel for team `eshelikos-projects`; GitHub = a custom connector, `https://api.githubcopilot.com/mcp/`, via an OAuth app).
-The supervisor has nothing to refresh there. `scripts/dashboard-data.mjs` is gone.
+The supervisor has nothing to refresh there. `scripts/dashboard-data.mjs` is gone. **Not yet updated for the PR flow (2026-11-13):** the artifact still reads only `main`; the Pipeline section (open PRs, branches) exists on issue #1 only until its queries are extended.
 - 2026-11-08: first push-triggered Actions tick confirmed (board tick #3 with no Claude run). Anything under `scripts/` is now deploy-neutral too.
 - 2026-11-08 (17:50 IST): 7 commits waited 40+ min. Two causes: (1) the CI gate treated a cancelled `verify` on the head as "pending" and held up to 25 min,
   though a cancelled run with nothing after it never finishes: now it stops blocking after 3 min; (2) the slow pacing tier (10 min quiet / 60 min max wait)
