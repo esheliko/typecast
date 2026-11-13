@@ -31,6 +31,8 @@ export interface GlimpseInfo {
   pg?: string; ps?: boolean;
   /** Cache discriminator only (never read by the server): the spoiler line the browser expects for `key` (`lineTag`), so the About cache is keyed on the saved place. Set by `withLine`. */
   lt?: string;
+  /** The reader lifted the spoiler line for this view only (the cast note's Show): asked with `reveal=1`. Writes nothing. */
+  reveal?: boolean;
 }
 
 type TitleBits = { title: string; year?: string | number; type: string; key?: string; id?: number };
@@ -98,6 +100,7 @@ export function infoQuery(i: GlimpseInfo): string {
   if (i.char) p.set("ch", i.char.slice(0, 80));
   if (i.clip) { p.set("c", "1"); if (i.clip.s != null) p.set("s", String(i.clip.s)); if (i.clip.e != null) p.set("e", String(i.clip.e)); }
   if (i.nospoil) p.set("ns", "1");
+  if (i.reveal) p.set("reveal", "1");
   if (i.hide) p.set("h", i.hide.slice(0, 80));
   if (i.pg) { p.set("pg", i.pg); if (i.ps) p.set("ps", "1"); }
   if (i.lt) p.set("lt", i.lt);
