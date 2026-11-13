@@ -290,10 +290,11 @@ export function WhoApp({ brief, initialPos, today, others = [], savedProgress = 
           <div className="wx-ttl">
             <span className="wbar-k"><span className="live-dot" aria-hidden="true" />Watching now</span>
             <div className="wx-trl">
-              <TitleLink k={brief.key} it={{ title: brief.title, year: brief.year, poster: brief.poster }} className="wx-title wx-titlelink" aria-label={`${brief.title}: open title details`}>{brief.title}<span aria-hidden="true"> ›</span></TitleLink>
+              <TitleLink k={brief.key} it={{ title: brief.title, year: brief.year, poster: brief.poster }} className="wx-title wx-titlelink" tabIndex={-1} aria-hidden="true">{brief.title}</TitleLink>
               <TitleSwitcher cards={others} title={brief.title} />
             </div>
-            <span className="small muted">{[brief.year, tv ? posLabel(pos) : "Film"].filter(Boolean).join(" · ")}</span>
+            <span className="small muted wx-sub">{[brief.year, tv ? posLabel(pos) : "Film"].filter(Boolean).join(" · ")}
+              <TitleLink k={brief.key} it={{ title: brief.title, year: brief.year, poster: brief.poster }} className="wx-details" aria-label={`${brief.title}: open title details`}>Details</TitleLink></span>
           </div>
           {tv && pos && <PositionControl brief={brief} pos={pos} onChange={changePos} onNext={onNext} />}
           {!tv && <FilmClock item={item} runtime={brief.runtime} />}
