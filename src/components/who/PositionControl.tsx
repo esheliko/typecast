@@ -31,7 +31,13 @@ export function PositionControl({ brief, pos, onChange, onNext }: { brief: WhoBr
  * count); the open season shows its episodes (still, number, name, air date) and its row stays pinned at the top while you scroll them, so one tap on it
  * folds the season and lets you pick another. "Whole series" and "Whole season" stay as the first rows. Next sits beside it in the same pill.
  */
-export function PositionPicker({ brief, pos, seasons, onChange, onNext }: { brief: WhoBrief; pos: Pos; seasons: WhoBrief["seasons"]; onChange: (p: Pos) => void; /** Without it the picker has no Next button (Search's "Who's that?" only looks). */ onNext?: (from: { s: number; e: number } | null, to: Pos | null) => void }) {
+type BriefLite = Pick<WhoBrief, "id" | "seasons" | "status">;
+/**
+ * `strip` turns the picker into the place card's "Up next ▾" trigger (docs/features/place-card.md): `children` is the trigger's content, there is no Next button and no
+ * "Whole series / Whole season" row, and episodes after `hideAfter` (the shown place) are listed by number only: no name, still or air date.
+ */
+export type StripMode = { children: React.ReactNode; hideAfter: { s: number; e: number } };
+export function PositionPicker({ brief, pos, seasons, onChange, onNext, strip }: { brief: BriefLite; pos: Pos; seasons: WhoBrief["seasons"]; onChange: (p: Pos) => void; /** Without it the picker has no Next button (Search's "Who's that?" only looks). */ onNext?: (from: { s: number; e: number } | null, to: Pos | null) => void; strip?: StripMode }) {
   const [open, setOpen] = useState(false);
   const [openS, setOpenS] = useState<number | null>(pos.s); // the season whose episodes are shown (null: all folded)
   const [ranges, setRanges] = useState<Record<number, { start: string; end: string }>>({});
@@ -96,6 +102,7 @@ export function PositionPicker({ brief, pos, seasons, onChange, onNext }: { brie
 
   const eps = s != null && Array.isArray(bySeason[s]) && (bySeason[s] as WhoEp[]).length ? (bySeason[s] as WhoEp[]) : null;
   const cur = pos.e != null ? eps?.find((x) => x.e === pos.e) : null;
+  const hidden = (n: number, e: number) => !!strip && (n > strip.hideAfter.s || (n === strip.hideAfter.s && e > strip.hideAfter.e));
   const sl = s == null ? "Whole series" : s === 0 ? "Specials" : `S${s}`;
   const label = s == null ? "Whole series" : pos.e == null ? `${s === 0 ? "Specials" : `Season ${s}`} · Whole season` : `${sl} · E${pos.e}${cur?.name ? ` ${cur.name}` : ""}`;
 
@@ -122,16 +129,18 @@ export function PositionPicker({ brief, pos, seasons, onChange, onNext }: { brie
   };
 
   return (
-    <div className="wx-epgroup">
+    <div className={strip ? "ps-picker" : "wx-epgroup"}>
       <div className="wx-ep" ref={wrap}>
-        <button ref={btn} type="button" className="wx-epb" aria-haspopup="dialog" aria-expanded={open} aria-label={`Where you are: ${label}`} onClick={() => setOpen((v) => !v)}>
-          <span className="wx-epl">{label}</span><span aria-hidden="true" className="wx-caret">▾</span>
-        </button>
+        {strip
+          ? <button ref={btn} type="button" className="ps-trig" aria-haspopup="dialog" aria-expanded={open} aria-label="Change your place" onClick={() => setOpen((v) => !v)}>{strip.children}</button>
+          : <button ref={btn} type="button" className="wx-epb" aria-haspopup="dialog" aria-expanded={open} aria-label={`Where you are: ${label}`} onClick={() => setOpen((v) => !v)}>
+              <span className="wx-epl">{label}</span><span aria-hidden="true" className="wx-caret">▾</span>
+            </button>}
         {open && (
           <div className="wx-eplist" role="dialog" aria-label="Season and episode" ref={list} onKeyDown={key}>
-            <button type="button" aria-current={s == null} className="wx-epo" onClick={() => pick({ s: null, e: null })}>
+            {!strip && <button type="button" aria-current={s == null} className="wx-epo" onClick={() => pick({ s: null, e: null })}>
               <span className="wx-epn">?</span><span className="wx-epm"><b>Whole series</b><span className="small muted">Everyone in the whole series counts</span></span>
-            </button>
+            </button>}
             {seasons.map((x) => {
               const isOpen = openS === x.n;
               const data = bySeason[x.n];
@@ -144,19 +153,22 @@ export function PositionPicker({ brief, pos, seasons, onChange, onNext }: { brie
                   </button>
                   {isOpen && (
                     <>
-                      <button type="button" aria-current={s === x.n && pos.e == null} className="wx-epo" onClick={() => pick({ s: x.n, e: null })}>
+                      {!strip && <button type="button" aria-current={s === x.n && pos.e == null} className="wx-epo" onClick={() => pick({ s: x.n, e: null })}>
                         <span className="wx-epn">?</span><span className="wx-epm"><b>Whole season</b><span className="small muted">Everyone in the whole season counts</span></span>
-                      </button>
+                      </button>}
                       {(!data || (Array.isArray(data) && !data.length)) && Array.from({ length: 4 }, (_, i) => <div key={i} className="wx-epo wx-epsk" aria-hidden="true"><span className="sk-b wx-epimg" /><span className="sk-b" style={{ flex: 1, height: 14 }} /></div>)}
                       {data === "err" && <p className="small muted" style={{ padding: 12 }}>Couldn&rsquo;t load the episodes. Fold this season and open it again.</p>}
-                      {Array.isArray(data) && data.map((e) => (
-                        <button key={e.e} type="button" aria-current={s === x.n && pos.e === e.e} disabled={!e.aired} className="wx-epo" onClick={() => pick({ s: x.n, e: e.e })}>
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          {e.still ? <img className="wx-epimg" src={img(e.still, "w185")} alt="" loading="lazy" /> : <span className="wx-epimg wx-noph" aria-hidden="true" />}
-                          <span className="wx-epn">{e.e}</span>
-                          <span className="wx-epm"><b>{e.name || `Episode ${e.e}`}</b><span className="small muted">{e.aired ? fmtDay(e.air) : e.air ? `Not aired yet · ${fmtDay(e.air)}` : "Not aired yet"}</span></span>
-                        </button>
-                      ))}
+                      {Array.isArray(data) && data.map((e) => {
+                        const h = hidden(x.n, e.e);
+                        return (
+                          <button key={e.e} type="button" aria-current={s === x.n && pos.e === e.e} disabled={!e.aired} className="wx-epo" onClick={() => pick({ s: x.n, e: e.e })}>
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            {e.still && !h ? <img className="wx-epimg" src={img(e.still, "w185")} alt="" loading="lazy" /> : <span className="wx-epimg wx-noph" aria-hidden="true" />}
+                            <span className="wx-epn">{e.e}</span>
+                            <span className="wx-epm"><b>{(!h && e.name) || `Episode ${e.e}`}</b>{!h && <span className="small muted">{e.aired ? fmtDay(e.air) : e.air ? `Not aired yet · ${fmtDay(e.air)}` : "Not aired yet"}</span>}</span>
+                          </button>
+                        );
+                      })}
                     </>
                   )}
                 </div>
@@ -165,7 +177,7 @@ export function PositionPicker({ brief, pos, seasons, onChange, onNext }: { brie
           </div>
         )}
       </div>
-      {onNext && <button type="button" className="wx-epnext" disabled={!canNext} onClick={next} aria-label={nextEp ? `Next episode: E${nextEp.e}` : nextSeason ? `Next season: S${nextSeason.n}` : "Next episode"} title="Finished this one: go to the next episode">
+      {onNext && !strip && <button type="button" className="wx-epnext" disabled={!canNext} onClick={next} aria-label={nextEp ? `Next episode: E${nextEp.e}` : nextSeason ? `Next season: S${nextSeason.n}` : "Next episode"} title="Finished this one: go to the next episode">
         <span>Next</span>
         <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 5.5v13l8.5-6.5zM17 5.5v13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
       </button>}

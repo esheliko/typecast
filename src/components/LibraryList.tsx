@@ -12,6 +12,9 @@ import RelatedButton from "./cast/RelatedButton";
 import { ResumeButton } from "./ResumeSheet";
 import { stoppedLabel, stoppedPct } from "@/lib/film-resume";
 import { typeLabel } from "@/lib/img";
+import { rowNext } from "@/lib/place-strip";
+import { clearProgress, setProgress } from "@/app/actions";
+import { getJson } from "@/lib/who-client";
 import { PRIORITY_LABEL, STATUS_LABEL, markLabel, type LibItem } from "@/lib/types";
 
 /** The status label as a fixed-width column. Tap it to flip To watch <-> Must watch or Watching <-> Partly watched. */
@@ -31,6 +34,34 @@ function StatusPill({ it }: { it: LibItem }) {
         : <span className={cls}>{label}</span>}
     </span>
   );
+}
+
+/**
+ * Library "Watched ✓" on a Watching series: marks the episode after the saved place, using only what the row has (no TMDB call per row). At the tap it asks for the
+ * size of the place's season once (cached) so a season's last episode rolls into the next season; if that fails it simply takes the next number. One write, no refresh.
+ */
+function RowWatched({ it }: { it: LibItem }) {
+  const lib = useLib();
+  const m = lib.get(it.key);
+  const [busy, setBusy] = useState(false);
+  if (it.type !== "tv" || m?.status !== "watching") return null;
+  const prog = m.progress === undefined ? it.progress : m.progress;
+  const guess = rowNext(prog);
+  const go = async () => {
+    if (busy) return;
+    setBusy(true);
+    const size = prog ? await getJson<{ episodes: unknown[] }>(`/api/who/season?tv=${it.id}&s=${prog.s}`).then((r) => r.episodes.length).catch(() => null) : null;
+    const to = rowNext(prog, size);
+    try {
+      await setProgress(it.type, it.id, to.s, to.e);
+      lib.touch(); lib.setPlace(it.key, to);
+      lib.notify(`S${to.s} E${to.e} marked watched`, () => {
+        (prog ? setProgress(it.type, it.id, prog.s, prog.e) : clearProgress(it.type, it.id)).then(() => { lib.touch(); lib.setPlace(it.key, prog ?? null); }).catch(() => {});
+      });
+    } catch { lib.notify("Couldn’t save that. Try again."); }
+    setBusy(false);
+  };
+  return <button type="button" className="ps-row-btn" disabled={busy} onClick={go} aria-label={`Mark S${guess.s} E${guess.e} watched`} title={`Mark S${guess.s} E${guess.e} watched`}>Watched ✓</button>;
 }
 
 export default function LibraryList({ items }: { items: LibItem[] }) {
@@ -57,7 +88,7 @@ export default function LibraryList({ items }: { items: LibItem[] }) {
                 <RowBadge k={l.key} />
                 {l.rating > 0 && <span className="stars" role="img" aria-label={`Rated ${l.rating} of 5`}>{"★".repeat(l.rating) + "☆".repeat(5 - l.rating)}</span>}
               </span>
-            </TitleLink><StatusPill it={l} /><QuickMark it={l} variant="inline" /><GlimpseButton spec={titleSpec(l)} /><RelatedButton it={l} />{st ? <span className="rs-act-row"><ResumeButton it={l} stopped={st} runtime={of} className="btn sm gold" /></span> : null}</li>
+            </TitleLink><StatusPill it={l} /><RowWatched it={l} /><QuickMark it={l} variant="inline" /><GlimpseButton spec={titleSpec(l)} /><RelatedButton it={l} />{st ? <span className="rs-act-row"><ResumeButton it={l} stopped={st} runtime={of} className="btn sm gold" /></span> : null}</li>
             );
           })}
         </ul></div>

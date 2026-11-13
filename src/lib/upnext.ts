@@ -3,6 +3,7 @@ import { dayIn } from "./today";
 import { airsLabel, daysUntil } from "./episodes";
 import { caughtUp, continueHref, continueLabel } from "./watch-library";
 import { cleanRuntime, stoppedShort } from "./film-resume";
+import { nextOut } from "./place-strip";
 import type { Item, LibItem } from "./types";
 
 /**
@@ -51,7 +52,9 @@ export interface Pick extends Item { why: string; tag: string | null; length: st
   /** A "continue" card: where /watching reopens at the episode to continue with (set only when there is one to continue with). */
   go?: string;
   /** A "resume" card (a Watching film with a stopped time): the minutes and the runtime, for the Resume sheet. */
-  resume?: { min: number; of: number | null } }
+  resume?: { min: number; of: number | null };
+  /** The label of the `go` link ("Continue" when absent): a new card kind with its own action (a film "Resume") sets its own word and `go`, nothing else in the strip changes. */
+  cta?: string }
 
 /** Service ids that TMDB knows. Negative ids are labels the user typed in by hand, with no availability data. */
 export const realServices = (ids: number[]) => ids.filter((id) => Number.isInteger(id) && id > 0);
@@ -150,8 +153,11 @@ function inProgress(l: LibItem, ctx: Ctx): Pick | null {
   const up = l.type === "tv" && !!l.progress && !caughtUp(l.progress, seasons, lastEp);
   // "· new ep Thursday" when the next episode airs within a week.
   const soon = l.type === "tv" && f?.nextAir && daysUntil(f.nextAir, iso(ctx.now, ctx.tz)) <= 6 ? airsLabel(f.nextAir, iso(ctx.now, ctx.tz)) : "";
-  const label = continueLabel(l.progress, seasons, lastEp);
-  return { ...base, kind: "continue", score: age <= FRESH_DAYS ? 20 - age / 7 : 9 - (age - FRESH_DAYS) / 10, why: soon ? `${label} · new ep ${soon}` : label,
+  // The next episode is out: "S3 E7 · out now" with its runtime ("47 min"), a Continue link that opens /watching there.
+  const out = l.type === "tv" && l.status === "watching" ? nextOut(l.progress, seasons, lastEp) : null;
+  const label = out ? `S${out.s} E${out.e} · out now` : continueLabel(l.progress, seasons, lastEp);
+  return { ...base, kind: "continue", score: age <= FRESH_DAYS ? 20 - age / 7 : 9 - (age - FRESH_DAYS) / 10, why: soon && !out ? `${label} · new ep ${soon}` : label,
+    ...(out && f?.runtime ? { length: `${f.runtime} min` } : {}),
     ...(up ? { go: continueHref(l, seasons) } : {}) };
 }
 
