@@ -202,7 +202,9 @@ a.row { text-decoration: none; color: inherit; }
 .views { display: flex; gap: 22px; margin: 6px 0 2px; border-bottom: 1px solid var(--line); }
 .views button { padding: 10px 0 9px; font: 700 20px/1 var(--display); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); border-bottom: 3px solid transparent; margin-bottom: -1px; }
 .views button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--gold-fill); }
-@media (max-width: 359px) { .views { gap: 14px; } .views button { font-size: 17px; } } /* three tabs fit a small phone */
+.views button { white-space: nowrap; }
+@media (max-width: 430px) { .views { gap: 16px; } .views button { font-size: 17px; } } /* three tabs stay on one line on a phone, no sideways scroll */
+@media (max-width: 359px) { .views { gap: 12px; } .views button { font-size: 15px; letter-spacing: .04em; } }
 .seg { display: inline-flex; background: var(--chip); border-radius: 999px; padding: 3px; }
 .seg button { padding: 6px 14px; border-radius: 999px; font-weight: 600; font-size: 14px; color: var(--muted); }
 .seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgb(0 0 0 / .12); }
@@ -1360,30 +1362,21 @@ main:focus { outline: none; }
   .wx-epb { min-height: 40px; padding: 6px 12px; font-size: 13.5px; max-width: 100%; }
   .wx-epnext { min-height: 40px; padding: 6px 12px 6px 10px; font-size: 13.5px; }
   .wx-epnext::before { top: 9px; bottom: 9px; }
-  /* scrolled: poster, title and the two switches only (the kicker, year line and episode pickers are back at the top of the list).
-     Nothing snaps: each part eases its height/opacity/size over 280ms, so the header glides to its slim form and back. */
-  .wx-top, .wx-poster, .wx-nospoil, .wx-nsl, .wx-pos, .wx-ttl .wbar-k, .wx-ttl .wx-sub {
-    transition: padding .28s cubic-bezier(.4, 0, .2, 1), gap .28s cubic-bezier(.4, 0, .2, 1), width .28s cubic-bezier(.4, 0, .2, 1), height .28s cubic-bezier(.4, 0, .2, 1),
-      max-height .28s cubic-bezier(.4, 0, .2, 1), max-width .28s cubic-bezier(.4, 0, .2, 1), opacity .2s ease, visibility 0s linear 0s;
-  }
-  .wx-pos, .wx-ttl .wbar-k, .wx-ttl .wx-sub { overflow: hidden; }
-  .wx-pos { max-height: 64px; }
-  .wx-ttl .wbar-k { max-height: 20px; }
-  .wx-ttl .wx-sub { max-height: 30px; }
-  .wx-nsl { max-width: 120px; overflow: hidden; }
-  /* scrolled down: ONE row = poster, title, where you are (episode picker + next), close. The spoiler switch and the labels are hidden. */
-  .wx[data-compact="true"] .wx-top { flex-wrap: nowrap; gap: 0 8px; padding-top: calc(4px + env(safe-area-inset-top, 0px)); padding-bottom: 4px; }
-  .wx[data-compact="true"] .wx-ttl .wbar-k, .wx[data-compact="true"] .wx-ttl .wx-sub, .wx[data-compact="true"] .wx-pos-l, .wx[data-compact="true"] .wx-pos .wx-finish { display: none; }
-  .wx[data-compact="true"] .wx-nospoil { display: none; }
+  /* scrolled down: ONE slim row (about 38px): small poster, title, "S3 · E8" with a Next icon, Close. The spoiler switch, kicker, year line, episode name and
+     the word "Next" are hidden. No transition: the old height/width easing re-flowed the whole page every frame and looked jerky; it swaps in one frame. */
+  .wx[data-compact="true"] .wx-top { flex-wrap: nowrap; gap: 0 8px; padding-top: calc(3px + env(safe-area-inset-top, 0px)); padding-bottom: 3px; }
+  .wx[data-compact="true"] .wx-ttl .wbar-k, .wx[data-compact="true"] .wx-ttl .wx-sub, .wx[data-compact="true"] .wx-pos-l, .wx[data-compact="true"] .wx-pos .wx-finish,
+  .wx[data-compact="true"] .wx-nospoil, .wx[data-compact="true"] .wx-epname, .wx[data-compact="true"] .wx-epnt, .wx[data-compact="true"] .wx-caret { display: none; }
   .wx[data-compact="true"] .wx-ttl { flex: 1 1 0; min-width: 0; }
-  .wx[data-compact="true"] .wx-pos { order: 1; width: auto; flex: 0 1 auto; min-width: 0; max-height: none; }
-  .wx[data-compact="true"] .wx-topr { order: 2; flex: none; }
-  .wx[data-compact="true"] .wx-epb, .wx[data-compact="true"] .wx-epnext { min-height: 34px; padding-top: 4px; padding-bottom: 4px; }
-  .wx[data-compact="true"] .wx-close { min-height: 34px; }
-  .wx[data-compact="true"] .wx-poster { width: 24px; height: 36px; }
-  @media (prefers-reduced-motion: reduce) {
-    .wx-top, .wx-poster, .wx-nospoil, .wx-nsl, .wx-pos, .wx-ttl .wbar-k, .wx-ttl .wx-sub { transition: none !important; }
-  }
+  .wx[data-compact="true"] .wx-title { font-size: 15px; }
+  .wx[data-compact="true"] .wx-pos { order: 1; width: auto; flex: none; min-width: 0; }
+  .wx[data-compact="true"] .wx-pos .wx-epgroup { flex: none; }
+  .wx[data-compact="true"] .wx-topr { order: 2; flex: none; margin-left: 0; }
+  .wx[data-compact="true"] .wx-epb { min-height: 30px; padding: 3px 8px; font-size: 12.5px; max-width: none; }
+  .wx[data-compact="true"] .wx-epnext { min-height: 30px; padding: 3px 8px 3px 6px; }
+  .wx[data-compact="true"] .wx-epnext::before { top: 6px; bottom: 6px; }
+  .wx[data-compact="true"] .wx-close { min-height: 30px; min-width: 30px; padding: 0 6px; }
+  .wx[data-compact="true"] .wx-poster { width: 20px; height: 30px; }
   .wx-find { padding: 8px 0 6px; }
   .wx-find input { min-height: 44px; }
   .wx-chips { flex-wrap: nowrap; gap: 3px; margin: 0 0 4px; }
