@@ -584,7 +584,7 @@ test.describe("behaviour (signed in)", () => {
   // Search > Who's that?: starts on the Watching series (Breaking Bad, saved place S2 E3) at the episode after it, and finds a cast member by name. The mode lives in the URL.
   test("search: Who's that? starts at the saved place and finds a person by name", async ({ page }) => {
     await page.goto("/?m=who");
-    await expect(page.getByRole("button", { name: "Who\u2019s that?" })).toHaveAttribute("aria-pressed", "true", { timeout: 30_000 });
+    await expect(page.getByRole("button", { name: "← Back to search" })).toBeVisible({ timeout: 30_000 });
     await expect(page.getByRole("button", { name: /^Where you are: S2 · E4/ })).toBeVisible({ timeout: 30_000 });
     await page.getByRole("searchbox", { name: "A name or role you remember" }).fill("walter");
     const hit = page.getByRole("list", { name: "Matching cast" }).getByRole("link", { name: /Walter/ }).first();
