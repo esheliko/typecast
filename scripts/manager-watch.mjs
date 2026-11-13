@@ -8,11 +8,13 @@
 //   REARM manager-watch (no red, N guard ticks, M deploys) (exit 0) 115 min passed, start it again
 //   STALE_RED_PRS #33,#34 (main green again at <sha>) [sessions=#33:session_x,...]   (exit 0) main went green after a red and these open PRs are red/unverified
 //                                                          without main's green commit: tell their sessions to update_pull_request_branch (each PR+head once)
+//   DEPLOY_LIVE <HH:MM> IST <sha> <N commits>              (exit 0) a new production deployment is READY (once per deployment, also across restarts via
+//                                                          $TMPDIR/manager-watch-live); the manager answers with a PushNotification and re-arms
 //   WATCH_ERROR <reason>                                   (exit 1) CI or the deploy manager unreadable for >10 min in a row
 // Every 120 s it also runs the deploy guard (`git fetch`, then deploy-manager --no-poll); a `DEPLOYING ` line goes to
 // $TMPDIR/manager-watch.log as `GUARD_DEPLOYED <HH:MM> IST :: <line>`, never to stdout.
 // Env (tests only): MANAGER_WATCH_DEPLOY_CMD (JSON array replacing the deploy manager command), MANAGER_WATCH_CI_CMD
-// (JSON array printing `<sha> ok|red|none`), MANAGER_WATCH_STALE_CMD (JSON array printing the candidate PRs as JSON), MANAGER_WATCH_SCALE (divides every interval).
+// (JSON array printing `<sha> ok|red|none`), MANAGER_WATCH_LIVE_CMD (JSON array printing the live production sha), MANAGER_WATCH_STALE_CMD (JSON array printing the candidate PRs as JSON), MANAGER_WATCH_SCALE (divides every interval).
 import { spawn, execFileSync } from 'node:child_process';
 import { appendFileSync, existsSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -45,6 +47,13 @@ export const istTime = (d = new Date()) => new Intl.DateTimeFormat('en-GB', { ti
 // Pure: log lines for a guard run's output.
 export function guardLines(out, d = new Date()) {
   return String(out).split('\n').filter((l) => l.includes('DEPLOYING ')).map((l) => `GUARD_DEPLOYED ${istTime(d)} IST :: ${l.trim()}`);
+}
+
+// Pure: the DEPLOY_LIVE line, or null when nothing new went live (prev = last announced live sha, null = first run: just remember it).
+export function liveLine(prev, cur, n, d = new Date()) {
+  if (!prev || !cur || prev === cur) return null;
+  const c = n == null ? '?' : n;
+  return `DEPLOY_LIVE ${istTime(d)} IST ${cur.slice(0, 7)} ${c} commit${c === 1 ? '' : 's'}`;
 }
 
 // Last reported red sha survives a restart (a re-armed watcher must not shout about a red it already reported).
@@ -81,6 +90,8 @@ async function main() {
   const dir = process.env.TMPDIR || tmpdir();
   const recoverFile = join(dir, 'manager-watch-recover'); // exists while main went red and the green recovery has not been checked
   const staleFile = join(dir, 'manager-watch-stale');
+  const liveFile = join(dir, 'manager-watch-live'); // last live production sha already announced
+  const liveCmd = process.env.MANAGER_WATCH_LIVE_CMD ? JSON.parse(process.env.MANAGER_WATCH_LIVE_CMD) : null;
   const staleCmd = process.env.MANAGER_WATCH_STALE_CMD ? JSON.parse(process.env.MANAGER_WATCH_STALE_CMD) : null;
   let finished = false;
   const finish = (line, code = 0) => {
@@ -126,7 +137,28 @@ async function main() {
       const out = await run(cmd[0], cmd.slice(1), L.childTimeoutMs);
       st.lastGuardOk = Date.now(); st.guardTicks++;
       for (const l of guardLines(out)) { st.deploys++; try { appendFileSync(logFile, l + '\n'); } catch { /* best effort */ } }
+      await liveCheck();
     } catch { /* transient */ } finally { guardBusy = false; }
+  };
+  // The newest READY production deployment's sha; when it differs from the last announced one, say so once and exit (the manager re-arms).
+  const liveCheck = async () => {
+    if (deployCmd && !liveCmd) return; // tests with a fake guard must not call Vercel
+    try {
+      let cur;
+      if (liveCmd) cur = (await run(liveCmd[0], liveCmd.slice(1), L.childTimeoutMs)).trim();
+      else {
+        const url = 'https://api.vercel.com/v6/deployments?projectId=prj_htusg5FPMRrzdb13rRG8flOxXBdU&teamId=team_qGoklBrMP6rta9mkHDjVJUMq&target=production&state=READY&limit=1';
+        cur = JSON.parse(await run('curl', ['-sS', '--max-time', '30', url], L.childTimeoutMs)).deployments?.[0]?.meta?.githubCommitSha;
+      }
+      if (!cur) return;
+      const prev = readReported(liveFile);
+      if (!prev) { writeReported(liveFile, cur); return; }
+      if (prev === cur) return;
+      let n = null;
+      try { n = Number(execFileSync('git', ['rev-list', '--count', `${prev}..${cur}`], { encoding: 'utf8' }).trim()); if (Number.isNaN(n)) n = null; } catch { /* sha not local: count unknown */ }
+      writeReported(liveFile, cur);
+      finish(liveLine(prev, cur, n));
+    } catch { /* transient: next tick retries */ }
   };
   const tick = () => {
     const s = watchStatus({ ...st, now: Date.now() }, L);

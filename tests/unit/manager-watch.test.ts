@@ -5,7 +5,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 // @ts-expect-error plain .mjs script, no types
-import { ciDecision, watchStatus, guardLines, LIMITS, readReported, writeReported } from "../../scripts/manager-watch.mjs";
+import { ciDecision, watchStatus, guardLines, liveLine, LIMITS, readReported, writeReported } from "../../scripts/manager-watch.mjs";
 // @ts-expect-error plain .mjs script, no types
 import { parseRed } from "../../scripts/ci-watch.mjs";
 
@@ -116,4 +116,24 @@ test("process: green after a red period prints STALE_RED_PRS once, then stays qu
   assert.equal(r.stdout, "STALE_RED_PRS #33,#34 (main green again at cafebab) sessions=#33:session_a\n");
   const r2 = spawnSync("node", ["scripts/manager-watch.mjs"], { encoding: "utf8", timeout: 30000, env });
   assert.match(r2.stdout, /^REARM/);
+});
+
+test("liveLine announces a new live sha once, IST", () => {
+  const d = new Date("2026-11-13T10:30:00Z");
+  assert.equal(liveLine("aaaaaaa1", "bbbbbbb2222", 3, d), "DEPLOY_LIVE 12:30 IST bbbbbbb 3 commits");
+  assert.equal(liveLine("aaaaaaa1", "bbbbbbb2222", 1, d), "DEPLOY_LIVE 12:30 IST bbbbbbb 1 commit");
+  assert.equal(liveLine("aaaaaaa1", "bbbbbbb2222", null, d), "DEPLOY_LIVE 12:30 IST bbbbbbb ? commits");
+  assert.equal(liveLine("bbbbbbb2222", "bbbbbbb2222", 0, d), null);
+  assert.equal(liveLine(null, "bbbbbbb2222", 0, d), null);
+});
+test("process: a new live sha prints DEPLOY_LIVE once and is remembered across restarts", () => {
+  const dir = execFileSync("mktemp", ["-d"], { encoding: "utf8" }).trim();
+  writeReported(join(dir, "manager-watch-live"), "aaaaaaa1111");
+  const env = { ...process.env, TMPDIR: dir, MANAGER_WATCH_SCALE: "3000", MANAGER_WATCH_DEPLOY_CMD: JSON.stringify(["true"]),
+    MANAGER_WATCH_CI_CMD: JSON.stringify(["echo", "cafebabe1234 ok"]), MANAGER_WATCH_LIVE_CMD: JSON.stringify(["echo", "bbbbbbb2222"]) };
+  const first = spawnSync("node", ["scripts/manager-watch.mjs"], { encoding: "utf8", timeout: 30000, env });
+  assert.equal(first.status, 0);
+  assert.match(first.stdout, /^DEPLOY_LIVE \d\d:\d\d IST bbbbbbb \? commits\n$/);
+  const second = spawnSync("node", ["scripts/manager-watch.mjs"], { encoding: "utf8", timeout: 30000, env });
+  assert.match(second.stdout, /^REARM manager-watch/);
 });
