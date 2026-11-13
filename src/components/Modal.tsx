@@ -5,6 +5,8 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useRef, useState, useSyncExternalStore, type ComponentProps } from "react";
 import { PersonSkeleton, TitleSkeleton } from "./Skeletons";
 import { href, img, typeLabel } from "@/lib/img";
+import { PopupTrail } from "./Trail";
+import { jumpBy, relabel, showTrail, trailStart, visit } from "@/lib/trail";
 
 const InModal = createContext(false);
 /** The title whose page this link sits on; passed along so the next popup can say where it was opened from. */
@@ -170,6 +172,15 @@ export function OpenedFrom({ k, name }: { k: string; name: string }) {
   return <p className="small" style={{ margin: "6px 0 0" }}>Opened from <TitleLink k={k}><b>{name}</b></TitleLink></p>;
 }
 
+const FALLBACK = new Set(["Title", "Person"]);
+/** The name a trail crumb shows: what the tap remembered about the title or person, else a stand-in until the heading renders. */
+function labelFor(path: string): string {
+  const t = /^\/title\/(movie|tv)\/(\d+)/.exec(path);
+  if (t) return peeked.get(`${t[1]}:${t[2]}`)?.title || "Title";
+  const p = /^\/person\/(\d+)/.exec(path);
+  return (p && peekedPeople.get(p[1])?.name) || "Person";
+}
+
 /** The popup frame for title and person details. Close (button, Esc, tap outside) returns to the page underneath, untouched; Back / Forward step through the titles and people opened inside the popup. */
 export function Modal({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -180,20 +191,39 @@ export function Modal({ children }: { children: React.ReactNode }) {
   const here = path + (sp ? `?${sp}` : "");
   const box = useRef<HTMLDivElement>(null);
   const [hand] = useState(() => { const h = handoff; handoff = false; return h; });
-  const stack = useRef<string[]>([here]);
-  const [pos, setPos] = useState({ i: 0, n: 1 });
+  const [trail, setTrail] = useState(() => trailStart({ url: here, label: labelFor(path) }));
+  const want = useRef<number | null>(null);
+  const pos = { i: trail.i, n: trail.steps.length };
   // Back / Forward through the popup's own trail; Close jumps all the way back to the page underneath.
   const idx = useRef(0);
   const close = useCallback(() => { window.history.go(-(idx.current + 1)); }, []);
 
+  // The popup's path (src/lib/trail.ts): each landing is the same step, one Back / Forward, a crumb jump, or a new step.
   useEffect(() => {
-    const st = stack.current;
-    if (st[idx.current] === here) return;
-    if (st[idx.current - 1] === here) idx.current--;
-    else if (st[idx.current + 1] === here) idx.current++;
-    else { stack.current = [...st.slice(0, idx.current + 1), here]; idx.current++; }
-    setPos({ i: idx.current, n: stack.current.length });
-  }, [here]);
+    const w = want.current; want.current = null;
+    setTrail((t) => visit(t, { url: here, label: labelFor(path) }, w));
+  }, [here, path]);
+  useEffect(() => { idx.current = trail.i; }, [trail.i]);
+  // A title or person opened without a known name gets it from the heading once that renders.
+  useEffect(() => {
+    const body = box.current?.querySelector(".sheet-body");
+    if (!body) return;
+    const read = () => {
+      const h = body.querySelector("h1");
+      const name = h ? [...h.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent).join("") : "";
+      if (name.trim()) setTrail((t) => (FALLBACK.has(t.steps[t.i]?.label) ? relabel(t, name) : t));
+    };
+    read();
+    const mo = new MutationObserver(read);
+    mo.observe(body, { childList: true, subtree: true, characterData: true });
+    return () => mo.disconnect();
+  }, [path]);
+  const jump = useCallback((to: number) => {
+    const by = jumpBy(trail, to);
+    if (!by) return;
+    want.current = to;
+    window.history.go(by);
+  }, [trail]);
 
   useEffect(() => {
     const was = document.activeElement as HTMLElement | null;
@@ -242,6 +272,7 @@ export function Modal({ children }: { children: React.ReactNode }) {
               <a className="small" href={`${path}?${new URLSearchParams([...params.entries(), ["full", "1"]])}`}>Full page</a>
               <button type="button" className="back" onClick={close} aria-label="Close"><span aria-hidden="true">&#215;</span> Close</button>
             </div>
+            {showTrail(trail) && <PopupTrail trail={trail} onJump={jump} />}
           </div>
           <div className="sheet-body">
             {/* Rendered by the frame from the URL, so it is there from the first paint and the content below never shifts when it loads. */}
