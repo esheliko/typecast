@@ -30,6 +30,7 @@ export default function WhoSearch({ watching }: { watching: WhoTitle[] }) {
   const [q, setQ] = useState("");
   const [tq, setTq] = useState("");
   const [hits, setHits] = useState<WhoTitle[] | null>(null);
+  const [changing, setChanging] = useState(false);
   const getRef = useRef(get);
   getRef.current = get;
 
@@ -72,40 +73,40 @@ export default function WhoSearch({ watching }: { watching: WhoTitle[] }) {
 
   const matches = useMemo(() => (faces ? matchWho(faces, q) : []), [faces, q]);
   const term = q.trim();
-  const choose = (t: WhoTitle) => { setSel(t); setTq(""); setHits(null); setQ(""); };
+  const pick = changing || !sel;
+  const choose = (t: WhoTitle) => { setChanging(false); setSel(t); setTq(""); setHits(null); setQ(""); };
   const others = watching.filter((w) => w.key !== sel?.key);
 
   return (
     <div className="whs">
-      <p className="muted whs-intro">Type a name or a character you remember from a series. Only people up to where you are show up.</p>
-      <div className="whs-row">
-        <span className="whs-l">Title</span>
-        {sel
-          ? <span className="whs-sel">{sel.poster && <Photo path={sel.poster} name={sel.title} w="w92" className="whs-poster" />}<b>{sel.title}</b></span>
-          : <span className="muted">Pick a film or series</span>}
-      </div>
-      {others.length > 0 && (
-        <div className="chips scroll" role="group" aria-label="Your Watching series">
-          {others.map((w) => <button key={w.key} type="button" className="chip" onClick={() => choose(w)}>{w.title}</button>)}
-        </div>
-      )}
-      <input type="search" className="whs-t" value={tq} onChange={(e) => setTq(e.target.value)} aria-label="Search for another film or series" placeholder="Another film or series…" autoComplete="off" />
-      {hits && (hits.length === 0
-        ? <p className="small muted">Nothing found.</p>
-        : <ul className="whs-hits">{hits.map((h) => <li key={h.key}><button type="button" className="whs-hit" onClick={() => choose(h)}>{h.title}<span className="row-sub">{h.type === "tv" ? "Series" : "Film"}</span></button></li>)}</ul>)}
-
-      {sel && brief && pos && sel.type === "tv" && (
-        <div className="whs-row whs-pick">
-          <span className="whs-l">Episode</span>
+      <div className="whs-row whs-top">
+        <button type="button" className="whs-sel" aria-expanded={pick} onClick={() => setChanging((v) => !v)}>
+          {sel
+            ? <>{sel.poster && <Photo path={sel.poster} name={sel.title} w="w92" className="whs-poster" />}<b>{sel.title}</b></>
+            : <span className="muted">Pick a film or series</span>}
+          <span className="whs-chg">{pick ? "Close" : "Change"}</span>
+        </button>
+        {sel && brief && pos && sel.type === "tv" && (
           <PositionPicker brief={brief} pos={pos} seasons={[...brief.seasons.filter((s) => s.n > 0), ...brief.seasons.filter((s) => s.n === 0)]} onChange={setPos} />
-        </div>
-      )}
+        )}
+      </div>
 
       {sel && (
-        <label className="whs-q">
-          <span className="whs-l">A name or role you remember</span>
-          <input type="search" value={q} onChange={(e) => setQ(e.target.value)} aria-label="A name or role you remember" placeholder="e.g. Brent, the sheriff" autoComplete="off" enterKeyHint="search" />
-        </label>
+        <input type="search" className="whs-t" value={q} onChange={(e) => setQ(e.target.value)} aria-label="A name or role you remember" placeholder="A name or role, e.g. Brent, the sheriff" autoComplete="off" enterKeyHint="search" />
+      )}
+
+      {pick && (
+        <div className="whs-change">
+          {others.length > 0 && (
+            <div className="chips scroll" role="group" aria-label="Your Watching series">
+              {others.map((w) => <button key={w.key} type="button" className="chip" onClick={() => choose(w)}>{w.title}</button>)}
+            </div>
+          )}
+          <input type="search" className="whs-t" value={tq} onChange={(e) => setTq(e.target.value)} aria-label="Search for another film or series" placeholder="Another film or series…" autoComplete="off" />
+          {hits && (hits.length === 0
+            ? <p className="small muted">Nothing found.</p>
+            : <ul className="whs-hits">{hits.map((h) => <li key={h.key}><button type="button" className="whs-hit" onClick={() => choose(h)}>{h.title}<span className="row-sub">{h.type === "tv" ? "Series" : "Film"}</span></button></li>)}</ul>)}
+        </div>
       )}
 
       {state === "error" && <p className="small muted" role="alert">Couldn&rsquo;t load the cast just now. Try again in a moment.</p>}
