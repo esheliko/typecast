@@ -12,7 +12,7 @@
 // Env (tests only): MANAGER_WATCH_DEPLOY_CMD (JSON array replacing the deploy manager command), MANAGER_WATCH_CI_CMD
 // (JSON array printing `<sha> ok|red|none`), MANAGER_WATCH_SCALE (divides every interval).
 import { spawn, execFileSync } from 'node:child_process';
-import { appendFileSync } from 'node:fs';
+import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -44,6 +44,10 @@ export function guardLines(out, d = new Date()) {
   return String(out).split('\n').filter((l) => l.includes('DEPLOYING ')).map((l) => `GUARD_DEPLOYED ${istTime(d)} IST :: ${l.trim()}`);
 }
 
+// Last reported red sha survives a restart (a re-armed watcher must not shout about a red it already reported).
+export const readReported = (file) => { try { return readFileSync(file, 'utf8').trim() || null; } catch { return null; } };
+export const writeReported = (file, sha) => { try { writeFileSync(file, sha + '\n'); } catch { /* best effort */ } };
+
 const children = new Set();
 const killChildren = () => { for (const c of children) { try { process.kill(-c.pid, 'SIGKILL'); } catch { /* gone */ } } };
 function run(cmd, args, timeoutMs) {
@@ -66,7 +70,8 @@ async function main() {
   const deployCmd = process.env.MANAGER_WATCH_DEPLOY_CMD ? JSON.parse(process.env.MANAGER_WATCH_DEPLOY_CMD) : null;
   const ciCmd = process.env.MANAGER_WATCH_CI_CMD ? JSON.parse(process.env.MANAGER_WATCH_CI_CMD) : null;
   const st = { startedAt: Date.now(), lastCiOk: null, lastGuardOk: null, guardTicks: 0, deploys: 0 };
-  const seen = new Set();
+  const redFile = join(process.env.TMPDIR || tmpdir(), 'manager-watch-red');
+  const seen = new Set([readReported(redFile)].filter(Boolean));
   let finished = false;
   const finish = (line, code = 0) => {
     if (finished) return;
@@ -86,6 +91,7 @@ async function main() {
       st.lastCiOk = Date.now();
       if (ciDecision(f, seen) === 'red') {
         seen.add(f.sha);
+        writeReported(redFile, f.sha);
         let out = '';
         if (!ciCmd) { try { out = redReport(f.sha); } catch { /* report unreadable: still say red */ } }
         finish(parseRed(out, f.sha));
