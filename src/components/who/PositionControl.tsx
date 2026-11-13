@@ -45,6 +45,8 @@ export function PositionPicker({ brief, pos, seasons, onChange, onNext, strip }:
   const wrap = useRef<HTMLDivElement>(null);
   const btn = useRef<HTMLButtonElement>(null);
   const list = useRef<HTMLDivElement>(null);
+  const bar = useRef<HTMLDivElement>(null);
+  const [splitS, setSplitS] = useState<number | null>(null); // the season the sticky bar's "Whole season" half refers to (null: bar shows only Whole series)
   const s = pos.s;
 
   // Episodes load per season (cached for the session by whoApi): the chosen season at once (the label names the episode), the others when opened.
@@ -86,6 +88,21 @@ export function PositionPicker({ brief, pos, seasons, onChange, onNext, strip }:
     }, 0);
     return () => clearTimeout(t);
   }, [open, Array.isArray(eps0) && eps0.length > 0]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Sticky bar: once the open season's own "Whole season" row has scrolled under it (and the season has not ended yet) the bar splits and names that season.
+  const measure = () => {
+    const l = list.current, b = bar.current;
+    if (!l || !b) return;
+    l.style.setProperty("--wx-bar", `${b.offsetHeight}px`);
+    const sec = openS != null ? l.querySelector<HTMLElement>(`[data-season="${openS}"]`) : null;
+    const whole = sec?.querySelector<HTMLElement>("[data-whole-season]");
+    const head = sec?.querySelector<HTMLElement>(".wx-epsh");
+    if (!sec || !whole || !head) return setSplitS(null);
+    const edge = b.getBoundingClientRect().top + b.offsetHeight;
+    const past = whole.getBoundingClientRect().bottom <= edge + head.offsetHeight && sec.getBoundingClientRect().bottom > edge + head.offsetHeight;
+    setSplitS(past ? openS : null);
+  };
+  useEffect(() => { if (open) measure(); }); // eslint-disable-line react-hooks/exhaustive-deps
 
   const key = (ev: React.KeyboardEvent) => {
     const items = [...(list.current?.querySelectorAll<HTMLElement>("button:not(:disabled)") ?? [])];
@@ -137,15 +154,20 @@ export function PositionPicker({ brief, pos, seasons, onChange, onNext, strip }:
               <span className="wx-epl">{label}</span><span aria-hidden="true" className="wx-caret">▾</span>
             </button>}
         {open && (
-          <div className="wx-eplist" role="dialog" aria-label="Season and episode" ref={list} onKeyDown={key}>
-            {!strip && <button type="button" aria-current={s == null} className="wx-epo" onClick={() => pick({ s: null, e: null })}>
-              <span className="wx-epn">?</span><span className="wx-epm"><b>Whole series</b><span className="small muted">Everyone in the whole series counts</span></span>
-            </button>}
+          <div className="wx-eplist" role="dialog" aria-label="Season and episode" ref={list} onKeyDown={key} onScroll={measure}>
+            {!strip && <div className="wx-epstick" data-split={splitS != null} ref={bar}>
+              <button type="button" aria-current={s == null} className="wx-epo" onClick={() => pick({ s: null, e: null })}>
+                <span className="wx-epn">?</span><span className="wx-epm"><b>Whole series</b><span className="small muted">{splitS != null ? "All seasons" : "Everyone in the whole series counts"}</span></span>
+              </button>
+              {splitS != null && <button type="button" aria-current={s === splitS && pos.e == null} className="wx-epo" onClick={() => pick({ s: splitS, e: null })}>
+                <span className="wx-epn">?</span><span className="wx-epm"><b>Whole season</b><span className="small muted">{splitS === 0 ? "Specials" : `Season ${splitS}`}</span></span>
+              </button>}
+            </div>}
             {seasons.map((x) => {
               const isOpen = openS === x.n;
               const data = bySeason[x.n];
               return (
-                <div key={x.n} className="wx-epsec" data-open={isOpen}>
+                <div key={x.n} className="wx-epsec" data-open={isOpen} data-season={x.n}>
                   <button type="button" className="wx-epo wx-epsh" aria-expanded={isOpen} aria-current={s === x.n && pos.e == null} onClick={() => setOpenS(isOpen ? null : x.n)}>
                     <span className="wx-epn">{x.n === 0 ? "S" : x.n}</span>
                     <span className="wx-epm"><b>{x.n === 0 ? "Specials" : `Season ${x.n}`}</b><span className="small muted">{when(x)}</span></span>
@@ -153,7 +175,7 @@ export function PositionPicker({ brief, pos, seasons, onChange, onNext, strip }:
                   </button>
                   {isOpen && (
                     <>
-                      {!strip && <button type="button" aria-current={s === x.n && pos.e == null} className="wx-epo" onClick={() => pick({ s: x.n, e: null })}>
+                      {!strip && <button type="button" aria-current={s === x.n && pos.e == null} data-whole-season className="wx-epo" onClick={() => pick({ s: x.n, e: null })}>
                         <span className="wx-epn">?</span><span className="wx-epm"><b>Whole season</b><span className="small muted">Everyone in the whole season counts</span></span>
                       </button>}
                       {(!data || (Array.isArray(data) && !data.length)) && Array.from({ length: 4 }, (_, i) => <div key={i} className="wx-epo wx-epsk" aria-hidden="true"><span className="sk-b wx-epimg" /><span className="sk-b" style={{ flex: 1, height: 14 }} /></div>)}
