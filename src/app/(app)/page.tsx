@@ -53,7 +53,7 @@ export default async function Home({ searchParams }: { searchParams: SP }) {
     key: l.key, type: l.type, id: l.id, title: l.title, year: l.year, poster: l.poster, rating: 0,
     sub: l.newEp ? newEpDetail(l.newEp) : l.progress ? `S${l.progress.s} E${l.progress.e}` : l.year,
   }));
-  const view = one(sp.view) === "connect" || connect.a ? "connect" : "browse";
+  const view = one(sp.view) === "connect" || connect.a ? "connect" : one(sp.view) === "who" || one(sp.m) === "who" ? "who" : "browse";
   return (
     <CastHome view={view} connect={connect} watching={watching}
       browse={{ filters, filtered, list, salt, first, genres: { movie: gm, tv: gt, all: mergeGenres(gm, gt) }, canFilterMine: profile.services.length > 0 }} />
