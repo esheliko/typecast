@@ -85,3 +85,35 @@ test("the last reported red survives a restart: same sha quiet, new sha reported
   assert.equal(ciDecision({ sha: "abc", ok: false }, seen), "wait");
   assert.equal(ciDecision({ sha: "def", ok: false }, seen), "red");
 });
+
+// @ts-expect-error plain .mjs script, no types
+import { staleRedPrs, staleLine, verifyVerdict } from "../../scripts/stale-red-prs.mjs";
+const pr = (number: number, o = {}) => ({ number, head: `h${number}`, verify: "red", contains: false, ...o });
+test("stale PRs: red or unverified without the fix, once per head", () => {
+  const c = [pr(34), pr(33), pr(35, { contains: true }), pr(36, { verify: "ok" }), pr(37, { verify: "none" }), pr(38, { verify: "pending" })];
+  assert.deepEqual(staleRedPrs(c, new Set()).map((p: { number: number }) => p.number), [33, 34, 37]);
+  assert.deepEqual(staleRedPrs(c, new Set(["33@h33", "34@h34"])).map((p: { number: number }) => p.number), [37]);
+  assert.deepEqual(staleRedPrs([pr(33, { head: "new" })], new Set(["33@h33"])).length, 1); // new head is reported again
+});
+test("STALE_RED_PRS line, with optional sessions, null when empty", () => {
+  assert.equal(staleLine([pr(33), pr(34)], "0123456789"), "STALE_RED_PRS #33,#34 (main green again at 0123456)");
+  assert.equal(staleLine([pr(33, { session: "session_a" })], "0123456789"), "STALE_RED_PRS #33 (main green again at 0123456) sessions=#33:session_a");
+  assert.equal(staleLine([], "x"), null);
+});
+test("verifyVerdict reads the newest verify run", () => {
+  assert.equal(verifyVerdict([]), "none");
+  assert.equal(verifyVerdict([{ name: "verify", status: "in_progress", started_at: "2026-01-01" }]), "pending");
+  assert.equal(verifyVerdict([{ name: "verify", status: "completed", conclusion: "failure", started_at: "2026-01-01" }, { name: "verify", status: "completed", conclusion: "success", started_at: "2026-01-02" }]), "ok");
+  assert.equal(verifyVerdict([{ name: "verify", status: "completed", conclusion: "failure", started_at: "2026-01-02" }]), "red");
+});
+test("process: green after a red period prints STALE_RED_PRS once, then stays quiet", () => {
+  const dir = execFileSync("mktemp", ["-d"], { encoding: "utf8" }).trim();
+  execFileSync("sh", ["-c", `echo deadbeef > ${dir}/manager-watch-recover`]);
+  const env = { ...process.env, TMPDIR: dir, MANAGER_WATCH_SCALE: "3000", MANAGER_WATCH_DEPLOY_CMD: JSON.stringify(["true"]),
+    MANAGER_WATCH_CI_CMD: JSON.stringify(["echo", "cafebabe1234 ok"]),
+    MANAGER_WATCH_STALE_CMD: JSON.stringify(["echo", JSON.stringify([pr(33, { session: "session_a" }), pr(34)])]) };
+  const r = spawnSync("node", ["scripts/manager-watch.mjs"], { encoding: "utf8", timeout: 30000, env });
+  assert.equal(r.stdout, "STALE_RED_PRS #33,#34 (main green again at cafebab) sessions=#33:session_a\n");
+  const r2 = spawnSync("node", ["scripts/manager-watch.mjs"], { encoding: "utf8", timeout: 30000, env });
+  assert.match(r2.stdout, /^REARM/);
+});

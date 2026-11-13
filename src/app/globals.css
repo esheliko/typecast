@@ -99,7 +99,7 @@ textarea { width: 100%; resize: vertical; min-height: 72px; }
 .marks { display: none; padding-left: 42px; }
 .credit:has(details[open]) .marks { display: block; margin-top: 8px; }
 @media (hover: hover) {
-  .credit:hover:not(:has(details[open])) .marks { display: block; position: absolute; z-index: 20; left: 42px; right: 0; top: 100%; margin-top: -4px; padding: 8px 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 6px 20px rgba(0,0,0,.25); pointer-events: none; }
+  .credit:hover:not(:has(details[open])) .marks { display: block; position: absolute; z-index: 20; left: 106px; right: 0; top: 100%; margin-top: -4px; padding: 8px 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 6px 20px rgba(0,0,0,.25); pointer-events: none; }
 }
 .seen { margin-top: 3px; font-size: 13px; color: var(--gold); font-weight: 600; }
 .also { margin-top: 1px; font-size: 13px; color: var(--muted); }
@@ -573,6 +573,8 @@ button:not([disabled]):active, a.row:active, a.tab:active, .person-chip:active, 
 .aw-k { flex: none; width: 82px; font: 500 11px var(--mono); text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
 .aw-list li.win .aw-k { color: var(--gold); }
 .aw-c { min-width: 0; overflow-wrap: anywhere; }
+.aw-w { display: block; font-size: 13px; color: var(--muted); }
+.aw-list li.win .aw-w { color: var(--gold); }
 .aw-y { margin-left: auto; flex: none; font: 400 12px var(--mono); color: var(--muted); }
 button.aw-chip { border: 0; cursor: pointer; }
 button.aw-chip:hover { filter: brightness(1.08); }
@@ -586,9 +588,12 @@ button.aw-chip:hover { filter: brightness(1.08); }
 .credit .avatar { width: 32px; height: 32px; font-size: 13px; position: relative; }
 @media (hover: hover) {
   .credit .avatar { transform-origin: left center; }
-  .credit:has(.avatar:hover) { z-index: 30; }
+  .credit:has(.avatar:hover), .credit:has(.credit-face:hover) { z-index: 30; } /* the whole hovered row (photo + note card) stacks above its neighbours */
   .credit details[open] > summary:has(.avatar:hover) { z-index: 5; } /* the open row's summary is sticky (z 3) like the Full profile bar under it: lift it so the enlarged photo sits in front */
-  .credit .avatar:hover, .credit:has(.credit-face:hover) .avatar { transform: scale(3); z-index: 30; border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.45); filter: none; }
+  /* Rows with a face button: the button (original size, never moves) owns the hover, the enlarged photo ignores the pointer, so growing under the cursor can't flip hover off and on (the flicker). */
+  .credit:has(.credit-face) .avatar { pointer-events: none; transition: transform .12s ease; }
+  .credit:has(.credit-face) .credit-face { z-index: 31; }
+  .credit:not(:has(.credit-face)) .avatar:hover, .credit:has(.credit-face:hover) .avatar { transform: scale(3); z-index: 30; border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.45); filter: none; }
 }
 .crew-card { padding-top: 8px; padding-bottom: 8px; }
 .crew-group { display: grid; grid-template-columns: 84px 1fr; gap: 8px; align-items: start; padding: 2px 0; border-top: 1px solid var(--line); }
@@ -612,8 +617,8 @@ button.aw-chip:hover { filter: brightness(1.08); }
 .cast-main .marks { padding-left: 56px; }
 .cast-main .credit-gl { top: 12px; }
 @media (hover: hover) {
-  .cast-main .credit:hover:not(:has(details[open])) .marks { left: 56px; }
-  .cast-main .credit .avatar:hover { transform: scale(2.4); }
+  .cast-main .credit:hover:not(:has(details[open])) .marks { left: 118px; } /* clear of the enlarged photo (44px x 2.4) */
+  .cast-main .credit:not(:has(.credit-face)) .avatar:hover, .cast-main .credit:has(.credit-face:hover) .avatar { transform: scale(2.4); }
 }
 
 /* Library: one suggested next watch above the chips */
@@ -800,6 +805,12 @@ body:has(.modal) .toast-slot { bottom: calc(84px + env(safe-area-inset-bottom, 0
 .ep-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .ep-name { font-weight: 600; overflow-wrap: anywhere; }
 .ep-sub { font-size: 12.5px; color: var(--muted); }
+.epf { display: flex; align-items: center; gap: 7px; margin-top: 3px; min-width: 0; font-size: 12px; color: var(--muted); }
+.epf-stack { display: flex; flex: none; }
+.epf-face { width: 20px; height: 20px; border-radius: 50%; object-fit: cover; background: var(--chip); border: 1.5px solid var(--card, var(--bg)); margin-left: -6px; display: grid; place-items: center; font: 600 10px var(--display); }
+.epf-face:first-child { margin-left: 0; }
+.epf-txt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.epf-hid { font-size: 11px; opacity: .75; align-self: flex-start; padding: 1px 8px; border: 1px dashed var(--line); border-radius: 999px; }
 .ep.ep-seen .ep-name { color: var(--muted); }
 .ep.ep-soon .ep-n, .ep.ep-soon .ep-name { opacity: .6; }
 .ep.ep-open { background: color-mix(in srgb, var(--chip) 45%, transparent); }
@@ -1226,12 +1237,13 @@ button.wx-tdates:disabled { cursor: default; }
   .wx-pos { width: 100%; order: 5; }
   .wx-topr { order: 2; }
   .wx-eplist { position: fixed; left: 8px; right: 8px; top: auto; bottom: 8px; width: auto; max-height: 70vh; }
-  .wx-trow { grid-template-columns: 104px minmax(0, 1fr) 44px; grid-template-areas: "d t m" "d r m"; padding-top: 2px; padding-bottom: 2px; }
+  .wx-trow { grid-template-columns: 84px minmax(0, 1fr) 44px; grid-template-areas: "d t m" "d r m"; padding-top: 2px; padding-bottom: 2px; }
   .wx-tdates { grid-area: d; align-self: stretch; }
-  .wx-tline { grid-area: t; }
+  /* narrow screens: the title wraps (up to 2 lines) and the Film/Seen tags drop under it instead of squeezing it to "Minorit…" */
+  .wx-tline { grid-area: t; flex-wrap: wrap; gap: 0 6px; }
   .wx-trole { grid-area: r; }
   .wx-tgl { grid-area: m; }
-  .wx-ttitle { min-height: 30px; }
+  .wx-ttitle { min-height: 30px; flex: 0 1 auto; white-space: normal; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.2; padding: 4px 0; }
   .wx-epstill { width: 120px; }
   .wx-pname { font-size: 24px; }
 }
@@ -1334,18 +1346,32 @@ main:focus { outline: none; }
   .wx-epb { min-height: 40px; padding: 6px 12px; font-size: 13.5px; max-width: 100%; }
   .wx-epnext { min-height: 40px; padding: 6px 12px 6px 10px; font-size: 13.5px; }
   .wx-epnext::before { top: 9px; bottom: 9px; }
-  /* scrolled: poster, title and the two switches only (the kicker, year line and episode pickers are back at the top of the list) */
-  .wx[data-compact="true"] .wx-top { gap: 8px; padding-top: calc(4px + env(safe-area-inset-top, 0px)); padding-bottom: 4px; }
-  .wx[data-compact="true"] .wx-pos, .wx[data-compact="true"] .wx-ttl .wbar-k, .wx[data-compact="true"] .wx-ttl .small { display: none; }
+  /* scrolled: poster, title and the two switches only (the kicker, year line and episode pickers are back at the top of the list).
+     Nothing snaps: each part eases its height/opacity/size over 280ms, so the header glides to its slim form and back. */
+  .wx-top, .wx-poster, .wx-nospoil, .wx-nsl, .wx-pos, .wx-ttl .wbar-k, .wx-ttl .wx-sub {
+    transition: padding .28s cubic-bezier(.4, 0, .2, 1), gap .28s cubic-bezier(.4, 0, .2, 1), width .28s cubic-bezier(.4, 0, .2, 1), height .28s cubic-bezier(.4, 0, .2, 1),
+      max-height .28s cubic-bezier(.4, 0, .2, 1), max-width .28s cubic-bezier(.4, 0, .2, 1), opacity .2s ease, visibility 0s linear 0s;
+  }
+  .wx-pos, .wx-ttl .wbar-k, .wx-ttl .wx-sub { overflow: hidden; }
+  .wx-pos { max-height: 64px; }
+  .wx-ttl .wbar-k { max-height: 20px; }
+  .wx-ttl .wx-sub { max-height: 30px; }
+  .wx-nsl { max-width: 120px; overflow: hidden; }
+  .wx[data-compact="true"] .wx-top { gap: 0 8px; padding-top: calc(4px + env(safe-area-inset-top, 0px)); padding-bottom: 4px; }
+  .wx[data-compact="true"] .wx-pos, .wx[data-compact="true"] .wx-ttl .wbar-k, .wx[data-compact="true"] .wx-ttl .wx-sub {
+    max-height: 0; opacity: 0; visibility: hidden; pointer-events: none; transition-property: max-height, opacity, visibility; transition-duration: .28s, .16s, 0s; transition-delay: 0s, 0s, .28s;
+  }
   .wx[data-compact="true"] .wx-poster { width: 24px; height: 36px; }
-  .wx[data-compact="true"] .wx-nsl { display: none; }
-  .wx[data-compact="true"] .wx-nospoil { padding: 4px 9px; }
+  .wx[data-compact="true"] .wx-nsl { max-width: 0; opacity: 0; }
+  .wx[data-compact="true"] .wx-nospoil { padding: 4px 9px; gap: 0; }
+  @media (prefers-reduced-motion: reduce) {
+    .wx-top, .wx-poster, .wx-nospoil, .wx-nsl, .wx-pos, .wx-ttl .wbar-k, .wx-ttl .wx-sub { transition: none !important; }
+  }
   .wx-find { padding: 8px 0 6px; }
   .wx-find input { min-height: 44px; }
-  .wx-chips { flex-wrap: nowrap; gap: 4px; margin: 0 0 4px; overflow-x: auto; scrollbar-width: none; }
-  .wx-chips::-webkit-scrollbar { display: none; }
-  .wx-chips .seg { flex: none; padding: 2px; }
-  .wx-chips .seg button { padding: 5px 6px; font-size: 12.5px; white-space: nowrap; }
+  .wx-chips { flex-wrap: nowrap; gap: 3px; margin: 0 0 4px; }
+  .wx-chips .seg { flex: 0 1 auto; min-width: 0; padding: 2px; }
+  .wx-chips .seg button { padding: 5px 4px; font-size: 12px; white-space: nowrap; }
   .wx-xl { display: none; }
   .wx-count { display: none; }
   .wx-group { margin: 8px 0 6px; }
@@ -1390,3 +1416,55 @@ main:focus { outline: none; }
 .upnext-card.k-still .upnext-poster { opacity: .55; filter: grayscale(.6); }
 .upnext-ask { position: absolute; left: 0; top: 112px; width: 112px; height: 56px; display: flex; flex-direction: column; justify-content: flex-end; gap: 4px; padding: 5px; }
 .upnext-ask button { padding: 3px 8px; border-radius: 999px; background: var(--surface); color: var(--ink); font: 600 11px/1.3 var(--sans, system-ui); border: 1px solid var(--line); white-space: nowrap; }
+
+/* Film resume (docs/features/film-resume.md): the Library row's stopped time, bar and Resume button, and the small Resume sheet. All `rs-`. */
+.rs-bar-line { display: block; height: 5px; border-radius: 99px; background: var(--chip); overflow: hidden; margin: 6px 0 2px; }
+.rs-bar-line > i, .rs-bar-track > i { display: block; height: 100%; background: var(--gold-fill); border-radius: 99px; }
+.rs-act-row { flex: 0 0 100%; padding: 0 0 4px 56px; }
+.lib-row:has(.rs-act-row) { flex-wrap: wrap; }
+.rs-sheet { width: 100%; max-width: 680px; background: var(--bg); border-radius: 18px 18px 0 0; box-shadow: 0 -8px 40px rgb(0 0 0 / .35); padding: 16px 16px calc(28px + env(safe-area-inset-bottom, 0px)); outline: none; }
+@media (min-width: 720px) { .rs-sheet { max-width: 420px; border-radius: 18px; } }
+.rs-bar { padding: 0 0 8px; border-bottom: 0; }
+.rs-lab { display: block; margin-bottom: 4px; font: 600 11px var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.rs-clock { display: flex; align-items: center; justify-content: center; margin: 18px 0 8px; }
+.rs-clock .ask-step { font-size: 18px; }
+.rs-clock .ask-step button { width: 44px; height: 44px; }
+.rs-clock .ask-step b { font: 600 22px var(--mono); padding: 0 10px; }
+.rs-bar-track { height: 6px; border-radius: 99px; background: var(--chip); overflow: hidden; margin: 9px 0 8px; }
+.rs-of { margin: 0; }
+.rs-act { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.upnext-card .rs-go { color: var(--gold); text-decoration: underline dotted; text-underline-offset: 3px; white-space: nowrap; padding: 0; font-size: 11px; }
+.upnext-card:has(.rs-go) { display: flex; flex-direction: column; gap: 4px; }
+/* Search > Who's that? (components/WhoSearch.tsx) */
+.whs { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
+.whs-intro { margin: 0; font-size: 14px; }
+.whs-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.whs-l { font-size: 13px; font-weight: 600; color: var(--muted); }
+.whs-sel { display: inline-flex; align-items: center; gap: 8px; }
+.whs-poster { width: 28px; height: 42px; border-radius: 4px; object-fit: cover; }
+.whs-pick .wx-epgroup .wx-epb { border-radius: 999px; padding-right: 14px; }
+.whs-q { display: flex; flex-direction: column; gap: 6px; }
+.whs-q input, .whs-t { width: 100%; }
+.whs-hits { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.whs-hit { display: flex; justify-content: space-between; gap: 10px; width: 100%; min-height: 44px; align-items: center; padding: 6px 4px; text-align: left; border-bottom: 1px solid var(--line); }
+.whs-list { list-style: none; margin: 0; padding: 0; }
+.whs-person { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 6px 0; border-bottom: 1px solid var(--line); text-decoration: none; color: inherit; }
+.whs-text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.whs-text .nm, .whs-text .row-sub { overflow: hidden; text-overflow: ellipsis; }
+.whs-n { flex: none; font-size: 12px; color: var(--muted); white-space: nowrap; }
+.whs-mark { background: color-mix(in srgb, var(--gold) 35%, transparent); color: inherit; border-radius: 3px; padding: 0 1px; }
+
+/* Place card (components/PlaceStrip.tsx) and the quick Watched button on Library rows: prefix ps- */
+.ps-card { margin: 12px 0 0; padding: 10px 12px 12px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line); }
+.ps-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 12px; }
+.ps-text { display: flex; flex-direction: column; min-width: 0; gap: 1px; }
+.ps-picker { display: block; }
+.ps-trig { align-self: flex-start; padding: 4px 0; min-height: 28px; background: none; border: 0; font: 500 11px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); cursor: pointer; }
+.ps-trig:hover { color: var(--ink); }
+.ps-head { font-size: 16px; line-height: 1.25; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ps-sub { font-size: 13px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ps-btn { min-height: 44px; white-space: nowrap; }
+.ps-bar { height: 4px; margin-top: 10px; border-radius: 999px; background: var(--chip); overflow: hidden; }
+.ps-bar i { display: block; height: 100%; border-radius: 999px; background: var(--gold-fill); }
+.ps-row-btn { flex: none; min-height: 32px; padding: 4px 10px; border-radius: 999px; font-size: 12.5px; font-weight: 600; background: var(--gold-fill); color: var(--on-gold); border: 0; cursor: pointer; white-space: nowrap; }
+.ps-row-btn:disabled { opacity: .55; cursor: default; }

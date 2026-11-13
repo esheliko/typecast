@@ -2,6 +2,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useWatchControl } from "../Watching";
 import { useLib } from "../cast/LibState";
+import { setStopped } from "@/app/actions";
+import { stoppedWrite } from "@/lib/film-resume";
 import { filmDone, isLastEpisode, seriesEnded } from "@/lib/watch-library";
 import { markPromptDone, promptDone } from "@/lib/watch-prev";
 import { elapsedMin, setPaused, shiftWatch, whereLabel, type Watch } from "@/lib/watching";
@@ -29,7 +31,13 @@ export function PositionControl({ brief, pos, onChange, onNext }: { brief: WhoBr
  * count); the open season shows its episodes (still, number, name, air date) and its row stays pinned at the top while you scroll them, so one tap on it
  * folds the season and lets you pick another. "Whole series" and "Whole season" stay as the first rows. Next sits beside it in the same pill.
  */
-function PositionPicker({ brief, pos, seasons, onChange, onNext }: { brief: WhoBrief; pos: Pos; seasons: WhoBrief["seasons"]; onChange: (p: Pos) => void; onNext: (from: { s: number; e: number } | null, to: Pos | null) => void }) {
+type BriefLite = Pick<WhoBrief, "id" | "seasons" | "status">;
+/**
+ * `strip` turns the picker into the place card's "Up next ▾" trigger (docs/features/place-card.md): `children` is the trigger's content, there is no Next button and no
+ * "Whole series / Whole season" row, and episodes after `hideAfter` (the shown place) are listed by number only: no name, still or air date.
+ */
+export type StripMode = { children: React.ReactNode; hideAfter: { s: number; e: number } };
+export function PositionPicker({ brief, pos, seasons, onChange, onNext, strip }: { brief: BriefLite; pos: Pos; seasons: WhoBrief["seasons"]; onChange: (p: Pos) => void; /** Without it the picker has no Next button (Search's "Who's that?" only looks). */ onNext?: (from: { s: number; e: number } | null, to: Pos | null) => void; strip?: StripMode }) {
   const [open, setOpen] = useState(false);
   const [openS, setOpenS] = useState<number | null>(pos.s); // the season whose episodes are shown (null: all folded)
   const [ranges, setRanges] = useState<Record<number, { start: string; end: string }>>({});
@@ -94,6 +102,7 @@ function PositionPicker({ brief, pos, seasons, onChange, onNext }: { brief: WhoB
 
   const eps = s != null && Array.isArray(bySeason[s]) && (bySeason[s] as WhoEp[]).length ? (bySeason[s] as WhoEp[]) : null;
   const cur = pos.e != null ? eps?.find((x) => x.e === pos.e) : null;
+  const hidden = (n: number, e: number) => !!strip && (n > strip.hideAfter.s || (n === strip.hideAfter.s && e > strip.hideAfter.e));
   const sl = s == null ? "Whole series" : s === 0 ? "Specials" : `S${s}`;
   const label = s == null ? "Whole series" : pos.e == null ? `${s === 0 ? "Specials" : `Season ${s}`} · Whole season` : `${sl} · E${pos.e}${cur?.name ? ` ${cur.name}` : ""}`;
 
@@ -106,6 +115,7 @@ function PositionPicker({ brief, pos, seasons, onChange, onNext }: { brief: WhoB
   const finale = !!from && seriesEnded(brief.status) && isLastEpisode(from, brief.seasons);
   const canNext = !!nextEp || (!!nextSeason && eps !== null) || finale;
   const next = async () => {
+    if (!onNext) return;
     if (nextEp) return onNext(from, { s, e: nextEp.e });
     if (nextSeason) {
       try {
@@ -119,16 +129,18 @@ function PositionPicker({ brief, pos, seasons, onChange, onNext }: { brief: WhoB
   };
 
   return (
-    <div className="wx-epgroup">
+    <div className={strip ? "ps-picker" : "wx-epgroup"}>
       <div className="wx-ep" ref={wrap}>
-        <button ref={btn} type="button" className="wx-epb" aria-haspopup="dialog" aria-expanded={open} aria-label={`Where you are: ${label}`} onClick={() => setOpen((v) => !v)}>
-          <span className="wx-epl">{label}</span><span aria-hidden="true" className="wx-caret">▾</span>
-        </button>
+        {strip
+          ? <button ref={btn} type="button" className="ps-trig" aria-haspopup="dialog" aria-expanded={open} aria-label="Change your place" onClick={() => setOpen((v) => !v)}>{strip.children}</button>
+          : <button ref={btn} type="button" className="wx-epb" aria-haspopup="dialog" aria-expanded={open} aria-label={`Where you are: ${label}`} onClick={() => setOpen((v) => !v)}>
+              <span className="wx-epl">{label}</span><span aria-hidden="true" className="wx-caret">▾</span>
+            </button>}
         {open && (
           <div className="wx-eplist" role="dialog" aria-label="Season and episode" ref={list} onKeyDown={key}>
-            <button type="button" aria-current={s == null} className="wx-epo" onClick={() => pick({ s: null, e: null })}>
+            {!strip && <button type="button" aria-current={s == null} className="wx-epo" onClick={() => pick({ s: null, e: null })}>
               <span className="wx-epn">?</span><span className="wx-epm"><b>Whole series</b><span className="small muted">Everyone in the whole series counts</span></span>
-            </button>
+            </button>}
             {seasons.map((x) => {
               const isOpen = openS === x.n;
               const data = bySeason[x.n];
@@ -141,19 +153,22 @@ function PositionPicker({ brief, pos, seasons, onChange, onNext }: { brief: WhoB
                   </button>
                   {isOpen && (
                     <>
-                      <button type="button" aria-current={s === x.n && pos.e == null} className="wx-epo" onClick={() => pick({ s: x.n, e: null })}>
+                      {!strip && <button type="button" aria-current={s === x.n && pos.e == null} className="wx-epo" onClick={() => pick({ s: x.n, e: null })}>
                         <span className="wx-epn">?</span><span className="wx-epm"><b>Whole season</b><span className="small muted">Everyone in the whole season counts</span></span>
-                      </button>
+                      </button>}
                       {(!data || (Array.isArray(data) && !data.length)) && Array.from({ length: 4 }, (_, i) => <div key={i} className="wx-epo wx-epsk" aria-hidden="true"><span className="sk-b wx-epimg" /><span className="sk-b" style={{ flex: 1, height: 14 }} /></div>)}
                       {data === "err" && <p className="small muted" style={{ padding: 12 }}>Couldn&rsquo;t load the episodes. Fold this season and open it again.</p>}
-                      {Array.isArray(data) && data.map((e) => (
-                        <button key={e.e} type="button" aria-current={s === x.n && pos.e === e.e} disabled={!e.aired} className="wx-epo" onClick={() => pick({ s: x.n, e: e.e })}>
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          {e.still ? <img className="wx-epimg" src={img(e.still, "w185")} alt="" loading="lazy" /> : <span className="wx-epimg wx-noph" aria-hidden="true" />}
-                          <span className="wx-epn">{e.e}</span>
-                          <span className="wx-epm"><b>{e.name || `Episode ${e.e}`}</b><span className="small muted">{e.aired ? fmtDay(e.air) : e.air ? `Not aired yet · ${fmtDay(e.air)}` : "Not aired yet"}</span></span>
-                        </button>
-                      ))}
+                      {Array.isArray(data) && data.map((e) => {
+                        const h = hidden(x.n, e.e);
+                        return (
+                          <button key={e.e} type="button" aria-current={s === x.n && pos.e === e.e} disabled={!e.aired} className="wx-epo" onClick={() => pick({ s: x.n, e: e.e })}>
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            {e.still && !h ? <img className="wx-epimg" src={img(e.still, "w185")} alt="" loading="lazy" /> : <span className="wx-epimg wx-noph" aria-hidden="true" />}
+                            <span className="wx-epn">{e.e}</span>
+                            <span className="wx-epm"><b>{(!h && e.name) || `Episode ${e.e}`}</b>{!h && <span className="small muted">{e.aired ? fmtDay(e.air) : e.air ? `Not aired yet · ${fmtDay(e.air)}` : "Not aired yet"}</span>}</span>
+                          </button>
+                        );
+                      })}
                     </>
                   )}
                 </div>
@@ -162,10 +177,10 @@ function PositionPicker({ brief, pos, seasons, onChange, onNext }: { brief: WhoB
           </div>
         )}
       </div>
-      <button type="button" className="wx-epnext" disabled={!canNext} onClick={next} aria-label={nextEp ? `Next episode: E${nextEp.e}` : nextSeason ? `Next season: S${nextSeason.n}` : "Next episode"} title="Finished this one: go to the next episode">
+      {onNext && !strip && <button type="button" className="wx-epnext" disabled={!canNext} onClick={next} aria-label={nextEp ? `Next episode: E${nextEp.e}` : nextSeason ? `Next season: S${nextSeason.n}` : "Next episode"} title="Finished this one: go to the next episode">
         <span>Next</span>
         <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 5.5v13l8.5-6.5zM17 5.5v13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
-      </button>
+      </button>}
     </div>
   );
 }
@@ -182,6 +197,33 @@ export function FilmClock({ item, runtime }: { item: Item; runtime: number | nul
   const [hidden, setHidden] = useState(false);
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 15_000); return () => clearInterval(t); }, []);
   const w = wc?.watch && wc.watch.key === item.key ? wc.watch : null;
+  // Film resume (docs/features/film-resume.md): where the clock stands is saved to the library row with ONE debounced write after a change, at once on
+  // pause, and when the page is hidden or left. Never while the film is not Watching in the library, and never after it was marked Watched here.
+  const wRef = useRef(w); wRef.current = w;
+  const libRef = useRef(lib); libRef.current = lib;
+  const rtRef = useRef(runtime); rtRef.current = runtime;
+  const last = useRef<number | null>(lib.get(item.key)?.stopped ?? null);
+  const finished = useRef(false);
+  const flush = useRef(() => {});
+  flush.current = () => {
+    const cur = wRef.current, l = libRef.current;
+    if (!cur || finished.current || l.get(item.key)?.status !== "watching") return;
+    const wr = stoppedWrite(elapsedMin(cur, Date.now()), cur.runtime ?? rtRef.current, last.current);
+    if (!wr) return;
+    const prior = last.current;
+    last.current = wr.min;
+    setStopped(item.id, wr.min, wr.of).then(() => { if (!finished.current) l.setStopped(item.key, wr.min ?? undefined); }).catch(() => { last.current = prior; });
+  };
+  useEffect(() => {
+    if (!w) return;
+    const t = setTimeout(() => flush.current(), w.paused ? 0 : 1500);
+    return () => clearTimeout(t);
+  }, [w?.started, w?.paused]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    const hide = () => { if (document.visibilityState === "hidden") flush.current(); };
+    document.addEventListener("visibilitychange", hide); window.addEventListener("pagehide", hide);
+    return () => { document.removeEventListener("visibilitychange", hide); window.removeEventListener("pagehide", hide); flush.current(); };
+  }, []);
   if (!w || !wc) return null;
   const paused = !!w.paused;
   const signal = () => { wc.signal(item, runtime ?? w.runtime).catch(() => {}); };
@@ -204,7 +246,7 @@ export function FilmClock({ item, runtime }: { item: Item; runtime: number | nul
       {showDone && (
         <span className="wx-finish" role="status">
           Finished?{" "}
-          <button type="button" className="linkish" onClick={() => { markPromptDone(item.key); lib.mark(item, "watched", undefined, true); wc.stop({ restore: false }); }}>Mark watched</button>
+          <button type="button" className="linkish" onClick={() => { finished.current = true; markPromptDone(item.key); lib.mark(item, "watched", undefined, true); wc.stop({ restore: false }); }}>Mark watched</button>
           <button type="button" className="linkish muted" aria-label="Dismiss" onClick={dismiss}>&#215;</button>
         </span>
       )}

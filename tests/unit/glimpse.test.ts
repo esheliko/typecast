@@ -69,6 +69,8 @@ const show = { title: "The Rookie", year: "2018", type: "tv", key: "tv:79744" };
       const tabs = tabsWithRoles(spec, [{ key: "tv:1", type: "tv", title: "Other", year: "2001", char: "Ann" }]);
       expect(tabs.map((t) => t.label)).toEqual(["Nell", "Ann · Other", "Sara Rue"]);
       expect(tabs[1].info).toEqual({ pid: 123, key: "tv:1", char: "Ann" });
+      expect(tabs[1].heading).toBe("Sara Rue as Ann · Other");
+      expect(tabs[0].heading).toBeUndefined();
       expect(tabs[1].q).toMatch(/Sara Rue as Ann Other/);
     });
     test("no id, no extra tabs", () => expect(withLibRoles(personSpec("A"), "A").libRoles).toBeUndefined());

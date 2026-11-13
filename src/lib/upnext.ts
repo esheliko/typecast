@@ -2,6 +2,8 @@ import { newEpDetail } from "./new-episode";
 import { dayIn } from "./today";
 import { airsLabel, daysUntil } from "./episodes";
 import { caughtUp, continueHref, continueLabel } from "./watch-library";
+import { cleanRuntime, stoppedShort } from "./film-resume";
+import { nextOut } from "./place-strip";
 import type { Item, LibItem } from "./types";
 
 /**
@@ -44,11 +46,15 @@ export interface Facts {
   recs: Rec[];
 }
 
-export type PickKind = "continue" | "new-eps" | "library" | "stale" | "still" | "discover";
+export type PickKind = "resume" | "continue" | "new-eps" | "library" | "stale" | "still" | "discover";
 /** `tag` is the first of your services it streams on (null if none or not looked up); `checked` is whether TMDB was asked. */
 export interface Pick extends Item { why: string; tag: string | null; length: string | null; kind: PickKind; score: number; checked: boolean; /** A watched series that came back because a new episode (or season) aired: shown as a badge. */ fresh?: "episode" | "season";
   /** A "continue" card: where /watching reopens at the episode to continue with (set only when there is one to continue with). */
-  go?: string }
+  go?: string;
+  /** A "resume" card (a Watching film with a stopped time): the minutes and the runtime, for the Resume sheet. */
+  resume?: { min: number; of: number | null };
+  /** The label of the `go` link ("Continue" when absent): a new card kind with its own action (a film "Resume") sets its own word and `go`, nothing else in the strip changes. */
+  cta?: string }
 
 /** Service ids that TMDB knows. Negative ids are labels the user typed in by hand, with no availability data. */
 export const realServices = (ids: number[]) => ids.filter((id) => Number.isInteger(id) && id > 0);
@@ -147,9 +153,26 @@ function inProgress(l: LibItem, ctx: Ctx): Pick | null {
   const up = l.type === "tv" && !!l.progress && !caughtUp(l.progress, seasons, lastEp);
   // "· new ep Thursday" when the next episode airs within a week.
   const soon = l.type === "tv" && f?.nextAir && daysUntil(f.nextAir, iso(ctx.now, ctx.tz)) <= 6 ? airsLabel(f.nextAir, iso(ctx.now, ctx.tz)) : "";
-  const label = continueLabel(l.progress, seasons, lastEp);
-  return { ...base, kind: "continue", score: age <= FRESH_DAYS ? 20 - age / 7 : 9 - (age - FRESH_DAYS) / 10, why: soon ? `${label} · new ep ${soon}` : label,
+  // The next episode is out: "S3 E7 · out now" with its runtime ("47 min"), a Continue link that opens /watching there.
+  const out = l.type === "tv" && l.status === "watching" ? nextOut(l.progress, seasons, lastEp) : null;
+  const label = out ? `S${out.s} E${out.e} · out now` : continueLabel(l.progress, seasons, lastEp);
+  return { ...base, kind: "continue", score: age <= FRESH_DAYS ? 20 - age / 7 : 9 - (age - FRESH_DAYS) / 10, why: soon && !out ? `${label} · new ep ${soon}` : label,
+    ...(out && f?.runtime ? { length: `${f.runtime} min` } : {}),
     ...(up ? { go: continueHref(l, seasons) } : {}) };
+}
+
+/**
+ * Film resume (docs/features/film-resume.md): a Watching film with a stopped time is a "Resume" card ("52:00 of 1h 48m · Resume"), ranked like a fresh
+ * continue card. Null for anything else, and for a film untouched for 6 weeks (that stays a "Still watching?" question), so `inProgress` decides those.
+ */
+export function filmResume(l: LibItem, ctx: Ctx): Pick | null {
+  if (l.type !== "movie" || l.status !== "watching" || !l.stoppedMin || l.stoppedMin < 1 || l.newEp) return null;
+  const age = daysSince(l.updated, ctx.now);
+  if (age > STILL_WATCHING_DAYS) return null;
+  const f = ctx.facts.get(l.key);
+  const of = cleanRuntime(l.stoppedOf ?? f?.runtime);
+  return { key: l.key, type: l.type, id: l.id, title: l.title, year: l.year, poster: l.poster, kind: "resume", length: null, tag: f?.onMine[0] ?? null, checked: !!f,
+    score: age <= FRESH_DAYS ? 20.5 - age / 7 : 9 - (age - FRESH_DAYS) / 10, why: stoppedShort(l.stoppedMin, of), resume: { min: l.stoppedMin, of } };
 }
 
 function fromWatchlist(l: LibItem, ctx: Ctx, taste: Map<number, number>, recBy: Map<string, LibItem[]>): Pick | null {
@@ -220,7 +243,7 @@ export function rankUpNext(lib: LibItem[], ctx: Ctx, snoozed: Set<string> = new 
   const seeds = tasteSeeds(lib);
   const taste = genreTaste(seeds, ctx.facts);
   const recBy = recommenders(seeds, ctx.facts);
-  const progress = live.filter((l) => l.status === "watching" || l.status === "partial").map((l) => ({ l, p: inProgress(l, ctx) })).filter((x): x is { l: LibItem; p: Pick } => !!x.p);
+  const progress = live.filter((l) => l.status === "watching" || l.status === "partial").map((l) => ({ l, p: filmResume(l, ctx) ?? inProgress(l, ctx) })).filter((x): x is { l: LibItem; p: Pick } => !!x.p);
   // At most one "Still watching?" card (the most recently touched of them), near the end.
   const stale = progress.filter((x) => x.p.kind === "still").sort((a, b) => b.l.updated - a.l.updated).map((x) => x.p);
   // Every fresh Watching title leads (no cap of 4); Partly "new episodes" cards follow them. Only the whole strip is capped.
