@@ -4,6 +4,8 @@ import { notFound } from "next/navigation";
 import { AwardChips, AwardsSection } from "@/components/Awards";
 import CastFilter from "@/components/CastFilter";
 import { CreditRow, CrewRow } from "@/components/CreditRow";
+import { CastFaceScope } from "@/components/CastFaces";
+import { hiddenOf, markLine } from "@/lib/spoiler-line";
 import Episodes from "@/components/Episodes";
 import Appearances, { EpisodeJump } from "@/components/Appearances";
 import { Avatar } from "@/components/ui";
@@ -84,11 +86,15 @@ function CastBlock({ part, t, lib, people, first, last, pending, hold }: CastPro
   const ttl = { title: t.title, year: t.year, type: t.type, key: t.key };
   // A series' long tail of guest parts is not listed, but the search box finds anyone who appeared.
   const extras = last && t.extras?.length ? t.extras : [];
+  const mine = lib.find((x) => x.key === t.key);
+  const gate = hold && !pending ? hiddenOf(markLine(t.key, mine && { status: mine.status, progress: mine.progress })) : undefined;
   const list = (
-    <ul className="credits">
-      {shown.map((c) => <CreditRow key={c.id} c={c} libKeys={libKeys} pending={pending} title={ttl} tv={tv} />)}
-      {extras.map((c) => <CreditRow key={c.id} c={{ ...c, hits: [], also: [], top: [] }} title={ttl} tv={tv} light hidden />)}
-    </ul>
+    <CastFaceScope title={t.title} titleKey={t.key} hidden={gate}>
+      <ul className="credits">
+        {shown.map((c) => <CreditRow key={c.id} c={c} libKeys={libKeys} pending={pending} title={ttl} tv={tv} />)}
+        {extras.map((c) => <CreditRow key={c.id} c={{ ...c, hits: [], also: [], top: [] }} title={ttl} tv={tv} light hidden />)}
+      </ul>
+    </CastFaceScope>
   );
   const total = people.length + extras.length;
   return (

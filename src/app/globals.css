@@ -339,6 +339,15 @@ li.row { gap: 10px; }
 .sheet { width: 100%; max-width: 680px; height: 100%; max-height: 100%; overflow-y: auto; overscroll-behavior: contain; box-sizing: border-box; background: var(--bg); border-radius: 18px 18px 0 0; box-shadow: 0 -8px 40px rgb(0 0 0 / .35); animation: up .2s ease-out; }
 .sheet-body { padding: 0 max(16px, env(safe-area-inset-left, 0px)) calc(48px + env(safe-area-inset-bottom, 0px)); }
 .sheet-bar { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; justify-content: space-between; padding: 14px max(16px, env(safe-area-inset-left, 0px)); background: var(--bg); border-bottom: 1px solid var(--line); }
+.sheet-bar { flex-wrap: wrap; row-gap: 10px; }
+/* popup path: one line, scrolls sideways (no scrollbar), the current crumb is kept in view; its own ptrail- names (not the /watching wx- trail) */
+.ptrail { flex: 0 0 100%; order: 3; min-width: 0; }
+.ptrail-row { display: flex; flex-wrap: nowrap; align-items: center; overflow-x: auto; overflow-y: hidden; white-space: nowrap; scrollbar-width: none; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; }
+.ptrail-row::-webkit-scrollbar { display: none; }
+.ptrail-item { display: inline-flex; align-items: center; flex: none; }
+.ptrail-sep { margin: 0 6px; color: var(--muted); }
+.ptrail-chip { display: inline-block; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 4px 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--chip); color: inherit; font: inherit; font-size: 13px; line-height: 1.3; cursor: pointer; }
+.ptrail-chip.cur { background: var(--gold-fill); color: var(--on-gold); border-color: transparent; font-weight: 600; cursor: default; }
 .sheet-nav { display: flex; align-items: center; gap: 8px; }
 .back.strong { width: 34px; height: 34px; padding: 0; justify-content: center; font-size: 22px; line-height: 1; border: 1px solid var(--line); }
 .back.strong:not([disabled]):hover { background: var(--gold-fill); color: var(--on-gold); }
@@ -508,6 +517,13 @@ button:not([disabled]):active, a.row:active, a.tab:active, .person-chip:active, 
 @media (prefers-reduced-motion: reduce) { .gl-wrap { animation: none; } }
 .credit.has-gl .credit-main { padding-right: 38px; }
 .credit-gl { position: absolute; right: 0; top: 6px; z-index: 1; }
+/* Cast face: a transparent button over the avatar (never inside the <summary>), opens the same About sheet. */
+.credit { --face: 32px; }
+.cast-main .credit { --face: 44px; }
+.credit-face { position: absolute; left: 0; top: calc(4px + (var(--sum-h) - var(--face)) / 2); width: var(--face); height: var(--face); border-radius: 50%; padding: 0; border: 0; background: transparent; cursor: pointer; z-index: 1; }
+.credit-face:focus-visible { outline: 2px solid var(--gold); outline-offset: 1px; }
+.credit:has(details[open]) > .credit-face { position: sticky; top: calc(var(--stick) + 4px + (var(--sum-h) - var(--face)) / 2); display: block; z-index: 4; margin: 0 0 calc(0px - var(--face)); }
+.cast-face-note { margin: -4px 0 8px; }
 /* An open row's name bar sticks (z-index 3) and would cover this button, so the button sticks with it: a zero-height strip at the top of the
    row (margins cancel, nothing moves) that pins at the bar's offset and sits above it. */
 .credit { --gl-t: 6px; }
@@ -572,7 +588,7 @@ button.aw-chip:hover { filter: brightness(1.08); }
   .credit .avatar { transform-origin: left center; }
   .credit:has(.avatar:hover) { z-index: 30; }
   .credit details[open] > summary:has(.avatar:hover) { z-index: 5; } /* the open row's summary is sticky (z 3) like the Full profile bar under it: lift it so the enlarged photo sits in front */
-  .credit .avatar:hover { transform: scale(3); z-index: 30; border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.45); filter: none; }
+  .credit .avatar:hover, .credit:has(.credit-face:hover) .avatar { transform: scale(3); z-index: 30; border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.45); filter: none; }
 }
 .crew-card { padding-top: 8px; padding-bottom: 8px; }
 .crew-group { display: grid; grid-template-columns: 84px 1fr; gap: 8px; align-items: start; padding: 2px 0; border-top: 1px solid var(--line); }

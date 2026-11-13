@@ -4,6 +4,7 @@ import { PersonLink, PersonProvider } from "./Modal";
 import Appearances from "./Appearances";
 import { epsLabel } from "@/lib/episodes";
 import { GlimpseButton } from "./Glimpse";
+import { CastAbout } from "./CastFaces";
 import { castSpec, personSpec } from "@/lib/glimpse";
 import type { CastMember, EnrichedMember } from "@/lib/types";
 
@@ -18,7 +19,8 @@ export function CreditRow({ c, title, pending, tv, light, hidden }: {
   const eps = tv && !tv.hold ? epsLabel(c.eps, tv.episodes) : "";
   return (
     <li className={`credit has-gl${light ? " extra" : ""}`} hidden={hidden} data-q={`${c.name} ${c.role}`.toLowerCase()}>
-      <span className="credit-gl"><GlimpseButton spec={castSpec(c.name, c.role, title, undefined, c.id)} label={title && c.role ? `About ${c.name} as ${c.role}: the role and images` : undefined} /></span>
+      {title ? <CastAbout spec={castSpec(c.name, c.role, title, undefined, c.id)} label={c.role ? `About ${c.name} as ${c.role}` : undefined} />
+        : <span className="credit-gl"><GlimpseButton spec={castSpec(c.name, c.role, title, undefined, c.id)} /></span>}
       <details>
         <summary className="credit-main">
           <Avatar photo={c.photo} name={c.name} />
