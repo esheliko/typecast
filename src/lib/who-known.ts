@@ -12,6 +12,11 @@ const SEEN_WEIGHT: Record<string, number> = { watched: 1, watching: 0.85, partia
 /** Parts nobody remembers a face from. */
 const BIT_PART = /^(the |a |an )?(young |old |little |first |second |third |angry |drunk |random )?(waiter|waitress|guard|cop|nurse|clerk|bartender|driver|student|reporter|man|woman|girl|boy|customer|extra|passenger|guest|villager|soldier|neighbou?r|receptionist|policeman|policewoman|attendant|henchman|thug|patient|singer|dancer|bystander|cashier|taxi driver|cab driver|delivery (man|boy|guy)|party guest)( #?\d+)?$/i;
 const SELF = /^(self|himself|herself|themselves)\b/i;
+/** TMDB marks voice-only parts in the character: "Karpov (voice)", "Nell (voice, uncredited)". */
+const VOICE = /\([^)]*\bvoices?\b[^)]*\)/i;
+/** A voice part is heard, not seen: it is a weak answer to "where do I know this face from". */
+export const VOICE_FACTOR = 0.25;
+export function isVoiceRole(role: string): boolean { return VOICE.test(role); }
 
 /** The character name to show, or "" when there is no real one (empty, "Self", "Himself"...). Keeps the first of "A / B". */
 export function characterName(role: string): string {
@@ -24,6 +29,7 @@ export function characterName(role: string): string {
 export function partWeight(role: string, eps: number, order = -1): number {
   const name = characterName(role);
   let w = !name ? 0.35 : BIT_PART.test(name) ? 0.12 : 0.85;
+  if (isVoiceRole(role)) w *= VOICE_FACTOR;
   if (eps > 0) {
     // A series: many episodes means a face you saw again and again; one or two means a cameo.
     w *= eps >= 20 ? 1 : eps >= 8 ? 0.9 : eps >= 4 ? 0.7 : eps >= 2 ? 0.5 : 0.35;

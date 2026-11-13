@@ -71,3 +71,13 @@ test("sortByRelease puts the newest first and undated rows last", () => {
   const rows = [{ k: "a", d: "1976-01-01" }, { k: "b", d: "" }, { k: "c", d: "2012-08-01" }, { k: "d", d: "1976-01-01" }];
   assert.deepEqual(sortByRelease(rows, (r) => r.d).map((r) => r.k), ["c", "a", "d", "b"]);
 });
+
+test("a voice part is a weak answer: the seen face beats the same character as a voice", () => {
+  const top: KnownTitle[] = [
+    ["tv:1", "What If...?", "2021", "Karpov (voice)", 2, 4000, -1],
+    ["movie:2", "Civil War", "2024", "Karpov", 0, 3000, -1],
+  ];
+  assert.equal(pickSeenIn(top, "x", seen("tv:1", "movie:2"))!.key, "movie:2");
+  assert.equal(pickSeenIn(top, "x", seen("tv:1"))!.key, "tv:1"); // still offered when it is all you have seen
+  assert.equal(seenInText(pickSeenIn(top, "x", seen("tv:1"))!), "Karpov in What If...?");
+});
