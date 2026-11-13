@@ -293,7 +293,7 @@ export function WhoApp({ brief, initialPos, today, others = [], savedProgress = 
               <TitleLink k={brief.key} it={{ title: brief.title, year: brief.year, poster: brief.poster }} className="wx-title wx-titlelink" tabIndex={-1} aria-hidden="true">{brief.title}</TitleLink>
               <TitleSwitcher cards={others} title={brief.title} />
             </div>
-            <span className="small muted wx-sub">{[brief.year, tv ? posLabel(pos) : "Film"].filter(Boolean).join(" · ")}
+            <span className="small muted wx-sub">{[brief.year, tv ? null : "Film"].filter(Boolean).join(" · ")}
               <TitleLink k={brief.key} it={{ title: brief.title, year: brief.year, poster: brief.poster }} className="wx-details" aria-label={`${brief.title}: open title details`}>Details</TitleLink></span>
           </div>
           {tv && pos && <PositionControl brief={brief} pos={pos} onChange={changePos} onNext={onNext} />}
