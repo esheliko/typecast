@@ -26,6 +26,8 @@ export const SCRATCH = [
   { tmdb_type: "tv", tmdb_id: 87108, title: "Chernobyl" },
   /** Used only by the "Next marks the episode you were on" test (Band of Brothers, 10 episodes): no other test reads or writes it. */
   { tmdb_type: "tv", tmdb_id: 4613, title: "Band of Brothers" },
+  /** Used only by the "film resume" test (Arrival, 1h 56m): no other test reads or writes it. */
+  { tmdb_type: "movie", tmdb_id: 329865, title: "Arrival" },
 ] as const;
 
 /** Deletes the smoke user's rows for the given titles (and only those). */
@@ -42,7 +44,7 @@ export async function deleteRows(sb: SB, userId: string, rows: readonly { tmdb_t
 export async function rowOf(sb: SB, userId: string, type: string, id: number) {
   const { data, error } = await sb.from("library_items").select("*").eq("user_id", userId).eq("tmdb_type", type).eq("tmdb_id", id).maybeSingle();
   if (error) throw new Error(error.message);
-  return data as { status: string; priority: string; rating: number; title: string; new_episode_at?: string | null } | null;
+  return data as { status: string; priority: string; rating: number; title: string; new_episode_at?: string | null; stopped_min?: number | null } | null;
 }
 
 /** Signed-in tests can run: Supabase is configured and there is either the service-role key (a temporary account per run, account.ts)

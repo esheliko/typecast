@@ -3,7 +3,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { setStatus, setStatusMany, undoStatusMany } from "@/app/actions";
 import { FranchiseSheet, type Group } from "./Franchise";
-import { sameMark, unpackMarks, withPlace, type PackedMarks } from "@/lib/marks";
+import { sameMark, unpackMarks, withPlace, withStopped, type PackedMarks } from "@/lib/marks";
 import { PRIORITY_LABEL, STATUS_LABEL, markLabel, type Item, type Mark, type Priority, type Status } from "@/lib/types";
 
 interface Ctx {
@@ -36,6 +36,8 @@ interface Ctx {
    * every surface and cache keys on. `status` is what the library holds now when that write also changed it.
    */
   setPlace: (key: string, place: { s: number; e: number } | null, status?: Status) => void;
+  /** A film's stopped time moved (undefined clears it): on screen only, NO server write (the film clock made its one write). Library, Watch next and the Resume sheet read it. */
+  setStopped: (key: string, min: number | undefined) => void;
 }
 const LibCtx = createContext<Ctx | null>(null);
 
@@ -133,7 +135,7 @@ export function LibProvider({ packed, children }: { packed: PackedMarks; childre
     const k = it.key, v = (version.current.get(k) ?? 0) + 1;
     version.current.set(k, v);
     dirty.current = true;
-    setOver((o) => ({ ...o, [k]: status ? { status, priority: priority ?? prev?.priority ?? "someday", rich: prev?.rich ?? false, ...(prev?.progress ? { progress: prev.progress } : {}) } : null }));
+    setOver((o) => ({ ...o, [k]: status ? { status, priority: priority ?? prev?.priority ?? "someday", rich: prev?.rich ?? false, ...(prev?.progress ? { progress: prev.progress } : {}), ...(prev?.stopped && status !== "watched" ? { stopped: prev.stopped } : {}) } : null }));
     const run = (saveQueue.current.get(k) ?? Promise.resolve(true)).then(async () => {
       try { await setStatus({ type: it.type, id: it.id, title: it.title, year: it.year, poster: it.poster }, status, priority); return true; }
       catch {
@@ -186,6 +188,10 @@ export function LibProvider({ packed, children }: { packed: PackedMarks; childre
   const touch = useCallback(() => { dirty.current = true; }, []);
   const setPlace = useCallback((key: string, place: { s: number; e: number } | null, status?: Status) => {
     const m = withPlace(current(key), place, status);
+    if (m) setOver((o) => ({ ...o, [key]: m }));
+  }, [current]);
+  const setStopped = useCallback((key: string, min: number | undefined) => {
+    const m = withStopped(current(key), min);
     if (m) setOver((o) => ({ ...o, [key]: m }));
   }, [current]);
   const put = useCallback((it: Item, status: Status | null, priority?: Priority) => {
@@ -242,7 +248,7 @@ export function LibProvider({ packed, children }: { packed: PackedMarks; childre
   }, [show, writeSkipped]);
 
   return (
-    <LibCtx.Provider value={{ get, mark, markMany, openRelated, groupsOf: franchise, marked, skipped, skip, put, touch, markRich, defaultPriority, notify, setPlace }}>
+    <LibCtx.Provider value={{ get, mark, markMany, openRelated, groupsOf: franchise, marked, skipped, skip, put, touch, markRich, defaultPriority, notify, setPlace, setStopped }}>
       {children}
       {sheet && <FranchiseSheet it={sheet} load={franchise} loadSimilar={similar} onClose={() => setSheet(null)} />}
       <div className="toast-slot" aria-live="polite">

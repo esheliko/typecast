@@ -1374,3 +1374,22 @@ main:focus { outline: none; }
 .upnext-card.k-still .upnext-poster { opacity: .55; filter: grayscale(.6); }
 .upnext-ask { position: absolute; left: 0; top: 112px; width: 112px; height: 56px; display: flex; flex-direction: column; justify-content: flex-end; gap: 4px; padding: 5px; }
 .upnext-ask button { padding: 3px 8px; border-radius: 999px; background: var(--surface); color: var(--ink); font: 600 11px/1.3 var(--sans, system-ui); border: 1px solid var(--line); white-space: nowrap; }
+
+/* Film resume (docs/features/film-resume.md): the Library row's stopped time, bar and Resume button, and the small Resume sheet. All `rs-`. */
+.rs-bar-line { display: block; height: 5px; border-radius: 99px; background: var(--chip); overflow: hidden; margin: 6px 0 2px; }
+.rs-bar-line > i, .rs-bar-track > i { display: block; height: 100%; background: var(--gold-fill); border-radius: 99px; }
+.rs-act-row { flex: 0 0 100%; padding: 0 0 4px 56px; }
+.lib-row:has(.rs-act-row) { flex-wrap: wrap; }
+.rs-sheet { width: 100%; max-width: 680px; background: var(--bg); border-radius: 18px 18px 0 0; box-shadow: 0 -8px 40px rgb(0 0 0 / .35); padding: 16px 16px calc(28px + env(safe-area-inset-bottom, 0px)); outline: none; }
+@media (min-width: 720px) { .rs-sheet { max-width: 420px; border-radius: 18px; } }
+.rs-bar { padding: 0 0 8px; border-bottom: 0; }
+.rs-lab { display: block; margin-bottom: 4px; font: 600 11px var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.rs-clock { display: flex; align-items: center; justify-content: center; margin: 18px 0 8px; }
+.rs-clock .ask-step { font-size: 18px; }
+.rs-clock .ask-step button { width: 44px; height: 44px; }
+.rs-clock .ask-step b { font: 600 22px var(--mono); padding: 0 10px; }
+.rs-bar-track { height: 6px; border-radius: 99px; background: var(--chip); overflow: hidden; margin: 9px 0 8px; }
+.rs-of { margin: 0; }
+.rs-act { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.upnext-card .rs-go { color: var(--gold); text-decoration: underline dotted; text-underline-offset: 3px; white-space: nowrap; padding: 0; font-size: 11px; }
+.upnext-card:has(.rs-go) { display: flex; flex-direction: column; gap: 4px; }

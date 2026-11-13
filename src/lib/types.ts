@@ -59,6 +59,8 @@ export interface LibItem extends Item {
   updated: number;
   /** Set while the series is Watching because an episode aired after it was marked Watched. Absent until migration 0008 is applied. */
   newEp?: NewEp | null;
+  /** A film in the middle of: the whole minutes it was stopped at, and its runtime then (docs/features/film-resume.md). Absent until migration 0010 is applied. */
+  stoppedMin?: number | null; stoppedOf?: number | null;
 }
 /** `details` is the user's chosen order of title-page sections; an id that is absent is hidden. */
 export interface Profile { country: string; services: number[]; serviceNames: Record<string, string>; details: DetailId[]; letterboxd: LetterboxdLink | null }
@@ -78,6 +80,8 @@ export interface Mark {
   /** Watching because a new episode (or season) aired. */ fresh?: "episode" | "season";
   /** The saved place ("watched up to and including"), only carried for a series that is Watching: it is that series' spoiler line (docs/features/spoilers.md). */
   progress?: { s: number; e: number } | null;
+  /** The minutes a Watching film was stopped at (its Resume point). Only carried for a Watching film. */
+  stopped?: number;
 }
 
 export interface PersonLite { id: number; name: string; photo: string | null }

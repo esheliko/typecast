@@ -9,6 +9,8 @@ import { useLib } from "./cast/LibState";
 import NewEpPill from "./NewEp";
 import RowBadge from "./RowBadge";
 import RelatedButton from "./cast/RelatedButton";
+import { ResumeButton } from "./ResumeSheet";
+import { stoppedLabel, stoppedPct } from "@/lib/film-resume";
 import { typeLabel } from "@/lib/img";
 import { PRIORITY_LABEL, STATUS_LABEL, markLabel, type LibItem } from "@/lib/types";
 
@@ -33,24 +35,31 @@ function StatusPill({ it }: { it: LibItem }) {
 
 export default function LibraryList({ items }: { items: LibItem[] }) {
   const [q, setQ] = useState("");
+  const { get } = useLib();
   const list = items.filter((l) => !q.trim() || l.title.toLowerCase().includes(q.trim().toLowerCase()));
   return (
     <>
       {items.length > 5 && <div className="field" style={{ marginTop: 12 }}><input type="search" aria-label="Filter library" placeholder="Filter your library" value={q} onChange={(e) => setQ(e.target.value)} /></div>}
       {list.length === 0 ? <p className="muted" style={{ marginTop: 20 }}>{q.trim() ? <>Nothing in this list matches “{q.trim()}”. <button type="button" className="linkish" onClick={() => setQ("")}>Clear the filter</button></> : "Nothing in this list yet."}</p> : (
         <div className="card" style={{ marginTop: 14 }}><ul className="rows">
-          {list.map((l) => (
+          {list.map((l) => {
+            // A Watching film with a stopped time (docs/features/film-resume.md): the sub line says where, with a thin bar and a Resume button. Films without one look as before.
+            const st = l.type === "movie" ? (() => { const m = get(l.key); return m?.status === "watching" ? m.stopped : undefined; })() : undefined;
+            const of = l.stoppedOf ?? null;
+            return (
             <li key={l.key} className="row lib-row"><TitleLink className="row-link" k={l.key} it={l}>
               <Thumb path={l.poster} />
               <span className="row-main">
                 <span className="row-title">{l.title}</span>
-                <span className="row-sub">{l.year} · {typeLabel(l.type)}{l.progress ? ` · S${l.progress.s} E${l.progress.e}` : ""}</span>
+                <span className="row-sub">{l.year} · {typeLabel(l.type)}{l.progress ? ` · S${l.progress.s} E${l.progress.e}` : ""}{st ? ` · ${stoppedLabel(st, of)}` : ""}</span>
+                {st && of ? <span className="rs-bar-line" role="img" aria-label={`${stoppedPct(st, of)} percent watched`}><i style={{ width: `${stoppedPct(st, of)}%` }} /></span> : null}
                 <NewEpPill k={l.key} />
                 <RowBadge k={l.key} />
                 {l.rating > 0 && <span className="stars" role="img" aria-label={`Rated ${l.rating} of 5`}>{"★".repeat(l.rating) + "☆".repeat(5 - l.rating)}</span>}
               </span>
-            </TitleLink><StatusPill it={l} /><QuickMark it={l} variant="inline" /><GlimpseButton spec={titleSpec(l)} /><RelatedButton it={l} /></li>
-          ))}
+            </TitleLink><StatusPill it={l} /><QuickMark it={l} variant="inline" /><GlimpseButton spec={titleSpec(l)} /><RelatedButton it={l} />{st ? <span className="rs-act-row"><ResumeButton it={l} stopped={st} runtime={of} className="btn sm gold" /></span> : null}</li>
+            );
+          })}
         </ul></div>
       )}
     </>

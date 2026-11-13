@@ -10,6 +10,7 @@ import { mixed, ofKind, type Kind } from "@/lib/kind";
 import { KindSeg } from "./KindSeg";
 import { KindContext } from "@/lib/kind-context";
 import { useLib } from "./cast/LibState";
+import { ResumeButton } from "./ResumeSheet";
 
 const SHOW = 16;
 const SNOOZE_KEY = "typecast:upnext-snoozed";
@@ -102,12 +103,14 @@ export default function UpNext({ picks: all, services, prefs }: { picks: Pick[];
                   {p.tag && <span className="upnext-svc">{p.tag}</span>}
                 </span>
                 <span className="upnext-t">{p.title}</span>
-                {!p.go && <span className="upnext-w">{p.why}</span>}
+                {!p.go && !p.resume && <span className="upnext-w">{p.why}</span>}
                 {!p.go && p.length && <span className="mono upnext-len">{p.length}</span>}
               </TitleLink>
               {/* A continue card: the text line sits outside the popup link so it can hold a second link (never an anchor inside an anchor). Same one or two lines. */}
               {p.go && <span className="upnext-w">{p.why} <Link className="upnext-go" href={p.go}>Continue</Link></span>}
               {p.go && p.length && <span className="mono upnext-len">{p.length}</span>}
+              {/* A film resume card: "52:00 of 1h 48m · Resume"; the button opens the Resume sheet (outside the popup link, like Continue). */}
+              {p.resume && <span className="upnext-w">{p.why} · <ResumeButton it={p} stopped={p.resume.min} runtime={p.resume.of} className="rs-go">Resume</ResumeButton></span>}
               {p.kind === "still" && (
                 <span className="upnext-ask">
                   <button type="button" title="Keep watching: ask again in a month" onClick={() => snooze(p.key)}>Keep</button>
