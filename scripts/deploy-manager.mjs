@@ -567,6 +567,20 @@ function ciState(sha, headAt = null) {
 }
 
 // ---------------------------------------------------------------- acting
+/**
+ * Pure. Why creating a production deployment of `sha` now would be wasted (null = fine): the same sha already has a production deployment that
+ * is live or on its way (READY / QUEUED / INITIALIZING / BUILDING), or another production build is in flight. A failed (ERROR / CANCELED) one does not count.
+ * Cause of the 2026-11-13 double deploys: the Actions manager and the manager-watch guard each decided from a list read earlier, with no re-check before the POST.
+ */
+export function deployRefusal(list, sha) {
+  const prod = (list ?? []).filter((d) => d.target === 'production');
+  const same = prod.find((d) => d.sha === sha && ['READY', 'QUEUED', 'INITIALIZING', 'BUILDING'].includes(d.state));
+  if (same) return `${sha.slice(0, 7)} already has a production deployment (${same.state}, ${same.id})`;
+  const busy = prod.find((d) => ['QUEUED', 'INITIALIZING', 'BUILDING'].includes(d.state));
+  if (busy) return `another production build is in flight (${busy.sha?.slice(0, 7) ?? busy.id})`;
+  return null;
+}
+
 function createDeployment(sha) {
   if (NO_DEPLOY || DRY) throw new Error('createDeployment called in a no-deploy run');
   return vercel('POST', '/v13/deployments?forceNew=1&skipAutoDetectionConfirmation=1', {
@@ -752,6 +766,13 @@ async function tick() {
       const firstAt = Math.min(...pending.relevant.map((c) => c.at));
       event(st, 'deploy', `${sha.slice(0, 7)} — ${d.why}; batching ${n} commit${n === 1 ? '' : 's'}`);
       log(`DEPLOYING ${sha.slice(0, 7)} (${n} commit${n === 1 ? '' : 's'}): ${d.why}`); // the one line the deploy guard listens for: the decision alone (printed before the CI gate) is not a deployment
+      // Re-read Vercel right before the POST: another executor (Actions vs the manager-watch guard) may have deployed since this tick's list was read.
+      const refusal = deployRefusal(deploymentsLast24h(), sha);
+      if (refusal) {
+        log(`NOT deploying: ${refusal}`);
+        event(st, 'skip', `not deploying ${sha.slice(0, 7)}: ${refusal}`);
+        return;
+      }
       const r = createDeployment(sha);
       if (r.status === 200 || r.status === 201) {
         const id = r.json.id ?? r.json.uid;

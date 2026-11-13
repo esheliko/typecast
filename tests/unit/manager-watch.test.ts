@@ -1,8 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 // @ts-expect-error plain .mjs script, no types
-import { ciDecision, watchStatus, guardLines, LIMITS } from "../../scripts/manager-watch.mjs";
+import { ciDecision, watchStatus, guardLines, LIMITS, readReported, writeReported } from "../../scripts/manager-watch.mjs";
 // @ts-expect-error plain .mjs script, no types
 import { parseRed } from "../../scripts/ci-watch.mjs";
 
@@ -72,4 +75,13 @@ test("process: unreadable CI/deploy command ends in WATCH_ERROR", () => {
   });
   assert.equal(r.status, 1);
   assert.match(r.stdout, /^WATCH_ERROR cannot read /);
+});
+
+test("the last reported red survives a restart: same sha quiet, new sha reported", () => {
+  const f = join(mkdtempSync(join(tmpdir(), "mw-")), "red");
+  assert.equal(readReported(f), null);
+  writeReported(f, "abc");
+  const seen = new Set([readReported(f)]);
+  assert.equal(ciDecision({ sha: "abc", ok: false }, seen), "wait");
+  assert.equal(ciDecision({ sha: "def", ok: false }, seen), "red");
 });
