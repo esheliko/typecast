@@ -137,7 +137,37 @@ function pendingCommits(baseSha) {
   // What actually differs between what is live and main (null when there is no known live commit).
   const net = base ? git('diff', '--name-only', '--no-renames', base, head).split('\n').filter(Boolean) : null;
   const commits = markRelevant(raw, net);
-  return { head, commits, relevant: commits.filter((c) => c.relevant), netFiles: net };
+  return { head, commits, relevant: commits.filter((c) => c.relevant), netFiles: net, markers: recentMarkers(head) };
+}
+
+/**
+ * Pure. The board's marker for one commit, from the files it touched, by the SAME noDeploy rule that decides whether a diff is user-facing:
+ * 🔵 touches the site (app code/behaviour), ⚪ no production effect (docs, scripts, tests, CI, .claude, ...), ❓ unclear (no file list).
+ * Never red: red reads as failure on the board.
+ */
+export function commitMarker(files, noDeploy = CFG.noDeploy) {
+  if (!files?.length) return '❓';
+  return files.some((f) => !noDeploy.test(f)) ? '🔵' : '⚪';
+}
+/** Pure. "1 production change, 11 no-effect" (+ ", 2 unclear"), from a list of markers. */
+export function markerSummary(markers) {
+  const n = (m) => markers.filter((x) => x === m).length;
+  const parts = [];
+  if (n('🔵')) parts.push(`${n('🔵')} production change${n('🔵') === 1 ? '' : 's'}`);
+  if (n('⚪')) parts.push(`${n('⚪')} no-effect`);
+  if (n('❓')) parts.push(`${n('❓')} unclear`);
+  return parts.join(', ') || 'no commits';
+}
+const MARKER_COUNT = 40;
+/** The last MARKER_COUNT commits on main with their marker, newest first, for the board's commit rows. */
+function recentMarkers(head) {
+  try {
+    const out = git('log', `-${MARKER_COUNT}`, '--name-only', '--no-renames', '--format=%x1e%H', head);
+    return out.split('\x1e').filter(Boolean).map((blk) => {
+      const [sha, ...files] = blk.split('\n').map((l) => l.trim()).filter(Boolean);
+      return { sha, marker: commitMarker(files) };
+    });
+  } catch (e) { log('markers failed', String(e.message).slice(0, 120)); return []; }
 }
 
 /**
@@ -378,6 +408,12 @@ async function watchBuild(id, st) {
 }
 
 // ---------------------------------------------------------------- the status board
+/** Marker section of the status issue; the board artifact reads `- `sha7` 🔵` lines under this heading. Format changes need the artifact's `markers` calc updated. */
+export function renderMarkers(markers) {
+  if (!markers?.length) return [];
+  return ['', `### Commit markers (last ${markers.length} on main)`, '🔵 affects production · ⚪ no production effect · ❓ unclear', ...markers.map((m) => `- \`${m.sha.slice(0, 7)}\` ${m.marker}`)];
+}
+
 function render(st, ctx, d, pending) {
   const { now, ready } = ctx;
   const live = ready?.sha ? `\`${ready.sha.slice(0, 7)}\` (deployed ${ago(now - ready.created)} ago)` : 'unknown';
@@ -397,6 +433,7 @@ function render(st, ctx, d, pending) {
   lines.push(`| Next free slot | ${d.free > 0 ? 'now' : `${hhmm(d.nextSlotAt)} UTC`} |`);
   lines.push(`| Last tick | ${iso(now)} (#${st.ticks}) |`);
   lines.push(...renderPipeline(ctx.pipeline, now));
+  lines.push(...renderMarkers(pending.markers));
   if (rel.length) {
     lines.push('', '### Merged to main, waiting to deploy');
     for (const c of rel.slice(0, 12)) lines.push(`- \`${c.sha.slice(0, 7)}\` ${c.subject.slice(0, 90)} · ${ago(now - c.at)} ago`);
@@ -509,7 +546,7 @@ async function tick() {
       const r = createDeployment(sha);
       if (r.status === 200 || r.status === 201) {
         const id = r.json.id ?? r.json.uid;
-        const rec = { id, sha, n, firstAt, at: Date.now(), state: 'BUILDING', latencyMin: null, error: null };
+        const rec = { id, sha, n, mix: markerSummary(pending.commits.map((c) => commitMarker(c.files))), firstAt, at: Date.now(), state: 'BUILDING', latencyMin: null, error: null };
         st.deploys.unshift(rec);
         st.deploys = st.deploys.slice(0, 60);
         writeBoard(st, ctx, { ...d, used: d.used + 1, spendable: d.spendable - 1, free: d.free - 1, action: 'deploy' }, pending, true);
