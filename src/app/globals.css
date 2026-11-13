@@ -925,8 +925,19 @@ body:has(.modal) .toast-slot { bottom: calc(84px + env(safe-area-inset-bottom, 0
 .wx-epm b { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wx-epsk { cursor: default; }
 /* The open season's row stays pinned at the top of the panel while its episodes scroll under it: one tap folds it and shows the other seasons. */
-.wx-epsec[data-open="true"] > .wx-epsh { position: sticky; top: -6px; z-index: 2; background: var(--surface); border-radius: 10px; box-shadow: 0 1px 0 var(--line); }
+.wx-epsec[data-open="true"] > .wx-epsh { position: sticky; top: calc(var(--wx-bar, 0px) - 6px); z-index: 2; background: var(--surface); border-radius: 10px; box-shadow: 0 1px 0 var(--line); }
 .wx-epsec[data-open="true"] > .wx-epsh:hover { background: var(--chip); }
+/* "Whole series" stays pinned above the open season's row. Once the open season's own "Whole season" row has scrolled away it splits in two (Whole series | Whole season + which season), so the choice is always one tap away and never ambiguous. */
+.wx-epstick { position: sticky; top: -6px; z-index: 3; display: flex; padding-top: 6px; margin-top: -6px; background: var(--surface); }
+.wx-epstick > .wx-epo { flex: 1 1 0; min-width: 0; box-shadow: inset 0 0 0 1px transparent; transition: box-shadow .22s ease; }
+.wx-epstick[data-split="true"] > .wx-epo { box-shadow: inset 0 0 0 1px var(--line); }
+/* The Whole season half grows in from nothing (and shrinks back out) instead of popping, so the bar never jumps. */
+.wx-epstick > .wx-epsplit { flex: 0 1 0%; padding-inline: 0; margin-left: 0; opacity: 0; overflow: hidden; border-width: 0; transition: flex-grow .24s ease, margin-left .24s ease, padding-inline .24s ease, opacity .18s ease, box-shadow .22s ease; }
+.wx-epstick[data-split="true"] > .wx-epsplit { flex-grow: 1; padding-inline: 6px; margin-left: 4px; opacity: 1; }
+.wx-epstick .wx-epo:disabled.wx-epsplit { opacity: 0; }
+.wx-epstick .wx-epm, .wx-epstick .wx-epm b { white-space: nowrap; }
+.wx-epstick .wx-epm .small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (prefers-reduced-motion: reduce) { .wx-epstick > .wx-epo { transition: none; } }
 .wx-epfold { margin-left: auto; padding-right: 4px; }
 .wx-epo[aria-current="true"] { background: var(--chip); }
 
