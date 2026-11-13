@@ -1346,6 +1346,7 @@ main:focus { outline: none; }
   .wx-poster { width: 30px; height: 45px; }
   .wx-ttl { flex: 1 1 0; min-width: 0; }
   .wx-title { font-size: 17px; max-width: none; }
+  .wx-ttl .wbar-k { white-space: nowrap; flex: none; }
   .wx-topr { order: 2; margin-left: 0; gap: 6px; }
   .wx-nospoil { min-width: 0; min-height: 40px; padding: 4px 10px 4px 8px; font-size: 12.5px; gap: 6px; }
   .wx-close { min-height: 40px; min-width: 40px; padding: 0 10px; justify-content: center; }
@@ -1368,21 +1369,24 @@ main:focus { outline: none; }
   .wx-ttl .wbar-k { max-height: 20px; }
   .wx-ttl .wx-sub { max-height: 30px; }
   .wx-nsl { max-width: 120px; overflow: hidden; }
-  .wx[data-compact="true"] .wx-top { gap: 0 8px; padding-top: calc(4px + env(safe-area-inset-top, 0px)); padding-bottom: 4px; }
-  .wx[data-compact="true"] .wx-pos, .wx[data-compact="true"] .wx-ttl .wbar-k, .wx[data-compact="true"] .wx-ttl .wx-sub {
-    max-height: 0; opacity: 0; visibility: hidden; pointer-events: none; transition-property: max-height, opacity, visibility; transition-duration: .28s, .16s, 0s; transition-delay: 0s, 0s, .28s;
-  }
+  /* scrolled down: ONE row = poster, title, where you are (episode picker + next), close. The spoiler switch and the labels are hidden. */
+  .wx[data-compact="true"] .wx-top { flex-wrap: nowrap; gap: 0 8px; padding-top: calc(4px + env(safe-area-inset-top, 0px)); padding-bottom: 4px; }
+  .wx[data-compact="true"] .wx-ttl .wbar-k, .wx[data-compact="true"] .wx-ttl .wx-sub, .wx[data-compact="true"] .wx-pos-l, .wx[data-compact="true"] .wx-pos .wx-finish { display: none; }
+  .wx[data-compact="true"] .wx-nospoil { display: none; }
+  .wx[data-compact="true"] .wx-ttl { flex: 1 1 0; min-width: 0; }
+  .wx[data-compact="true"] .wx-pos { order: 1; width: auto; flex: 0 1 auto; min-width: 0; max-height: none; }
+  .wx[data-compact="true"] .wx-topr { order: 2; flex: none; }
+  .wx[data-compact="true"] .wx-epb, .wx[data-compact="true"] .wx-epnext { min-height: 34px; padding-top: 4px; padding-bottom: 4px; }
+  .wx[data-compact="true"] .wx-close { min-height: 34px; }
   .wx[data-compact="true"] .wx-poster { width: 24px; height: 36px; }
-  .wx[data-compact="true"] .wx-nsl { max-width: 0; opacity: 0; }
-  .wx[data-compact="true"] .wx-nospoil { padding: 4px 9px; gap: 0; }
   @media (prefers-reduced-motion: reduce) {
     .wx-top, .wx-poster, .wx-nospoil, .wx-nsl, .wx-pos, .wx-ttl .wbar-k, .wx-ttl .wx-sub { transition: none !important; }
   }
   .wx-find { padding: 8px 0 6px; }
   .wx-find input { min-height: 44px; }
-  .wx-chips { flex-wrap: wrap; gap: 4px; margin: 0 0 4px; }
-  .wx-chips .seg { flex: none; padding: 2px; }
-  .wx-chips .seg button { padding: 5px 6px; font-size: 12.5px; white-space: nowrap; }
+  .wx-chips { flex-wrap: nowrap; gap: 3px; margin: 0 0 4px; }
+  .wx-chips .seg { flex: 0 1 auto; min-width: 0; padding: 2px; }
+  .wx-chips .seg button { padding: 5px 4px; font-size: 12px; white-space: nowrap; }
   .wx-xl { display: none; }
   .wx-count { display: none; }
   .wx-group { margin: 8px 0 6px; }
@@ -1451,8 +1455,12 @@ main:focus { outline: none; }
 .whs-intro { margin: 0; font-size: 14px; }
 .whs-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .whs-l { font-size: 13px; font-weight: 600; color: var(--muted); }
-.whs-sel { display: inline-flex; align-items: center; gap: 8px; }
-.whs-poster { width: 28px; height: 42px; border-radius: 4px; object-fit: cover; }
+.whs-sel { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 12px 0 6px; border-radius: 999px; background: var(--surface-2, rgba(255,255,255,.06)); max-width: 100%; }
+.whs-sel b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.whs-chg { font-size: 12px; color: var(--muted); font-weight: 600; }
+.whs-top { gap: 8px; }
+.whs-change { display: flex; flex-direction: column; gap: 8px; }
+.whs-poster { width: 24px; height: 36px; border-radius: 4px; object-fit: cover; }
 .whs-pick .wx-epgroup .wx-epb { border-radius: 999px; padding-right: 14px; }
 .whs-q { display: flex; flex-direction: column; gap: 6px; }
 .whs-q input, .whs-t { width: 100%; }
