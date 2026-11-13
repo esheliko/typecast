@@ -134,6 +134,27 @@ test.describe("behaviour (signed in)", () => {
     }
   });
 
+  // The place card on a Watching series: S/E headline from the saved place at once, "Watched ✓" is ONE write (progress moves one episode), and the Library row has the same button.
+  // Breaking Bad is seeded Watching with progress S2 E3, so the card says S2 E4.
+  test("Place card: Watched ✓ marks the shown episode in one write", async ({ page }) => {
+    const { sb, userId } = await smokeClient();
+    const bb = SEED.find((r) => r.tmdb_id === 1396)!;
+    const row = async () => (await rowOf(sb, userId, "tv", bb.tmdb_id)) as { progress_season?: number | null; progress_episode?: number | null } | null;
+    try {
+      await page.goto(`/title/tv/${bb.tmdb_id}?full=1`);
+      const card = page.getByRole("region", { name: "Your place in this series" });
+      await expect(card.getByText(/S2 E4/)).toBeVisible({ timeout: 30_000 });
+      await card.getByRole("button", { name: /Mark S2 E4 watched/ }).click();
+      await expect.poll(async () => (await row())?.progress_episode, { timeout: 15_000 }).toBe(4);
+      await expect(card.getByText(/S2 E5/)).toBeVisible({ timeout: 15_000 });
+      // The Library row offers the same button for a Watching series.
+      await page.goto("/library");
+      await expect(page.locator(".lib-row", { hasText: "Breaking Bad" }).getByRole("button", { name: /^Mark S2 E5 watched/ })).toBeVisible({ timeout: 30_000 });
+    } finally {
+      await sb.from("library_items").update({ progress_season: 2, progress_episode: 3 }).eq("user_id", userId).eq("tmdb_type", "tv").eq("tmdb_id", bb.tmdb_id);
+    }
+  });
+
   // The title switcher on /watching: a quiet chevron after the title, only while ANOTHER title is Watching in the library. It lists the other Watching titles
   // (title and place, never the page's own title), choosing one opens that page, and none of it writes to the library. Titles: Chernobyl (scratch, made Watching here) and Breaking Bad (seeded Watching, S2 E3).
   test("Watching now: title switcher lists the other Watching titles and writes nothing", async ({ page }) => {

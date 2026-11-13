@@ -169,7 +169,7 @@ test("a continue card says Next: and carries the Continue link; caught up has no
   const f = facts({ seasons: SEAS, lastEp: { s: 2, e: 13 }, lastAired: "2026-11-01" });
   const [p] = rankUpNext([s], ctx([[s, f]]));
   assert.equal(p.kind, "continue");
-  assert.equal(p.why, "Next: S2 E4");
+  assert.equal(p.why, "S2 E4 · out now"); // was "Next: S2 E4": a continue card whose episode is out now says so
   assert.equal(p.go, `/watching?k=${s.key.replace(":", "-")}&s=2&e=4`);
   const [nf] = rankUpNext([s], ctx());
   assert.equal(nf.why, "After S2 E3");
@@ -177,6 +177,16 @@ test("a continue card says Next: and carries the Continue link; caught up has no
   const [cu] = rankUpNext([c], ctx([[c, facts({ seasons: SEAS, lastEp: { s: 3, e: 8 }, nextAir: "2026-11-12", lastAired: "2026-11-05" })]]));
   assert.match(cu.why, /^Caught up · new ep /);
   assert.equal(cu.go, undefined);
+});
+
+test("a continue card carries the episode's runtime; an episode that has not aired is not 'out now'", () => {
+  const s = lib({ status: "watching", type: "tv", updated: NOW - 2 * DAY, progress: { s: 2, e: 3 } });
+  const [p] = rankUpNext([s], ctx([[s, facts({ seasons: SEAS, lastEp: { s: 2, e: 13 }, runtime: 47, lastAired: "2026-11-01" })]]));
+  assert.equal(p.why, "S2 E4 · out now");
+  assert.equal(p.length, "47 min");
+  const [u] = rankUpNext([s], ctx([[s, facts({ seasons: SEAS, lastEp: { s: 2, e: 3 }, runtime: 47, lastAired: "2026-11-01" })]]));
+  assert.equal(u.go, undefined);
+  assert.doesNotMatch(u.why, /out now/);
 });
 
 test("every fresh Watching title leads: not capped at 4, never dropped for a lower card", () => {
