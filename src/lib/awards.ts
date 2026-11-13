@@ -44,7 +44,7 @@ SELECT ?pLabel ?awLabel ?kind ?year WHERE {
   { ?p p:P166 ?s. ?s ps:P166 ?aw. BIND("won" AS ?kind) } UNION { ?p p:P1411 ?s. ?s ps:P1411 ?aw. BIND("nom" AS ?kind) }
   ?s pq:P1686 ?f.
   OPTIONAL { ?s pq:P585 ?d. BIND(YEAR(?d) AS ?year) }
-  SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "en,mul,fr,de,es,it,nl,sv,pt". }
 } LIMIT 400`;
 
 type Row = { awLabel?: { value: string }; kind: { value: string }; year?: { value: string } };
@@ -109,7 +109,7 @@ async function fetchAwards(imdb: string): Promise<Awards> {
 }
 
 /** A week in Next's data cache per title. Errors throw, so they are not cached. */
-const cached = unstable_cache(fetchAwards, ["awards-wikidata-v2"], { revalidate: 60 * 60 * 24 * 7 });
+const cached = unstable_cache(fetchAwards, ["awards-wikidata-v3"], { revalidate: 60 * 60 * 24 * 7 });
 
 /** Awards for a title by IMDb id, or null when unknown or Wikidata cannot be reached (the UI simply shows nothing). Once per request. */
 export const getAwards = cache(async (imdb: string | null): Promise<Awards | null> => {
