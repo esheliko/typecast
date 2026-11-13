@@ -925,8 +925,8 @@ body:has(.modal) .toast-slot { bottom: calc(84px + env(safe-area-inset-bottom, 0
 .wx-epm { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
 .wx-epm b { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wx-epsk { cursor: default; }
-/* The open season's row stays pinned at the top of the panel while its episodes scroll under it: one tap folds it and shows the other seasons. */
-.wx-epsec[data-open="true"] > .wx-epsh { position: sticky; top: calc(var(--wx-bar, 0px) - 6px); z-index: 2; background: var(--surface); border-radius: 10px; box-shadow: 0 1px 0 var(--line); }
+/* The open season's row stays pinned at the top of the panel while its episodes scroll under it: one tap folds it and shows the other seasons. It tucks 1px under the pinned bar above it (the bar is higher in z-order) and has square top corners, so no sub-pixel seam or rounded corner lets the episodes show between the two. */
+.wx-epsec[data-open="true"] > .wx-epsh { position: sticky; top: calc(var(--wx-bar, 0px) - 7px); z-index: 2; background: var(--surface); border-radius: 0 0 10px 10px; box-shadow: 0 1px 0 var(--line); }
 .wx-epsec[data-open="true"] > .wx-epsh:hover { background: var(--chip); }
 /* "Whole series" stays pinned above the open season's row. Once the open season's own "Whole season" row has scrolled away it splits in two (Whole series | Whole season + which season), so the choice is always one tap away and never ambiguous. */
 .wx-epstick { position: sticky; top: -6px; z-index: 3; display: flex; padding-top: 6px; margin-top: -6px; background: var(--surface); }

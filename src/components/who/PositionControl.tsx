@@ -96,7 +96,7 @@ export function PositionPicker({ brief, pos, seasons, onChange, onNext, strip }:
   const measure = () => {
     const l = list.current, b = bar.current;
     if (!l || !b) return;
-    l.style.setProperty("--wx-bar", `${b.offsetHeight}px`);
+    l.style.setProperty("--wx-bar", `${b.getBoundingClientRect().height}px`);
     const sec = openS != null ? l.querySelector<HTMLElement>(`[data-season="${openS}"]`) : null;
     const whole = sec?.querySelector<HTMLElement>("[data-whole-season]");
     const head = sec?.querySelector<HTMLElement>(".wx-epsh");
