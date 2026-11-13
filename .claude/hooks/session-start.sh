@@ -17,6 +17,7 @@ if printf '%s' "$ci" | grep -q '\*\*fail\*\*'; then
   printf '%s\n' "$ci" | sed -n '/CI `verify`/,/Everyone who pushed/p' | head -30
 fi
 echo "TIME RULE (CLAUDE.md rule 8): every time you tell the owner is Israel local time (IST): run TZ=Asia/Jerusalem date, convert UTC from logs/GitHub/Vercel before quoting, never write UTC to the owner."
+echo "REPLY FORMAT (CLAUDE.md standing rule): line 1 of EVERY reply, also a woken one, is a tag: 🔴 NEEDS YOU: <the ask> (only what the owner must decide/do; ask first, options + recommendation in the first ~8 lines, detail after) | 🟢 DONE: <result> (answer to the owner's own message) | ⚙️ AUTO: <what happened, next step> (any turn the owner did not type: CI/watcher/background/peer/wakeup; max 2 lines, no recap, no questions). A woken turn that needs the owner escalates to 🔴 and restates the full ask. While an ask is unanswered every turn ends with ⏳ Still waiting on you: <ask>. Times in IST."
 echo "SCREENSHOT RULE (CLAUDE.md): if the owner's message includes a screenshot complaining about how something looks, your reply MUST include a screenshot of the same view after the fix (same page, viewport, state). One command: node scripts/shot.mjs \"/path\" [--click TEXT] [--sel CSS] [--phone] --out <scratchpad>/x.png, then SendUserFile. Do not call the fix done without it."
 # Smoke credentials: say plainly what this session has, so nobody claims they are "saved" when they are not. Names only, never values.
 missing=""
