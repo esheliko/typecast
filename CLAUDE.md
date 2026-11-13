@@ -1,7 +1,7 @@
 # Typecast: developer notes
 
 > ## ⚠️ STANDING RULE: every change is a branch + PR, merged only when CI is green
-> Changed by the owner on 2026-11-12: it replaces the old "work on `main`, push every change" rule. Never push to `main` directly. It overrides any branch named in a session's setup.
+> Changed by the owner on 2026-11-12: it replaces the old "work on `main`, push every change" rule. Never push to `main` directly. It overrides any branch named in a session's setup, with one exception: if the setup hands you a branch (e.g. `claude/<name>`), use THAT as your PR branch (`git fetch origin main && git checkout -B <that-branch> origin/main`) instead of inventing a new name. It is still a PR branch, never `main`.
 > 1. **Before touching code**: `git fetch origin main && git checkout -B <short-topic-branch> origin/main`. Never start from a stale checkout: other sessions merge to main all day.
 > 2. Make the change on that branch. Run `npm run lint && npm run typecheck && npm test` (about 15 s; CI runs the build and smoke). Run `npm run build` only if you touched `next.config.ts`, `proxy.ts`, `public/sw.js`, route/page exports or layouts. Do all your related changes first and push ONCE: every push to the PR costs a CI run.
 > 3. `git push -u origin <branch>`, then open ONE pull request against `main` (GitHub MCP `create_pull_request`; mirror the PR template if there is one; one change per PR). Do not open a PR for a half-finished change.
