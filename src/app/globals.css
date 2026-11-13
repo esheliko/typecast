@@ -948,7 +948,10 @@ body:has(.modal) .toast-slot { bottom: calc(84px + env(safe-area-inset-bottom, 0
 .wx-popduo figure { flex: 1 1 0; min-width: 0; margin: 0; }
 .wx-popduo figcaption { font-size: 11px; font-weight: 600; color: var(--muted); text-align: center; margin-top: 3px; }
 .wx-popthen { object-position: 50% 20%; }
-@media (hover: hover) and (prefers-reduced-motion: no-preference) { .wx-tile:hover .wx-ph, .wx-tile:focus-visible .wx-ph { transform: translateY(-3px); box-shadow: 0 6px 14px rgba(0, 0, 0, .28); } }
+@media (hover: hover) and (prefers-reduced-motion: no-preference) { .wx-tile:hover .wx-ph, .wx-tile:focus-visible .wx-ph { transform: translateY(-3px); box-shadow: 0 6px 14px rgba(0, 0, 0, .28); }
+  /* the Glimpse button rides the same lift, same timing: otherwise it bobs against the photo while scrolling under a still pointer */
+  .wx-tileg { transition: transform .12s ease; }
+  .wx-tli:has(.wx-tile:hover, .wx-tile:focus-visible) .wx-tileg { transform: translateY(-3px); } }
 .wx-tile b { font-size: 13px; }
 .wx-nm, .wx-rl { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wx-rl { display: flex; }
