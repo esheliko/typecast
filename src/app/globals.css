@@ -1356,6 +1356,7 @@ main:focus { outline: none; }
   .wx-pos .wx-ep { min-width: 0; flex: 0 1 auto; }
   .wx-pos .wx-epgroup { min-width: 0; flex: 1 1 auto; }
   .wx-pos .wx-epgroup .wx-ep { flex: 1 1 auto; min-width: 0; }
+  .wx-pos .wx-epgroup .wx-epb { width: 100%; }
   .wx-epb { min-height: 40px; padding: 6px 12px; font-size: 13.5px; max-width: 100%; }
   .wx-epnext { min-height: 40px; padding: 6px 12px 6px 10px; font-size: 13.5px; }
   .wx-epnext::before { top: 9px; bottom: 9px; }
