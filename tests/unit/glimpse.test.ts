@@ -74,3 +74,11 @@ const show = { title: "The Rookie", year: "2018", type: "tv", key: "tv:79744" };
     test("no id, no extra tabs", () => expect(withLibRoles(personSpec("A"), "A").libRoles).toBeUndefined());
   }
 
+
+// Cast face (docs/features/glimpse.md): the face and the small button ask the same question; Show on the cast note adds reveal=1 for that view only.
+  test("a cast spec asks with the person, the character and the title, and no reveal", () => {
+    const s = castSpec("Mara Quill", "Dr. Ines Vale", { title: "Show", type: "tv", year: "2020", key: "tv:5" } as any, undefined, 9);
+    expect(infoQuery(s.info!)).not.toMatch(/reveal/);
+    expect(infoQuery({ ...s.info!, reveal: true })).toMatch(/reveal=1/);
+    expect(infoQuery(s.info!)).toMatch(/k=tv%3A5/);
+  });
