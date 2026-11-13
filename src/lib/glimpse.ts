@@ -12,7 +12,8 @@ export interface GlimpseSpec {
   /** Also add a tab for each other role this actor plays in a title in the user's library (`/api/glimpse/roles`). Set on Watching-now cast buttons. */
   libRoles?: { actor: string };
 }
-export interface GlimpseTab { label: string; q: string; info?: GlimpseInfo }
+/** `heading`: the panel title while this tab is selected (a library role names its own actor, character and title); absent = the spec's heading. */
+export interface GlimpseTab { label: string; q: string; info?: GlimpseInfo; heading?: string }
 
 /**
  * What the About part of the panel asks the server. A title (`key`), a person (`pid`) or both (that person in that title, where `char`
@@ -130,7 +131,7 @@ export function libraryRoles(credits: { key: string; type: "movie" | "tv"; title
 export function libRoleTab(actor: string, pid: number | undefined, r: LibRole, rules?: Pick<GlimpseInfo, "nospoil" | "hide">): GlimpseTab {
   const kind = r.type === "tv" ? "TV series" : "film";
   const q = `${actor} as ${r.char} ${r.title} ${r.year || ""} ${kind}`.replace(/\s+/g, " ").trim();
-  return { label: `${r.char} · ${r.title}`, q, info: info({ pid, key: r.key, char: r.char, ...(rules?.nospoil ? { nospoil: true, hide: rules.hide } : {}) }).info };
+  return { label: `${r.char} · ${r.title}`, heading: `${actor} as ${r.char} · ${r.title}`, q, info: info({ pid, key: r.key, char: r.char, ...(rules?.nospoil ? { nospoil: true, hide: rules.hide } : {}) }).info };
 }
 
 /** Mark a cast spec as one that also lists the actor's other library roles. */

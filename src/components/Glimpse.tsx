@@ -140,9 +140,9 @@ export function GlimpseProvider({ children }: { children: React.ReactNode }) {
       {children}
       {spec && q && (
         <div className="gl-wrap" onClick={(e) => { if (e.target === e.currentTarget) close(); }}>
-          <div ref={box} className="gl" role="dialog" aria-modal="true" aria-label={spec.heading} tabIndex={-1}>
+          <div ref={box} className="gl" role="dialog" aria-modal="true" aria-label={curTab?.heading ?? spec.heading} tabIndex={-1}>
             <div className="gl-bar">
-              <b className="gl-h">{spec.heading}</b>
+              <b className="gl-h">{curTab?.heading ?? spec.heading}</b>
               <button type="button" className="back" onClick={close} aria-label="Close"><span aria-hidden="true">&#215;</span> Close</button>
             </div>
             {tabs.length > 1 && (

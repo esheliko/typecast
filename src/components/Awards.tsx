@@ -47,7 +47,7 @@ function Entries({ list, won }: { list: AwardEntry[]; won: boolean }) {
       {list.map((e, i) => (
         <li key={i} className={won ? "win" : ""}>
           <span className="aw-k">{won ? "Won" : "Nominated"}</span>
-          <span className="aw-c">{e.category || "Top prize"}</span>
+          <span className="aw-c">{e.category || "Top prize"}{e.who && <span className="aw-w">{e.who.join(", ")}</span>}</span>
           {e.year && <span className="aw-y">{e.year}</span>}
         </li>
       ))}
