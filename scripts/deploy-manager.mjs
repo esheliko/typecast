@@ -185,14 +185,121 @@ export function markRelevant(commits, netFiles) {
 
 // ---------------------------------------------------------------- status-board state (hidden JSON in the issue body)
 const STATE_RE = /<!--state ([\s\S]*?) state-->/;
-function loadState() {
-  const empty = { v: 1, ticks: 0, events: [], deploys: [], blockedUntil: 0, lastWrite: 0, lastDecision: null };
-  if (!ISSUE) return empty;
+const EMPTY_STATE = () => ({ v: 1, ticks: 0, events: [], deploys: [], blockedUntil: 0, lastWrite: 0, lastDecision: null });
+const BACKUP_RE = /<!--state-backup ([\s\S]*?) state-backup-->/;
+const BACKUP_EVERY_MIN = 30;
+const NO_DEPLOY = has('--no-deploy'); // hard guard: this run can never create a deployment (used for backfills)
+const REBUILD = has('--rebuild-state'); // merge deployments rebuilt from Vercel + git into the state, then write the board
+
+/**
+ * Pure. What an issue body says about the state: {kind:'ok', st} | {kind:'missing'} (a real body without the marker) | {kind:'bad'} (empty body or marker that does not parse).
+ * Only 'ok' and 'missing' are trustworthy answers; 'bad' means "we could not read it", never "there is no history".
+ * 2026-11-13: a failed read was treated as an empty state and the next write replaced the whole body (454 ticks and ~60 deployments lost).
+ */
+export function parseStateBody(body) {
+  if (typeof body !== 'string' || !body.trim()) return { kind: 'bad' };
+  const m = body.match(STATE_RE);
+  if (!m) return { kind: 'missing' };
   try {
-    const body = JSON.parse(gh(['api', `repos/${CFG.repo}/issues/${ISSUE}`])).body ?? '';
-    const m = body.match(STATE_RE);
-    return m ? { ...empty, ...JSON.parse(m[1]) } : empty;
-  } catch (e) { log('could not read status issue:', String(e.message).slice(0, 160)); return empty; }
+    const st = JSON.parse(m[1]);
+    if (!st || typeof st !== 'object' || !Array.isArray(st.deploys)) return { kind: 'bad' };
+    return { kind: 'ok', st: { ...EMPTY_STATE(), ...st } };
+  } catch { return { kind: 'bad' }; }
+}
+
+/** Pure. May the board be (re)written, given what the read said? Never after a failed read. */
+export const mayWriteState = (read) => read?.kind === 'ok' || read?.kind === 'missing';
+
+const sleepSync = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+function retry(fn, tries = 3) {
+  for (let i = 0; ; i++) {
+    try { return fn(); } catch (e) { if (i >= tries - 1) throw e; sleepSync(2000 * 2 ** i); }
+  }
+}
+
+/** Raw read: {kind, st?, error?}. 'error' = the API call failed (after retries). */
+function readState() {
+  if (!ISSUE) return { kind: 'missing' };
+  try {
+    const body = retry(() => JSON.parse(gh(['api', `repos/${CFG.repo}/issues/${ISSUE}`])).body);
+    return parseStateBody(body);
+  } catch (e) { log('could not read status issue:', String(e.message).slice(0, 160)); return { kind: 'error' }; }
+}
+
+/** The latest good state, kept as a comment on the status issue (rolling: updated at most every BACKUP_EVERY_MIN). */
+function readBackup(st) {
+  try {
+    const cs = JSON.parse(gh(['api', '--paginate', '--slurp', `repos/${CFG.repo}/issues/${ISSUE}/comments?per_page=100`])).flat();
+    const c = [...cs].reverse().find((x) => BACKUP_RE.test(x.body ?? ''));
+    if (!c) return null;
+    const b = JSON.parse(c.body.match(BACKUP_RE)[1]);
+    return b && Array.isArray(b.deploys) ? { ...b, backupId: c.id } : null;
+  } catch (e) { log('could not read backup:', String(e.message).slice(0, 120)); return null; }
+}
+function writeBackup(st, now) {
+  if (!ISSUE || DRY || now - (st.backupAt ?? 0) < BACKUP_EVERY_MIN * 60e3) return;
+  const copy = { ...st, backupAt: now };
+  const body = `State backup (automated, rolling; the status board restores from this if its own state is ever lost. Do not edit.)\n\n<!--state-backup ${JSON.stringify(copy)} state-backup-->`;
+  try {
+    if (st.backupId) gh(['api', '-X', 'PATCH', `repos/${CFG.repo}/issues/comments/${st.backupId}`, '--input', '-'], JSON.stringify({ body }));
+    else st.backupId = JSON.parse(gh(['api', '-X', 'POST', `repos/${CFG.repo}/issues/${ISSUE}/comments`, '--input', '-'], JSON.stringify({ body }))).id;
+    st.backupAt = now;
+  } catch (e) { log('could not write backup:', String(e.message).slice(0, 120)); }
+}
+
+/**
+ * Pure. Deployment records from Vercel's production list (source of truth for sha, time, state) plus a git lookup for the mix.
+ * list: [{id, state, target, created, ready, sha}], any order. commitsBetween(prevSha, sha) -> [{at, files}] (newest first) or null.
+ * Returns newest first, at most `max`.
+ */
+export function rebuildDeploys(list, commitsBetween, max = 60, noDeploy = CFG.noDeploy) {
+  const prod = list.filter((d) => d.target === 'production' && d.sha && ['READY', 'ERROR', 'CANCELED', 'BUILDING', 'QUEUED'].includes(d.state)).sort((a, b) => a.created - b.created).slice(-max - 1);
+  const out = [];
+  prod.forEach((d, i) => {
+    if (i === 0 && prod.length > max) return; // only there as the base of the next one
+    const commits = commitsBetween(prod[i - 1]?.sha ?? null, d.sha) ?? [];
+    const rel = commits.filter((c) => !c.files?.length || c.files.some((f) => !noDeploy.test(f)));
+    const firstAt = rel.length ? Math.min(...rel.map((c) => c.at)) : commits.length ? Math.min(...commits.map((c) => c.at)) : d.created;
+    out.push({
+      id: d.id, sha: d.sha, n: Math.max(rel.length, 1), mix: markerSummary(commits.map((c) => commitMarker(c.files, noDeploy))), firstAt, at: d.created, state: d.state,
+      latencyMin: d.state === 'READY' ? Math.max(0, Math.round(((d.ready ?? d.created) - firstAt) / 60e3)) : null, error: null, rebuilt: true,
+    });
+  });
+  return out.reverse();
+}
+/** Pure. Existing records win; rebuilt ones fill in (by deployment id); newest first, at most max. */
+export const mergeDeploys = (existing, rebuilt, max = 60) => {
+  const seen = new Set((existing ?? []).map((x) => x.id));
+  return [...(existing ?? []), ...rebuilt.filter((x) => !seen.has(x.id))].sort((a, b) => b.at - a.at).slice(0, max);
+};
+
+function rebuildFromVercel() {
+  const r = vercel('GET', `/v6/deployments?projectId=${CFG.projectId}&target=production&limit=100`);
+  if (r.status !== 200) throw new Error(`list deployments failed: ${r.status}`);
+  const list = r.json.deployments.map((d) => ({ id: d.uid, state: d.readyState ?? d.state, target: d.target ?? 'production', created: d.created, ready: d.ready ?? null, sha: d.meta?.githubCommitSha ?? null }));
+  const commitsBetween = (prev, sha) => {
+    try {
+      let base = prev && gitOk('cat-file', '-e', `${prev}^{commit}`) && gitOk('merge-base', '--is-ancestor', prev, sha) ? prev : null;
+      if (!gitOk('cat-file', '-e', `${sha}^{commit}`)) return null;
+      const rows = git('log', ...(base ? [`${base}..${sha}`] : ['-1', sha]), '--format=%x1e%ct', '--name-only', '--no-renames').split('\x1e').filter(Boolean);
+      return rows.map((blk) => { const [ct, ...files] = blk.split('\n').map((l) => l.trim()).filter(Boolean); return { at: Number(ct) * 1000, files }; });
+    } catch { return null; }
+  };
+  return rebuildDeploys(list, commitsBetween);
+}
+
+/** {st, read} — st is only to be written back when mayWriteState(read). */
+function loadState() {
+  const read = readState();
+  if (read.kind === 'ok') return { st: read.st, read };
+  const st = EMPTY_STATE();
+  if (read.kind === 'missing' && ISSUE) {
+    const b = readBackup();
+    if (b) { Object.assign(st, b); st.events = [{ t: Date.now(), kind: 'restore', msg: 'state was missing from the issue body; restored from the backup comment' }, ...(st.events ?? [])]; return { st, read }; }
+    try { st.deploys = rebuildFromVercel(); st.events = [{ t: Date.now(), kind: 'restore', msg: `state was missing and no backup found; rebuilt ${st.deploys.length} deployments from Vercel + git` }]; }
+    catch (e) { log('rebuild failed:', String(e.message).slice(0, 160)); }
+  }
+  return { st, read };
 }
 function event(st, kind, msg) {
   const last = st.events[0];
@@ -461,6 +568,7 @@ function ciState(sha, headAt = null) {
 
 // ---------------------------------------------------------------- acting
 function createDeployment(sha) {
+  if (NO_DEPLOY || DRY) throw new Error('createDeployment called in a no-deploy run');
   return vercel('POST', '/v13/deployments?forceNew=1&skipAutoDetectionConfirmation=1', {
     name: 'typecast',
     project: CFG.projectId,
@@ -556,9 +664,10 @@ export function render(st, ctx, d, pending) {
 function writeBoard(st, ctx, d, pending, force) {
   const md = render(st, ctx, d, pending);
   if (!ISSUE || DRY) { if (DRY) console.log(md.replace(STATE_RE, '')); return; }
-  if (!force && ctx.now - st.lastWrite < 8 * 60e3 && JSON.stringify(st.lastDecision) === JSON.stringify([d.action, d.why, pipelineDigest(ctx.pipeline)])) return;
+  if (!force && !REBUILD && ctx.now - st.lastWrite < 8 * 60e3 && JSON.stringify(st.lastDecision) === JSON.stringify([d.action, d.why, pipelineDigest(ctx.pipeline)])) return;
   st.lastWrite = ctx.now;
   st.lastDecision = [d.action, d.why, pipelineDigest(ctx.pipeline)];
+  writeBackup(st, ctx.now);
   const md2 = render(st, ctx, d, pending);
   try { gh(['api', '-X', 'PATCH', `repos/${CFG.repo}/issues/${ISSUE}`, '--input', '-'], JSON.stringify({ body: md2 })); }
   catch (e) { log('could not write status issue:', String(e.message).slice(0, 160)); }
@@ -572,7 +681,13 @@ function alertFailure(text) {
 
 // ---------------------------------------------------------------- main
 async function tick() {
-  const st = loadState();
+  const { st, read } = loadState();
+  if (!mayWriteState(read)) {
+    // Could not read the board's state (GitHub 5xx, empty or corrupt body): writing now would replace real history with a blank one. Skip; the next tick tries again.
+    log(`SKIPPED: status-issue state unreadable (${read.kind}); nothing written, nothing deployed this tick`);
+    return;
+  }
+  if (REBUILD) { try { st.deploys = mergeDeploys(st.deploys, rebuildFromVercel()); log(`rebuilt: ${st.deploys.length} deployments in state`); } catch (e) { log('rebuild failed, aborting:', String(e.message).slice(0, 160)); return; } }
   st.ticks += 1;
   const started = Date.now();
   for (;;) {
@@ -599,7 +714,7 @@ async function tick() {
       }
     }
 
-    if (d.action === 'deploy' && !DRY && !d.why.includes(CFG.urgentTag)) {
+    if (d.action === 'deploy' && !DRY && !NO_DEPLOY && !d.why.includes(CFG.urgentTag)) {
       const ci = ciState(pending.head, pending.commits[0]?.at ?? null);
       // Measured from the OLDEST pending commit (not the newest): a stream of pushes must not keep postponing the deploy (2026-11-11).
       const ageMin = (Date.now() - Math.min(...pending.relevant.map((c) => c.at))) / 60e3;
@@ -631,7 +746,7 @@ async function tick() {
       }
       if (ci === 'pending') event(st, 'ci', `CI still running; oldest change is ${Math.round(ageMin)}m old: deploying ${pending.head.slice(0, 7)} anyway`);
     }
-    if (d.action === 'deploy' && !DRY) {
+    if (d.action === 'deploy' && !DRY && !NO_DEPLOY) {
       const sha = pending.head;
       const n = pending.relevant.length;
       const firstAt = Math.min(...pending.relevant.map((c) => c.at));
