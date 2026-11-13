@@ -170,3 +170,8 @@ The owner never applies a migration by hand. `scripts/migrate.mjs` applies every
 - **Sessions:** `node scripts/migrate.mjs` (Claude sessions need nothing: the proxy injects the token), `--status` or `--dry-run` only look. Write migrations re-runnable and additive (the old code keeps running until the deploy lands). A migration-only merge is not deployed by itself (`supabase/` is a no-deploy path), so it is applied with the next deploy, or run the script.
 - **First run baseline:** with no record table the script looks at the database: tables exist and `profiles.calendar_token` (0009) is there, so 0001..0009 are recorded without running (0010 as well if `library_items.stopped_min` exists). An empty database runs everything. If it cannot tell, it stops and asks for `--baseline-through NNNN`.
 - Exit codes: 0 ok, 1 a migration failed, 2 cannot run (no token or URL). Secrets are never printed.
+
+## Process-rule wording and session caps (2026-11-13, owner-approved token trim)
+- CLAUDE.md standing rules and the two hooks carry only the terse rule text; this file holds the why. Reply tags exist because sessions wake themselves (CI, Monitors, background tasks, PR events, peers, wakeups) and the owner returns hours later to mostly-not-theirs text: the first line must say what is for them. `🔴` is only for what nobody but the owner can give; `🟢` only when nothing is open.
+- Hooks: `session-start.sh` and `prompt-submit.sh` repeat the same rules on purpose (kept in sync with CLAUDE.md); edit all three together.
+- **Orchestrator cap:** any session that spawns child sessions retires at ~250k context and hands off a short note (an orchestrator reached 784k tokens and $29.56; a worker restart re-writes the whole context to the cache).
