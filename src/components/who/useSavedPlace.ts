@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef } from "react";
 import { clearProgress, setProgress } from "@/app/actions";
 import { useLib } from "../cast/LibState";
 import { useWatchControl } from "../Watching";
-import { forwardSave, isAhead, needsPromotion, nextWrite, shouldSavePlace } from "@/lib/watch-library";
+import { forwardSave, isAhead, needsPromotion, nextWrite, placeToProgress, shouldSavePlace } from "@/lib/watch-library";
 import { refreshPartly } from "@/lib/watch-prev";
 import type { Item } from "@/lib/types";
 import type { Pos } from "@/lib/who-types";
@@ -69,7 +69,7 @@ export function useSavedPlace(item: Item, runtime: number | null, seasons: { n: 
   }, [flush]);
 
   /** Next: `from` was finished. `to` is where the pickers go next (null on the very last episode). Call before the place state changes. */
-  const next = useCallback((from: Ep, to: Ep | null) => {
+  const next = useCallback((from: Ep, to: Ep | null, opts?: { engage?: boolean }) => {
     const { item: it, lib: l, wc: w, runtime: rt } = live.current;
     const cur = l.get(it.key);
     // A write the debounce still holds is for an episode before `from` (the place only moves forward from the page's own state), so this one replaces it.
@@ -77,7 +77,8 @@ export function useSavedPlace(item: Item, runtime: number | null, seasons: { n: 
     const write = nextWrite(needsPromotion(cur) ? "watching" : cur?.status, from, saved.current);
     const prior = saved.current;
     if (write) saved.current = write;
-    const engaged = w ? w.signal(it, rt, to ?? from) : Promise.resolve(true);
+    // `engage: false` (the place card on a title that is already Watching): the write and the toast only, no "Watching now" bar.
+    const engaged = w && opts?.engage !== false ? w.signal(it, rt, to ?? from) : Promise.resolve(true);
     engaged.then((ok) => {
       if (!ok) { saved.current = prior; return; }
       if (write) return setProgress(it.type, it.id, write.s, write.e).then(() => { l.touch(); l.setPlace(it.key, write); l.notify(`S${from.s} E${from.e} marked watched`, () => restore(prior)); }).catch(() => { saved.current = prior; });
@@ -85,5 +86,19 @@ export function useSavedPlace(item: Item, runtime: number | null, seasons: { n: 
     refreshPartly(it.key);
   }, [restore]);
 
-  return { place, next };
+  /** An explicit pick of the place (the place card's picker): any direction, ONE write now, toast "Place set: S3 E5 · Undo". Only while the title is Watching. */
+  const jump = useCallback((p: Ep) => {
+    const { item: it, lib: l, seasons: sz } = live.current;
+    if (statusRef.current !== "watching") return;
+    pending.current = null; clearTimeout(timer.current);
+    const write = placeToProgress(p, sz);
+    const prior = saved.current;
+    if (write && prior && write.s === prior.s && write.e === prior.e) return;
+    saved.current = write;
+    (write ? setProgress(it.type, it.id, write.s, write.e) : clearProgress(it.type, it.id))
+      .then(() => { l.touch(); l.setPlace(it.key, write); refreshPartly(it.key); l.notify(`Place set: S${p.s} E${p.e}`, () => restore(prior)); })
+      .catch(() => { saved.current = prior; });
+  }, [restore]);
+
+  return { place, next, jump };
 }

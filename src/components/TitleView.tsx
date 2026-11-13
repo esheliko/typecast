@@ -26,6 +26,7 @@ import { LinkedRows, RelatedRows } from "@/components/cast/CreditList";
 import { FromProvider, PersonLink } from "@/components/Modal";
 import { Where } from "@/components/Where";
 import { WatchButton } from "@/components/Watching";
+import PlaceStrip from "@/components/PlaceStrip";
 import { fillCrew, missingCrew } from "@/lib/crew-fill";
 import { bylineLabel, DETAIL_IDS, DETAIL_LABEL, detailLabel, isCrewId, MAIN_CAST, type CrewBy, type CrewId, type DetailId } from "@/lib/details";
 import { enrich } from "@/lib/enrich";
@@ -297,6 +298,11 @@ export default async function TitleView({ t, origin, focus }: { t: Title; origin
           {t.overview && <details className="sh-ov"><summary>{t.overview}</summary><p>{t.overview}</p></details>}
         </div>
       </div>
+      {t.type === "tv" && t.seasons.length > 0 && (
+        <PlaceStrip item={{ key: t.key, type: t.type, id: t.id, title: t.title, year: t.year, poster: t.poster }} runtime={t.runtime} seasons={t.seasons} progress={mine?.progress ?? null}
+          status={t.show?.status ?? t.status} today={today} latest={t.show?.latest ? { s: t.show.latest.s, e: t.show.latest.e } : null}
+          next={t.show?.next ? { s: t.show.next.s, e: t.show.next.e, air: t.show.next.air } : null} />
+      )}
       <section className="mark-card" aria-label="Your list">
         <StatusControls item={t} lib={mine} />
         <WatchButton it={{ key: t.key, type: t.type, id: t.id, title: t.title, year: t.year, poster: t.poster }} runtime={t.runtime} progress={mine?.progress ?? null} seasons={t.type === "tv" ? t.seasons : undefined} />

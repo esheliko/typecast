@@ -106,7 +106,7 @@ export default function UpNext({ picks: all, services, prefs }: { picks: Pick[];
                 {!p.go && p.length && <span className="mono upnext-len">{p.length}</span>}
               </TitleLink>
               {/* A continue card: the text line sits outside the popup link so it can hold a second link (never an anchor inside an anchor). Same one or two lines. */}
-              {p.go && <span className="upnext-w">{p.why} <Link className="upnext-go" href={p.go}>Continue</Link></span>}
+              {p.go && <span className="upnext-w">{p.why} <Link className="upnext-go" href={p.go}>{p.cta ?? "Continue"}</Link></span>}
               {p.go && p.length && <span className="mono upnext-len">{p.length}</span>}
               {p.kind === "still" && (
                 <span className="upnext-ask">
