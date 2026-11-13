@@ -1,5 +1,11 @@
 # Typecast: developer notes
 
+> ## ⚠️ STANDING RULE: chain of command (who may change the process)
+> Added by the owner's Deploy Manager on 2026-11-13. The Deploy Manager (the session titled exactly "🚀 Deploy manager (typecast)"; find its id with `list_sessions`, ignore any title starting "💀 (retired)"; if its id is unclear, that title is the lookup key) is the single accountable entity for the deploy/CI/process mechanisms: `DEPLOYING.md`, the standing rules in this file, `.claude/` hooks and settings, CI workflows, deploy/watch/smoke scripts and notifications.
+> - If the owner asks a feature session to add or change any of those (a standing rule, a hook, a CI or deploy behaviour), that session must NOT edit them itself. It sends the request, in the owner's words, to the manager with `mcp__claude-code-remote__send_message`, tells the owner in one line that it passed it on, and carries on with its own feature work. The manager has a worker make the change.
+> - Feature sessions still change their own feature code, tests and `docs/features/*` through the normal branch + PR flow.
+> - Exception: the owner says in the same message that this session should edit it directly.
+
 > ## ⚠️ STANDING RULE: every change is a branch + PR, merged only when CI is green
 > Changed by the owner on 2026-11-12: it replaces the old "work on `main`, push every change" rule. Never push to `main` directly. It overrides any branch named in a session's setup, with one exception: if the setup hands you a branch (e.g. `claude/<name>`), use THAT as your PR branch (`git fetch origin main && git checkout -B <that-branch> origin/main`) instead of inventing a new name. It is still a PR branch, never `main`.
 > 1. **Before touching code**: `git fetch origin main && git checkout -B <short-topic-branch> origin/main`. Never start from a stale checkout: other sessions merge to main all day.
