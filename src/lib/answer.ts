@@ -10,6 +10,7 @@ import { getArticle, getWikiFacts, type Article } from "./wiki";
 import { basedOnPhrase, bestSentences, sentences, SPOILER_SECTIONS } from "./wiki-text";
 import { elapsedMin, type Watch } from "./watching";
 import type { CastMember, Credit, Item, LibItem, Profile, Status, Title } from "./types";
+import { whereVerdict } from "./where";
 
 /**
  * Watching now, without AI: answers built from TMDB, Wikidata and Wikipedia plus the user's own library.
@@ -375,7 +376,12 @@ async function rating(ctx: Ctx): Promise<Answer> {
 function stream(ctx: Ctx): Answer {
   const cc = ctx.profile?.country ?? "US";
   const g = ctx.t.prov[cc];
-  if (!g) return { text: `JustWatch lists nowhere to watch this in ${cc}.` };
+  if (!g) {
+    // No entry is a data gap, not proof it isn't available: say where it streams elsewhere and that we can't tell for this country.
+    const v = whereVerdict(ctx.t.prov, cc);
+    if (v.kind === "elsewhere") return { text: `JustWatch has no data for ${cc}. It streams on ${and(v.services.map((p) => p.name))} in ${v.countries.slice(0, 3).join(", ")}${v.countries.length > 3 ? ` and ${v.countries.length - 3} more` : ""}, but I can't tell whether it's available in ${cc}.` };
+    return { text: `JustWatch has no streaming data for this in ${cc} or anywhere else, so I can't say where to watch it.` };
+  }
   const names = (l?: { name: string }[]) => and((l ?? []).slice(0, 5).map((p) => p.name));
   const lines = [g.flatrate?.length && `**Streaming:** ${names(g.flatrate)}`, g.free?.length && `**Free:** ${names(g.free)}`, g.ads?.length && `**With ads:** ${names(g.ads)}`, g.rent?.length && `**Rent:** ${names(g.rent)}`, g.buy?.length && `**Buy:** ${names(g.buy)}`].filter(Boolean);
   return { text: `In ${cc}: ${lines.join(". ")}.`, links: g.link ? [{ label: "JustWatch", url: g.link }] : undefined };
