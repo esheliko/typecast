@@ -1344,12 +1344,27 @@ main:focus { outline: none; }
   .wx-epb { min-height: 40px; padding: 6px 12px; font-size: 13.5px; max-width: 100%; }
   .wx-epnext { min-height: 40px; padding: 6px 12px 6px 10px; font-size: 13.5px; }
   .wx-epnext::before { top: 9px; bottom: 9px; }
-  /* scrolled: poster, title and the two switches only (the kicker, year line and episode pickers are back at the top of the list) */
-  .wx[data-compact="true"] .wx-top { gap: 8px; padding-top: calc(4px + env(safe-area-inset-top, 0px)); padding-bottom: 4px; }
-  .wx[data-compact="true"] .wx-pos, .wx[data-compact="true"] .wx-ttl .wbar-k, .wx[data-compact="true"] .wx-ttl .small { display: none; }
+  /* scrolled: poster, title and the two switches only (the kicker, year line and episode pickers are back at the top of the list).
+     Nothing snaps: each part eases its height/opacity/size over 280ms, so the header glides to its slim form and back. */
+  .wx-top, .wx-poster, .wx-nospoil, .wx-nsl, .wx-pos, .wx-ttl .wbar-k, .wx-ttl .wx-sub {
+    transition: padding .28s cubic-bezier(.4, 0, .2, 1), gap .28s cubic-bezier(.4, 0, .2, 1), width .28s cubic-bezier(.4, 0, .2, 1), height .28s cubic-bezier(.4, 0, .2, 1),
+      max-height .28s cubic-bezier(.4, 0, .2, 1), max-width .28s cubic-bezier(.4, 0, .2, 1), opacity .2s ease, visibility 0s linear 0s;
+  }
+  .wx-pos, .wx-ttl .wbar-k, .wx-ttl .wx-sub { overflow: hidden; }
+  .wx-pos { max-height: 64px; }
+  .wx-ttl .wbar-k { max-height: 20px; }
+  .wx-ttl .wx-sub { max-height: 30px; }
+  .wx-nsl { max-width: 120px; overflow: hidden; }
+  .wx[data-compact="true"] .wx-top { gap: 0 8px; padding-top: calc(4px + env(safe-area-inset-top, 0px)); padding-bottom: 4px; }
+  .wx[data-compact="true"] .wx-pos, .wx[data-compact="true"] .wx-ttl .wbar-k, .wx[data-compact="true"] .wx-ttl .wx-sub {
+    max-height: 0; opacity: 0; visibility: hidden; pointer-events: none; transition-property: max-height, opacity, visibility; transition-duration: .28s, .16s, 0s; transition-delay: 0s, 0s, .28s;
+  }
   .wx[data-compact="true"] .wx-poster { width: 24px; height: 36px; }
-  .wx[data-compact="true"] .wx-nsl { display: none; }
-  .wx[data-compact="true"] .wx-nospoil { padding: 4px 9px; }
+  .wx[data-compact="true"] .wx-nsl { max-width: 0; opacity: 0; }
+  .wx[data-compact="true"] .wx-nospoil { padding: 4px 9px; gap: 0; }
+  @media (prefers-reduced-motion: reduce) {
+    .wx-top, .wx-poster, .wx-nospoil, .wx-nsl, .wx-pos, .wx-ttl .wbar-k, .wx-ttl .wx-sub { transition: none !important; }
+  }
   .wx-find { padding: 8px 0 6px; }
   .wx-find input { min-height: 44px; }
   .wx-chips { flex-wrap: nowrap; gap: 4px; margin: 0 0 4px; overflow-x: auto; scrollbar-width: none; }
