@@ -1440,8 +1440,12 @@ main:focus { outline: none; }
 .whs-intro { margin: 0; font-size: 14px; }
 .whs-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .whs-l { font-size: 13px; font-weight: 600; color: var(--muted); }
-.whs-sel { display: inline-flex; align-items: center; gap: 8px; }
-.whs-poster { width: 28px; height: 42px; border-radius: 4px; object-fit: cover; }
+.whs-sel { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 12px 0 6px; border-radius: 999px; background: var(--surface-2, rgba(255,255,255,.06)); max-width: 100%; }
+.whs-sel b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.whs-chg { font-size: 12px; color: var(--muted); font-weight: 600; }
+.whs-top { gap: 8px; }
+.whs-change { display: flex; flex-direction: column; gap: 8px; }
+.whs-poster { width: 24px; height: 36px; border-radius: 4px; object-fit: cover; }
 .whs-pick .wx-epgroup .wx-epb { border-radius: 999px; padding-right: 14px; }
 .whs-q { display: flex; flex-direction: column; gap: 6px; }
 .whs-q input, .whs-t { width: 100%; }
