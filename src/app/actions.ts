@@ -114,10 +114,11 @@ export async function setNote(type: MediaType, id: number, note: string) {
   await patch(type, id, { note: note.slice(0, 5000) });
 }
 export async function setProgress(type: MediaType, id: number, season: number, episode: number) {
-  await patch(type, id, { progress_season: season, progress_episode: episode });
-  // Progress at or past the new episode settles the flag.
   const { sb, user } = await requireUser();
-  const { data } = await sb.from("library_items").select("new_episode_s,new_episode_e").eq("user_id", user.id).match(where(type, id)).maybeSingle();
+  const { data } = await sb.from("library_items").select("status,new_episode_s,new_episode_e").eq("user_id", user.id).match(where(type, id)).maybeSingle();
+  // A tick is the last time you watched it (a Watched series keeps its own date: the new-episode check reads it).
+  await patch(type, id, { progress_season: season, progress_episode: episode, ...(data?.status !== "watched" ? { watched_at: new Date().toISOString() } : {}) });
+  // Progress at or past the new episode settles the flag.
   if (data?.new_episode_s && progressPassed({ s: season, e: episode }, { s: data.new_episode_s, e: data.new_episode_e ?? 1 })) await clearNewEp(sb, user.id, type, id);
 }
 
@@ -134,7 +135,7 @@ export async function setWatchedUpTo(item: { id: number; title: string; year: st
   const keep = data?.status === "watching" || data?.status === "partial" || data?.status === "watched";
   const status: Status = keep ? (data!.status as Status) : "watching";
   const { error } = await sb.from("library_items").upsert(
-    { user_id: user.id, ...where("tv", item.id), title: item.title, year: item.year, poster_path: item.poster, status, progress_season: clear ? null : season, progress_episode: clear ? null : episode, updated_at: new Date().toISOString() },
+    { user_id: user.id, ...where("tv", item.id), title: item.title, year: item.year, poster_path: item.poster, status, progress_season: clear ? null : season, progress_episode: clear ? null : episode, ...(!clear && status !== "watched" ? { watched_at: new Date().toISOString() } : {}), updated_at: new Date().toISOString() },
     { onConflict: "user_id,tmdb_type,tmdb_id" },
   );
   if (error) throw dbError(error);
