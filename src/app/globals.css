@@ -1289,7 +1289,10 @@ main:focus { outline: none; }
   .wx-chips .seg button { min-height: 38px; }
 }
 .wx-titlelink { color: inherit; text-decoration: none; font-weight: 700; display: block; }
-.wx-titlelink:hover { text-decoration: underline; }
+.wx-titlelink:hover { text-decoration: none; }
+.wx-sub { display: flex; align-items: center; gap: 8px; }
+.wx-details { flex: none; font-size: 12px; font-weight: 600; line-height: 1; color: var(--ink); background: var(--chip); border-radius: 999px; padding: 4px 9px; text-decoration: none; }
+.wx-details:hover { color: var(--gold-fill); }
 
 /* Watching now on phones (< 560px): the faces get the screen. The header is two slim rows (title + switches, then where you are) and, once the list is scrolled
    (`.wx[data-compact]`), one row. The search box and ONE row of filters stay pinned. Before: header, search and three chip rows took more than half of the screen. */
