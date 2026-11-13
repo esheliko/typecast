@@ -577,6 +577,25 @@ function createDeployment(sha) {
   });
 }
 
+/**
+ * Apply pending database migrations (scripts/migrate.mjs) before a deployment. Returns null when fine, else the text to alert with: a failed migration blocks the deploy.
+ * Without SUPABASE_ACCESS_TOKEN the step is skipped unless the batch touches supabase/migrations (then it blocks and says what is missing).
+ */
+function migrateBeforeDeploy(touchesMigrations) {
+  if (!process.env.SUPABASE_ACCESS_TOKEN && !process.env.HTTPS_PROXY) {
+    return touchesMigrations ? 'this batch changes `supabase/migrations/` but the repo secret `SUPABASE_ACCESS_TOKEN` is missing, so the migration cannot be applied. Add it (Supabase account access token) and the next tick deploys.' : null;
+  }
+  try {
+    const out = execFileSync('node', ['scripts/migrate.mjs'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 8e6, env: process.env });
+    log(out.trim().split('\n').slice(-3).join(' | '));
+    return null;
+  } catch (e) {
+    const out = `${e.stdout ?? ''}${e.stderr ?? ''}`.trim().split('\n').slice(-6).join('\n');
+    if (e.status === 2 && !touchesMigrations) { log('migrations skipped (cannot run here):', out.slice(0, 200)); return null; }
+    return `a database migration failed or could not run, so the deploy is **blocked** (production keeps the last version). Output:\n\`\`\`\n${out.slice(0, 1200)}\n\`\`\`\nFix the migration file (new PR) or run \`node scripts/migrate.mjs\` after fixing the database; the next tick retries.`;
+  }
+}
+
 async function watchBuild(id, st) {
   const deadline = Date.now() + CFG.pollMaxMin * 60e3;
   while (Date.now() < deadline) {
@@ -752,6 +771,13 @@ async function tick() {
       const firstAt = Math.min(...pending.relevant.map((c) => c.at));
       event(st, 'deploy', `${sha.slice(0, 7)} — ${d.why}; batching ${n} commit${n === 1 ? '' : 's'}`);
       log(`DEPLOYING ${sha.slice(0, 7)} (${n} commit${n === 1 ? '' : 's'}): ${d.why}`); // the one line the deploy guard listens for: the decision alone (printed before the CI gate) is not a deployment
+      const mig = migrateBeforeDeploy(pending.commits.some((c) => (c.files ?? []).some((f) => f.startsWith('supabase/migrations/'))));
+      if (mig) {
+        event(st, 'migration', `migration blocked the deploy of ${sha.slice(0, 7)}`);
+        if (st.migAlertSha !== sha) { st.migAlertSha = sha; alertFailure(`${mig} (issue #${CFG.ciIssue} tracks CI; this blocks only the deploy)`); }
+        writeBoard(st, ctx, d, pending, true);
+        return;
+      }
       const r = createDeployment(sha);
       if (r.status === 200 || r.status === 201) {
         const id = r.json.id ?? r.json.uid;
