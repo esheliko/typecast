@@ -18,6 +18,7 @@ function toItem(r: any): LibItem & { checkedAt: number } {
     updated: Date.parse(r.updated_at) || Date.parse(r.added_at) || 0,
     watchedAt: r.watched_at ? Date.parse(r.watched_at) : null,
     newEp: r.status === "watching" && r.new_episode_at && r.new_episode_s ? { at: String(r.new_episode_at).slice(0, 10), s: r.new_episode_s, e: r.new_episode_e ?? 1, season: !!r.new_season } : null,
+    stoppedMin: r.stopped_min > 0 ? r.stopped_min : null, stoppedOf: r.stopped_of > 0 ? r.stopped_of : null,
     checkedAt: r.checked_at ? Date.parse(r.checked_at) : 0,
   };
 }

@@ -2,6 +2,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useWatchControl } from "../Watching";
 import { useLib } from "../cast/LibState";
+import { setStopped } from "@/app/actions";
+import { stoppedWrite } from "@/lib/film-resume";
 import { filmDone, isLastEpisode, seriesEnded } from "@/lib/watch-library";
 import { markPromptDone, promptDone } from "@/lib/watch-prev";
 import { elapsedMin, setPaused, shiftWatch, whereLabel, type Watch } from "@/lib/watching";
@@ -195,6 +197,33 @@ export function FilmClock({ item, runtime }: { item: Item; runtime: number | nul
   const [hidden, setHidden] = useState(false);
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 15_000); return () => clearInterval(t); }, []);
   const w = wc?.watch && wc.watch.key === item.key ? wc.watch : null;
+  // Film resume (docs/features/film-resume.md): where the clock stands is saved to the library row with ONE debounced write after a change, at once on
+  // pause, and when the page is hidden or left. Never while the film is not Watching in the library, and never after it was marked Watched here.
+  const wRef = useRef(w); wRef.current = w;
+  const libRef = useRef(lib); libRef.current = lib;
+  const rtRef = useRef(runtime); rtRef.current = runtime;
+  const last = useRef<number | null>(lib.get(item.key)?.stopped ?? null);
+  const finished = useRef(false);
+  const flush = useRef(() => {});
+  flush.current = () => {
+    const cur = wRef.current, l = libRef.current;
+    if (!cur || finished.current || l.get(item.key)?.status !== "watching") return;
+    const wr = stoppedWrite(elapsedMin(cur, Date.now()), cur.runtime ?? rtRef.current, last.current);
+    if (!wr) return;
+    const prior = last.current;
+    last.current = wr.min;
+    setStopped(item.id, wr.min, wr.of).then(() => { if (!finished.current) l.setStopped(item.key, wr.min ?? undefined); }).catch(() => { last.current = prior; });
+  };
+  useEffect(() => {
+    if (!w) return;
+    const t = setTimeout(() => flush.current(), w.paused ? 0 : 1500);
+    return () => clearTimeout(t);
+  }, [w?.started, w?.paused]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    const hide = () => { if (document.visibilityState === "hidden") flush.current(); };
+    document.addEventListener("visibilitychange", hide); window.addEventListener("pagehide", hide);
+    return () => { document.removeEventListener("visibilitychange", hide); window.removeEventListener("pagehide", hide); flush.current(); };
+  }, []);
   if (!w || !wc) return null;
   const paused = !!w.paused;
   const signal = () => { wc.signal(item, runtime ?? w.runtime).catch(() => {}); };
@@ -217,7 +246,7 @@ export function FilmClock({ item, runtime }: { item: Item; runtime: number | nul
       {showDone && (
         <span className="wx-finish" role="status">
           Finished?{" "}
-          <button type="button" className="linkish" onClick={() => { markPromptDone(item.key); lib.mark(item, "watched", undefined, true); wc.stop({ restore: false }); }}>Mark watched</button>
+          <button type="button" className="linkish" onClick={() => { finished.current = true; markPromptDone(item.key); lib.mark(item, "watched", undefined, true); wc.stop({ restore: false }); }}>Mark watched</button>
           <button type="button" className="linkish muted" aria-label="Dismiss" onClick={dismiss}>&#215;</button>
         </span>
       )}

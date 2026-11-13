@@ -24,6 +24,14 @@ async function clearNewEp(sb: Awaited<ReturnType<typeof requireUser>>["sb"], use
   try { await sb.from("library_items").update({ new_episode_at: null, new_episode_s: null, new_episode_e: null, new_season: false }).eq("user_id", userId).match(where(type, id)).not("new_episode_at", "is", null); } catch { /* column not there yet */ }
 }
 
+/**
+ * Drops a film's stopped time once it is Watched (docs/features/film-resume.md). Best effort and separate from the main write: the columns come
+ * from migration 0010, and until it is applied this errors harmlessly. Only touches a row that has one.
+ */
+async function clearStopped(sb: Awaited<ReturnType<typeof requireUser>>["sb"], userId: string, id: number) {
+  try { await sb.from("library_items").update({ stopped_min: null, stopped_of: null }).eq("user_id", userId).match(where("movie", id)).not("stopped_min", "is", null); } catch { /* column not there yet */ }
+}
+
 type Single = { type: MediaType; id: number; title: string; year: string; poster: string | null };
 
 /**
@@ -55,6 +63,7 @@ async function writeStatus(item: Single, status: Status | null, priority?: Prior
     if (error) throw dbError(error);
     // Marked Watched again (or moved off Watching): the new episode is dealt with.
     if (status !== "watching") await clearNewEp(sb, user.id, item.type, item.id);
+    if (status === "watched" && item.type === "movie") await clearStopped(sb, user.id, item.id);
   }
 }
 
@@ -102,6 +111,20 @@ async function patch(type: MediaType, id: number, values: Record<string, unknown
 /** Clears a series' progress (Undo of a Next/place save that started from none): ONE update, no revalidation (a quick write). */
 export async function clearProgress(type: MediaType, id: number) {
   await patch(type, id, { progress_season: null, progress_episode: null });
+}
+/**
+ * The film clock's ONE debounced write: where a film you are watching stopped (whole minutes, `of` its runtime). `min` null clears it (a restart).
+ * A quick write: no revalidation, and it never changes the status (it only touches a row that is already Watching).
+ */
+export async function setStopped(id: number, min: number | null, of: number | null) {
+  if (!Number.isInteger(id) || id <= 0) throw new Error("Bad film");
+  const m = min === null ? null : Math.floor(min), o = of === null ? null : Math.floor(of);
+  if (m !== null && !(m >= 1 && m <= 1000)) throw new Error("Bad minutes");
+  if (o !== null && !(o >= 1 && o <= 1000)) throw new Error("Bad runtime");
+  const { sb, user } = await requireUser();
+  const q = sb.from("library_items").update({ stopped_min: m, stopped_of: m === null ? null : o, updated_at: new Date().toISOString() }).eq("user_id", user.id).match(where("movie", id));
+  const { error } = await (m === null ? q : q.eq("status", "watching"));
+  if (error) throw dbError(error);
 }
 export async function setPriority(type: MediaType, id: number, priority: Priority) {
   if (priority !== "someday" && priority !== "must") throw new Error("Bad priority");

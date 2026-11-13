@@ -20,7 +20,7 @@ export default async function AppLayout({ children, modal }: { children: React.R
   const watch = parseWatch(jar.get(WATCH_COOKIE)?.value);
   // GlimpseProvider wraps LibProvider: the franchise sheet (rendered by LibProvider) has glimpse buttons too.
   // One set of marks for every page and for the title popup, so a title marked anywhere is marked everywhere at once.
-  const marks = Object.fromEntries(lib.map((l) => [l.key, packMark({ status: l.status, priority: l.priority, rich: l.rating > 0 || !!l.note.trim(), fresh: l.status === "watching" && l.newEp ? (l.newEp.season ? "season" : "episode") : undefined, progress: l.progress })]));
+  const marks = Object.fromEntries(lib.map((l) => [l.key, packMark({ status: l.status, priority: l.priority, rich: l.rating > 0 || !!l.note.trim(), fresh: l.status === "watching" && l.newEp ? (l.newEp.season ? "season" : "episode") : undefined, progress: l.progress, stopped: l.type === "movie" && l.stoppedMin ? l.stoppedMin : undefined })]));
   return (
     <GlimpseProvider>
       <LibProvider packed={marks}>

@@ -549,6 +549,38 @@ test.describe("behaviour (signed in)", () => {
     }
   });
 
+  // Film resume (docs/features/film-resume.md): a Watching film with a stopped time shows it in the Library with a Resume button; the sheet opens and moves
+  // its time WITHOUT writing anything; "Mark watched" is the explicit write and clears the stopped time. Arrival (scratch). Skipped until migration 0010 is applied.
+  test("a Watching film with a stopped time offers Resume; the sheet writes nothing until a button is used", async ({ page }) => {
+    const { sb, userId } = await smokeClient();
+    const film = SCRATCH[4];
+    const row = () => rowOf(sb, userId, "movie", film.tmdb_id);
+    const hasCol = !(await sb.from("library_items").select("stopped_min").limit(1)).error;
+    test.skip(!hasCol, "migration 0010 is not applied on this database");
+    try {
+      const { error } = await sb.from("library_items").upsert({ user_id: userId, ...film, year: "2016", poster_path: null, status: "watching", priority: "someday", rating: 0, note: "",
+        stopped_min: 52, stopped_of: 116 }, { onConflict: "user_id,tmdb_type,tmdb_id" });
+      expect(error?.message).toBeUndefined();
+      await page.goto("/library?f=watching");
+      const li = page.locator(".lib-row", { hasText: film.title });
+      await expect(li).toContainText("stopped at 52:00 of 1h 56m", { timeout: 30_000 });
+      await li.getByRole("button", { name: /^Resume/ }).click();
+      const sheet = page.getByRole("dialog", { name: /Where did you stop/ });
+      await expect(sheet).toContainText("52:00");
+      await sheet.getByRole("button", { name: "5 minutes more" }).click();
+      await expect(sheet).toContainText("57:00");
+      await expect(sheet).toContainText("of 1h 56m");
+      // Opening the sheet and moving the time wrote nothing.
+      expect((await row())?.stopped_min).toBe(52);
+      expect((await row())?.status).toBe("watching");
+      await sheet.getByRole("button", { name: "Mark watched" }).click();
+      await expect.poll(async () => (await row())?.status, { timeout: 15_000 }).toBe("watched");
+      await expect.poll(async () => (await row())?.stopped_min ?? null, { timeout: 15_000 }).toBeNull();
+    } finally {
+      await deleteRows(sb, userId, [film]);
+    }
+  });
+
   // Search > Who's that?: starts on the Watching series (Breaking Bad, saved place S2 E3) at the episode after it, and finds a cast member by name. The mode lives in the URL.
   test("search: Who's that? starts at the saved place and finds a person by name", async ({ page }) => {
     await page.goto("/?m=who");
