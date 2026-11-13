@@ -1369,8 +1369,7 @@ main:focus { outline: none; }
   }
   .wx-find { padding: 8px 0 6px; }
   .wx-find input { min-height: 44px; }
-  .wx-chips { flex-wrap: nowrap; gap: 4px; margin: 0 0 4px; overflow-x: auto; scrollbar-width: none; }
-  .wx-chips::-webkit-scrollbar { display: none; }
+  .wx-chips { flex-wrap: wrap; gap: 4px; margin: 0 0 4px; }
   .wx-chips .seg { flex: none; padding: 2px; }
   .wx-chips .seg button { padding: 5px 6px; font-size: 12.5px; white-space: nowrap; }
   .wx-xl { display: none; }
