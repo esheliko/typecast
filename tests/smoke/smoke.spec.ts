@@ -102,7 +102,7 @@ test.describe("signed in", () => {
     // The seeded Breaking Bad is Watching at S2 E3 (watched up to there): its card says where to continue ("Next: S2 E4", or "After S2 E3" while TMDB facts are missing)
     // and has a small Continue link that reopens /watching at that episode.
     const bb = upnext.locator(".upnext-card", { hasText: "Breaking Bad" }).first();
-    await expect(bb).toContainText(/Next: S2 E4|After S2 E3/, { timeout: 20_000 });
+    await expect(bb).toContainText(/S2 E4 · out now|Next: S2 E4|After S2 E3/, { timeout: 20_000 });
     await expect(bb.getByRole("link", { name: "Continue" })).toHaveAttribute("href", "/watching?k=tv-1396&s=2&e=4");
     // Upcoming: the seeded series are all candidates, but whether any has a future episode depends on TMDB today, so the section is
     // optional. When it is there it must open, and every row needs a date and a countdown (never "Invalid" or an empty cell).
