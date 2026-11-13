@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 // Typecast Deploy Manager.
 //
-// Vercel's Hobby plan allows 100 deployments per rolling 24h. Git pushes no longer deploy by themselves
+// Vercel's Hobby plan allows 100 deployments per rolling 24h. Merges to main no longer deploy by themselves
 // (vercel.json: git.deploymentEnabled=false). This script is the only thing that deploys: it looks at what is
-// pending on main, waits for a quiet moment so a burst of pushes becomes ONE deployment, and paces itself
+// pending on main, waits for a quiet moment so a burst of merges becomes ONE deployment, and paces itself
 // against the daily budget. See DEPLOYING.md for the policy and the lessons log.
 //
 //   node scripts/deploy-manager.mjs [tick] [--dry] [--wait] [--no-poll] [--issue N]

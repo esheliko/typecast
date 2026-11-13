@@ -121,7 +121,7 @@ async function main() {
     const mine = git('rev-parse', FOR);
     let cov = coveringVerdict(mine);
     while (WAIT && !cov?.missing && !cov && Date.now() < deadline) { await sleep(30e3); cov = coveringVerdict(mine); }
-    if (cov?.missing) { console.log(`Your commit ${mine.slice(0, 7)} is not on origin/main yet: push it first.`); process.exit(3); }
+    if (cov?.missing) { console.log(`Your commit ${mine.slice(0, 7)} is not on origin/main yet: it only gets there when its pull request is squash-merged (never push to main directly); pass the merge commit sha, after git fetch origin main.`); process.exit(3); }
     if (!cov) { console.log(`CI has not finished for ${mine.slice(0, 7)} within ${(deadline - t0) / 60e3} min: read issue #2 or re-run this.`); process.exit(2); }
     head = cov.sha; v = cov.v;
   } else {

@@ -1,7 +1,7 @@
 # Deploying Typecast (Deploy Manager)
 
-Vercel Hobby limits deployments, so **a merge or push no longer deploys by itself** (`vercel.json` → `git.deploymentEnabled: false`).
-`scripts/deploy-manager.mjs` is the only thing that deploys. It deploys the head of `main` as ONE deployment per burst of pushes.
+Vercel Hobby limits deployments, so **a merge to `main` no longer deploys by itself** (`vercel.json` → `git.deploymentEnabled: false`).
+`scripts/deploy-manager.mjs` is the only thing that deploys. It deploys the head of `main` as ONE deployment per burst of merges (every change reaches `main` as a squash-merged pull request, never a direct push).
 
 ## How it runs
 - **GitHub Actions** (`.github/workflows/deploy-manager.yml`): when CI finishes (`workflow_run`, cancelled CI runs are ignored), every 5 min as a safety net, and on demand (no `push` trigger since 2026-11-09: it only started runs that the next push cancelled). Needs the repo

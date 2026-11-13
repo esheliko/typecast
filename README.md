@@ -55,5 +55,8 @@ npm install
 npm run dev
 ```
 
+### Contributing
+Nobody pushes to `main` directly. Every change is a short-lived branch plus ONE pull request against `main`: run `npm run lint && npm run typecheck && npm test`, push the branch once, wait for the `verify` check on the PR to go green, then squash-merge. A merge queues the change for the Deploy Manager, which batches merges into one Vercel deployment; do not deploy by hand. Full rules: `CLAUDE.md` (standing rule at the top) and `DEPLOYING.md`.
+
 ## Credits
 This product uses the TMDB API but is not endorsed or certified by TMDB. Streaming availability data is provided by JustWatch.
