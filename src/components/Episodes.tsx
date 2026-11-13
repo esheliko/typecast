@@ -8,6 +8,7 @@ import { SpoilerGate } from "./SpoilerGate";
 import { lineCacheKey, lineParams, markLine, pageFor, type HiddenLine, type SpoilerLine } from "@/lib/spoiler-line";
 import { usePageLine } from "./PageLine";
 import { img } from "@/lib/img";
+import { facesText, type EpisodeFaces } from "@/lib/episode-faces";
 import type { EnrichedMember, Episode, EpisodeLite, Status } from "@/lib/types";
 
 interface Season { name: string; air: string; episodes: (Episode & { hidden?: true })[]; /** The series is Watching in the library and later episodes were held back (docs/features/spoilers.md). */ hidden?: HiddenLine }
@@ -26,6 +27,20 @@ function loadSeason(tv: number, s: number, line: SpoilerLine, page: { key: strin
     p = fetch(`/api/season?tv=${tv}&s=${s}${extra ? `&${extra}` : ""}`).then(async (r) => { if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error ?? "Could not load this season."); return r.json(); });
     p.catch(() => seasonCache.delete(k));
     seasonCache.set(k, p);
+  }
+  return p;
+}
+
+/** The light per-season faces (top 3 per episode), asked when a season opens; the server applies the same line. Failing just means no faces. */
+const facesCache = new Map<string, Promise<EpisodeFaces[]>>();
+function loadFaces(tv: number, s: number, lk: string, page: { key: string; spoilersShown: boolean } | null, reveal: boolean): Promise<EpisodeFaces[]> {
+  const k = `${tv}:${s}:${lk}`;
+  let p = facesCache.get(k);
+  if (!p) {
+    const extra = new URLSearchParams(lineParams({ page, reveal })).toString();
+    p = fetch(`/api/season-faces?tv=${tv}&s=${s}${extra ? `&${extra}` : ""}`).then(async (r) => { if (!r.ok) throw new Error("faces failed"); return ((await r.json()).episodes ?? []) as EpisodeFaces[]; });
+    p.catch(() => facesCache.delete(k));
+    facesCache.set(k, p);
   }
   return p;
 }
@@ -88,6 +103,17 @@ export default function Episodes({ item, seasons, progress, status, today, ended
     // `lineTagKey` stands for the line and the page: the effect reruns exactly when the question changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [item.id, s, lineTagKey, shown]);
+
+  // Faces per episode: after the season itself, so the list shows first. Another place or Show is another question; a failure leaves the rows plain.
+  const [faces, setFaces] = useState<Map<number, EpisodeFaces> | null>(null);
+  useEffect(() => {
+    if (!data) return;
+    let live = true;
+    loadFaces(item.id, s, lineTagKey, reqPage, shown.has(s)).then((l) => { if (live) setFaces(new Map(l.map((f) => [f.e, f]))); }, () => { if (live) setFaces(null); });
+    return () => { live = false; };
+    // `lineTagKey` stands for the line and the page.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [item.id, s, lineTagKey, shown, !!data]);
 
   // Once the asked-for episode is on screen, open it and bring it into view.
   useEffect(() => {
@@ -191,6 +217,7 @@ export default function Episodes({ item, seasons, progress, status, today, ended
                   <span className="ep-main">
                     <span className="ep-name">{x.name || `Episode ${x.e}`}</span>
                     <span className="ep-sub">{sub}</span>
+                    <FacesLine x={x} f={x.hidden ? { e: x.e, hidden: true } : faces?.get(x.e)} />
                   </span>
                   {isNext && <span className="pill watching">Up next</span>}
                   {!isNext && x.finale && <span className="pill">Finale</span>}
@@ -209,6 +236,24 @@ export default function Episodes({ item, seasons, progress, status, today, ended
         </ul>
       </div>
     </section>
+  );
+}
+
+/** Up to 3 round faces and a short text under an episode's line; later episodes of a Watching series show a quiet chip and nothing else. */
+function FacesLine({ x, f }: { x: { e: number }; f: EpisodeFaces | undefined }) {
+  if (!f) return null;
+  if (f.hidden) return <span className="epf epf-hid" aria-label={`Cast of episode ${x.e} hidden`}>cast hidden</span>;
+  if (!f.faces.length) return null;
+  return (
+    <span className="epf">
+      <span className="epf-stack" aria-hidden="true">
+        {f.faces.map((g) => g.photo
+          // eslint-disable-next-line @next/next/no-img-element
+          ? <img key={g.id} className="epf-face" src={img(g.photo, "w92")} alt="" loading="lazy" decoding="async" />
+          : <span key={g.id} className="epf-face epf-none">{g.name.slice(0, 1)}</span>)}
+      </span>
+      <span className="epf-txt">{facesText(f)}</span>
+    </span>
   );
 }
 
