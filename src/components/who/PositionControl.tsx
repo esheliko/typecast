@@ -29,7 +29,7 @@ export function PositionControl({ brief, pos, onChange, onNext }: { brief: WhoBr
  * count); the open season shows its episodes (still, number, name, air date) and its row stays pinned at the top while you scroll them, so one tap on it
  * folds the season and lets you pick another. "Whole series" and "Whole season" stay as the first rows. Next sits beside it in the same pill.
  */
-function PositionPicker({ brief, pos, seasons, onChange, onNext }: { brief: WhoBrief; pos: Pos; seasons: WhoBrief["seasons"]; onChange: (p: Pos) => void; onNext: (from: { s: number; e: number } | null, to: Pos | null) => void }) {
+export function PositionPicker({ brief, pos, seasons, onChange, onNext }: { brief: WhoBrief; pos: Pos; seasons: WhoBrief["seasons"]; onChange: (p: Pos) => void; /** Without it the picker has no Next button (Search's "Who's that?" only looks). */ onNext?: (from: { s: number; e: number } | null, to: Pos | null) => void }) {
   const [open, setOpen] = useState(false);
   const [openS, setOpenS] = useState<number | null>(pos.s); // the season whose episodes are shown (null: all folded)
   const [ranges, setRanges] = useState<Record<number, { start: string; end: string }>>({});
@@ -106,6 +106,7 @@ function PositionPicker({ brief, pos, seasons, onChange, onNext }: { brief: WhoB
   const finale = !!from && seriesEnded(brief.status) && isLastEpisode(from, brief.seasons);
   const canNext = !!nextEp || (!!nextSeason && eps !== null) || finale;
   const next = async () => {
+    if (!onNext) return;
     if (nextEp) return onNext(from, { s, e: nextEp.e });
     if (nextSeason) {
       try {
@@ -162,10 +163,10 @@ function PositionPicker({ brief, pos, seasons, onChange, onNext }: { brief: WhoB
           </div>
         )}
       </div>
-      <button type="button" className="wx-epnext" disabled={!canNext} onClick={next} aria-label={nextEp ? `Next episode: E${nextEp.e}` : nextSeason ? `Next season: S${nextSeason.n}` : "Next episode"} title="Finished this one: go to the next episode">
+      {onNext && <button type="button" className="wx-epnext" disabled={!canNext} onClick={next} aria-label={nextEp ? `Next episode: E${nextEp.e}` : nextSeason ? `Next season: S${nextSeason.n}` : "Next episode"} title="Finished this one: go to the next episode">
         <span>Next</span>
         <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 5.5v13l8.5-6.5zM17 5.5v13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
-      </button>
+      </button>}
     </div>
   );
 }

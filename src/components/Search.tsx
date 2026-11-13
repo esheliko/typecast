@@ -6,6 +6,7 @@ import { Poster } from "./cast/Browse";
 import QuickMark from "./cast/QuickMark";
 import { useLib } from "./cast/LibState";
 import { KindFilter } from "./KindSeg";
+import WhoSearch, { type WhoTitle } from "./WhoSearch";
 import { img } from "@/lib/img";
 import { layoutSearch, pickCollections, youKnowFrom, type PersonHit, type TitleHit } from "@/lib/search-intent";
 import type { BrowseItem, SearchHit } from "@/lib/types";
@@ -18,7 +19,18 @@ const readRecent = (): string[] => { try { const v = JSON.parse(localStorage.get
 const writeRecent = (v: string[]) => { try { localStorage.setItem(RECENT, JSON.stringify(v)); } catch { /* private mode: no recents */ } };
 
 /** Search box for the cast tab. While it has a query, its results take the place of the page below it. */
-export default function Search({ onActive }: { onActive: (on: boolean) => void }) {
+type Mode = "all" | "people" | "who";
+const MODES: [Mode, string][] = [["all", "All"], ["people", "People"], ["who", "Who\u2019s that?"]];
+const modeFromUrl = (): Mode => { try { const m = new URLSearchParams(window.location.search).get("m"); return m === "who" || m === "people" ? m : "all"; } catch { return "all"; } };
+
+export default function Search({ onActive, watching = [] }: { onActive: (on: boolean) => void; watching?: WhoTitle[] }) {
+  const [mode, setMode] = useState<Mode>("all");
+  // The mode lives in the URL (?m=who) so a refresh keeps it; nothing else about it is stored.
+  useEffect(() => { setMode(modeFromUrl()); }, []);
+  const pickMode = (m: Mode) => {
+    setMode(m);
+    try { const u = new URL(window.location.href); if (m === "all") u.searchParams.delete("m"); else u.searchParams.set("m", m); window.history.replaceState(window.history.state, "", u); } catch { /* the mode just is not remembered */ }
+  };
   const [q, setQ] = useState("");
   const [hits, setHits] = useState<SearchHit[] | null>(null);
   const [colls, setColls] = useState<Coll[]>([]);
@@ -34,7 +46,7 @@ export default function Search({ onActive }: { onActive: (on: boolean) => void }
   const term = q.trim();
   const { get } = useLib();
 
-  useEffect(() => { onActive(term.length >= 2); }, [term, onActive]);
+  useEffect(() => { onActive(mode === "who" || term.length >= 2); }, [term, mode, onActive]);
   useEffect(() => { setRecent(readRecent()); }, []);
   // A refresh keeps the typed query (a normal visit starts empty).
   useEffect(() => {
@@ -51,14 +63,14 @@ export default function Search({ onActive }: { onActive: (on: boolean) => void }
     setState("loading");
     const t = setTimeout(async () => {
       try {
-        const r = await fetch(`/api/search?q=${encodeURIComponent(term)}${exact ? "&exact=1" : ""}`, { signal: ctl.signal });
+        const r = await fetch(`/api/search?q=${encodeURIComponent(term)}${mode === "people" ? "&kind=person" : ""}${exact ? "&exact=1" : ""}`, { signal: ctl.signal });
         const j = await r.json();
         if (!r.ok) throw new Error(j.error ?? "Search failed.");
         setHits(j.hits); setColls(j.collections ?? []); setFix(j.didYouMean ?? null); setShowFolded(false); setState("idle");
       } catch (e) { if ((e as Error).name !== "AbortError") { setError((e as Error).message); setState("error"); } }
     }, 250);
     return () => { clearTimeout(t); ctl.abort(); };
-  }, [term, exact]);
+  }, [term, exact, mode]);
 
   // "/" focuses search from anywhere on the page, as on most sites.
   useEffect(() => {
@@ -98,8 +110,15 @@ export default function Search({ onActive }: { onActive: (on: boolean) => void }
   const people = lay?.people ?? [];
   const summary = !lay ? "" : `${hits?.length ?? 0} ${hits?.length === 1 ? "result" : "results"}${top ? `, top result ${top.kind === "person" ? top.name : top.title}` : ""}`;
   const recents = focused && !q && recent.length > 0;
+  const seg = (
+    <div className="seg wide whs-seg" role="group" aria-label="What to search">
+      {MODES.map(([m, label]) => <button key={m} type="button" aria-pressed={mode === m} onClick={() => pickMode(m)}>{label}</button>)}
+    </div>
+  );
+  if (mode === "who") return <>{seg}<WhoSearch watching={watching} /></>;
   return (
     <>
+      {seg}
       <form className="search" role="search" onSubmit={(e) => { e.preventDefault(); submit(); }}>
         <div className="field">
           <input ref={input} type="search" aria-label="Search films, series and people" placeholder="Search a film, series or person" value={q}
@@ -124,37 +143,38 @@ export default function Search({ onActive }: { onActive: (on: boolean) => void }
             <div style={{ opacity: state === "loading" ? 0.55 : 1, transition: "opacity .15s" }}>
               {fix && <p className="muted" style={{ marginTop: 16 }}>Showing results for <b>{fix}</b>. <button type="button" className="linkish" onClick={() => setExact(true)}>Search for &quot;{term}&quot; instead</button></p>}
               {hits.length === 0 && colls.length === 0 && <p className="muted" style={{ marginTop: 20 }}>Nothing found for &quot;{term}&quot;. Try the full name or add the year.</p>}
-              {top && (
+              {mode === "people" && hits.length > 0 && <PeopleStrip people={hits.flatMap((h) => (h.kind === "person" ? [h] : []))} wrap />}
+              {mode === "all" && top && (
                 <>
                   <h2>Top result</h2>
                   <TopRow hit={top} known={known} />
                 </>
               )}
-              {lay?.also && (
+              {mode === "all" && lay?.also && (
                 <>
                   <h2>Also</h2>
                   <TopRow hit={lay.also} known={lay.also.kind === "person" ? youKnowFrom(lay.also, (k) => getRef.current(k)) : []} />
                 </>
               )}
-              {shownColls.map((c) => (
+              {mode === "all" && shownColls.map((c) => (
                 <div key={c.id}>
                   <h2>{c.name}</h2>
                   <ul className="grid">{c.items.map((h) => <li key={h.key}><Poster it={h} /></li>)}</ul>
                 </div>
               ))}
-              {people.length > 0 && (
+              {mode === "all" && people.length > 0 && (
                 <>
                   <h2>{lay?.intent === "person" ? `Also named ${term}` : "People"}</h2>
                   <PeopleStrip people={people} />
                 </>
               )}
-              {lay && lay.titles.length > 0 && (
+              {mode === "all" && lay && lay.titles.length > 0 && (
                 <>
                   <h2>{top ? "More titles" : "Films and series"}</h2>
                   <KindFilter items={lay.titles}>{(shown) => <ul className="grid">{shown.map((h) => <li key={h.key}><Poster it={h} /></li>)}</ul>}</KindFilter>
                 </>
               )}
-              {lay && lay.folded.length > 0 && (
+              {mode === "all" && lay && lay.folded.length > 0 && (
                 showFolded
                   ? <><h2>Weaker matches</h2><KindFilter items={lay.folded}>{(shown) => <ul className="grid">{shown.map((h) => <li key={h.key}><Poster it={h} /></li>)}</ul>}</KindFilter></>
                   : <div className="center" style={{ marginTop: 16 }}><button type="button" className="btn" onClick={() => setShowFolded(true)}>{lay.folded.length} weaker {lay.folded.length === 1 ? "match" : "matches"}</button></div>
@@ -167,9 +187,9 @@ export default function Search({ onActive }: { onActive: (on: boolean) => void }
   );
 }
 
-function PeopleStrip({ people }: { people: PersonHit[] }) {
+function PeopleStrip({ people, wrap }: { people: PersonHit[]; wrap?: boolean }) {
   return (
-    <div className="chips scroll people">
+    <div className={wrap ? "chips people" : "chips scroll people"} style={wrap ? { marginTop: 16 } : undefined}>
       {people.map((h) => (
         <PersonLink key={h.id} className="person-chip" pid={h.id} it={h}>
           <Avatar photo={h.photo} name={h.name} />
