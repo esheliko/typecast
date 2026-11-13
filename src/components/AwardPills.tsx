@@ -2,7 +2,7 @@
 import { useBackClose } from "@/lib/back-layer";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
-export interface PillSection { name: string; entries: { category: string; year: string }[]; won: boolean }
+export interface PillSection { name: string; entries: { category: string; year: string; who?: string[] }[]; won: boolean }
 export interface Pill { text: string; win: boolean; sections: PillSection[] }
 
 /** The header pills. Tapping one opens a small popover under the row listing exactly what it counts; tap again, tap outside or Esc closes it. */
@@ -35,7 +35,7 @@ export function AwardPills({ pills, icon }: { pills: Pill[]; icon: ReactNode }) 
               <ul className="aw-list">
                 {s.entries.map((e, i) => (
                   <li key={i} className={s.won ? "win" : ""}>
-                    <span className="aw-c">{e.category || "Top prize"}</span>
+                    <span className="aw-c">{e.category || "Top prize"}{e.who && <span className="aw-w">{e.who.join(", ")}</span>}</span>
                     {e.year && <span className="aw-y">{e.year}</span>}
                   </li>
                 ))}
