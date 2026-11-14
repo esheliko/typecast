@@ -52,9 +52,6 @@ export function WhoApp({ brief, initialPos, today, others = [], savedProgress = 
   /** Phones: whether the details cover the finder. (Wide screens always show them.) */
   const [open, setOpen] = useState(false);
   const lastTop = useRef(0);
-  const lastFlip = useRef(0);
-  const run = useRef(0);
-  const [compact, setCompact] = useState(false); // phones: the header slims down once the face list is scrolled (hysteresis so it never flickers at the edge)
   const [q, setQ] = useState("");
   const [recents, setRecents] = useState<RecentTrail[]>([]);
   const [zoomed, setZoomed] = useState<{ path: string; name: string; size?: string; gallery?: string[] } | null>(null);
@@ -285,39 +282,43 @@ export function WhoApp({ brief, initialPos, today, others = [], savedProgress = 
   const ctx = useMemo(() => ({ brief, today, pos, scope: scopeKind(pos), clip, spoilers, rootLabel, faces, watched, push, setExact, zoom, prefetchPerson }), [brief, today, pos, clip, spoilers, rootLabel, faces, watched, push, setExact, zoom, prefetchPerson]);
   const roster4finder = rosterFresh ?? roster;
 
-  // Phones: scrolling down past the first screen slims the header; ANY upward scroll brings it back (not only reaching the top).
-  // Right after a flip the header's own height change can nudge scrollTop, so that moment is ignored (no flicker loop).
-  // Animate the header's height on the phone compact flip: the content swaps to its new layout at once, the header's box eases between the old and new
-  // height (clipped), and the content fades in. Layout-only work on one element, so the list below is not re-flowed per frame beyond its own resize.
+  // Phones: the header slides away with the list like a browser's address bar. It is an overlay (the list never reflows or jumps): `--wx-off` is how far it has
+  // slid up (0 = shown, header height = gone), moved 1:1 by the scroll distance; scrolling up brings it back at once. Written straight to the DOM, no React state.
+  // The pinned search row follows it (see globals.css), and when scrolling stops a half-hidden header settles to shown or hidden.
+  const rootRef = useRef<HTMLDivElement>(null);
   const topRef = useRef<HTMLElement>(null);
-  const topH = useRef(0);
+  const hdrH = useRef(0);
+  const off = useRef(0);
+  const settle = useRef<number>(0);
+  const idle = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const setOff = (v: number) => { off.current = v; rootRef.current?.style.setProperty("--wx-off", String(v)); };
   useLayoutEffect(() => {
-    const el = topRef.current;
-    if (!el) return;
-    const h = el.getBoundingClientRect().height;
-    const from = topH.current;
-    topH.current = h;
-    if (!from || Math.abs(from - h) < 2 || typeof el.animate !== "function") return;
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches || !window.matchMedia("(max-width: 559px)").matches) return;
-    el.style.overflow = "hidden";
-    const a = el.animate([{ height: `${from}px` }, { height: `${h}px` }], { duration: 260, easing: "cubic-bezier(.3,.6,.2,1)" });
-    el.querySelectorAll<HTMLElement>(".wx-ttl, .wx-pos, .wx-topr").forEach((c) => c.animate([{ opacity: 0.35 }, { opacity: 1 }], { duration: 220, easing: "ease-out" }));
-    a.onfinish = a.oncancel = () => { el.style.overflow = ""; };
-  }, [compact]);
-  // Slow scrolling sends tiny per-event steps (1-2px), so a per-event delta never reached the threshold and the flip fired late at a random moment.
-  // Accumulate the distance travelled in the current direction instead; the flip needs a short deliberate run either way.
+    const el = topRef.current, root = rootRef.current;
+    if (!el || !root) return;
+    const measure = () => { hdrH.current = el.offsetHeight; root.style.setProperty("--wx-h", `${hdrH.current}px`); if (off.current > hdrH.current) setOff(hdrH.current); };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => { ro.disconnect(); cancelAnimationFrame(settle.current); clearTimeout(idle.current); };
+  }, []);
   const onFinderScroll = (t: number) => {
     const d = t - lastTop.current;
     lastTop.current = t;
-    if (d === 0) return;
-    run.current = Math.sign(d) === Math.sign(run.current) ? run.current + d : d;
-    if (Date.now() - lastFlip.current < 350) return;
-    if (t <= 12 || run.current < -10) { if (compact) { lastFlip.current = Date.now(); run.current = 0; setCompact(false); } }
-    else if (run.current > 24 && t > 72 && !compact) { lastFlip.current = Date.now(); run.current = 0; setCompact(true); }
+    if (!window.matchMedia("(max-width: 559px)").matches) return;
+    cancelAnimationFrame(settle.current);
+    setOff(t <= 0 ? 0 : Math.min(hdrH.current, Math.max(0, off.current + d)));
+    clearTimeout(idle.current);
+    idle.current = setTimeout(() => {
+      const from = off.current, to = from > hdrH.current / 2 && t > hdrH.current ? hdrH.current : 0;
+      if (from === to || window.matchMedia("(prefers-reduced-motion: reduce)").matches) { setOff(to); return; }
+      const t0 = performance.now();
+      const step = (now: number) => { const k = Math.min(1, (now - t0) / 160); setOff(from + (to - from) * (1 - (1 - k) * (1 - k))); if (k < 1) settle.current = requestAnimationFrame(step); };
+      settle.current = requestAnimationFrame(step);
+    }, 140);
   };
   return (
     <WhoProvider value={ctx}>
-      <div className="wx" data-compact={compact} role="main" aria-label={`Watching now: ${brief.title}`}>
+      <div className="wx" ref={rootRef} role="main" aria-label={`Watching now: ${brief.title}`}>
         <header className="wx-top" ref={topRef}>
           <ZoomBtn path={brief.poster} name={brief.title} className="wx-posterb"><Photo path={brief.poster} name={brief.title} w="w92" className="wx-poster" eager /></ZoomBtn>
           <div className="wx-ttl">
