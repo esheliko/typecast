@@ -94,7 +94,7 @@ export default async function Library({ searchParams }: { searchParams: Promise<
           <p className="muted">Find a title on the Browse tab and mark it Watching, To watch or Watched. Suggestions and connections between your titles appear here as your library grows.</p>
           <Link className="btn gold" href="/">Find a title</Link>
         </div>
-      ) : <><div className="page-head"><h1>Library</h1><Link href="/library/stats">Stats <span aria-hidden="true">›</span></Link></div><LibraryView items={lib} initial={filter} initialSort={isSort(s) ? s : "added"} initialKind={isKind(k) && k !== "all" ? k : "all"}
+      ) : <><div className="page-head"><h1>Library</h1><Link href="/library/stats">Stats <span aria-hidden="true">›</span></Link></div><LibraryView items={lib} initial={filter} initialSort={isSort(s) ? s : "watched"} initialKind={isKind(k) && k !== "all" ? k : "all"}
         top={<>
           <Suspense fallback={<UpNext picks={quickPicks(lib)} services="pending" prefs={prefs} />}><WatchNext lib={lib} prefs={prefs} /></Suspense>
           <Suspense fallback={hasUpcomingCandidates(lib) ? <UpcomingSkeleton /> : null}><UpcomingFromList lib={lib} prefs={prefs} /></Suspense>

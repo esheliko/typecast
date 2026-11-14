@@ -7,4 +7,4 @@ test("isSort accepts every defined sort key and nothing else", () => {
   for (const bad of [undefined, "", "Added", "random", "__proto__"]) assert.equal(isSort(bad), false, String(bad));
 });
 
-test("the default sort key exists", () => assert.ok(isSort("added")));
+test("the default sort key exists", () => assert.ok(isSort("watched")));

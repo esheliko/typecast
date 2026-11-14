@@ -397,8 +397,8 @@ test.describe("behaviour (signed in)", () => {
     expect(titles.length).toBeGreaterThanOrEqual(SEED.length);
     const cmp = (a: string, b: string) => a.localeCompare(b, undefined, { sensitivity: "base", numeric: true });
     expect(titles).toEqual([...titles].sort(cmp));
-    // The default order is "recently added", which is not alphabetical for the seeded set.
-    await page.getByLabel("Sort library").selectOption("added");
+    // The default order is "recently watched", which is not alphabetical for the seeded set.
+    await page.getByLabel("Sort library").selectOption("watched");
     await expect(page).not.toHaveURL(/s=/);
     expect((await rowTitles(page).allInnerTexts()).map((t) => t.trim())).not.toEqual(titles);
   });
