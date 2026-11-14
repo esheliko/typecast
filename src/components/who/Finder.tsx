@@ -16,7 +16,8 @@ import { sharedThenIds } from "@/lib/then-photo";
 import { useThen } from "./useThen";
 import { roleLabel } from "@/lib/roster";
 import { pickSeenIn, seenInText, type KnownTitle } from "@/lib/who-known";
-import { seenMark } from "@/lib/spoiler-mask";
+import { seenMarkAt } from "@/lib/spoiler-mask";
+import { lineTag, markLine } from "@/lib/spoiler-line";
 import type { WhoFace, WhoRoster } from "@/lib/who-types";
 
 const PER_GROUP = 12;
@@ -74,6 +75,30 @@ export function Finder({ roster, loading, more, err, q, setQ, inputRef, recents,
         .catch(() => { chunk.forEach((n) => askedKnown.current.delete(n)); });
     }
   }, [ids]);
+
+  // A Watching series counts as "seen" on a tile only when the server confirms the person appeared by the saved place (their character name is then no spoiler).
+  const lib = useLib();
+  const [seenW, setSeenW] = useState<Record<string, string[]>>({});
+  const watchingCands = useMemo(() => {
+    const out: { id: number; keys: string[]; tag: string }[] = [];
+    for (const [id, top] of Object.entries(known)) {
+      const keys = top.filter(([k, , , , eps]) => k !== brief.key && k.startsWith("tv:") && eps > 0 && lib.get(k)?.status === "watching" && lib.get(k)?.progress).map(([k]) => k).slice(0, 12);
+      if (keys.length) out.push({ id: Number(id), keys, tag: keys.map((k) => `${k}${lineTag(markLine(k, lib.get(k)))}`).join(",") });
+    }
+    return out;
+  }, [known, lib, brief.key]);
+  useEffect(() => {
+    let live = true;
+    for (const c of watchingCands) {
+      whoApi.seen(c.id, c.keys, c.tag).then((r) => { if (live) setSeenW((m) => (m[`${c.id}|${c.tag}`] ? m : { ...m, [`${c.id}|${c.tag}`]: r.seen })); }).catch(() => {});
+    }
+    return () => { live = false; };
+  }, [watchingCands]);
+  const seenFor = (id: number): Set<string> | undefined => {
+    const c = watchingCands.find((x) => x.id === id);
+    const r = c && seenW[`${id}|${c.tag}`];
+    return r ? new Set(r) : undefined;
+  };
 
   // "Then" photos: how each person looked in this title (the Glimpse "In the role" image search, cached 30 days server-side). Opt-in, only for older titles,
   // only the faces on screen, a few at a time. The tile keeps its box, so nothing moves; a face with no image keeps the profile photo.
@@ -201,7 +226,7 @@ export function Finder({ roster, loading, more, err, q, setQ, inputRef, recents,
             <section key={g.id} className="wx-group" aria-label={g.label}>
               <h3 className="wx-gh">{g.label}<span className="muted"> · {g.faces.length}</span></h3>
               <ul className="wx-grid">
-                {list.map((f, i) => <Tile key={f.id} f={f} eager={i < 12} known={known[f.id]} then={showThen ? thenImg[f.id] : undefined} year={brief.year} onOpen={() => onOpen(f)} onPop={setPop} />)}
+                {list.map((f, i) => <Tile key={f.id} f={f} eager={i < 12} known={known[f.id]} seenW={seenFor(f.id)} then={showThen ? thenImg[f.id] : undefined} year={brief.year} onOpen={() => onOpen(f)} onPop={setPop} />)}
               </ul>
               {g.faces.length > lim && <button type="button" className="chip wx-more" onClick={() => setOpen((o) => ({ ...o, [g.id]: !all }))}>{all ? "Show fewer" : `Show ${g.faces.length - lim} more`}</button>}
             </section>
@@ -282,7 +307,7 @@ function GridSkeleton() {
 }
 
 /** One face: photo, name, character (one line each) and one muted line, "x4 · Character in Title" (gold only for the seen part). Nothing is drawn for what is not known. */
-function Tile({ f, known, eager, then, year, onOpen, onPop }: { f: WhoFace; known?: KnownTitle[]; eager: boolean; then?: string | null; year?: string; onOpen: () => void; onPop: (p: { f: WhoFace; r: DOMRect } | null) => void }) {
+function Tile({ f, known, seenW, eager, then, year, onOpen, onPop }: { f: WhoFace; known?: KnownTitle[]; seenW?: Set<string>; eager: boolean; then?: string | null; year?: string; onOpen: () => void; onPop: (p: { f: WhoFace; r: DOMRect } | null) => void }) {
   const lib = useLib();
   const { brief, prefetchPerson, clip, spoilers } = useWho();
   const [bad, setBad] = useState(false);
@@ -296,7 +321,7 @@ function Tile({ f, known, eager, then, year, onOpen, onPop }: { f: WhoFace; know
   };
   const hide = () => { clearTimeout(timer.current); onPop(null); };
   useEffect(() => () => clearTimeout(timer.current), []);
-  const pick = known ? pickSeenIn(known, brief.key, (k) => { const m = lib.get(k); return m && SEEN_STATUS.has(m.status) ? seenMark(k, m) : undefined; }) : null; // a Watching series is not "seen" here: no saved-place check (spoiler line)
+  const pick = known ? pickSeenIn(known, brief.key, (k) => { const m = lib.get(k); return m && SEEN_STATUS.has(m.status) ? seenMarkAt(k, m, seenW) : undefined; }) : null; // a Watching series is "seen" only when the server confirmed they appeared by the saved place (spoiler line)
   const seen = pick ? seenInText(pick) : "";
   const best = known?.find(([k]) => k !== brief.key);
   const role = roleLabel(f.role);

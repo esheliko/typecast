@@ -4,7 +4,7 @@ import { heldHit, maskCreditItem } from "./spoiler-mask";
 import type { CastMember, Credit, EnrichedMember, LibItem } from "./types";
 
 /** Parts in a series this short are guest parts: TMDB lists their episodes, so we can tell which one you saw them in. */
-const GUEST_EPS = 12;
+export const GUEST_EPS = 12;
 
 /** "You know them from" one title: for a series, the episode(s) you saw them in, or null when you have not reached them yet. */
 async function hitOf(k: Credit, l: LibItem | undefined): Promise<EnrichedMember["hits"][number] | null> {

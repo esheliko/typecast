@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import type { MaskableCredit } from "../../src/lib/spoiler-mask";
-import { holdBackCast, heldHit, holdBackCredits, isWatchingSeries, maskCreditItem, seenMark } from "../../src/lib/spoiler-mask";
+import { holdBackCast, heldHit, holdBackCredits, isWatchingSeries, maskCreditItem, seenMark, seenMarkAt } from "../../src/lib/spoiler-mask";
 import { pickSeenIn, type KnownTitle } from "../../src/lib/who-known";
 import { NONE } from "../../src/lib/spoiler-line";
 
@@ -62,5 +62,20 @@ describe("holdBackCast", () => {
     assert.deepEqual(out[0], { id: 1, eps: undefined, credits: undefined });
     assert.equal(out[1], cast[1]);
     assert.equal(holdBackCast(cast, NONE), cast);
+  });
+});
+
+describe("seenMarkAt", () => {
+  it("counts a Watching series only when the server confirmed the person appeared by the saved place", () => {
+    const m = { status: "watching", rich: false };
+    assert.equal(seenMarkAt("tv:1", m, undefined), undefined);
+    assert.equal(seenMarkAt("tv:1", m, new Set(["tv:2"])), undefined);
+    assert.equal(seenMarkAt("tv:1", m, new Set(["tv:1"])), m);
+    assert.equal(seenMarkAt("tv:1", { status: "watched", rich: false }, undefined)?.status, "watched");
+  });
+  it("lets pickSeenIn name the character in a confirmed Watching series", () => {
+    const top: KnownTitle[] = [["tv:9", "Shameless", "2011", "Gas Pfender", 3, 4000, 12]];
+    const pick = pickSeenIn(top, "tv:1", (k) => seenMarkAt(k, { status: "watching", rich: false }, new Set(["tv:9"])));
+    assert.equal(pick?.character, "Gas Pfender");
   });
 });
