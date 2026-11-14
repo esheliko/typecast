@@ -37,3 +37,11 @@ export function saveUi(patch: Partial<UiPrefs>) {
     document.cookie = `${UI_COOKIE}=${encodeURIComponent(JSON.stringify(next))}; path=/; max-age=31536000; samesite=lax`;
   } catch { /* cookies blocked: the choice just won't stick */ }
 }
+
+/** Client only: the cookie as it is right now (a cached page render can carry older choices than the ones just saved). */
+export function readUi(): UiPrefs {
+  try {
+    const m = document.cookie.match(new RegExp(`(?:^|; )${UI_COOKIE}=([^;]*)`));
+    return parseUi(m?.[1]);
+  } catch { return { ...UI_DEFAULTS }; }
+}
