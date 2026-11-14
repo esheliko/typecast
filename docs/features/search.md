@@ -8,3 +8,7 @@ Collections ("James Bond Collection") come from `searchCollections` with the pop
 
 ## Who's that? tab
 Who's that? is the third tab next to Browse and Connections on the home page (the URL is `?view=who`, the old `?m=who` still opens it; nothing else stored). The search box has no switcher and no People-only mode (`?m=people` is gone). Who's that? (`components/WhoSearch.tsx`, pure `src/lib/who-search.ts`, unit tested) takes a title (Watching series first, or any title via `/api/search?kind=title`), a place (`PositionPicker`, default `startPos`: the episode after the saved place of a Watching series, whole series otherwise, none for a film) and "A name or role you remember". TMDB has no plot text, so only the actor's name and the character match (`matchWho`: every typed word starts a word of the name or role; name first, then role; this episode, main cast, earlier, guests). The people come from `/api/who/roster` (cut server-side at the place, never a later episode) and open with `PersonLink`. Failures show a small note.
+
+## Summary rule (moved from CLAUDE.md)
+
+- Search results are laid out by pure `layoutSearch` (`src/lib/search-intent.ts`, unit tested): Top result, other kind, weak matches folded; spell-fix only when intent is unclear. Search has a "Who's that?" mode (`components/WhoSearch.tsx`, pure `src/lib/who-search.ts`: find cast by a name or role you remember, cut at your place). Details: `docs/features/search.md` (read before changing this feature).

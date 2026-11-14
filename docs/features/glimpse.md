@@ -42,3 +42,7 @@ The button beside every title, cast row and credit opens one panel with **Images
 
 ## Cast faces (title popup)
 In a cast row the face (a transparent `button.credit-face` over the avatar, outside the `<summary>`, `tabIndex=-1`; the small `.gl-b` stays the keyboard path) opens the same About sheet as the button: `CastAbout` in `components/CastFaces.tsx`. The About text is limited to the saved place by the route (`lineFor`, no `reveal`). On a series that is Watching, `CastFaceScope` draws "Tap a face: character note, up to your place" with the compact `SpoilerGate`; Show sets `info.reveal` (`reveal=1`) for that view only and writes nothing. Other titles show no line.
+
+## Summary rule (moved from CLAUDE.md)
+
+- Glimpse (profile-card button on titles, cast rows, credits): opens About (character note, episodes and dates, title or person summary, all spoiler-scoped on /watching) over the images. Specs carry ids (`lib/glimpse.ts`), server `lib/glimpse-data.ts`, route `/api/glimpse/info`. Cast faces in the title popup open the same sheet (`components/CastFaces.tsx`). Details: `docs/features/glimpse.md` (read before changing this feature).
