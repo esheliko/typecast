@@ -1,7 +1,7 @@
 "use client";
 import { useContext, useEffect, useState } from "react";
 import { TitleLink } from "./Modal";
-import { saveUi } from "@/lib/ui-prefs";
+import { readUi, saveUi } from "@/lib/ui-prefs";
 import { img } from "@/lib/img";
 import { ofKind } from "@/lib/kind";
 import { KindContext } from "@/lib/kind-context";
@@ -22,6 +22,7 @@ export default function Upcoming({ entries: all, today: serverToday, open: initi
   const [today, setToday] = useState(serverToday);
   useEffect(() => {
     setToday(localDay());
+    setOpen(readUi().upOpen); // a cached render of this page may carry an older choice
   }, []);
   // Library rows show a small "Out Fri" / "S5 in 12 days" badge from the same data (all kinds, whatever the switch shows).
   useEffect(() => { setUpcomingBadges(all); return () => setUpcomingBadges([]); }, [all]);

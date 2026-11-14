@@ -627,8 +627,7 @@ button.aw-chip:hover { filter: brightness(1.08); }
 /* Library: one suggested next watch above the chips */
 .upnext { margin-top: 6px; }
 /* One slim row: a clear tappable header, then the filters scroll sideways in the same row (never a second line). */
-.upnext-bar { display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; overflow-x: auto; margin: 0 -16px; padding: 0 16px; scrollbar-width: none; overscroll-behavior-x: contain; }
-.upnext-bar::-webkit-scrollbar { display: none; }
+.upnext-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .upnext-bar > * { flex: none; }
 .upnext-kind .seg button, .upnext-src button { padding: 0 12px; min-height: 30px; font-size: 13px; white-space: nowrap; }
 .upnext-h { display: flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 10px 0 12px; border-radius: 12px; background: var(--surface); border: 1px solid var(--line); box-shadow: inset 3px 0 0 var(--gold); text-align: left; -webkit-tap-highlight-color: transparent; }
@@ -639,7 +638,6 @@ button.aw-chip:hover { filter: brightness(1.08); }
 .upnext-caret { margin-left: 2px; font-size: 22px; line-height: 1; color: var(--muted); transition: transform .15s; display: inline-block; }
 .upnext-h[aria-expanded="true"] .upnext-caret { transform: rotate(90deg); }
 .upnext-peek { flex: 1; min-width: 0; font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.upcoming .upnext-bar { overflow: visible; }
 .upcoming .upnext-h { flex: 1; min-width: 0; }
 .upnext-mine { padding: 0 14px; min-height: 34px; font-size: 13px; white-space: nowrap; }
 .upnext-empty { margin: 6px 2px 4px; font-size: 13px; }
@@ -849,7 +847,7 @@ body:has(.modal) .toast-slot { bottom: calc(84px + env(safe-area-inset-bottom, 0
 .pc-flag.newep { background: rgb(15 17 22 / .78); color: var(--gold-fill); box-shadow: inset 0 0 0 1px var(--gold-fill); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
 
 /* Upcoming from your list (Library): reuses the Watch next header; rows reuse .row and .thumb. */
-.upcoming { margin-bottom: 4px; }
+.upcoming { margin-bottom: 12px; }
 .up-grp { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin: 10px 0 4px; }
 .up-rows { margin: 0; overflow: hidden; }
 .up-row { text-decoration: none; color: inherit; }
