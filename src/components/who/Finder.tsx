@@ -235,13 +235,13 @@ export function Finder({ roster, loading, more, err, q, setQ, inputRef, recents,
         </section>
       ) : null)}
 
-      {pop && <Pop f={pop.f} r={pop.r} then={old && thenOk ? thenImg[pop.f.id] : undefined} year={brief.year} />}
+      {pop && <Pop f={pop.f} r={pop.r} then={old && thenOk ? thenImg[pop.f.id] : undefined} year={brief.year} title={brief.title} />}
     </div>
   );
 }
 
 /** The larger photo beside a tile: to its right, or its left near the edge, always inside the window. */
-function Pop({ f, r, then, year }: { f: WhoFace; r: DOMRect; then?: string | null; year?: string }) {
+function Pop({ f, r, then, year, title }: { f: WhoFace; r: DOMRect; then?: string | null; year?: string; title?: string }) {
   const W = then ? 400 : 220;
   // The height depends on the layout (two photos side by side are half as tall as one), so measure it instead of guessing.
   const ref = useRef<HTMLDivElement>(null);
@@ -263,7 +263,7 @@ function Pop({ f, r, then, year }: { f: WhoFace; r: DOMRect; then?: string | nul
           <figure>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img className="wx-popthen" src={then} alt="" referrerPolicy="no-referrer" />
-            <figcaption>Then{year ? ` · ${year}` : ""}</figcaption>
+            <figcaption>{title || "Then"}{year ? ` · ${year}` : ""}</figcaption>
           </figure>
         )}
       </div>
