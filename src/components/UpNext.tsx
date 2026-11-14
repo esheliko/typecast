@@ -77,10 +77,10 @@ export default function UpNext({ picks: all, services, prefs }: { picks: Pick[];
   return (
     <section className="upnext" aria-label="Watch next">
       <div className="upnext-bar">
-        <button type="button" className="upnext-h" aria-expanded={!closed} onClick={toggle}>
+        <button type="button" className="upnext-h" aria-expanded={!closed} aria-label={`Watch next, ${list.length}. ${closed ? "Show" : "Hide"}`} onClick={toggle}>
           <span className="upnext-k">Watch next</span>
           <span className="mono upnext-n">{list.length}</span>
-          <span className="upnext-caret" aria-hidden="true">{closed ? "Show" : "Hide"}</span>
+          <span className="upnext-caret" aria-hidden="true">›</span>
         </button>
         {!closed && (kind !== "all" || mixed(base)) && <div className="upnext-kind"><KindSeg value={kind} onChange={chooseKind} label="Films or series" /></div>}
         {!closed && <div className="seg upnext-src" role="group" aria-label="Show picks from">{SOURCES.map(([k, text]) => <button key={k} type="button" aria-pressed={src === k} onClick={() => chooseSrc(k)}>{text}</button>)}</div>}
