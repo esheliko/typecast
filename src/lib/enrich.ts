@@ -10,10 +10,12 @@ export const GUEST_EPS = 12;
 async function hitOf(k: Credit, l: LibItem | undefined): Promise<EnrichedMember["hits"][number] | null> {
   const base = { key: k.key, title: k.title, year: k.year };
   // A series that is Watching is only named when the saved place shows they have appeared by then (seenIn below); never on the part size alone.
-  if (heldHit(k, l) && (!k.cids?.length || !k.eps || k.eps > GUEST_EPS)) return null;
-  if (k.type !== "tv" || !l || !k.cids?.length || !k.eps || k.eps > GUEST_EPS) return base;
+  if (heldHit(k, l) && (!k.cids?.length || !k.eps)) return null;
+  const held = heldHit(k, l);
+  if (k.type !== "tv" || !l || !k.cids?.length || !k.eps || (k.eps > GUEST_EPS && !held)) return base;
   try {
     const where = seenIn(await getCreditEpisodes(k.cids), l);
+    if (held && !where?.ep) return null; // Watching: only named when a listed episode is at or before the saved place, whatever the part's size
     return where ? { ...base, ...where } : null;
   } catch { return heldHit(k, l) ? null : base; }
 }
