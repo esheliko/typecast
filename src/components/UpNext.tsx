@@ -1,7 +1,7 @@
 "use client";
 import { useContext, useEffect, useState } from "react";
 import Link from "next/link";
-import { saveUi, type UiPrefs } from "@/lib/ui-prefs";
+import { readUi, saveUi, type UiPrefs } from "@/lib/ui-prefs";
 import { TitleLink } from "./Modal";
 import { img } from "@/lib/img";
 import { newEpLabel } from "@/lib/new-episode";
@@ -47,6 +47,7 @@ export default function UpNext({ picks: all, services, prefs }: { picks: Pick[];
   const { mark } = useLib();
   useEffect(() => {
     setSnoozed(loadSnoozed());
+    if (document.cookie.indexOf("tc_ui=") >= 0) setClosed(readUi().unClosed); // a cached render of this page may carry an older choice
     // One-time move of the old localStorage choices into the cookie (they had no effect on the server render).
     try {
       if (localStorage.getItem("typecast:upnext-closed") !== null && document.cookie.indexOf("tc_ui=") < 0) {
