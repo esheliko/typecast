@@ -1364,7 +1364,7 @@ main:focus { outline: none; }
   .wx-epnext { min-height: 40px; padding: 6px 12px 6px 10px; font-size: 13.5px; }
   .wx-epnext::before { top: 9px; bottom: 9px; }
   /* scrolled down: ONE slim row (about 38px): small poster, title, "S3 · E8" with a Next icon, Close. The spoiler switch, kicker, year line, episode name and
-     the word "Next" are hidden. No transition: the old height/width easing re-flowed the whole page every frame and looked jerky; it swaps in one frame. */
+     the word "Next" are hidden. The content swaps in one frame (per-property easing re-flowed everything and looked jerky); WhoApp eases only the header's box height with the Web Animations API. */
   .wx[data-compact="true"] .wx-top { flex-wrap: nowrap; gap: 0 8px; padding-top: calc(3px + env(safe-area-inset-top, 0px)); padding-bottom: 3px; }
   .wx[data-compact="true"] .wx-ttl .wbar-k, .wx[data-compact="true"] .wx-ttl .wx-sub, .wx[data-compact="true"] .wx-pos-l, .wx[data-compact="true"] .wx-pos .wx-finish,
   .wx[data-compact="true"] .wx-nospoil, .wx[data-compact="true"] .wx-epname, .wx[data-compact="true"] .wx-epnt, .wx[data-compact="true"] .wx-caret { display: none; }
