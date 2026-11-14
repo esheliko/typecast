@@ -44,3 +44,11 @@ export function holdBackCast<T extends { eps?: number; credits?: string[] }>(cas
 
 /** A series credit the library has as Watching, i.e. one whose "seen in" claim needs the saved place to be safe. */
 export const heldHit = (k: { key: string }, l: { status: string } | undefined): boolean => isWatchingSeries(k.key, l?.status);
+
+/**
+ * Like `seenMark`, but a Watching series DOES count when the server confirmed the person already appeared at or before the saved place (`seen`,
+ * from /api/who/seen): the character name of someone you have watched is not a spoiler. Everything else is as `seenMark`.
+ */
+export function seenMarkAt<M extends { status: string }>(key: string, m: M | undefined, seen: ReadonlySet<string> | undefined): M | undefined {
+  return m && isWatchingSeries(key, m.status) && seen?.has(key) ? m : seenMark(key, m);
+}

@@ -52,6 +52,8 @@ export const whoApi = {
   spans: (p: number, keys: string[], cur?: { k: string; pos: Pos | null; cids: string[] } | null, line?: { page?: PageRef | null; reveal?: string[]; tag?: string }) =>
     getJson<Record<string, Span | null>>(`/api/who/spans?${q({ p, keys: keys.join(","), cur: cur?.k, s: cur?.pos?.s, e: cur?.pos?.e, cids: cur?.cids.join(","), ...lineParams({ page: line?.page }), reveal: line?.reveal?.length ? line.reveal.join(",") : undefined })}`, undefined, line?.tag),
   known: (ids: number[]) => getJson<{ known: Record<number, { top: KnownTitle[] }> }>(`/api/who/known?ids=${ids.join(",")}`),
+  /** Which of `keys` (Watching series with a saved place) this person already appeared in by that place; `tag` is `lineTags` of the keys (the cache key). */
+  seen: (p: number, keys: string[], tag?: string) => getJson<{ seen: string[] }>(`/api/who/seen?${q({ p, keys: keys.join(",") })}`, undefined, tag),
   shared: (id: number, others: number[], cur: string) => getJson<{ shared: SharedBrief[] }>(`/api/who/shared?${q({ id, with: others.join(","), cur })}`),
   pair: (a: number, b: number) => getJson<{ a: PersonData; b: PersonData; titles: Shared[] }>(`/api/who/pair?a=${a}&b=${b}`),
   title: (k: string, line?: { page?: PageRef | null; reveal?: boolean; tag?: string }) => getJson<TitleNode>(`/api/who/title?${q({ k, ...lineParams({ page: line?.page, reveal: line?.reveal }) })}`, undefined, line?.tag),
