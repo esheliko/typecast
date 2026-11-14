@@ -4,7 +4,7 @@ import { KindIcon } from "@/components/KindIcon";
 import { useLib } from "../cast/LibState";
 import { SpoilerGate } from "../SpoilerGate";
 import { urlKey } from "@/lib/who-scope";
-import type { HiddenLine } from "@/lib/spoiler-line";
+import { lineTag, markLine, type HiddenLine } from "@/lib/spoiler-line";
 import { KindSeg } from "../KindSeg";
 import { isWatchingSeries } from "@/lib/spoiler-mask";
 import { GlimpseButton } from "../Glimpse";
@@ -95,6 +95,17 @@ export function PersonNode({ node }: { node: PNode }) {
     const listed = credits.filter((c) => !c.extra && st(c) === "watchlist");
     return [...seen, ...listed];
   }, [credits, lib]);
+  // A Watching series whose saved place they already appeared by: their character name there is no spoiler (server confirms, same check as the Finder tile).
+  const [seenW, setSeenW] = useState<{ tag: string; keys: string[] } | null>(null);
+  const watchKeys = useMemo(() => known.filter((c) => c.type === "tv" && isWatchingSeries(c.key, lib.get(c.key)?.status) && lib.get(c.key)?.progress).map((c) => c.key).slice(0, 12), [known, lib]);
+  const watchTag = watchKeys.map((k) => `${k}${lineTag(markLine(k, lib.get(k)))}`).join(",");
+  useEffect(() => {
+    if (!watchKeys.length) return;
+    let live = true;
+    whoApi.seen(node.id, watchKeys, watchTag).then((r) => { if (live) setSeenW({ tag: watchTag, keys: r.seen }); }).catch(() => {});
+    return () => { live = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [node.id, watchTag]);
   const filtered = useMemo(() => {
     let l = credits;
     if (!extras) l = l.filter((c) => !c.extra);
@@ -281,12 +292,14 @@ export function PersonNode({ node }: { node: PNode }) {
           const n = epsIn(c, spansEff[c.key]);
           // A series that is Watching keeps its spoiler line: no role, dates or episode count until the reader lifts it for this row (this view only).
           const held = isWatchingSeries(c.key, st) && !shown.has(c.key);
+          const roleOk = held && seenW?.tag === watchTag && seenW.keys.includes(c.key) && !!c.role; // appeared by your place: the character is told, dates and counts stay held
           const gate: HiddenLine = spansEff[c.key]?.hidden ?? c.hidden ?? { kind: "series-only" };
           return (
             <div key={c.key} className="wx-krow" style={held ? { flexWrap: "wrap" } : undefined}>
               <button type="button" className="wx-kbtn" onClick={() => push({ t: "title", key: c.key, title: c.title, year: c.year, poster: c.poster })}>
                 <Photo path={c.poster} name={c.title} w="w92" className="wx-kpos" />
                 <span className="wx-kmain"><b>{c.title}</b> <span className="muted">{c.type === "tv" ? yearsLabel(c.year, spansEff[c.key]?.show) : c.year}</span>
+                  {roleOk && <span className="small muted wx-kline">as {roleLabel(c.role) || c.role}</span>}
                   {!held && <span className="small muted wx-kline">{[c.role && `as ${roleLabel(c.role) || c.role}`, whenText(c, w), n ? epsLabel(n) : ""].filter(Boolean).join(" · ")}{w.kind === "loading" && <Sk w={90} h={11} style={{ marginLeft: 4 }} />}</span>}
                 </span>
                 <span className="wx-kright">
