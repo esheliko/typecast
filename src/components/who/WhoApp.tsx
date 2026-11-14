@@ -1,6 +1,6 @@
 "use client";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { TitleLink } from "../Modal";
 import { TitleSwitcher } from "./TitleSwitcher";
 import { useWatchControl } from "../Watching";
@@ -286,6 +286,23 @@ export function WhoApp({ brief, initialPos, today, others = [], savedProgress = 
 
   // Phones: scrolling down past the first screen slims the header; ANY upward scroll brings it back (not only reaching the top).
   // Right after a flip the header's own height change can nudge scrollTop, so that moment is ignored (no flicker loop).
+  // Animate the header's height on the phone compact flip: the content swaps to its new layout at once, the header's box eases between the old and new
+  // height (clipped), and the content fades in. Layout-only work on one element, so the list below is not re-flowed per frame beyond its own resize.
+  const topRef = useRef<HTMLElement>(null);
+  const topH = useRef(0);
+  useLayoutEffect(() => {
+    const el = topRef.current;
+    if (!el) return;
+    const h = el.getBoundingClientRect().height;
+    const from = topH.current;
+    topH.current = h;
+    if (!from || Math.abs(from - h) < 2 || typeof el.animate !== "function") return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches || !window.matchMedia("(max-width: 559px)").matches) return;
+    el.style.overflow = "hidden";
+    const a = el.animate([{ height: `${from}px` }, { height: `${h}px` }], { duration: 220, easing: "cubic-bezier(.2,.7,.2,1)" });
+    el.querySelectorAll<HTMLElement>(".wx-ttl, .wx-pos, .wx-topr").forEach((c) => c.animate([{ opacity: 0.35 }, { opacity: 1 }], { duration: 220, easing: "ease-out" }));
+    a.onfinish = a.oncancel = () => { el.style.overflow = ""; };
+  }, [compact]);
   const onFinderScroll = (t: number) => {
     const d = t - lastTop.current;
     lastTop.current = t;
@@ -296,7 +313,7 @@ export function WhoApp({ brief, initialPos, today, others = [], savedProgress = 
   return (
     <WhoProvider value={ctx}>
       <div className="wx" data-compact={compact} role="main" aria-label={`Watching now: ${brief.title}`}>
-        <header className="wx-top">
+        <header className="wx-top" ref={topRef}>
           <ZoomBtn path={brief.poster} name={brief.title} className="wx-posterb"><Photo path={brief.poster} name={brief.title} w="w92" className="wx-poster" eager /></ZoomBtn>
           <div className="wx-ttl">
             <span className="wbar-k"><span className="live-dot" aria-hidden="true" />Watching now</span>

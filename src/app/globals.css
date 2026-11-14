@@ -625,17 +625,25 @@ button.aw-chip:hover { filter: brightness(1.08); }
 }
 
 /* Library: one suggested next watch above the chips */
-.upnext { margin-top: 12px; }
-.upnext-bar { display: flex; align-items: center; gap: 6px 10px; flex-wrap: wrap; }
-.upnext-kind .seg button { padding: 4px 10px; font-size: 12px; white-space: nowrap; }
-.upnext-src button { padding: 4px 10px; font-size: 12px; white-space: nowrap; }
-.upnext-h { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; padding: 6px 2px; }
-.upnext-k { font: 700 13px/1 var(--display); text-transform: uppercase; letter-spacing: .08em; color: var(--gold); }
-.upnext-n { font-size: 12px; color: var(--muted); }
-.upnext-caret { margin-left: auto; font-size: 12px; color: var(--muted); }
-.upnext-mine { padding: 4px 10px; font-size: 12px; white-space: nowrap; }
+.upnext { margin-top: 6px; }
+/* One slim row: a clear tappable header, then the filters scroll sideways in the same row (never a second line). */
+.upnext-bar { display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; overflow-x: auto; margin: 0 -16px; padding: 0 16px; scrollbar-width: none; overscroll-behavior-x: contain; }
+.upnext-bar::-webkit-scrollbar { display: none; }
+.upnext-bar > * { flex: none; }
+.upnext-kind .seg button, .upnext-src button { padding: 0 12px; min-height: 30px; font-size: 13px; white-space: nowrap; }
+.upnext-h { display: flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 10px 0 12px; border-radius: 12px; background: var(--surface); border: 1px solid var(--line); box-shadow: inset 3px 0 0 var(--gold); text-align: left; -webkit-tap-highlight-color: transparent; }
+.upnext-h:active { background: var(--chip); }
+.upnext-h:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.upnext-k { font: 700 14px/1 var(--display); text-transform: uppercase; letter-spacing: .08em; color: var(--gold); white-space: nowrap; }
+.upnext-n { font-size: 12px; min-width: 20px; padding: 2px 6px; border-radius: 999px; background: var(--chip); color: var(--ink); text-align: center; }
+.upnext-caret { margin-left: 2px; font-size: 22px; line-height: 1; color: var(--muted); transition: transform .15s; display: inline-block; }
+.upnext-h[aria-expanded="true"] .upnext-caret { transform: rotate(90deg); }
+.upnext-peek { flex: 1; min-width: 0; font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.upcoming .upnext-bar { overflow: visible; }
+.upcoming .upnext-h { flex: 1; min-width: 0; }
+.upnext-mine { padding: 0 14px; min-height: 34px; font-size: 13px; white-space: nowrap; }
 .upnext-empty { margin: 6px 2px 4px; font-size: 13px; }
-.upnext-restore { font-size: 12px; color: var(--muted); text-decoration: underline dotted; text-underline-offset: 3px; white-space: nowrap; padding: 6px 0; }
+.upnext-restore { font-size: 13px; color: var(--muted); text-decoration: underline dotted; text-underline-offset: 3px; white-space: nowrap; padding: 10px 4px; }
 .upnext-strip { list-style: none; margin: 4px -16px 0; padding: 0 16px 6px; display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x proximity; scroll-padding-left: 16px; overscroll-behavior-x: contain; scrollbar-width: none; }
 .upnext-strip::-webkit-scrollbar { display: none; }
 .upnext-card { flex: none; width: 112px; scroll-snap-align: start; position: relative; }
@@ -645,7 +653,8 @@ button.aw-chip:hover { filter: brightness(1.08); }
 .upnext-card.k-stale .upnext-poster { opacity: .55; filter: grayscale(.6); }
 .upnext-badge { position: absolute; top: 6px; left: 6px; max-width: calc(100% - 40px); padding: 2px 5px; border-radius: 4px; background: var(--gold-fill); color: var(--on-gold); font: 700 9.5px/1.5 var(--mono); letter-spacing: 0; text-transform: uppercase; white-space: nowrap; overflow: hidden; }
 .upnext-svc { position: absolute; left: 6px; right: 6px; bottom: 6px; padding: 2px 6px; border-radius: 4px; background: rgba(0, 0, 0, .72); color: #fff; font: 600 10px/1.4 var(--sans, system-ui); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: fit-content; max-width: calc(100% - 12px); }
-.upnext-x { position: absolute; top: 4px; right: 4px; width: 26px; height: 26px; border-radius: 50%; background: rgba(0, 0, 0, .6); color: #fff; font-size: 16px; line-height: 26px; text-align: center; padding: 0; }
+.upnext-x { position: absolute; top: 4px; right: 4px; width: 30px; height: 30px; border-radius: 50%; background: rgba(0, 0, 0, .65); color: #fff; font-size: 18px; line-height: 30px; text-align: center; padding: 0; }
+.upnext-x::after { content: ""; position: absolute; inset: -8px; }
 @media (hover: hover) { .upnext-x { opacity: 0; transition: opacity .15s; } .upnext-card:hover .upnext-x, .upnext-x:focus-visible { opacity: 1; } }
 .upnext-t { font-size: 13px; font-weight: 600; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .upnext-w { font-size: 11px; line-height: 1.3; color: var(--muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
@@ -849,7 +858,7 @@ body:has(.modal) .toast-slot { bottom: calc(84px + env(safe-area-inset-bottom, 0
 .up-svc { display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 4px; background: var(--chip); color: var(--ink); font: 600 10px/1.6 var(--body); }
 .up-when { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
 .up-date { font-size: 12px; }
-.up-more { display: block; margin-top: 8px; }
+.up-more { display: block; width: 100%; margin-top: 8px; min-height: 44px; border-radius: 12px; background: var(--chip); color: var(--ink); text-decoration: none; font-weight: 600; }
 .up-sk { height: 34px; margin-top: 8px; }
 
 /* Built-in (no-AI) answers: quotes, a row of tappable people and titles, links out. */
@@ -1364,7 +1373,7 @@ main:focus { outline: none; }
   .wx-epnext { min-height: 40px; padding: 6px 12px 6px 10px; font-size: 13.5px; }
   .wx-epnext::before { top: 9px; bottom: 9px; }
   /* scrolled down: ONE slim row (about 38px): small poster, title, "S3 · E8" with a Next icon, Close. The spoiler switch, kicker, year line, episode name and
-     the word "Next" are hidden. No transition: the old height/width easing re-flowed the whole page every frame and looked jerky; it swaps in one frame. */
+     the word "Next" are hidden. The content swaps in one frame (per-property easing re-flowed everything and looked jerky); WhoApp eases only the header's box height with the Web Animations API. */
   .wx[data-compact="true"] .wx-top { flex-wrap: nowrap; gap: 0 8px; padding-top: calc(3px + env(safe-area-inset-top, 0px)); padding-bottom: 3px; }
   .wx[data-compact="true"] .wx-ttl .wbar-k, .wx[data-compact="true"] .wx-ttl .wx-sub, .wx[data-compact="true"] .wx-pos-l, .wx[data-compact="true"] .wx-pos .wx-finish,
   .wx[data-compact="true"] .wx-nospoil, .wx[data-compact="true"] .wx-epname, .wx[data-compact="true"] .wx-epnt, .wx[data-compact="true"] .wx-caret { display: none; }
@@ -1423,10 +1432,11 @@ main:focus { outline: none; }
 
 /* Watch next: continue cards (a small Continue link in the text line) and the "Still watching?" offer. */
 .upnext-card:has(.upnext-go) { display: flex; flex-direction: column; gap: 4px; }
-.upnext-go { color: var(--gold); text-decoration: underline dotted; text-underline-offset: 3px; white-space: nowrap; }
+.upnext-go { position: relative; display: inline-block; padding: 1px 9px; border-radius: 999px; background: var(--gold-fill); color: var(--on-gold); font-weight: 700; text-decoration: none; white-space: nowrap; }
+.upnext-go::after { content: ""; position: absolute; inset: -9px -6px; }
 .upnext-card.k-still .upnext-poster { opacity: .55; filter: grayscale(.6); }
 .upnext-ask { position: absolute; left: 0; top: 112px; width: 112px; height: 56px; display: flex; flex-direction: column; justify-content: flex-end; gap: 4px; padding: 5px; }
-.upnext-ask button { padding: 3px 8px; border-radius: 999px; background: var(--surface); color: var(--ink); font: 600 11px/1.3 var(--sans, system-ui); border: 1px solid var(--line); white-space: nowrap; }
+.upnext-ask button { padding: 4px 10px; border-radius: 999px; background: var(--surface); color: var(--ink); font: 600 11px/1.3 var(--sans, system-ui); border: 1px solid var(--line); white-space: nowrap; }
 
 /* Film resume (docs/features/film-resume.md): the Library row's stopped time, bar and Resume button, and the small Resume sheet. All `rs-`. */
 .rs-bar-line { display: block; height: 5px; border-radius: 99px; background: var(--chip); overflow: hidden; margin: 6px 0 2px; }
@@ -1444,7 +1454,8 @@ main:focus { outline: none; }
 .rs-bar-track { height: 6px; border-radius: 99px; background: var(--chip); overflow: hidden; margin: 9px 0 8px; }
 .rs-of { margin: 0; }
 .rs-act { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
-.upnext-card .rs-go { color: var(--gold); text-decoration: underline dotted; text-underline-offset: 3px; white-space: nowrap; padding: 0; font-size: 11px; }
+.upnext-card .rs-go { position: relative; padding: 1px 9px; border-radius: 999px; background: var(--gold-fill); color: var(--on-gold); font-weight: 700; text-decoration: none; white-space: nowrap; font-size: 11px; }
+.upnext-card .rs-go::after { content: ""; position: absolute; inset: -9px -6px; }
 .upnext-card:has(.rs-go) { display: flex; flex-direction: column; gap: 4px; }
 /* Search > Who's that? (components/WhoSearch.tsx) */
 .whs { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
