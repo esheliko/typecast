@@ -282,37 +282,62 @@ export function WhoApp({ brief, initialPos, today, others = [], savedProgress = 
   const ctx = useMemo(() => ({ brief, today, pos, scope: scopeKind(pos), clip, spoilers, rootLabel, faces, watched, push, setExact, zoom, prefetchPerson }), [brief, today, pos, clip, spoilers, rootLabel, faces, watched, push, setExact, zoom, prefetchPerson]);
   const roster4finder = rosterFresh ?? roster;
 
-  // Phones: the header slides away with the list like a browser's address bar. It is an overlay (the list never reflows or jumps): `--wx-off` is how far it has
-  // slid up (0 = shown, header height = gone), moved 1:1 by the scroll distance; scrolling up brings it back at once. Written straight to the DOM, no React state.
-  // The pinned search row follows it (see globals.css), and when scrolling stops a half-hidden header settles to shown or hidden.
+  // Phones: the header collapses to its one-row form as you scroll, tied to the finger like a browser's address bar. It is an overlay on top of the list, so the
+  // list itself never reflows or jumps. `off` (px, 0..R, R = full height minus collapsed height) moves 1:1 with the scroll distance (scroll down: collapse,
+  // any upward scroll: expand back); the header's height is full - off. The two layouts swap at the halfway point behind a short fade of its content.
+  // Everything is written straight to the DOM (no React state per scroll event); when scrolling stops, a half-way header settles to one end.
   const rootRef = useRef<HTMLDivElement>(null);
   const topRef = useRef<HTMLElement>(null);
-  const hdrH = useRef(0);
+  const hf = useRef(0); // full height, hc: collapsed height (measured from the real layouts)
+  const hc = useRef(0);
   const off = useRef(0);
   const settle = useRef<number>(0);
   const idle = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const setOff = (v: number) => { off.current = v; rootRef.current?.style.setProperty("--wx-off", String(v)); };
+  const apply = (v: number) => {
+    const el = topRef.current, root = rootRef.current;
+    if (!el || !root) return;
+    const R = Math.max(0, hf.current - hc.current);
+    off.current = v = Math.min(R, Math.max(0, v));
+    const p = R ? v / R : 0;
+    root.style.setProperty("--wx-off", String(v));
+    root.style.setProperty("--wx-dip", String(Math.min(1, Math.abs(p - 0.5) * 4)));
+    root.dataset.compact = String(p >= 0.5);
+    const mid = p > 0 && p < 1;
+    el.style.height = mid ? `${hf.current - v}px` : "";
+    el.style.overflow = mid ? "hidden" : "";
+  };
   useLayoutEffect(() => {
     const el = topRef.current, root = rootRef.current;
     if (!el || !root) return;
-    const measure = () => { hdrH.current = el.offsetHeight; root.style.setProperty("--wx-h", `${hdrH.current}px`); if (off.current > hdrH.current) setOff(hdrH.current); };
-    measure();
-    const ro = new ResizeObserver(measure);
+    const phone = () => window.matchMedia("(max-width: 559px)").matches;
+    const measureBoth = () => { // both natural heights, read in one go before anything is painted
+      const keep = root.dataset.compact, h = el.style.height, o = el.style.overflow;
+      el.style.height = ""; el.style.overflow = "";
+      root.dataset.compact = "false"; hf.current = el.offsetHeight;
+      root.dataset.compact = "true"; hc.current = el.offsetHeight;
+      root.dataset.compact = keep ?? "false"; el.style.height = h; el.style.overflow = o;
+      root.style.setProperty("--wx-h", `${hf.current}px`);
+      apply(phone() ? off.current : 0);
+    };
+    measureBoth();
+    // The header's content changed size (title wraps, position name changes): re-measure, but only at rest at one end (never mid-collapse).
+    const ro = new ResizeObserver(() => { if (phone() && (off.current === 0 || off.current >= hf.current - hc.current)) measureBoth(); });
     ro.observe(el);
-    return () => { ro.disconnect(); cancelAnimationFrame(settle.current); clearTimeout(idle.current); };
+    window.addEventListener("resize", measureBoth);
+    return () => { ro.disconnect(); window.removeEventListener("resize", measureBoth); cancelAnimationFrame(settle.current); clearTimeout(idle.current); };
   }, []);
   const onFinderScroll = (t: number) => {
     const d = t - lastTop.current;
     lastTop.current = t;
     if (!window.matchMedia("(max-width: 559px)").matches) return;
     cancelAnimationFrame(settle.current);
-    setOff(t <= 0 ? 0 : Math.min(hdrH.current, Math.max(0, off.current + d)));
+    apply(t <= 0 ? 0 : off.current + d);
     clearTimeout(idle.current);
     idle.current = setTimeout(() => {
-      const from = off.current, to = from > hdrH.current / 2 && t > hdrH.current ? hdrH.current : 0;
-      if (from === to || window.matchMedia("(prefers-reduced-motion: reduce)").matches) { setOff(to); return; }
+      const R = hf.current - hc.current, from = off.current, to = from > R / 2 && t >= R ? R : 0;
+      if (from === to || window.matchMedia("(prefers-reduced-motion: reduce)").matches) { apply(to); return; }
       const t0 = performance.now();
-      const step = (now: number) => { const k = Math.min(1, (now - t0) / 160); setOff(from + (to - from) * (1 - (1 - k) * (1 - k))); if (k < 1) settle.current = requestAnimationFrame(step); };
+      const step = (now: number) => { const k = Math.min(1, (now - t0) / 160); apply(from + (to - from) * (1 - (1 - k) * (1 - k))); if (k < 1) settle.current = requestAnimationFrame(step); };
       settle.current = requestAnimationFrame(step);
     }, 140);
   };
