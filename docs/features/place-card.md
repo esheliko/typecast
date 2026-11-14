@@ -13,3 +13,7 @@
 **Library rows.** `RowWatched`: gold "Watched ✓" on Watching series only, from the row's own progress (no per-row TMDB call). At the tap it asks once for the size of the progress' season (cached) so a season's last episode rolls to the next season (`rowNext`); if that fails it takes the next number. One `setProgress` write, `touch()` + `setPlace`, toast with Undo.
 
 **Watch next.** A Watching series whose next episode is out (`nextOut`: needs season sizes and the newest aired episode) is a `continue` card "S3 E7 · out now" + Continue link, with the episode runtime ("47 min"). Without TMDB facts it stays "After S3 E6". New card kinds: add to `PickKind`, set `go` and optionally `cta` (the link word, default "Continue", e.g. a film "Resume"); `UpNext.tsx` renders any card with `go`.
+
+## Summary rule (moved from CLAUDE.md)
+
+- Place card (title popup of a Watching series, `components/PlaceStrip.tsx`), the quick Watched ✓ button on Library rows and the "S3 E7 · out now · Continue" Watch next card: pure logic in `src/lib/place-strip.ts` (unit tested); one write through `useSavedPlace` (`next` with `engage: false`, `jump`). Details: `docs/features/place-card.md` (read before changing this feature).
