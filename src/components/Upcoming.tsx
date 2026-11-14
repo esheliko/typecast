@@ -32,10 +32,11 @@ export default function Upcoming({ entries: all, today: serverToday, open: initi
   return (
     <section className="upnext upcoming" aria-label="Upcoming">
       <div className="upnext-bar">
-        <button type="button" className="upnext-h" aria-expanded={open} onClick={toggle}>
+        <button type="button" className="upnext-h" aria-expanded={open} aria-label={`Upcoming, ${live.length}. ${open ? "Hide" : "Show"}`} onClick={toggle}>
           <span className="upnext-k">Upcoming</span>
           <span className="mono upnext-n">{live.length}</span>
-          <span className="upnext-caret" aria-hidden="true">{open ? "Hide" : "Show"}</span>
+          {!open && <span className="upnext-peek">{live[0].title} · {countdown(live[0], today)}</span>}
+          <span className="upnext-caret" aria-hidden="true">›</span>
         </button>
       </div>
       {open && (
