@@ -639,6 +639,15 @@ button.aw-chip:hover { filter: brightness(1.08); }
 .upnext-h[aria-expanded="true"] .upnext-caret { transform: rotate(90deg); }
 .upnext-peek { flex: 1; min-width: 0; font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .upcoming .upnext-h { flex: 1; min-width: 0; }
+/* Both collapsed: one quiet row (Watch next + Upcoming side by side). Any open one restores the normal stacked layout. */
+.lib-top:has(> .upnext + .upnext):not(:has(.upnext-h[aria-expanded="true"])) { display: flex; gap: 8px; }
+.lib-top:has(> .upnext + .upnext):not(:has(.upnext-h[aria-expanded="true"])) > .upnext { flex: 1 1 0; min-width: 0; }
+.lib-top:has(> .upnext + .upnext):not(:has(.upnext-h[aria-expanded="true"])) .upnext-bar { flex-wrap: nowrap; }
+.lib-top:has(> .upnext + .upnext):not(:has(.upnext-h[aria-expanded="true"])) .upnext-h { flex: 1; min-width: 0; min-height: 30px; padding: 0 8px 0 10px; gap: 6px; background: transparent; box-shadow: none; }
+.lib-top:has(> .upnext + .upnext):not(:has(.upnext-h[aria-expanded="true"])) .upnext-k { font-size: 12px; color: var(--muted); }
+.lib-top:has(> .upnext + .upnext):not(:has(.upnext-h[aria-expanded="true"])) .upnext-n { font-size: 11px; min-width: 18px; padding: 1px 5px; background: transparent; color: var(--muted); border: 1px solid var(--line); }
+.lib-top:has(> .upnext + .upnext):not(:has(.upnext-h[aria-expanded="true"])) .upnext-peek { display: none; }
+.lib-top:has(> .upnext + .upnext):not(:has(.upnext-h[aria-expanded="true"])) .upnext-caret { margin-left: auto; font-size: 18px; }
 .upnext-mine { padding: 0 14px; min-height: 34px; font-size: 13px; white-space: nowrap; }
 .upnext-empty { margin: 6px 2px 4px; font-size: 13px; }
 .upnext-restore { font-size: 13px; color: var(--muted); text-decoration: underline dotted; text-underline-offset: 3px; white-space: nowrap; padding: 10px 4px; }

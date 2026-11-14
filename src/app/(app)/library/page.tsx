@@ -95,10 +95,10 @@ export default async function Library({ searchParams }: { searchParams: Promise<
           <Link className="btn gold" href="/">Find a title</Link>
         </div>
       ) : <><div className="page-head"><h1>Library</h1><Link href="/library/stats">Stats <span aria-hidden="true">›</span></Link></div><LibraryView items={lib} initial={filter} initialSort={isSort(s) ? s : "watched"} initialKind={isKind(k) && k !== "all" ? k : "all"}
-        top={<>
+        top={<div className="lib-top">
           <Suspense fallback={<UpNext picks={quickPicks(lib)} services="pending" prefs={prefs} />}><WatchNext lib={lib} prefs={prefs} /></Suspense>
           <Suspense fallback={hasUpcomingCandidates(lib) ? <UpcomingSkeleton /> : null}><UpcomingFromList lib={lib} prefs={prefs} /></Suspense>
-        </>} /></>}
+        </div>} /></>}
       {lib.length > 0 && <Suspense fallback={null}><Suggestions lib={lib} /></Suspense>}
     </div>
   );
