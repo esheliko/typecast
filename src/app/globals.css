@@ -639,15 +639,21 @@ button.aw-chip:hover { filter: brightness(1.08); }
 .upnext-h[aria-expanded="true"] .upnext-caret { transform: rotate(90deg); }
 .upnext-peek { flex: 1; min-width: 0; font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .upcoming .upnext-h { flex: 1; min-width: 0; }
-/* Both collapsed: one quiet row (Watch next + Upcoming side by side). Any open one restores the normal stacked layout. */
-.lib-top:has(> .upnext + .upnext):not(:has(.upnext-h[aria-expanded="true"])) { display: flex; gap: 8px; }
-.lib-top:has(> .upnext + .upnext):not(:has(.upnext-h[aria-expanded="true"])) > .upnext { flex: 1 1 0; min-width: 0; }
-.lib-top:has(> .upnext + .upnext):not(:has(.upnext-h[aria-expanded="true"])) .upnext-bar { flex-wrap: nowrap; }
-.lib-top:has(> .upnext + .upnext):not(:has(.upnext-h[aria-expanded="true"])) .upnext-h { flex: 1; min-width: 0; min-height: 30px; padding: 0 8px 0 10px; gap: 6px; background: transparent; box-shadow: none; }
-.lib-top:has(> .upnext + .upnext):not(:has(.upnext-h[aria-expanded="true"])) .upnext-k { font-size: 12px; color: var(--muted); }
-.lib-top:has(> .upnext + .upnext):not(:has(.upnext-h[aria-expanded="true"])) .upnext-n { font-size: 11px; min-width: 18px; padding: 1px 5px; background: transparent; color: var(--muted); border: 1px solid var(--line); }
-.lib-top:has(> .upnext + .upnext):not(:has(.upnext-h[aria-expanded="true"])) .upnext-peek { display: none; }
-.lib-top:has(> .upnext + .upnext):not(:has(.upnext-h[aria-expanded="true"])) .upnext-caret { margin-left: auto; font-size: 18px; }
+/* Library bars (Watch next + Upcoming), calm but indicative: a soft gold accent whether closed or open.
+   Closed = quiet pill (two collapsed share one row); open = a section heading on its own full-width line. */
+.lib-top { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-start; --up-acc: color-mix(in srgb, var(--gold) 55%, transparent); }
+.lib-top > .upnext { flex: 1 1 0; min-width: 0; margin-top: 6px; }
+.lib-top > .upnext:has(.upnext-h[aria-expanded="true"]) { flex: 1 1 100%; }
+.lib-top > .upnext:has(.upnext-h[aria-expanded="false"]):has(~ .upnext .upnext-h[aria-expanded="true"]),
+.lib-top > .upnext:has(.upnext-h[aria-expanded="true"]) ~ .upnext:has(.upnext-h[aria-expanded="false"]) { flex: 0 1 auto; }
+.lib-top .upnext-h[aria-expanded="false"] { flex: 1; min-width: 0; min-height: 30px; padding: 0 8px 0 10px; gap: 6px; background: transparent; box-shadow: inset 3px 0 0 var(--up-acc); }
+.lib-top .upnext-h[aria-expanded="false"] .upnext-k { font-size: 12px; color: color-mix(in srgb, var(--gold) 60%, var(--muted)); }
+.lib-top .upnext-h[aria-expanded="false"] .upnext-n { font-size: 11px; min-width: 18px; padding: 1px 5px; background: transparent; color: var(--muted); border: 1px solid var(--line); }
+.lib-top .upnext-h[aria-expanded="false"] .upnext-caret { margin-left: auto; font-size: 18px; }
+.lib-top > .upnext + .upnext .upnext-peek, .lib-top > .upnext:has(+ .upnext) .upnext-peek { display: none; }
+/* Open: a section, not a chip. */
+.lib-top .upnext-h[aria-expanded="true"] { min-height: 32px; padding: 0 4px 0 10px; border: 0; border-radius: 0; background: transparent; box-shadow: none; border-left: 3px solid var(--up-acc); }
+.lib-top .upnext-h[aria-expanded="true"] .upnext-k { font-size: 14px; color: color-mix(in srgb, var(--gold) 80%, var(--muted)); }
 .upnext-mine { padding: 0 14px; min-height: 34px; font-size: 13px; white-space: nowrap; }
 .upnext-empty { margin: 6px 2px 4px; font-size: 13px; }
 .upnext-restore { font-size: 13px; color: var(--muted); text-decoration: underline dotted; text-underline-offset: 3px; white-space: nowrap; padding: 10px 4px; }
