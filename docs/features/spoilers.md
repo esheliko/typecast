@@ -33,6 +33,8 @@
 
 **Finder tile: a watched actor keeps their character name.** A Watching series is not "seen" on a tile by default (`seenMark`), but when the person already appeared at or before the saved place their character is no spoiler: the tile asks `/api/who/seen?p=<person>&keys=tv:..` (`loadSeenWatching`, `src/lib/who-seen-data.ts`; library read on the server, guest parts only (<= `GUEST_EPS` episodes, TMDB lists them), an episode at or before the place; never cached; client cache tagged with each key's line) and `seenMarkAt` then counts the series, so the tile says "Gas Pfender in Shameless" instead of "Shameless". A regular whose episodes cannot be listed stays unconfirmed (bare title).
 
+**Person node "You know them from": same rule.** For Watching series with a saved place, `PersonNode` asks `/api/who/seen` (key tagged with each line) and, for a series the person already appeared in by the place, shows `as <character>` on the gated row. Dates, episode counts and the Seen chip stay held until Show.
+
 **Not done yet.** `/api/who/known` still ships `eps` for every credit (used for ranking only; the tile never shows it) and a credit's first-air `date` stays in `/api/who/person`. `/api/who/person` callers do not send `pg` yet, so the page's own title is held back there too (the page does not need its credit's counts). Title `overview` and `/api/who/season` (watched title only) were not changed.
 
 ## Smoke
