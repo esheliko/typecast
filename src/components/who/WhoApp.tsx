@@ -53,6 +53,7 @@ export function WhoApp({ brief, initialPos, today, others = [], savedProgress = 
   const [open, setOpen] = useState(false);
   const lastTop = useRef(0);
   const lastFlip = useRef(0);
+  const run = useRef(0);
   const [compact, setCompact] = useState(false); // phones: the header slims down once the face list is scrolled (hysteresis so it never flickers at the edge)
   const [q, setQ] = useState("");
   const [recents, setRecents] = useState<RecentTrail[]>([]);
@@ -299,16 +300,20 @@ export function WhoApp({ brief, initialPos, today, others = [], savedProgress = 
     if (!from || Math.abs(from - h) < 2 || typeof el.animate !== "function") return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches || !window.matchMedia("(max-width: 559px)").matches) return;
     el.style.overflow = "hidden";
-    const a = el.animate([{ height: `${from}px` }, { height: `${h}px` }], { duration: 220, easing: "cubic-bezier(.2,.7,.2,1)" });
+    const a = el.animate([{ height: `${from}px` }, { height: `${h}px` }], { duration: 260, easing: "cubic-bezier(.3,.6,.2,1)" });
     el.querySelectorAll<HTMLElement>(".wx-ttl, .wx-pos, .wx-topr").forEach((c) => c.animate([{ opacity: 0.35 }, { opacity: 1 }], { duration: 220, easing: "ease-out" }));
     a.onfinish = a.oncancel = () => { el.style.overflow = ""; };
   }, [compact]);
+  // Slow scrolling sends tiny per-event steps (1-2px), so a per-event delta never reached the threshold and the flip fired late at a random moment.
+  // Accumulate the distance travelled in the current direction instead; the flip needs a short deliberate run either way.
   const onFinderScroll = (t: number) => {
     const d = t - lastTop.current;
     lastTop.current = t;
+    if (d === 0) return;
+    run.current = Math.sign(d) === Math.sign(run.current) ? run.current + d : d;
     if (Date.now() - lastFlip.current < 350) return;
-    if (t <= 12 || d < -3) { if (compact) { lastFlip.current = Date.now(); setCompact(false); } }
-    else if (d > 3 && t > 72 && !compact) { lastFlip.current = Date.now(); setCompact(true); }
+    if (t <= 12 || run.current < -10) { if (compact) { lastFlip.current = Date.now(); run.current = 0; setCompact(false); } }
+    else if (run.current > 24 && t > 72 && !compact) { lastFlip.current = Date.now(); run.current = 0; setCompact(true); }
   };
   return (
     <WhoProvider value={ctx}>
