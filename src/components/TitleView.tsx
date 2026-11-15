@@ -28,6 +28,7 @@ import { Where } from "@/components/Where";
 import { WatchButton } from "@/components/Watching";
 import PlaceStrip from "@/components/PlaceStrip";
 import { fillCrew, missingCrew } from "@/lib/crew-fill";
+import { extraCast } from "@/lib/cast-sources";
 import { bylineLabel, DETAIL_IDS, DETAIL_LABEL, detailLabel, isCrewId, MAIN_CAST, type CrewBy, type CrewId, type DetailId } from "@/lib/details";
 import { enrich } from "@/lib/enrich";
 import { isWatchingSeries } from "@/lib/spoiler-mask";
@@ -127,7 +128,10 @@ function CastBlock({ part, t, lib, people, first, last, pending, hold }: CastPro
 /** The same block once everyone's other credits are in. */
 async function CastSection({ libP, ...props }: Omit<CastProps, "lib"> & { libP: Promise<LibItem[]> }) {
   const lib = await libP;
-  return <CastBlock {...props} lib={lib} people={await castOf(props.t, lib)} />;
+  // The last cast block carries the hidden, searchable rest of the cast; other sources add people TMDB lacks (fails soft, never waits long).
+  const more = props.last && props.t.type === "tv" ? await extraCast(props.t) : [];
+  const t = more.length ? { ...props.t, extras: [...(props.t.extras ?? []), ...more] } : props.t;
+  return <CastBlock {...props} t={t} lib={lib} people={await castOf(props.t, lib)} />;
 }
 
 /** Every section the user chose, in the order they chose. Crew is already in hand; cast streams in behind its own spinner. */
