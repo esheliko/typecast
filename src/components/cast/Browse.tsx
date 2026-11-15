@@ -16,6 +16,7 @@ import { img } from "@/lib/img";
 import { newEpLabel } from "@/lib/new-episode";
 import { faded, loadPassed, type Passed } from "@/lib/passed";
 import { STATUS_LABEL, type BrowseItem, type BrowseList, type BrowseType } from "@/lib/types";
+import { ImdbRate } from "@/components/ImdbRate";
 
 const LISTS: { k: BrowseList; label: string; tv?: string }[] = [
   { k: "foryou", label: "For you" },
@@ -150,7 +151,10 @@ export default function Browse({ filters, filtered, list: initialList, salt: ser
   }, [view]);
 
   // Filter changes arrive as new server props: adopt the server's first page and type.
-  useEffect(() => { if (first) setPages((p) => (p[key] ? p : { ...p, [key]: first })); }, [key, first]);
+  // `first` belongs to what the server rendered (its list / type / filters), not to whatever list is picked on the client since:
+  // filing it under the current `key` showed the old list's titles under the new tab until the fetch landed (a double switch).
+  const serverKey = filtered ? `f:${toParams(filters)}` : `l:${filters.type}/${initialList}`;
+  useEffect(() => { if (first) setPages((p) => (p[serverKey] ? p : { ...p, [serverKey]: first })); }, [serverKey, first]);
   useEffect(() => { setType(filters.type); }, [filters.type]);
   const keepClosed = useRef(false);
   useEffect(() => { if (filtered && !keepClosed.current) setPanel(true); keepClosed.current = false; }, [filtered]);
@@ -285,7 +289,7 @@ export function Poster({ it, sub, skippable }: { it: BrowseItem; sub?: string; s
   const { get, skip } = useLib();
   const s = get(it.key)?.status, fresh = get(it.key)?.fresh;
   return (
-    <div className={`pc${s ? ` is-${s}` : ""}`}>
+    <div className={`pc${s ? ` is-${s}` : ""}`} title={it.why}>
       <div className="pc-art">
         <TitleLink k={it.key} it={it} tabIndex={-1} aria-hidden="true">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -300,7 +304,7 @@ export function Poster({ it, sub, skippable }: { it: BrowseItem; sub?: string; s
       <span className="pc-gl"><GlimpseButton spec={titleSpec(it)} /></span>
       <TitleLink k={it.key} it={it} className="pc-link">
         <span className="pc-t">{it.title}</span>
-        <span className="pc-s"><KindIcon type={it.type} />{sub ?? [it.year || "TBA", it.rating ? `★ ${it.rating.toFixed(1)}` : ""].filter(Boolean).join(" · ")}</span>
+        <span className="pc-s"><KindIcon type={it.type} />{sub ?? <>{it.year || "TBA"}<ImdbRate k={it.key} lead=" · " /></>}</span>
       </TitleLink>
     </div>
   );

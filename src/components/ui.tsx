@@ -4,7 +4,8 @@ import LivePill from "./cast/LivePill";
 import RelatedButton from "./cast/RelatedButton";
 import { GlimpseButton } from "./Glimpse";
 import { creditSpec, titleSpec } from "@/lib/glimpse";
-import { avgLabel, img, typeLabel } from "@/lib/img";
+import { img, typeLabel } from "@/lib/img";
+import { ImdbRate } from "@/components/ImdbRate";
 import { markLabel, type Item, type LibItem } from "@/lib/types";
 
 export function Pill({ lib }: { lib?: LibItem | null }) {
@@ -29,7 +30,7 @@ export function TitleRow({ it, sub, small, actor, role, actorId }: { it: Item; s
         <Thumb path={it.poster} />
         <span className="row-main">
           <span className="row-title" style={small ? { fontSize: 17 } : undefined}>{it.title}</span>
-          <span className="row-sub">{it.year} · {typeLabel(it.type)}{avgLabel(it)}{sub ? ` · ${sub}` : ""}</span>
+          <span className="row-sub">{it.year} · {typeLabel(it.type)}<ImdbRate k={it.key} lead=" · " />{sub ? ` · ${sub}` : ""}</span>
         </span>
         <LivePill k={it.key} />
       </TitleLink>

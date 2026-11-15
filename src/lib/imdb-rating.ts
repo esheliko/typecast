@@ -30,3 +30,33 @@ export async function getImdbRating(imdb: string | null | undefined): Promise<Im
     return null;
   }
 }
+
+/** Pure: episode number -> IMDb score out of OMDb's season body. */
+export function parseOmdbSeason(d: unknown): Record<number, number> {
+  const o = d as { Response?: string; Episodes?: { Episode?: string; imdbRating?: string }[] } | null;
+  const out: Record<number, number> = {};
+  if (!o || o.Response === "False") return out;
+  for (const x of o.Episodes ?? []) {
+    const e = Number(x.Episode), r = Number(x.imdbRating);
+    if (Number.isInteger(e) && Number.isFinite(r) && r > 0) out[e] = r;
+  }
+  return out;
+}
+
+async function fetchSeason(imdb: string, season: number): Promise<Record<number, number>> {
+  const key = process.env.OMDB_API_KEY;
+  if (!key) return {};
+  const r = await fetch(`https://www.omdbapi.com/?i=${imdb}&Season=${season}&apikey=${encodeURIComponent(key)}`, { signal: AbortSignal.timeout(4000) });
+  return r.ok ? parseOmdbSeason(await r.json()) : {};
+}
+
+const cs = unstable_cache(async (imdb: string, season: number) => fetchSeason(imdb, season).catch(() => ({})), ["imdb-season-v1"], { revalidate: 86400 });
+
+/** IMDb scores for every episode of one season in ONE OMDb call. Never throws; empty means unknown. */
+export async function getSeasonImdb(imdb: string | null | undefined, season: number): Promise<Record<number, number>> {
+  if (!imdb || !/^tt\d+$/.test(imdb) || !Number.isInteger(season) || season < 0) return {};
+  try { return await cs(imdb, season); } catch (e) {
+    if (/incrementalCache missing/.test(String(e))) return fetchSeason(imdb, season).catch(() => ({}));
+    return {};
+  }
+}

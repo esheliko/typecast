@@ -5,7 +5,8 @@ import { TitleLink } from "../Modal";
 import { Thumb } from "../ui";
 import { GlimpseButton } from "../Glimpse";
 import { creditSpec, titleSpec } from "@/lib/glimpse";
-import { avgLabel, typeLabel } from "@/lib/img";
+import { typeLabel } from "@/lib/img";
+import { ImdbRate } from "@/components/ImdbRate";
 import type { Item } from "@/lib/types";
 
 /** A title in a list: tap the name for its details, or tap Watched / To watch / Must watch right there without leaving the list. */
@@ -17,7 +18,7 @@ export default function MarkRow({ it, sub, small, actor, extra, actorId }: { it:
         <Thumb path={it.poster} />
         <span className="row-main">
           <span className="row-title" style={small ? { fontSize: 17 } : undefined}>{it.title}</span>
-          <span className="row-sub">{it.year} · {typeLabel(it.type)}{avgLabel(it)}{sub ? ` · ${sub}` : ""}{extra ? ` · ${extra}` : ""}</span>
+          <span className="row-sub">{it.year} · {typeLabel(it.type)}<ImdbRate k={it.key} lead=" · " />{sub ? ` · ${sub}` : ""}{extra ? ` · ${extra}` : ""}</span>
         </span>
       </TitleLink>
       <QuickMark it={it} variant="inline" />
