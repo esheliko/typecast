@@ -1022,6 +1022,10 @@ body:has(.modal) .toast-slot { bottom: calc(84px + env(safe-area-inset-bottom, 0
 .wx-meta { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; min-height: calc(2 * 1.3em); line-height: 1.3; }
 .wx-gaprow { text-align: center; color: var(--muted); line-height: 14px; letter-spacing: .3em; }
 .wx-seen { color: var(--gold); font-weight: 600; }
+.wx-weak { font-weight: 400; color: color-mix(in srgb, var(--gold) 65%, var(--muted)); }
+.wx-weak .wx-sc { font-weight: 600; }
+.wx-weak .wx-st { font-style: italic; }
+.wx-chip { display: block; width: fit-content; max-width: 100%; margin-bottom: 1px; padding: 0 6px; border-radius: 6px; background: var(--chip); color: var(--muted); font-size: 10px; font-weight: 700; line-height: 1.5; font-style: normal; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wx-sc, .wx-st { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wx-more { min-height: 44px; margin-top: 12px; }
 .wx-sk { display: inline-block; border-radius: 6px; vertical-align: middle; }

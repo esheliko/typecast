@@ -65,14 +65,29 @@ export function rankByRecognition<T extends RankCredit>(rows: T[], mark: (key: s
     .sort((a, b) => (b.s === a.s ? when(b.c).localeCompare(when(a.c)) : b.s - a.s)).map((x) => x.c);
 }
 
-export interface Pick { key: string; title: string; year: string; character: string; score: number }
+/** A guest part: a series where they appear in at most this many episodes. */
+export const GUEST_MAX_EPS = 3;
+/**
+ * Why a part is a weak answer to "where do I know this face from", as a short chip label, or null for a solid part.
+ * First match wins: upcoming (not out yet) > as self > cameo > guest. Pure (unit tested).
+ */
+export function weakReason(role: string, eps: number, year: string, nowYear: number): string | null {
+  const y = Number(year);
+  if (y > nowYear) return "upcoming";
+  if (!characterName(role) && /\b(self|himself|herself|themselves)\b/i.test(role)) return "as self";
+  if (/\bcameo\b|\buncredited\b/i.test(role)) return "cameo";
+  if (eps > 0 && eps <= GUEST_MAX_EPS) return `guest · ${eps} ep${eps === 1 ? "" : "s"}`;
+  return null;
+}
+
+export interface Pick { key: string; title: string; year: string; character: string; score: number; chip: string | null }
 
 /**
  * Rank the titles you have seen the person in. Signals: your own status (finished > watching > a few episodes), how big their part
  * was (named character, number of episodes), how famous the title is (a hit is watched and discussed, so it sticks), and that you rated or
  * noted it. The current title is never offered. Returns null when you have seen none of them.
  */
-export function pickSeenIn(top: KnownTitle[], exclude: string, mark: (key: string) => KnownMark | undefined): Pick | null {
+export function pickSeenIn(top: KnownTitle[], exclude: string, mark: (key: string) => KnownMark | undefined, nowYear = new Date().getFullYear()): Pick | null {
   let best: Pick | null = null;
   for (const [key, title, year, role, eps, votes, order] of top) {
     if (key === exclude) continue;
@@ -81,7 +96,21 @@ export function pickSeenIn(top: KnownTitle[], exclude: string, mark: (key: strin
     if (!sw) continue;
     // Partly watched series: only the episodes you saw count, and we do not know which, so trust the part size less.
     const score = sw * (0.1 + partWeight(role, eps, order)) * (0.3 + fame(votes)) * (m!.rich ? 1.2 : 1);
-    if (!best || score > best.score) best = { key, title, year, character: characterName(role), score };
+    if (!best || score > best.score) best = { key, title, year, character: characterName(role), score, chip: weakReason(role, eps, year, nowYear) };
+  }
+  return best;
+}
+
+/**
+ * The title on your watchlist (not seen yet) the person is most recognisable from: always a weak answer, shown faded with the
+ * character kept. `listed` says whether a key is on the watchlist. Null when none of their titles is.
+ */
+export function pickListed(top: KnownTitle[], exclude: string, listed: (key: string) => boolean, nowYear = new Date().getFullYear()): Pick | null {
+  let best: Pick | null = null;
+  for (const [key, title, year, role, eps, votes, order] of top) {
+    if (key === exclude || !listed(key)) continue;
+    const score = recognition(role, eps, votes, order);
+    if (!best || score > best.score) best = { key, title, year, character: characterName(role), score, chip: weakReason(role, eps, year, nowYear) };
   }
   return best;
 }

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { characterName, pickSeenIn, sortByRelease, seenInText, type KnownTitle } from "../../src/lib/who-known";
+import { characterName, pickListed, pickSeenIn, weakReason, sortByRelease, seenInText, type KnownTitle } from "../../src/lib/who-known";
 
 const seen = (...keys: string[]) => (k: string) => (keys.includes(k) ? { status: "watched", rich: false } : undefined);
 
@@ -80,4 +80,35 @@ test("a voice part is a weak answer: the seen face beats the same character as a
   assert.equal(pickSeenIn(top, "x", seen("tv:1", "movie:2"))!.key, "movie:2");
   assert.equal(pickSeenIn(top, "x", seen("tv:1"))!.key, "tv:1"); // still offered when it is all you have seen
   assert.equal(seenInText(pickSeenIn(top, "x", seen("tv:1"))!), "Karpov in What If...?");
+});
+
+test("weak reasons: upcoming > as self > cameo > guest, solid parts get none", () => {
+  assert.equal(weakReason("Sam", 40, "2030", 2026), "upcoming");
+  assert.equal(weakReason("Himself", 1, "2030", 2026), "upcoming");
+  assert.equal(weakReason("Himself - Host", 5, "2020", 2026), "as self");
+  assert.equal(weakReason("Self", 0, "2020", 2026), "as self");
+  assert.equal(weakReason("Dr. Lee (cameo)", 0, "2020", 2026), "cameo");
+  assert.equal(weakReason("Waiter (uncredited)", 2, "2020", 2026), "cameo");
+  assert.equal(weakReason("Dr. Lee", 2, "2020", 2026), "guest · 2 eps");
+  assert.equal(weakReason("Dr. Lee", 1, "2020", 2026), "guest · 1 ep");
+  assert.equal(weakReason("Dr. Lee", 4, "2020", 2026), null);
+  assert.equal(weakReason("Walt", 0, "2020", 2026), null);
+  assert.equal(weakReason("", 0, "", 2026), null);
+});
+
+test("a seen pick carries its weak reason", () => {
+  const top: KnownTitle[] = [["tv:2", "Station 19", "2020", "Dr. Lee", 2, 800, -1]];
+  assert.equal(pickSeenIn(top, "x", seen("tv:2"), 2026)!.chip, "guest · 2 eps");
+});
+
+test("pickListed: only watchlist titles, best recognised first, character kept", () => {
+  const top: KnownTitle[] = [
+    ["tv:1", "Seen Show", "2012", "Walt", 62, 15000, -1],
+    ["movie:2", "Listed Small", "2015", "Ann", 0, 100, -1],
+    ["tv:3", "Listed Hit", "2018", "Stanton", 30, 9000, -1],
+  ];
+  const p = pickListed(top, "x", (k) => k === "movie:2" || k === "tv:3", 2026)!;
+  assert.equal(p.key, "tv:3");
+  assert.equal(seenInText(p), "Stanton in Listed Hit");
+  assert.equal(pickListed(top, "tv:3", (k) => k === "tv:3", 2026), null);
 });
