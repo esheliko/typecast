@@ -19,6 +19,7 @@ import { urlKey } from "@/lib/who-scope";
 import type { GlimpseSpec } from "@/lib/glimpse";
 import type { TitleNode as TitleData } from "@/lib/who-data";
 
+const EMPTY: ReadonlySet<number> = new Set();
 type TNode = Extract<Node, { t: "title" }>;
 
 // Header dates show years only (no release month).
@@ -56,7 +57,14 @@ export function TitleNode({ node }: { node: TNode }) {
   const range = data ? { start: data.brief.first, end: data.brief.last || data.brief.first } : null;
 
   const fromCast = useMemo(() => (data ? data.cast.filter(([pid]) => faces.has(pid)).map(([pid, role, n]) => ({ f: faces.get(pid)!, role, n })) : []), [data, faces]);
-  const lim = useLimit(fromCast.length, 5);
+  // Someone who has not appeared yet in the part of this series you have seen is left out entirely: being in it is itself a spoiler.
+  // Each row finds that out from its own dates and reports it; the list is asked again whenever the line or the show changes.
+  const goneTok = `${node.key}|${cur.key}|${spoilers}|${lineTagNow}|${revealed}`;
+  const [goneSt, setGoneSt] = useState<{ tok: string; ids: ReadonlySet<number> }>({ tok: goneTok, ids: new Set() });
+  const gone = goneSt.tok === goneTok ? goneSt.ids : EMPTY;
+  const onGone = (pid: number) => setGoneSt((g) => { const base = g.tok === goneTok ? g.ids : EMPTY; return base.has(pid) ? g : { tok: goneTok, ids: new Set([...base, pid]) }; });
+  const shownCast = useMemo(() => fromCast.filter(({ f }) => !gone.has(f.id)), [fromCast, gone]);
+  const lim = useLimit(shownCast.length, 5);
   const spec = (name: string, role: string, pid: number) => scopeSpec(withLibRoles(castSpec(name, role, { title: node.title, year: node.year, type, key: node.key }, "Acting", pid), name), { key: cur.key, title: cur.title, clip, spoilers });
 
   const titleG = scopeSpec(titleSpec({ title: node.title, year: node.year, type, key: node.key }), { key: cur.key, title: cur.title, clip, spoilers });
@@ -85,14 +93,14 @@ export function TitleNode({ node }: { node: TNode }) {
         {!data && !err ? <Sk w="90%" h={16} /> : data?.brief.overview ? <p className="wx-place">{data.brief.overview}</p> : <p className="small muted" style={{ margin: 0 }}>No description available.</p>}
       </Section>
 
-      <Section title="From this cast" count={data ? fromCast.length : undefined} note={spoilers ? "People from the whole series you are watching who are also in this title." : "People in what you are watching (up to where you are) who are also in this title."}>
+      <Section title="From this cast" count={data ? shownCast.length : undefined} note={spoilers ? "People from the whole series you are watching who are also in this title." : "People in what you are watching (up to where you are) who are also in this title."}>
         {!data && !err && <div className="wx-rowsk" aria-hidden="true"><Sk w="80%" h={44} /><Sk w="70%" h={44} style={{ marginTop: 8 }} /></div>}
-        {data && !fromCast.length && <p className="small muted" style={{ margin: 0 }}>No one from the cast here is in this title.</p>}
-        {fromCast.slice(0, lim.shown).map(({ f, role }) => (
-          <CastRow key={f.id} f={f} role={role} spec={spec(f.name, role, f.id)} titleKey={node.key} type={type} release={data?.brief.first ?? ""} hideDates={self} page={page} reveal={revealSet}
+        {data && !shownCast.length && <p className="small muted" style={{ margin: 0 }}>No one from the cast here is in this title.</p>}
+        {shownCast.slice(0, lim.shown).map(({ f, role }) => (
+          <CastRow key={f.id} f={f} role={role} spec={spec(f.name, role, f.id)} titleKey={node.key} type={type} release={data?.brief.first ?? ""} hideDates={self} page={page} reveal={revealSet} onGone={() => onGone(f.id)}
             onOpen={() => push({ t: "person", id: f.id, name: f.name, photo: f.photo, hl: node.key, still: true })} />
         ))}
-        {data && <More total={fromCast.length} {...lim} />}
+        {data && <More total={shownCast.length} {...lim} />}
       </Section>
 
       <Section title="Top billed">
@@ -116,11 +124,15 @@ export function TitleNode({ node }: { node: TNode }) {
 }
 
 /** One person of the watched cast within another title: their part, their own dates there, and the gap to what you are watching. */
-function CastRow({ f, role, spec, titleKey, type, release, hideDates, page, reveal, onOpen }: { f: { id: number; name: string; photo: string | null }; role: string; spec: GlimpseSpec; titleKey: string; type: "movie" | "tv"; release: string; hideDates?: boolean; page: PageRef; reveal: ReadonlySet<string>; onOpen: () => void }) {
+function CastRow({ f, role, spec, titleKey, type, release, hideDates, page, reveal, onGone, onOpen }: { f: { id: number; name: string; photo: string | null }; role: string; spec: GlimpseSpec; titleKey: string; type: "movie" | "tv"; release: string; hideDates?: boolean; page: PageRef; reveal: ReadonlySet<string>; onGone: () => void; onOpen: () => void }) {
   const { spans } = useSpans(f.id, type === "tv" && !hideDates ? [titleKey] : [], null, page, reveal);
   const s = spans[titleKey];
   const range = type === "movie" ? (release ? { start: release, end: release } : null) : s && s.kind === "own" && s.start ? { start: s.start, end: s.end } : null;
   const loading = type === "tv" && !hideDates && s === undefined;
+  // Spoiler line holds this person back (no dates up to where you are): drop the row instead of showing "spoilers hidden".
+  const notYet = !!s && !!s.hidden && !range;
+  useEffect(() => { if (notYet) onGone(); }, [notYet]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (notYet) return null;
   return (
     <div className="wx-wrowx">
     <button type="button" className="wx-wrow" onClick={onOpen}>
