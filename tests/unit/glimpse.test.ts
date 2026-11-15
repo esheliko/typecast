@@ -22,7 +22,7 @@ const show = { title: "The Rookie", year: "2018", type: "tv", key: "tv:79744" };
   test("actor in a title with a character", () => {
     const s = creditSpec("Sara Rue", "Nell (voice) / Dr. Sawyer", show, 123);
     expect(s.info).toEqual({ pid: 123, key: "tv:79744", char: "Nell" });
-    expect(s.tabs[0].label).toBe("Nell");
+    expect(s.tabs[0].label).toBe("Nell · The Rookie");
   });
   test("actor in a title with no character still asks for both", () => expect(creditSpec("Sara Rue", "", show, 123).info).toEqual({ pid: 123, key: "tv:79744" }));
   test("cast row and person page agree", () => {
@@ -54,7 +54,7 @@ const show = { title: "The Rookie", year: "2018", type: "tv", key: "tv:79744" };
     expect(infoQuery({ key: "tv:1", pid: 2, char: "Nell", clip: { s: 2, e: 8 }, nospoil: true, hide: "X" })).toBe("k=tv%3A1&p=2&ch=Nell&c=1&s=2&e=8&ns=1&h=X");
     expect(infoQuery({ key: "tv:1", clip: { s: null, e: null } })).toBe("k=tv%3A1&c=1");
   });
-  test("the cast tab is named after the character, not 'In the role'", () => expect(castSpec("Sara Rue", "Nell", show, undefined, 123).tabs.map((t) => t.label)).toEqual(["Nell", "Sara Rue"]));
+  test("the cast tab is named after the character, not 'In the role'", () => expect(castSpec("Sara Rue", "Nell", show, undefined, 123).tabs.map((t) => t.label)).toEqual(["Nell · The Rookie", "Sara Rue"]));
 
   {
     const c = (key: string, role: string, extra = false) => ({ key, type: key.startsWith("tv") ? "tv" as const : "movie" as const, title: `T${key}`, year: "2001", role, extra });
@@ -67,7 +67,7 @@ const show = { title: "The Rookie", year: "2018", type: "tv", key: "tv:79744" };
     test("tabs go after the role being looked at and carry their own About", () => {
       const spec = withLibRoles(castSpec("Sara Rue", "Nell", show, undefined, 123), "Sara Rue");
       const tabs = tabsWithRoles(spec, [{ key: "tv:1", type: "tv", title: "Other", year: "2001", char: "Ann" }]);
-      expect(tabs.map((t) => t.label)).toEqual(["Nell", "Ann · Other", "Sara Rue"]);
+      expect(tabs.map((t) => t.label)).toEqual(["Nell · The Rookie", "Ann · Other", "Sara Rue"]);
       expect(tabs[1].info).toEqual({ pid: 123, key: "tv:1", char: "Ann" });
       expect(tabs[1].heading).toBe("Sara Rue as Ann · Other");
       expect(tabs[0].heading).toBeUndefined();

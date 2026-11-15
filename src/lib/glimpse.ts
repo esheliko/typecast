@@ -59,7 +59,7 @@ export const castSpec = (name: string, role: string, title?: TitleBits, dept?: s
   const char = charOf(role);
   if (!title || !char) return title ? { ...base, ...info({ pid, key: keyOf(title), char: char || undefined }) } : base;
   const kind = title.type === "tv" ? "TV series" : "film";
-  return { heading: `${name} as ${char}`, tabs: [{ label: char, q: `${name} as ${char} ${title.title} ${title.year || ""} ${kind}`.replace(/\s+/g, " ").trim() }, ...base.tabs.map((t) => ({ ...t, label: name }))], ...info({ pid, key: keyOf(title), char }) };
+  return { heading: `${name} as ${char}`, tabs: [{ label: `${char} · ${title.title}`, q: `${name} as ${char} ${title.title} ${title.year || ""} ${kind}`.replace(/\s+/g, " ").trim() }, ...base.tabs.map((t) => ({ ...t, label: name }))], ...info({ pid, key: keyOf(title), char }) };
 };
 /** A title in an actor's filmography: their character in that title first, then the title's own scenes and poster. */
 export const creditSpec = (actor: string, role: string | undefined, title: TitleBits, pid?: number): GlimpseSpec => {
@@ -69,7 +69,7 @@ export const creditSpec = (actor: string, role: string | undefined, title: Title
   if (!char) return { heading: t.heading, tabs: [{ label: actor, q: castSpec(actor, "", title).tabs[0].q + " " + title.title }, ...t.tabs], ...both };
   const kind = title.type === "tv" ? "TV series" : "film";
   const q = `${actor} as ${char} ${title.title} ${title.year || ""} ${kind}`.replace(/\s+/g, " ").trim();
-  return { heading: `${actor} as ${char} · ${t.heading}`, tabs: [{ label: char, q }, ...t.tabs], ...both };
+  return { heading: `${actor} as ${char} · ${t.heading}`, tabs: [{ label: `${char} · ${title.title}`, q }, ...t.tabs], ...both };
 };
 /** A person's page opened from a title: images of them in that title first, then plain photos. */
 export const personInTitleSpec = (name: string, dept: string | undefined, title?: TitleBits, pid?: number): GlimpseSpec => {
