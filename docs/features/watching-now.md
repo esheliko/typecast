@@ -35,3 +35,5 @@
 ## Summary rule (moved from CLAUDE.md)
 
 - Watching now (`/watching`, the old `/who` redirects here): the cookie-based watch bar (`tc_watch`, `components/Watching.tsx`) opens one page with a cast-face finder, a node/trail UI, a page-wide No spoilers switch and facts; no runtime AI. The old sheet ("Who's that?") is gone. Pure logic in `src/lib/who-*.ts` and `roster.ts` (`roleLabel`) (unit tested). Later episodes are never shown while spoilers are hidden. Details: `docs/features/watching-now.md` and `docs/features/who.md` (read both before changing this feature). Never give a class a name another `wx-` rule already uses (`.wx-tl` once clashed and its `overflow: hidden` broke a sticky block): grep first.
+
+- **Rating** (fact answer, `rating()` in `lib/answer.ts`): shows IMDb's score (`getImdbRating`, `lib/imdb-rating.ts`, OMDb by IMDb id, episode id for episodes, cached a day, needs env `OMDB_API_KEY`). Fails soft: no key, no match or an OMDb error falls back to TMDB's score with "(IMDb's score isn't available right now.)". Never log the key.
