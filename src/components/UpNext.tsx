@@ -3,6 +3,7 @@ import { useContext, useEffect, useState } from "react";
 import Link from "next/link";
 import { readUi, saveUi, type UiPrefs } from "@/lib/ui-prefs";
 import { TitleLink } from "./Modal";
+import Collapse from "./Collapse";
 import { img } from "@/lib/img";
 import { newEpLabel } from "@/lib/new-episode";
 import { bySource, onYourServices, SOURCES, type Pick, type Source } from "@/lib/upnext";
@@ -45,6 +46,12 @@ export default function UpNext({ picks: all, services, prefs }: { picks: Pick[];
   const [snoozed, setSnoozed] = useState<Snoozed>({});
   const [moved, setMoved] = useState<ReadonlySet<string>>(new Set()); // "Move to Partly watched" done here: hidden until the server data catches up
   const { mark } = useLib();
+  // Only one of Watch next / Upcoming is open at a time: opening the other closes this one.
+  useEffect(() => {
+    const on = (e: Event) => { if ((e as CustomEvent).detail !== "next") { saveUi({ unClosed: true }); setClosed(true); } };
+    window.addEventListener("lib-panel-open", on);
+    return () => window.removeEventListener("lib-panel-open", on);
+  }, []);
   useEffect(() => {
     setSnoozed(loadSnoozed());
     if (document.cookie.indexOf("tc_ui=") >= 0) setClosed(readUi().unClosed); // a cached render of this page may carry an older choice
@@ -71,7 +78,7 @@ export default function UpNext({ picks: all, services, prefs }: { picks: Pick[];
     : services === "pending" ? "Checking where these stream…"
     : services === "failed" ? "Couldn't check your services just now. Try again in a moment."
     : "Nothing from your list is streaming on your services right now.";
-  const toggle = () => { saveUi({ unClosed: !closed }); setClosed(!closed); };
+  const toggle = () => { saveUi({ unClosed: !closed }); setClosed(!closed); if (closed) window.dispatchEvent(new CustomEvent("lib-panel-open", { detail: "next" })); };
   const snooze = (k: string) => { const s = { ...loadSnoozed(), [k]: Date.now() + SNOOZE_MS }; saveSnoozed(s); setSnoozed(s); };
   const toPartly = (p: Pick) => { setMoved((m) => new Set(m).add(p.key)); void mark(p, "partial"); };
   const restore = () => { saveSnoozed({}); setSnoozed({}); };
@@ -88,8 +95,9 @@ export default function UpNext({ picks: all, services, prefs }: { picks: Pick[];
         {!closed && canFilter && <button type="button" className="chip upnext-mine" aria-pressed={mine} onClick={toggleMine} title="Only what you can stream tonight on the services you picked in Settings">On my services</button>}
         {!closed && hidden > 0 && <button type="button" className="upnext-restore" onClick={restore}>{hidden} hidden · bring back</button>}
       </div>
-      {!closed && !list.length && <p className="muted upnext-empty">{empty}{mine && services === "yes" && <> <button type="button" className="upnext-restore" onClick={toggleMine}>Show everything</button></>}</p>}
-      {!closed && list.length > 0 && (
+      <Collapse open={!closed}>
+      {!list.length && <p className="muted upnext-empty">{empty}{mine && services === "yes" && <> <button type="button" className="upnext-restore" onClick={toggleMine}>Show everything</button></>}</p>}
+      {list.length > 0 && (
         <ul className="upnext-strip">
           {list.map((p) => (
             <li key={p.key} className={`upnext-card k-${p.kind}`}>
@@ -123,6 +131,7 @@ export default function UpNext({ picks: all, services, prefs }: { picks: Pick[];
           ))}
         </ul>
       )}
+      </Collapse>
     </section>
   );
 }

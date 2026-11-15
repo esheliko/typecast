@@ -70,7 +70,7 @@ async function UpcomingFromList({ lib, prefs }: { lib: LibItem[]; prefs: UiPrefs
     const now = Date.now();
     const profile = await getProfile();
     const entries = await loadUpcoming(lib, profile, now);
-    return entries.length ? <Upcoming entries={entries} today={dayOf(now, tzOf(profile.country))} open={prefs.upOpen} /> : null;
+    return entries.length ? <Upcoming entries={entries} today={dayOf(now, tzOf(profile.country))} open={prefs.upOpen && prefs.unClosed} /> : null;
   } catch (e) {
     console.error("Upcoming failed", e);
     return null;

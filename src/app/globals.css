@@ -654,6 +654,11 @@ button.aw-chip:hover { filter: brightness(1.08); }
 /* Open: a section, not a chip. */
 .lib-top .upnext-h[aria-expanded="true"] { min-height: 32px; padding: 0 4px 0 10px; border: 0; border-radius: 0; background: transparent; box-shadow: none; border-left: 3px solid var(--up-acc); }
 .lib-top .upnext-h[aria-expanded="true"] .upnext-k { font-size: 14px; color: color-mix(in srgb, var(--gold) 80%, var(--muted)); }
+.collapse { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: 0fr; min-width: 0; opacity: 0; transition: grid-template-rows .28s ease, opacity .2s ease; }
+.collapse.on { grid-template-rows: 1fr; opacity: 1; }
+.collapse-in { min-height: 0; min-width: 0; overflow: hidden; }
+.collapse.on.settled .collapse-in { overflow: visible; }
+@media (prefers-reduced-motion: reduce) { .collapse { transition: none; } }
 .upnext-mine { padding: 0 14px; min-height: 34px; font-size: 13px; white-space: nowrap; }
 .upnext-empty { margin: 6px 2px 4px; font-size: 13px; }
 .upnext-restore { font-size: 13px; color: var(--muted); text-decoration: underline dotted; text-underline-offset: 3px; white-space: nowrap; padding: 10px 4px; }
