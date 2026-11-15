@@ -5,6 +5,7 @@ import { enrich } from "./enrich";
 import { detailLabel, type CrewId } from "./details";
 import { fmtDate, plural } from "./episodes";
 import { followUps, parseQuestion, type Intent, type Who } from "./ask-intent";
+import { getImdbRating } from "./imdb-rating";
 import { getAllCredits, getEpisode, getEpisodeImdbId, getPersonBasics, getSeason, getTitle, getTitleFacts, search, type TitleFacts } from "./tmdb";
 import { getArticle, getWikiFacts, type Article } from "./wiki";
 import { basedOnPhrase, bestSentences, sentences, SPOILER_SECTIONS } from "./wiki-text";
@@ -360,15 +361,18 @@ async function rating(ctx: Ctx): Promise<Answer> {
       getEpisodeImdbId(w.id, w.s, w.e),
     ]);
     const label = `S${w.s}E${w.e}`;
+    const im = await getImdbRating(imdb);
     return {
-      text: [ep && ep.votes > 0 && ep.rating ? `**${ep.rating.toFixed(1)}/10 on TMDB** for this episode (${label}) from ${ep.votes.toLocaleString("en-US")} votes.` : `Not enough TMDB votes for a rating of ${label}.`,
-        "TMDB's score is its own; the IMDb score for this episode is on its IMDb page.", mine ? `You gave the show ${"★".repeat(mine)}.` : ""].filter(Boolean).join(" "),
+      text: [im ? `**${im.rating.toFixed(1)}/10 on IMDb** for this episode (${label})${im.votes ? ` from ${im.votes.toLocaleString("en-US")} votes` : ""}.`
+          : ep && ep.votes > 0 && ep.rating ? `**${ep.rating.toFixed(1)}/10 on TMDB** for this episode (${label}) from ${ep.votes.toLocaleString("en-US")} votes. (IMDb's score isn't available right now.)` : `No rating found for ${label}.`,
+        mine ? `You gave the show ${"★".repeat(mine)}.` : ""].filter(Boolean).join(" "),
       links: [{ label: `IMDb ${label}`, url: imdb ? `https://www.imdb.com/title/${imdb}/ratings/` : google(`${ctx.t.title} ${label} imdb rating`) }],
     };
   }
-  const f = await ctx.facts();
+  const [f, im] = await Promise.all([ctx.facts(), getImdbRating(ctx.t.imdbId)]);
   return {
-    text: [f?.votes ? `**${f.rating}/10 on TMDB** from ${f.votes.toLocaleString("en-US")} votes.` : "Not enough TMDB votes for a rating.", mine ? `You gave it ${"★".repeat(mine)}.` : ""].filter(Boolean).join(" "),
+    text: [im ? `**${im.rating.toFixed(1)}/10 on IMDb**${im.votes ? ` from ${im.votes.toLocaleString("en-US")} votes` : ""}.`
+        : f?.votes ? `**${f.rating}/10 on TMDB** from ${f.votes.toLocaleString("en-US")} votes. (IMDb's score isn't available right now.)` : "Not enough votes for a rating.", mine ? `You gave it ${"★".repeat(mine)}.` : ""].filter(Boolean).join(" "),
     links: [...(ctx.t.imdbId ? [{ label: "IMDb", url: `https://www.imdb.com/title/${ctx.t.imdbId}/` }] : []), { label: "Rotten Tomatoes", url: google(`${ctx.t.title}${yr(ctx.t)} rotten tomatoes`) }],
   };
 }
