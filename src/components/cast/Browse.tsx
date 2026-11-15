@@ -16,6 +16,7 @@ import { img } from "@/lib/img";
 import { newEpLabel } from "@/lib/new-episode";
 import { faded, loadPassed, type Passed } from "@/lib/passed";
 import { STATUS_LABEL, type BrowseItem, type BrowseList, type BrowseType } from "@/lib/types";
+import { ImdbRate } from "@/components/ImdbRate";
 
 const LISTS: { k: BrowseList; label: string; tv?: string }[] = [
   { k: "foryou", label: "For you" },
@@ -303,7 +304,7 @@ export function Poster({ it, sub, skippable }: { it: BrowseItem; sub?: string; s
       <span className="pc-gl"><GlimpseButton spec={titleSpec(it)} /></span>
       <TitleLink k={it.key} it={it} className="pc-link">
         <span className="pc-t">{it.title}</span>
-        <span className="pc-s"><KindIcon type={it.type} />{sub ?? [it.year || "TBA", it.rating ? `★ ${it.rating.toFixed(1)}` : ""].filter(Boolean).join(" · ")}</span>
+        <span className="pc-s"><KindIcon type={it.type} />{sub ?? <>{it.year || "TBA"}<ImdbRate k={it.key} lead=" · " /></>}</span>
       </TitleLink>
     </div>
   );

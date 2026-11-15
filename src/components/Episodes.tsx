@@ -105,6 +105,14 @@ export default function Episodes({ item, seasons, progress, status, today, ended
   }, [item.id, s, lineTagKey, shown]);
 
   // Faces per episode: after the season itself, so the list shows first. Another place or Show is another question; a failure leaves the rows plain.
+  // IMDb's score per episode (one call per season); nothing shows until it arrives or when IMDb has none.
+  const [imdbEps, setImdbEps] = useState<Record<number, number>>({});
+  useEffect(() => {
+    let live = true;
+    setImdbEps({});
+    fetch(`/api/imdb?tv=${item.id}&s=${s}`).then((r) => (r.ok ? r.json() : { eps: {} }), () => ({ eps: {} })).then((d) => { if (live) setImdbEps(d.eps ?? {}); });
+    return () => { live = false; };
+  }, [item.id, s]);
   const [faces, setFaces] = useState<Map<number, EpisodeFaces> | null>(null);
   useEffect(() => {
     if (!data) return;
@@ -209,7 +217,7 @@ export default function Episodes({ item, seasons, progress, status, today, ended
         <ul className="ep-list">
           {eps.map((x) => {
             const isOpen = open === x.e, seen = upTo(x, p), out = aired(x, today), isNext = next?.s === x.s && next?.e === x.e;
-            const sub = [out ? fmtDate(x.air, true) : x.air ? `${fmtDate(x.air, true)} · ${untilLabel(x.air, today)}` : "No date yet", x.runtime ? `${x.runtime} min` : "", x.votes >= 5 ? `★ ${x.rating.toFixed(1)}` : ""].filter(Boolean).join(" · ");
+            const sub = [out ? fmtDate(x.air, true) : x.air ? `${fmtDate(x.air, true)} · ${untilLabel(x.air, today)}` : "No date yet", x.runtime ? `${x.runtime} min` : "", imdbEps[x.e] ? `IMDb ${imdbEps[x.e].toFixed(1)}` : ""].filter(Boolean).join(" · ");
             return (
               <li key={x.e} data-ep={x.e} className={`ep${seen ? " ep-seen" : ""}${out ? "" : " ep-soon"}${isOpen ? " ep-open" : ""}`}>
                 <button type="button" className="ep-row" aria-expanded={isOpen} onClick={() => setOpen(isOpen ? null : x.e)}>

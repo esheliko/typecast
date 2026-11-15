@@ -8,3 +8,10 @@ test("N/A and errors are unknown", () => {
   assert.equal(parseOmdb({ Response: "False", Error: "x" }), null);
   assert.equal(parseOmdb(null), null);
 });
+
+test("parseOmdbSeason maps episode numbers to scores and skips N/A", async () => {
+  const { parseOmdbSeason } = await import("../../src/lib/imdb-rating");
+  assert.deepEqual(parseOmdbSeason({ Response: "True", Episodes: [{ Episode: "1", imdbRating: "8.4" }, { Episode: "2", imdbRating: "N/A" }, { Episode: "3", imdbRating: "9.1" }] }), { 1: 8.4, 3: 9.1 });
+  assert.deepEqual(parseOmdbSeason({ Response: "False" }), {});
+  assert.deepEqual(parseOmdbSeason(null), {});
+});

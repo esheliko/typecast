@@ -9,6 +9,7 @@ import { KindFilter } from "./KindSeg";
 import { img } from "@/lib/img";
 import { layoutSearch, pickCollections, youKnowFrom, type PersonHit, type TitleHit } from "@/lib/search-intent";
 import type { BrowseItem, SearchHit } from "@/lib/types";
+import { ImdbRate } from "@/components/ImdbRate";
 
 type Coll = { id: number; name: string; pop?: number; votes?: number; items: BrowseItem[] };
 
@@ -204,7 +205,7 @@ function TopRow({ hit, known }: { hit: SearchHit; known: string[] }) {
         {t.poster ? <img className="top-poster" src={img(t.poster, "w154")} alt="" decoding="async" /> : <span className="top-poster ph" />}
         <span className="top-text">
           <span className="nm">{t.title}</span>
-          <span className="row-sub">{[t.type === "tv" ? "Series" : "Film", t.year || "TBA", t.rating ? `★ ${t.rating.toFixed(1)}` : ""].filter(Boolean).join(" · ")}</span>
+          <span className="row-sub">{[t.type === "tv" ? "Series" : "Film", t.year || "TBA"].join(" · ")}<ImdbRate k={t.key} lead=" · " /></span>
         </span>
       </TitleLink>
       <QuickMark it={t} variant="inline" />
