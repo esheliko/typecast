@@ -30,7 +30,7 @@ export function EpisodeCard({ s, e }: { s: number; e: number }) {
         : <span className="wx-epstill wx-noph" aria-hidden="true" />}
       <div className="wx-epinfo">
         <span className="mc-label">{code}</span>
-        <h3 className="wx-eptitle">{ep.name || `Episode ${ep.e}`}</h3>
+        <h3 className="wx-eptitle">{ep.name || `Episode ${ep.e}`} {ep.imdbId && <a className="imdb-link" href={`https://www.imdb.com/title/${ep.imdbId}/`} target="_blank" rel="noopener noreferrer" aria-label={`Open ${code} on IMDb`} title="Open this episode on IMDb">IMDb ↗</a>}</h3>
         <p className="small muted" style={{ margin: "2px 0 6px" }}>{[ep.air && `Aired ${fmtDay(ep.air)}`, ep.runtime && `${ep.runtime} min`].filter(Boolean).join(" · ")}</p>
         {ep.directors.length > 0 && <p className="small" style={{ margin: "0 0 2px" }}><span className="muted">Directed by</span> {ep.directors.join(", ")}</p>}
         {ep.writers.length > 0 && <p className="small" style={{ margin: 0 }}><span className="muted">Written by</span> {ep.writers.join(", ")}</p>}
