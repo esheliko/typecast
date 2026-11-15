@@ -32,10 +32,6 @@ export function Finder({ roster, loading, more, err, q, setQ, inputRef, recents,
   const { brief, pos, prefetchPerson, spoilers } = useWho();
   const [gender, setGender] = useState<GenderFilter>("all");
   const [cast, setCast] = useState<CastFilter>("all");
-  // Which name leads on a tile: the actor (bold, first) or the character. Remembered on this device.
-  const [charFirst, setCharFirst] = useState(false);
-  useEffect(() => { try { if (localStorage.getItem("typecast.finder.names") === "char") setCharFirst(true); } catch {} }, []);
-  const flipNames = (v: boolean) => { setCharFirst(v); try { localStorage.setItem("typecast.finder.names", v ? "char" : "actor"); } catch {} };
   const [open, setOpen] = useState<Record<string, boolean>>({});
   // Columns the grid has right now (it is auto-fill, so it changes with the window): the folded view always ends on a full row.
   const wrap = useRef<HTMLDivElement>(null);
@@ -205,9 +201,6 @@ export function Finder({ roster, loading, more, err, q, setQ, inputRef, recents,
         <div className="seg" role="group" aria-label="Cast">
           {([["all", "All"], ["main", <>Main<span className="wx-xl"> cast</span></>], ["guests", film ? "Others" : "Guests"]] as const).map(([v, t]) => <button key={v} type="button" aria-pressed={cast === v} onClick={() => setCast(v)}>{t}</button>)}
         </div>
-        <div className="seg" role="group" aria-label="Name shown first">
-          {([[false, "Actor"], [true, "Character"]] as const).map(([v, t]) => <button key={t} type="button" aria-pressed={charFirst === v} onClick={() => flipNames(v)} title={v ? "Character name first, actor underneath" : "Actor name first, character underneath"}>{t}</button>)}
-        </div>
         {old && thenOk && (
           <div className="seg" role="group" aria-label="Photos">
             {([[false, "Now"], [true, "Then"]] as const).map(([v, t]) => <button key={t} type="button" aria-pressed={then === v} onClick={() => flipThen(v)} title={v ? `How they looked in ${brief.title}` : "Current photos"}>{t}</button>)}
@@ -233,7 +226,7 @@ export function Finder({ roster, loading, more, err, q, setQ, inputRef, recents,
             <section key={g.id} className="wx-group" aria-label={g.label}>
               <h3 className="wx-gh">{g.label}<span className="muted"> · {g.faces.length}</span></h3>
               <ul className="wx-grid">
-                {list.map((f, i) => <Tile key={f.id} f={f} charFirst={charFirst} eager={i < 12} known={known[f.id]} seenW={seenFor(f.id)} then={showThen ? thenImg[f.id] : undefined} year={brief.year} onOpen={() => onOpen(f)} onPop={setPop} />)}
+                {list.map((f, i) => <Tile key={f.id} f={f} eager={i < 12} known={known[f.id]} seenW={seenFor(f.id)} then={showThen ? thenImg[f.id] : undefined} year={brief.year} onOpen={() => onOpen(f)} onPop={setPop} />)}
               </ul>
               {g.faces.length > lim && <button type="button" className="chip wx-more" onClick={() => setOpen((o) => ({ ...o, [g.id]: !all }))}>{all ? "Show fewer" : `Show ${g.faces.length - lim} more`}</button>}
             </section>
@@ -314,7 +307,7 @@ function GridSkeleton() {
 }
 
 /** One face: photo, name, character (one line each) and one muted line, "x4 · Character in Title" (gold only for the seen part). Nothing is drawn for what is not known. */
-function Tile({ f, charFirst, known, seenW, eager, then, year, onOpen, onPop }: { f: WhoFace; charFirst?: boolean; known?: KnownTitle[]; seenW?: Set<string>; eager: boolean; then?: string | null; year?: string; onOpen: () => void; onPop: (p: { f: WhoFace; r: DOMRect } | null) => void }) {
+function Tile({ f, known, seenW, eager, then, year, onOpen, onPop }: { f: WhoFace; known?: KnownTitle[]; seenW?: Set<string>; eager: boolean; then?: string | null; year?: string; onOpen: () => void; onPop: (p: { f: WhoFace; r: DOMRect } | null) => void }) {
   const lib = useLib();
   const { brief, prefetchPerson, clip, spoilers } = useWho();
   const [bad, setBad] = useState(false);
@@ -343,17 +336,8 @@ function Tile({ f, charFirst, known, seenW, eager, then, year, onOpen, onPop }: 
           /* eslint-disable-next-line @next/next/no-img-element */
           <span className="wx-thenw"><img className="wx-ph wx-then" src={then} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={() => setBad(true)} />{year && <span className="wx-thenb">{year}</span>}</span>
         ) : <Photo path={f.photo} name={f.name} eager={eager} className="wx-ph" />}
-        {charFirst && role ? (
-          <>
-            <b className="wx-nm">{role}</b>
-            <span className="small muted wx-rl"><span className="wx-rlt">{f.name}</span>{n > 0 && <span className="wx-rln" title={`${n} episode${n === 1 ? "" : "s"}`}>&nbsp;· x{n}</span>}</span>
-          </>
-        ) : (
-          <>
-            <b className="wx-nm">{f.name}</b>
-            <span className="small muted wx-rl"><span className="wx-rlt">{role || " "}</span>{n > 0 && <span className="wx-rln" title={`${n} episode${n === 1 ? "" : "s"}`}>&nbsp;· x{n}</span>}</span>
-          </>
-        )}
+        <b className="wx-nm">{f.name}</b>
+        <span className="small muted wx-rl"><span className="wx-rlt">{role || " "}</span>{n > 0 && <span className="wx-rln" title={`${n} episode${n === 1 ? "" : "s"}`}>&nbsp;· x{n}</span>}</span>
         <span className="small muted wx-meta" title={seen || (best ? best[1] : undefined)}>
           {pick ? <span className="wx-seen">{pick.character ? <><span className="wx-sc">{pick.character}</span><span className="wx-st">in {pick.title}</span></> : <span className="wx-st">Seen in {pick.title}</span>}</span> : best ? best[1] : null}
         </span>
