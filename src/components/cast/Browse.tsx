@@ -285,7 +285,7 @@ export function Poster({ it, sub, skippable }: { it: BrowseItem; sub?: string; s
   const { get, skip } = useLib();
   const s = get(it.key)?.status, fresh = get(it.key)?.fresh;
   return (
-    <div className={`pc${s ? ` is-${s}` : ""}`}>
+    <div className={`pc${s ? ` is-${s}` : ""}`} title={it.why}>
       <div className="pc-art">
         <TitleLink k={it.key} it={it} tabIndex={-1} aria-hidden="true">
           {/* eslint-disable-next-line @next/next/no-img-element */}

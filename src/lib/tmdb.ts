@@ -132,7 +132,19 @@ export async function browse(list: BrowseList, type: BrowseType, page: number): 
     : type === "movie" ? "/movie/now_playing" : "/tv/on_the_air";
   if (list === "soon") Object.assign(params, { include_adult: "false", sort_by: "popularity.desc", [`${date}.gte`]: daysFrom(1), [`${date}.lte`]: daysFrom(180) });
   const d = await tmdb(path, params, HOUR);
-  return { items: (d.results ?? []).map((r: any) => browseItem(type, r)), more: page < Math.min(d.total_pages ?? 1, 200) };
+  return { items: (d.results ?? []).map((r: any) => ({ ...browseItem(type, r), why: listWhy(list, type, r) })), more: page < Math.min(d.total_pages ?? 1, 200) };
+}
+
+/** Why a title is on a quick list, in a sentence (hover text in Browse). */
+export function listWhy(list: BrowseList, type: MediaType, r: any): string {
+  const votes = r.vote_count ?? 0, avg = r.vote_average ?? 0;
+  const k = (n: number) => (n >= 1000 ? `${Math.round(n / 100) / 10}k` : String(n));
+  const date = String(r.release_date ?? r.first_air_date ?? "");
+  if (list === "trending") return `Trending: one of the ${type === "movie" ? "films" : "series"} people on TMDB have been looking at most this week.`;
+  if (list === "popular") return `Popular: among the most-watched ${type === "movie" ? "films" : "series"} on TMDB right now.`;
+  if (list === "top") return `Top rated: ${avg.toFixed(1)} out of 10 from ${k(votes)} votes, one of the best-rated ${type === "movie" ? "films" : "series"} of all time.`;
+  if (list === "soon") return `Coming soon${date ? `: due ${date}` : ""}, one of the most anticipated ${type === "movie" ? "films" : "series"} in the next six months.`;
+  return type === "movie" ? "New: in cinemas now." : "New: has an episode airing in the coming days.";
 }
 
 /** One cast entry. A series lists every part someone played and how many episodes they were in, most episodes first. */
