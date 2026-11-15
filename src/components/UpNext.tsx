@@ -46,6 +46,12 @@ export default function UpNext({ picks: all, services, prefs }: { picks: Pick[];
   const [snoozed, setSnoozed] = useState<Snoozed>({});
   const [moved, setMoved] = useState<ReadonlySet<string>>(new Set()); // "Move to Partly watched" done here: hidden until the server data catches up
   const { mark } = useLib();
+  // Only one of Watch next / Upcoming is open at a time: opening the other closes this one.
+  useEffect(() => {
+    const on = (e: Event) => { if ((e as CustomEvent).detail !== "next") { saveUi({ unClosed: true }); setClosed(true); } };
+    window.addEventListener("lib-panel-open", on);
+    return () => window.removeEventListener("lib-panel-open", on);
+  }, []);
   useEffect(() => {
     setSnoozed(loadSnoozed());
     if (document.cookie.indexOf("tc_ui=") >= 0) setClosed(readUi().unClosed); // a cached render of this page may carry an older choice
@@ -73,12 +79,6 @@ export default function UpNext({ picks: all, services, prefs }: { picks: Pick[];
     : services === "failed" ? "Couldn't check your services just now. Try again in a moment."
     : "Nothing from your list is streaming on your services right now.";
   const toggle = () => { saveUi({ unClosed: !closed }); setClosed(!closed); if (closed) window.dispatchEvent(new CustomEvent("lib-panel-open", { detail: "next" })); };
-  // Only one of Watch next / Upcoming is open at a time: opening the other closes this one.
-  useEffect(() => {
-    const on = (e: Event) => { if ((e as CustomEvent).detail !== "next") { saveUi({ unClosed: true }); setClosed(true); } };
-    window.addEventListener("lib-panel-open", on);
-    return () => window.removeEventListener("lib-panel-open", on);
-  }, []);
   const snooze = (k: string) => { const s = { ...loadSnoozed(), [k]: Date.now() + SNOOZE_MS }; saveSnoozed(s); setSnoozed(s); };
   const toPartly = (p: Pick) => { setMoved((m) => new Set(m).add(p.key)); void mark(p, "partial"); };
   const restore = () => { saveSnoozed({}); setSnoozed({}); };
