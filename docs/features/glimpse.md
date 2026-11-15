@@ -34,7 +34,7 @@ The button beside every title, cast row and credit opens one panel with **Images
 
 **The panel title follows the tab.** A library-role tab carries its own `heading` ("Actor as Character · Title", `libRoleTab`); the bar shows `curTab.heading ?? spec.heading`, so picking the HIMYM pill no longer leaves the first role's title on top.
 
-**Tabs stay put.** The tab row (`.gl-tabs`) sits outside the scrolling panes, and switching a tab keeps the image pane's scroll position (the browser only clamps it if the new tab is shorter). Role tabs list only titles marked **Watched** (`/api/glimpse/roles` filters the library by status).
+**Tabs stay put.** The tab row (`.gl-tabs`) sits outside the scrolling panes, and switching a tab keeps the image pane's scroll position (the browser only clamps it if the new tab is shorter). Role tabs list titles marked **Watched** or **Partial**, plus a **Watching** series only when the actor already appeared by the saved place (`loadSeenWatching`, same rule as the Finder tiles, so a pill never spoils a later arrival); `/api/glimpse/roles` does the filtering.
 
 **Image search limits (Serper free plan).** The `site:` operator is rejected ("Query pattern not allowed for free accounts"), so the role search cannot be pointed at imdb.com; the Then pick relies on ranking the 12 results instead. There is no IMDb photo API (scraping is against IMDb's terms). To test queries from a cloud session, `google.serper.dev` is allowed on the `typecast` environment and the key is saved there as a network secret (the proxy injects it; no variable holds it): `curl -X POST https://google.serper.dev/images -H 'Content-Type: application/json' -d '{"q":"...","num":12}'`.
 
