@@ -1,6 +1,7 @@
 "use client";
 import { useContext, useEffect, useState } from "react";
 import { TitleLink } from "./Modal";
+import Collapse from "./Collapse";
 import { readUi, saveUi } from "@/lib/ui-prefs";
 import { img } from "@/lib/img";
 import { ofKind } from "@/lib/kind";
@@ -40,7 +41,7 @@ export default function Upcoming({ entries: all, today: serverToday, open: initi
           <span className="upnext-caret" aria-hidden="true">›</span>
         </button>
       </div>
-      {open && (
+      <Collapse open={open}>
         <>
           {groupUpcoming(shown, today).map((g) => (
             <div key={g.label}>
@@ -69,7 +70,7 @@ export default function Upcoming({ entries: all, today: serverToday, open: initi
           ))}
           {!all_ && live.length > SHOW && <button type="button" className="upnext-restore up-more" onClick={() => setAll(true)}>Show all {live.length}</button>}
         </>
-      )}
+      </Collapse>
     </section>
   );
 }

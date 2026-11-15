@@ -3,6 +3,7 @@ import { useContext, useEffect, useState } from "react";
 import Link from "next/link";
 import { readUi, saveUi, type UiPrefs } from "@/lib/ui-prefs";
 import { TitleLink } from "./Modal";
+import Collapse from "./Collapse";
 import { img } from "@/lib/img";
 import { newEpLabel } from "@/lib/new-episode";
 import { bySource, onYourServices, SOURCES, type Pick, type Source } from "@/lib/upnext";
@@ -88,8 +89,9 @@ export default function UpNext({ picks: all, services, prefs }: { picks: Pick[];
         {!closed && canFilter && <button type="button" className="chip upnext-mine" aria-pressed={mine} onClick={toggleMine} title="Only what you can stream tonight on the services you picked in Settings">On my services</button>}
         {!closed && hidden > 0 && <button type="button" className="upnext-restore" onClick={restore}>{hidden} hidden · bring back</button>}
       </div>
-      {!closed && !list.length && <p className="muted upnext-empty">{empty}{mine && services === "yes" && <> <button type="button" className="upnext-restore" onClick={toggleMine}>Show everything</button></>}</p>}
-      {!closed && list.length > 0 && (
+      <Collapse open={!closed}>
+      {!list.length && <p className="muted upnext-empty">{empty}{mine && services === "yes" && <> <button type="button" className="upnext-restore" onClick={toggleMine}>Show everything</button></>}</p>}
+      {list.length > 0 && (
         <ul className="upnext-strip">
           {list.map((p) => (
             <li key={p.key} className={`upnext-card k-${p.kind}`}>
@@ -123,6 +125,7 @@ export default function UpNext({ picks: all, services, prefs }: { picks: Pick[];
           ))}
         </ul>
       )}
+      </Collapse>
     </section>
   );
 }
