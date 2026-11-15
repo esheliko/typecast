@@ -19,6 +19,12 @@ const SHOW = 8;
 export default function Upcoming({ entries: all, today: serverToday, open: initialOpen }: { entries: UpEntry[]; today: string; open: boolean }) {
   const entries = ofKind(all, useContext(KindContext));
   const [open, setOpen] = useState(initialOpen);
+  // Only one of Watch next / Upcoming is open at a time: opening the other closes this one.
+  useEffect(() => {
+    const on = (e: Event) => { if ((e as CustomEvent).detail !== "upcoming") { saveUi({ upOpen: false }); setOpen(false); } };
+    window.addEventListener("lib-panel-open", on);
+    return () => window.removeEventListener("lib-panel-open", on);
+  }, []);
   const [all_, setAll] = useState(false);
   const [today, setToday] = useState(serverToday);
   useEffect(() => {
@@ -29,7 +35,7 @@ export default function Upcoming({ entries: all, today: serverToday, open: initi
   useEffect(() => { setUpcomingBadges(all); return () => setUpcomingBadges([]); }, [all]);
   const live = entries.filter((e) => e.date >= today);
   if (!live.length) return null;
-  const toggle = () => { saveUi({ upOpen: !open }); setOpen(!open); };
+  const toggle = () => { saveUi({ upOpen: !open }); setOpen(!open); if (!open) window.dispatchEvent(new CustomEvent("lib-panel-open", { detail: "upcoming" })); };
   const shown = all_ ? live : live.slice(0, SHOW);
   return (
     <section className="upnext upcoming" aria-label="Upcoming">
