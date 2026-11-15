@@ -9,7 +9,8 @@ import { useLib } from "./LibState";
 import QuickMark from "./QuickMark";
 import { KindSeg } from "../KindSeg";
 import { mixed, ofKind, type Kind } from "@/lib/kind";
-import { avgLabel, img, typeLabel } from "@/lib/img";
+import { img, typeLabel } from "@/lib/img";
+import { ImdbRate } from "@/components/ImdbRate";
 import type { Item } from "@/lib/types";
 
 /** Titles that belong together (a collection, a shared universe), in release order. */
@@ -57,7 +58,7 @@ export function FranchiseList({ groups: raw, onNavigate, include }: { groups: Gr
                       {it.poster ? <img className="thumb" src={img(it.poster, "w92")} alt="" loading="lazy" /> : <span className="thumb" />}
                       <span className="row-main">
                         <span className="row-title" style={{ fontSize: 17 }}>{it.title}</span>
-                        <span className="row-sub">{it.year} · {typeLabel(it.type)}{avgLabel(it)}{it.key === include?.key ? " · you marked this" : ""}</span>
+                        <span className="row-sub">{it.year} · {typeLabel(it.type)}<ImdbRate k={it.key} lead=" · " />{it.key === include?.key ? " · you marked this" : ""}</span>
                       </span>
                     </TitleLink>
                     <div className="fr-act">

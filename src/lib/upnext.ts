@@ -194,7 +194,7 @@ function fromWatchlist(l: LibItem, ctx: Ctx, taste: Map<number, number>, recBy: 
     score += t;
     const v = voteBoost(f.vote, f.votes);
     score += v;
-    if (v >= 1.2) reasons.push([v, `Rated ${f.vote.toFixed(1)} on TMDB`]);
+    if (v >= 1.2) reasons.push([v, "Highly rated"]);
     if (f.released && daysSince(Date.parse(f.released), ctx.now) <= 90) { score += 0.8; reasons.push([0.8, l.type === "tv" ? "New series" : "Just released"]); }
   }
   const age = daysSince(l.added, ctx.now);

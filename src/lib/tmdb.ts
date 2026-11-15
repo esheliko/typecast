@@ -511,6 +511,12 @@ export async function getEpisode(tv: number, s: number, e: number) {
   return { name: (d.name ?? "") as string, cast: map(d.credits?.cast).slice(0, 12), guests: map(d.credits?.guest_stars).slice(0, 20) };
 }
 
+/** The IMDb id of a film or series (cached a week); null when TMDB has none. */
+export async function getTitleImdbId(type: MediaType, id: number): Promise<string | null> {
+  const d = await tmdb(`/${type}/${id}/external_ids`, {}, 7 * 24 * HOUR).catch(() => null);
+  return (d?.imdb_id as string | undefined) || null;
+}
+
 /** The IMDb id of one episode (its own page and rating, not the show's); null when TMDB has none. */
 export async function getEpisodeImdbId(tv: number, s: number, e: number): Promise<string | null> {
   const d = await tmdb(`/tv/${tv}/season/${s}/episode/${e}/external_ids`, {}, 24 * HOUR).catch(() => null);
