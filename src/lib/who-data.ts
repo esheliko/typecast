@@ -3,7 +3,7 @@ import { unstable_cache } from "next/cache";
 import { buildAllRoster, buildRoster, asGender, scopeKind } from "./who-scope";
 import { commonResults, sharedTitles, type CastEntry, type FoundTitle, type Shared } from "./who-common";
 import { spanFromEpisodes, spanUnderLine, type CreditEp, type CreditSeason } from "./who-spans";
-import { tmdb, TmdbError } from "./tmdb";
+import { getEpisodeImdbId, tmdb, TmdbError } from "./tmdb";
 import { getFandomEpisodeCast } from "./fandom";
 import { missingGuests, normName, tvmazeEpisodeIds, tvmazeGuests } from "./tvmaze";
 import type { MediaType } from "./types";
@@ -66,7 +66,7 @@ export const loadBrief = cached(async (type: MediaType, id: number): Promise<Who
 /* ---------- a season: the episode list, and one episode's details ---------- */
 
 export interface WhoEp { e: number; name: string; air: string; runtime: number | null; still: string | null; aired: boolean }
-export interface WhoEpDetail extends WhoEp { overview: string; directors: string[]; writers: string[] }
+export interface WhoEpDetail extends WhoEp { overview: string; directors: string[]; writers: string[]; /** The episode's own IMDb page id; null when TMDB has none. */ imdbId: string | null }
 
 const crewOf = (x: any, jobs: string[]) => [...new Set<string>((x.crew ?? []).filter((c: any) => jobs.includes(c.job)).map((c: any) => c.name))].slice(0, 3);
 
@@ -78,8 +78,9 @@ export async function loadSeason(tv: number, s: number, e?: number, today = new 
     e: x.episode_number, name: x.name ?? "", air: x.air_date ?? "", runtime: x.runtime ?? null, still: x.still_path ?? null, aired: !!x.air_date && x.air_date <= now,
   }));
   const one = e ? ((d.episodes ?? []) as any[]).find((x) => x.episode_number === e) : null;
+  const imdbId = one ? await getEpisodeImdbId(tv, s, e!).catch(() => null) : null;
   const detail: WhoEpDetail | null = one ? {
-    ...episodes.find((x) => x.e === e)!, overview: one.overview ?? "", directors: crewOf(one, ["Director"]), writers: crewOf(one, ["Writer", "Teleplay", "Story"]),
+    ...episodes.find((x) => x.e === e)!, overview: one.overview ?? "", directors: crewOf(one, ["Director"]), writers: crewOf(one, ["Writer", "Teleplay", "Story"]), imdbId,
   } : null;
   return { air: d.air_date ?? "", episodes, detail };
 }

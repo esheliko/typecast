@@ -62,6 +62,7 @@ export function RootNode() {
           <div className="wx-epcard">
             <ZoomBtn path={brief.poster} name={brief.title} className="wx-filmposterb"><Photo path={brief.poster} name={brief.title} w="w342" className="wx-filmposter" /></ZoomBtn>
             <div className="wx-epinfo">
+              {brief.imdbId && <p style={{ margin: "0 0 6px" }}><a className="imdb-link" href={`https://www.imdb.com/title/${brief.imdbId}/`} target="_blank" rel="noopener noreferrer" aria-label="Open on IMDb" title="Open on IMDb">IMDb ↗</a></p>}
               <p className="small muted" style={{ margin: "0 0 6px" }}>{[brief.first && `Released ${fmtDay(brief.first)}`, brief.runtime && `${brief.runtime} min`, brief.genres.slice(0, 3).join(", ")].filter(Boolean).join(" · ")}</p>
               {brief.overview && (
                 <>
