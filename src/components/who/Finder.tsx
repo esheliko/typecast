@@ -15,7 +15,7 @@ import { castSpec, charOf, scopeSpec, withLibRoles } from "@/lib/glimpse";
 import { sharedThenIds } from "@/lib/then-photo";
 import { useThen } from "./useThen";
 import { roleLabel } from "@/lib/roster";
-import { pickSeenIn, seenInText, type KnownTitle } from "@/lib/who-known";
+import { pickListed, pickSeenIn, seenInText, type KnownTitle } from "@/lib/who-known";
 import { seenMarkAt } from "@/lib/spoiler-mask";
 import { lineTag, markLine } from "@/lib/spoiler-line";
 import type { WhoFace, WhoRoster } from "@/lib/who-types";
@@ -322,7 +322,10 @@ function Tile({ f, known, seenW, eager, then, year, onOpen, onPop }: { f: WhoFac
   const hide = () => { clearTimeout(timer.current); onPop(null); };
   useEffect(() => () => clearTimeout(timer.current), []);
   const pick = known ? pickSeenIn(known, brief.key, (k) => { const m = lib.get(k); return m && SEEN_STATUS.has(m.status) ? seenMarkAt(k, m, seenW) : undefined; }) : null; // a Watching series is "seen" only when the server confirmed they appeared by the saved place (spoiler line)
-  const seen = pick ? seenInText(pick) : "";
+  const listedPick = !pick && known ? pickListed(known, brief.key, (k) => lib.get(k)?.status === "watchlist") : null; // on your list, not seen: always faded
+  const shown = pick ?? listedPick;
+  const faded = !!listedPick || !!pick?.chip;
+  const seen = shown ? seenInText(shown) : "";
   const best = known?.find(([k]) => k !== brief.key);
   const role = roleLabel(f.role);
   const n = f.part === "main" || f.n < 1 || (f.part === "episode" && f.n <= 1) ? 0 : f.n;
@@ -339,7 +342,12 @@ function Tile({ f, known, seenW, eager, then, year, onOpen, onPop }: { f: WhoFac
         <b className="wx-nm">{f.name}</b>
         <span className="small muted wx-rl"><span className="wx-rlt">{role || " "}</span>{n > 0 && <span className="wx-rln" title={`${n} episode${n === 1 ? "" : "s"}`}>&nbsp;· x{n}</span>}</span>
         <span className="small muted wx-meta" title={seen || (best ? best[1] : undefined)}>
-          {pick ? <span className="wx-seen">{pick.character ? <><span className="wx-sc">{pick.character}</span><span className="wx-st">in {pick.title}</span></> : <span className="wx-st">Seen in {pick.title}</span>}</span> : best ? best[1] : null}
+          {shown ? (
+            <span className={faded ? "wx-seen wx-weak" : "wx-seen"}>
+              {shown.chip ? <><span className="wx-chip">{shown.chip}</span><span className="wx-st">in {shown.title}</span></>
+                : shown.character ? <><span className="wx-sc">{shown.character}</span><span className="wx-st">in {shown.title}</span></> : <span className="wx-st">Seen in {shown.title}</span>}
+            </span>
+          ) : best ? best[1] : null}
         </span>
       </button>
       <span className="wx-tileg"><GlimpseButton spec={spec} label={`About ${f.name}${ch ? ` as ${ch}` : ""}: the character, episodes and images`} /></span>
