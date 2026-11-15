@@ -150,7 +150,10 @@ export default function Browse({ filters, filtered, list: initialList, salt: ser
   }, [view]);
 
   // Filter changes arrive as new server props: adopt the server's first page and type.
-  useEffect(() => { if (first) setPages((p) => (p[key] ? p : { ...p, [key]: first })); }, [key, first]);
+  // `first` belongs to what the server rendered (its list / type / filters), not to whatever list is picked on the client since:
+  // filing it under the current `key` showed the old list's titles under the new tab until the fetch landed (a double switch).
+  const serverKey = filtered ? `f:${toParams(filters)}` : `l:${filters.type}/${initialList}`;
+  useEffect(() => { if (first) setPages((p) => (p[serverKey] ? p : { ...p, [serverKey]: first })); }, [serverKey, first]);
   useEffect(() => { setType(filters.type); }, [filters.type]);
   const keepClosed = useRef(false);
   useEffect(() => { if (filtered && !keepClosed.current) setPanel(true); keepClosed.current = false; }, [filtered]);
