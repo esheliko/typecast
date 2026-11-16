@@ -1,5 +1,6 @@
 "use client";
 import { TitleLink } from "./Modal";
+import { ImdbRate } from "./ImdbRate";
 import { GlimpseButton } from "./Glimpse";
 import { titleSpec } from "@/lib/glimpse";
 import { useState } from "react";
@@ -82,7 +83,7 @@ export default function LibraryList({ items }: { items: LibItem[] }) {
               <Thumb path={l.poster} />
               <span className="row-main">
                 <span className="row-title">{l.title}</span>
-                <span className="row-sub">{l.year} · {typeLabel(l.type)}{l.progress ? ` · S${l.progress.s} E${l.progress.e}` : ""}{st ? ` · ${stoppedLabel(st, of)}` : ""}</span>
+                <span className="row-sub">{l.year} · {typeLabel(l.type)}<ImdbRate k={l.key} lead=" · " />{l.progress ? ` · S${l.progress.s} E${l.progress.e}` : ""}{st ? ` · ${stoppedLabel(st, of)}` : ""}</span>
                 {st && of ? <span className="rs-bar-line" role="img" aria-label={`${stoppedPct(st, of)} percent watched`}><i style={{ width: `${stoppedPct(st, of)}%` }} /></span> : null}
                 <NewEpPill k={l.key} />
                 <RowBadge k={l.key} />

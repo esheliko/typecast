@@ -13,15 +13,23 @@ export function parseOmdb(d: unknown): ImdbRating | null {
   return { rating, votes: Number.isFinite(votes) ? votes : 0 };
 }
 
+/** Pure: true when an OMDb body says the call itself failed (daily limit, bad key), as opposed to "this title has no score". */
+export function omdbFailed(d: unknown): boolean {
+  const o = d as { Response?: string; Error?: string } | null;
+  return !o || (o.Response === "False" && /limit|api key|unauthor/i.test(String(o.Error ?? "")));
+}
+
+/** Throws when the call failed (timeout, HTTP error, limit, bad key) so a failure is never cached as "no score"; null means OMDb answered and has none. */
 async function fetchRating(imdb: string): Promise<ImdbRating | null> {
   const key = process.env.OMDB_API_KEY;
   if (!key) return null;
   const r = await fetch(`https://www.omdbapi.com/?i=${imdb}&apikey=${encodeURIComponent(key)}`, { signal: AbortSignal.timeout(4000) });
-  if (!r.ok) return null;
-  return parseOmdb(await r.json());
+  const d = await r.json().catch(() => null);
+  if (!r.ok || omdbFailed(d)) { console.warn(`omdb rating failed: HTTP ${r.status} ${(d as { Error?: string } | null)?.Error ?? ""}`); throw new Error("omdb failed"); }
+  return parseOmdb(d);
 }
 
-const c = unstable_cache(async (imdb: string) => fetchRating(imdb).catch(() => null), ["imdb-rating-v1"], { revalidate: 86400 });
+const c = unstable_cache(fetchRating, ["imdb-rating-v2"], { revalidate: 86400 });
 
 export async function getImdbRating(imdb: string | null | undefined): Promise<ImdbRating | null> {
   if (!imdb || !/^tt\d+$/.test(imdb)) return null;
@@ -47,10 +55,12 @@ async function fetchSeason(imdb: string, season: number): Promise<Record<number,
   const key = process.env.OMDB_API_KEY;
   if (!key) return {};
   const r = await fetch(`https://www.omdbapi.com/?i=${imdb}&Season=${season}&apikey=${encodeURIComponent(key)}`, { signal: AbortSignal.timeout(4000) });
-  return r.ok ? parseOmdbSeason(await r.json()) : {};
+  const d = await r.json().catch(() => null);
+  if (!r.ok || omdbFailed(d)) { console.warn(`omdb season failed: HTTP ${r.status}`); throw new Error("omdb failed"); }
+  return parseOmdbSeason(d);
 }
 
-const cs = unstable_cache(async (imdb: string, season: number) => fetchSeason(imdb, season).catch(() => ({})), ["imdb-season-v1"], { revalidate: 86400 });
+const cs = unstable_cache(fetchSeason, ["imdb-season-v2"], { revalidate: 86400 });
 
 /** IMDb scores for every episode of one season in ONE OMDb call. Never throws; empty means unknown. */
 export async function getSeasonImdb(imdb: string | null | undefined, season: number): Promise<Record<number, number>> {
