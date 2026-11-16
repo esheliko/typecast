@@ -13,7 +13,11 @@ import type { Pos, WhoFace } from "@/lib/who-types";
 import type { SearchHit } from "@/lib/types";
 import type { PCredit } from "@/lib/who-types";
 
-interface ActorFind { person: { id: number; name: string; photo: string | null } | null; matches: { credit: PCredit; role: string; by: string }[] }
+interface ActorFind {
+  person: { id: number; name: string; photo: string | null } | null; matches: { credit: PCredit; role: string; by: string }[];
+  /** A title was found instead of an actor ("hunger games haymitch"): its cast that matches. */
+  title?: { key: string; type: "movie" | "tv"; title: string; year: string; poster: string | null }; people?: { id: number; name: string; photo: string | null; role: string }[];
+}
 
 export interface WhoTitle { key: string; type: "movie" | "tv"; title: string; poster: string | null }
 
@@ -35,6 +39,7 @@ export default function WhoSearch({ watching }: { watching: WhoTitle[] }) {
   const [hits, setHits] = useState<WhoTitle[] | null>(null);
   const [changing, setChanging] = useState(false);
   const [actor, setActor] = useState<ActorFind | null>(null);
+  const [finding, setFinding] = useState(false);
   const getRef = useRef(get);
   getRef.current = get;
 
@@ -78,10 +83,11 @@ export default function WhoSearch({ watching }: { watching: WhoTitle[] }) {
   // No title chosen: the text is an actor and a part or title ("george clooney as criminal").
   useEffect(() => {
     const t = q.trim();
-    if (sel || t.length < 3) { setActor(null); return; }
+    if (sel || t.length < 3) { setActor(null); setFinding(false); return; }
     let live = true;
+    setFinding(true); // shown straight away, also while waiting for the typing to pause
     const h = setTimeout(() => {
-      fetch(`/api/who/find?q=${encodeURIComponent(t)}`).then((r) => (r.ok ? r.json() : Promise.reject())).then((j: ActorFind) => { if (live) setActor(j); }).catch(() => { if (live) setActor({ person: null, matches: [] }); });
+      fetch(`/api/who/find?q=${encodeURIComponent(t)}`).then((r) => (r.ok ? r.json() : Promise.reject())).then((j: ActorFind) => { if (live) { setActor(j); setFinding(false); } }).catch(() => { if (live) { setActor({ person: null, matches: [] }); setFinding(false); } });
     }, 300);
     return () => { live = false; clearTimeout(h); };
   }, [q, sel]);
@@ -108,9 +114,33 @@ export default function WhoSearch({ watching }: { watching: WhoTitle[] }) {
 
       <input type="search" className="whs-t" value={q} onChange={(e) => setQ(e.target.value)} aria-label="A name or role you remember"
         placeholder={sel ? "A name or role, e.g. Brent, the sheriff" : "An actor and a part, e.g. Marlon Brando Corleone"} autoComplete="off" enterKeyHint="search" />
-      {!sel && actor && term.length >= 3 && (
-        !actor.person
-          ? <p className="muted" role="status">Couldn&rsquo;t tell who that is. Start with the actor&rsquo;s full name, then a character or title.</p>
+      {!sel && finding && term.length >= 3 && <p className="muted" role="status" aria-live="polite"><span className="spin" aria-hidden="true" />Looking for &ldquo;{term}&rdquo;…</p>}
+      {!sel && !finding && actor && term.length >= 3 && (
+        actor.title
+          ? (
+            <>
+              <TitleLink k={actor.title.key} className="whs-person" it={{ title: actor.title.title, year: actor.title.year, poster: actor.title.poster }}>
+                {actor.title.poster && <Photo path={actor.title.poster} name={actor.title.title} w="w92" className="whs-poster" />}
+                <span className="whs-text"><span className="nm">{actor.title.title}</span><span className="row-sub">{actor.title.type === "tv" ? "Series" : "Film"} · {actor.title.year}</span></span>
+              </TitleLink>
+              {!actor.people?.length
+                ? <p className="muted" role="status">No one in the cast matches that. Try part of the character or the actor&rsquo;s name.</p>
+                : (
+                  <ul className="whs-list" aria-label="Matching cast">
+                    {actor.people.map((m) => (
+                      <li key={m.id}>
+                        <PersonLink className="whs-person" pid={m.id} it={{ name: m.name, photo: m.photo }}>
+                          <Avatar photo={m.photo} name={m.name} />
+                          <span className="whs-text"><span className="nm">{m.name}</span>{m.role && <span className="row-sub">as {m.role}</span>}</span>
+                        </PersonLink>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+            </>
+          )
+        : !actor.person
+          ? <p className="muted" role="status">Couldn&rsquo;t tell who that is. Try the actor&rsquo;s name with a character or title, or a title with a character.</p>
           : (
             <>
               <PersonLink className="whs-person" pid={actor.person.id} it={{ name: actor.person.name, photo: actor.person.photo }}>
