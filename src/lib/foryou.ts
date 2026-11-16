@@ -1,5 +1,5 @@
 import { browse, browseItem, genreList, getTitleImdbId, tmdb } from "./tmdb";
-import { getImdbRating } from "./imdb-rating";
+import { getImdbRatings } from "./imdb-rating";
 import { interleave } from "./browse";
 import { buildProfile, howOf, posWeight, rerank, sampleSeeds, scorePool, seedWeight, topGenres, whyText, type Cand, type How, type Pooled, type Seed } from "./foryou-rank";
 import type { BrowseItem, BrowseType, LibItem } from "./types";
@@ -100,10 +100,12 @@ export async function forYou(type: BrowseType, page: number, lib: LibItem[], sal
   let order = rerank(scorePool([...pool.values()], like, dislike, year));
   if (process.env.OMDB_API_KEY) {
     const front = order.slice(0, SHORTLIST);
-    await withBudget(Promise.all(chunks(front, 3).map(async (ids) => { for (const id of ids) {
-      const imdb = await getImdbRating(await getTitleImdbId(type, id));
-      if (imdb) pool.get(id)!.cand.imdb = imdb;
-    } })), 2500);
+    await withBudget((async () => {
+      const imdbId = new Map<number, string | null>();
+      await Promise.all(chunks(front, 3).map(async (ids) => { for (const id of ids) imdbId.set(id, await getTitleImdbId(type, id)); }));
+      const got = await getImdbRatings([...imdbId.values()]);
+      for (const [id, tt] of imdbId) { const imdb = tt ? got.get(tt) : null; if (imdb) pool.get(id)!.cand.imdb = imdb; }
+    })(), 2500);
     const again = rerank(scorePool(front.map((id) => pool.get(id)!), like, dislike, year));
     order = [...again, ...order.slice(SHORTLIST)];
   }
