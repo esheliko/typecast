@@ -1,8 +1,7 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import Search from "../Search";
-import { KindFilter } from "../KindSeg";
-import Browse, { Poster, type BrowseProps } from "./Browse";
+import Browse, { type BrowseProps } from "./Browse";
 import Connect, { type Mode } from "./Connect";
 import WhoSearch from "../WhoSearch";
 import type { BrowseItem, Item, PersonLite } from "@/lib/types";
@@ -49,14 +48,6 @@ export default function CastHome({ view: initialView, browse, connect, watching 
           </div>
           {/* Both views stay mounted so switching back keeps your place, filters and picks. */}
           <div hidden={view !== "browse"}>
-            {(
-              <details className="cw">
-                <summary>Continue watching{watching.length > 0 && <span className="cw-n">{watching.length}</span>}</summary>
-                {watching.length > 0
-                  ? <KindFilter items={watching} style={{ marginTop: 8 }}>{(shown) => <ul className="strip">{shown.map((w) => <li key={w.key}><Poster it={w} sub={w.sub} /></li>)}</ul>}</KindFilter>
-                  : <p className="strip-empty">Mark a title as watching and it will show up here.</p>}
-              </details>
-            )}
             <Browse {...browse} /></div>
           <div hidden={view !== "connect"}>{connectOpened ? <Connect key={aKey} initialMode={connect.mode} initialA={connect.a} /> : null}</div>
           <div hidden={view !== "who"}>{whoOpened ? <WhoSearch watching={watching.filter((w) => w.type === "tv").map((w) => ({ key: w.key, type: w.type, title: w.title, poster: w.poster }))} /> : null}</div>
