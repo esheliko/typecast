@@ -187,6 +187,21 @@ export function parseCastBlurbs(text: string): Map<string, string> {
   return out;
 }
 
+/** For a query that is only a title ("harry potter"): the most popular title whose name starts with those words, so a franchise's biggest film beats a new series that matches as well. */
+export function popularTitle<T extends { title: string; popularity?: number }>(q: string, titles: readonly T[]): T | null {
+  const qw = restWords(q).filter((w) => w !== "the");
+  if (!qw.length) return null;
+  const hit = titles.filter((t) => { const tw = words(t.title.replace(THE, "")); return qw.every((w, i) => tw[i] === w); });
+  return hit.sort((a, b) => (b.popularity ?? 0) - (a.popularity ?? 0))[0] ?? null;
+}
+
+/** A title's main cast in billing order, those whose character has every typed word ("harry potter") first. */
+export function mainCast(cast: readonly CastHit[], q: string, max = 12): CastHit[] {
+  const qw = restWords(q);
+  const named = qw.length ? cast.filter((c) => roleHas(c.role, qw)) : [];
+  return [...named, ...cast.filter((c) => !named.includes(c))].slice(0, max);
+}
+
 /** Cast of one title whose character, name or Wikipedia blurb matches every leftover word (misspellings allowed); the characters first, then billing order. */
 export function matchCast(cast: readonly CastHit[], rest: readonly string[], blurbs: ReadonlyMap<string, string> = new Map(), max = 12): (CastHit & { why?: string })[] {
   if (!rest.length) return [];
