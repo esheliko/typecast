@@ -4,6 +4,7 @@ import { ImdbRate } from "./ImdbRate";
 import { GlimpseButton } from "./Glimpse";
 import { titleSpec } from "@/lib/glimpse";
 import { useEffect, useState } from "react";
+import StarRating from "./StarRating";
 import { Thumb } from "./ui";
 import QuickMark from "./cast/QuickMark";
 import { useLib } from "./cast/LibState";
@@ -67,11 +68,7 @@ function RowRating({ it }: { it: LibItem }) {
     catch { setOver(before); lib.notify("Couldn’t save that rating. Try again."); }
   };
   return (
-    <span className="stars row-rate" role="group" aria-label={`Your rating for ${it.title}`}>
-      {[1, 2, 3, 4, 5].map((n) => (
-        <button key={n} type="button" onClick={() => rate(n)} aria-pressed={n === stars} aria-label={n === 1 ? "1 star" : `${n} stars`}>{n <= stars ? "★" : "☆"}</button>
-      ))}
-    </span>
+    <StarRating className="row-rate" value={stars} onRate={rate} label={`Your rating for ${it.title}`} />
   );
 }
 

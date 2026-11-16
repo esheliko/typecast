@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useOptimistic, useState, useTransition } from "react";
 import { useLib } from "@/components/cast/LibState";
+import StarRating from "@/components/StarRating";
 import StatusIcon from "@/components/cast/StatusIcon";
 import { setRating } from "@/app/actions";
 import { PRIORITY_LABEL, STATUS_LABEL, type Item, type LibItem, type Priority, type Status } from "@/lib/types";
@@ -66,11 +67,7 @@ export default function StatusControls({ item, lib }: { item: Item; lib: LibItem
         </button>
         )}
         {status && (
-          <div className="stars" role="group" aria-label="Your rating" style={{ fontSize: 20 }}>
-            {[1, 2, 3, 4, 5].map((n) => (
-              <button key={n} type="button" onClick={() => rate(n)} aria-pressed={n === stars} aria-label={n === 1 ? "1 star" : `${n} stars`} style={{ color: "var(--gold)" }}>{n <= stars ? "★" : "☆"}</button>
-            ))}
-          </div>
+          <StarRating value={stars} onRate={rate} label="Your rating" style={{ fontSize: 20 }} />
         )}
       </div>
       {open && (
