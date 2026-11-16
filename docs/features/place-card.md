@@ -1,6 +1,6 @@
 # Place card, quick Watched button, Continue cards
 
-> Read before changing these. Pure logic: `src/lib/place-strip.ts` (`tests/unit/place-strip.test.ts`). Parts: `components/PlaceStrip.tsx`, `RowWatched` in `components/LibraryList.tsx`, `rankUpNext` in `src/lib/upnext.ts`.
+> Read before changing these. Pure logic: `src/lib/place-strip.ts` (`tests/unit/place-strip.test.ts`). Parts: `components/PlaceStrip.tsx`, `RowEpisode` in `components/LibraryList.tsx`, `rankUpNext` in `src/lib/upnext.ts`.
 
 **One idea.** The saved place of a Watching series is its library progress (the episode BEFORE the one you are on). The episode to show and continue with is `continuePlace` (via `upNextPlace`). It is also the spoiler line (`docs/features/spoilers.md`): these surfaces show nothing past that episode and fetch nothing past it.
 
@@ -10,10 +10,10 @@
 - States (`placeCard`): `next` (out: button), `unaired` ("airs Fri 21 Oct", no button), `done` ("All caught up"; ended series also get "Mark series watched").
 - The S/E headline needs only the saved place. Episode name, runtime and air date are fetched afterwards from `/api/who/season?tv&s&upto=<e>` (the route drops later episodes) and fail soft. The episode's own air date can turn a "next" into "unaired" when TMDB's latest-aired lags.
 
-**Library rows.** `RowWatched`: gold "Watched ✓" on Watching series only, from the row's own progress (no per-row TMDB call). At the tap it asks once for the size of the progress' season (cached) so a season's last episode rolls to the next season (`rowNext`); if that fails it takes the next number. One `setProgress` write, `touch()` + `setPlace`, toast with Undo.
+**Library rows.** `RowEpisode`: a small "S4 E16" chip on Watching / Partly watched series (from the row's own progress), a link that opens the title popup with that episode open and in view (`TitleLink ep` adds `?ep=S.E`, `Episodes` reads it once). It writes nothing. It replaced the gold "Watched ✓" row button (owner, 2026-11-16: too big, and stars must sit at the same x on every row, so the status slot has a fixed width).
 
 **Watch next.** A Watching series whose next episode is out (`nextOut`: needs season sizes and the newest aired episode) is a `continue` card "S3 E7 · out now" + Continue link, with the episode runtime ("47 min"). Without TMDB facts it stays "After S3 E6". New card kinds: add to `PickKind`, set `go` and optionally `cta` (the link word, default "Continue", e.g. a film "Resume"); `UpNext.tsx` renders any card with `go`.
 
 ## Summary rule (moved from CLAUDE.md)
 
-- Place card (title popup of a Watching series, `components/PlaceStrip.tsx`), the quick Watched ✓ button on Library rows and the "S3 E7 · out now · Continue" Watch next card: pure logic in `src/lib/place-strip.ts` (unit tested); one write through `useSavedPlace` (`next` with `engage: false`, `jump`). Details: `docs/features/place-card.md` (read before changing this feature).
+- Place card (title popup of a Watching series, `components/PlaceStrip.tsx`), and the "S3 E7 · out now · Continue" Watch next card: pure logic in `src/lib/place-strip.ts` (unit tested); one write through `useSavedPlace` (`next` with `engage: false`, `jump`). Details: `docs/features/place-card.md` (read before changing this feature).
