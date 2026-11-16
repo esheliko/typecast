@@ -39,6 +39,13 @@ export function near(w: string, x: string): boolean {
   return k > 0 && (lev(w, x) <= k || lev(w, x.slice(0, w.length)) <= 1);
 }
 
+/** Abbreviations in character names ("Sgt. Wade Grey") and what they stand for. */
+const ABBR: Record<string, string> = { sgt: "sergeant", lt: "lieutenant", ltn: "lieutenant", capt: "captain", cpt: "captain", det: "detective", dr: "doctor", ofc: "officer", prof: "professor", col: "colonel", gen: "general", cmdr: "commander", insp: "inspector", pvt: "private", cpl: "corporal", supt: "superintendent", mr: "mister", mrs: "missus" };
+/** A typed word against a word of a character name: a prefix or near miss, also through abbreviations ("sergent" ~ "Sgt."). */
+export const nearRole = (w: string, x: string): boolean => near(w, x) || near(w, ABBR[x] ?? x) || near(ABBR[w] ?? w, x);
+/** The words of a character name, without bracketed notes like "(voice)". */
+const roleWords = (role: string): string[] => words(roleLabel(role).replace(/\(.*?\)/g, " "));
+
 /** Every run of 1-3 typed words, for asking TMDB who they might be ("woody harlson", "daniel radcliff"). Longest first; at most the first 6 words are looked at. */
 export function nameWindows(q: string): string[] {
   const qw = words(q).slice(0, 6);
@@ -129,6 +136,10 @@ const REL: Record<string, { g: number; kind: "parent" | "child" | "sibling" | "s
   aunt: { g: 1, kind: "elder" }, uncle: { g: 2, kind: "elder" },
 };
 export type Relation = (typeof REL)[string];
+/** The typed words without filler ("as", "the", ...), in order. */
+export const restWords = (q: string): string[] => words(q).filter((w) => !FILLER.has(w));
+/** Does this character name have every one of these typed words (near misses allowed)? */
+export const roleHas = (role: string, anchor: readonly string[]): boolean => { const rw = roleWords(role); return anchor.length > 0 && anchor.every((w) => rw.some((x) => nearRole(w, x))); };
 /** A relation word among the leftover words, and the words that name whose relative ("sheldon mom" -> mom of "sheldon"). Needs someone to be related to. */
 export function findRelation(rest: readonly string[]): { rel: Relation; word: string; anchor: string[] } | null {
   const i = rest.findIndex((w) => REL[w]);
@@ -145,12 +156,12 @@ export interface CastHit { id: number; name: string; photo: string | null; role:
  * their surname with the right gender and a fitting age gap (the actors' birth years; unknown years are not held against anyone). "sheldon mom" -> Mary Cooper, not his sister.
  */
 export function relatives(cast: readonly CastHit[], anchor: readonly string[], r: Relation, born: (id: number) => number | null): { of: CastHit; people: CastHit[] } | null {
-  const of = cast.find((c) => { const rw = words(roleLabel(c.role)); return anchor.every((w) => rw.some((x) => near(w, x))); });
+  const of = cast.find((c) => roleHas(c.role, anchor));
   if (!of) return null;
-  const sur = words(roleLabel(of.role)).slice(-1)[0];
+  const sur = roleWords(of.role).slice(-1)[0];
   if (!sur) return null;
   const a = born(of.id);
-  const people = cast.filter((c) => c.id !== of.id && c.g === r.g && words(roleLabel(c.role)).includes(sur) && (() => { const o = born(c.id); return a == null || o == null || AGE[r.kind](a, o); })());
+  const people = cast.filter((c) => c.id !== of.id && (c.g === r.g || c.g === 3) && roleWords(c.role).includes(sur) && (() => { const o = born(c.id); return a == null || o == null || AGE[r.kind](a, o); })());
   return people.length ? { of, people } : null;
 }
 
@@ -160,15 +171,33 @@ export function matchEpisodes<E extends { name: string }>(eps: readonly E[], res
   return eps.filter((e) => { const nw = words(e.name); return rest.every((w) => nw.some((x) => near(w, x) || (SAME[w] ?? []).includes(x))); }).slice(0, max);
 }
 
-/** Cast of one title whose character or name matches every leftover word (misspellings allowed); the characters first. */
-export function matchCast(cast: readonly CastHit[], rest: readonly string[], max = 12): CastHit[] {
+/**
+ * What a Wikipedia "Cast and characters" section says about each actor's character ("Richard T. Jones as Wade Grey: A sergeant (later lieutenant), watch commander ..."),
+ * keyed by the actor's name as `words` writes it: the first sentence of the description, cut short. TMDB only has the character's name, so this is where ranks and jobs come from.
+ */
+export function parseCastBlurbs(text: string): Map<string, string> {
+  const out = new Map<string, string>();
+  for (const line of text.split("\n")) {
+    const m = /^([^:]{2,60}?)\s+as\s+([^:]{1,80}):\s+(.{8,})$/.exec(line.trim());
+    if (!m) continue;
+    const key = words(m[1]).join(" ");
+    const first = m[3].split(/(?<=[.!?])\s/)[0].replace(/\s+/g, " ");
+    if (key && !out.has(key)) out.set(key, first.length > 140 ? first.slice(0, 137).trimEnd() + "…" : first);
+  }
+  return out;
+}
+
+/** Cast of one title whose character, name or Wikipedia blurb matches every leftover word (misspellings allowed); the characters first, then billing order. */
+export function matchCast(cast: readonly CastHit[], rest: readonly string[], blurbs: ReadonlyMap<string, string> = new Map(), max = 12): (CastHit & { why?: string })[] {
   if (!rest.length) return [];
-  const rows: { c: CastHit; rank: number }[] = [];
+  const rows: { c: CastHit & { why?: string }; rank: number }[] = [];
   cast.forEach((c, i) => {
-    const rw = words(roleLabel(c.role)), nw = words(c.name);
-    const inR = (w: string) => rw.some((x) => near(w, x)), inN = (w: string) => nw.some((x) => near(w, x));
-    if (!rest.every((w) => inR(w) || inN(w))) return;
-    rows.push({ c, rank: (rest.every(inR) ? 0 : 1) * 1000 + i });
+    const rw = roleWords(c.role), nw = words(c.name), blurb = blurbs.get(words(c.name).join(" ")) ?? "", bw = words(blurb);
+    const inR = (w: string) => rw.some((x) => nearRole(w, x)), inN = (w: string) => nw.some((x) => near(w, x));
+    const inB = (w: string) => bw.some((x) => nearRole(w, x) || (SAME[w] ?? []).includes(x));
+    if (!rest.every((w) => inR(w) || inN(w) || inB(w))) return;
+    const byBlurb = !rest.every((w) => inR(w) || inN(w));
+    rows.push({ c: byBlurb ? { ...c, why: blurb } : c, rank: (rest.every((w) => inR(w) || inB(w)) ? 0 : 1) * 1000 + i });
   });
   return rows.sort((a, b) => a.rank - b.rank).slice(0, max).map((r) => r.c);
 }
@@ -183,7 +212,7 @@ export function matchCredits(credits: readonly PCredit[], rest: readonly string[
     const role = roleLabel(c.role);
     if (!rest.length) { if (!c.extra) rows.push({ rank: 0, m: { credit: c, role, by: "all" } }); continue; }
     const rw = words(role), tw = words(c.title);
-    const inRole = (w: string) => rw.some((x) => near(w, x) || (SAME[w] ?? []).includes(x));
+    const inRole = (w: string) => rw.some((x) => nearRole(w, x) || (SAME[w] ?? []).includes(x));
     const inTitle = (w: string) => tw.some((x) => near(w, x));
     const kw = (themes[c.key] ?? []).flatMap(words);
     const inTheme = (w: string) => kw.some((x) => near(w, x) || (SAME[w] ?? []).includes(x));

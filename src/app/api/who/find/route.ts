@@ -1,12 +1,13 @@
 import type { NextRequest } from "next/server";
 import { bad, failWho, okWho } from "@/lib/who-api";
-import { getCast, getSeason, tmdb } from "@/lib/tmdb";
+import { getCast, getSeason, getTitleImdbId, tmdb } from "@/lib/tmdb";
+import { getArticle, getWikiFacts } from "@/lib/wiki";
 import { suggestSpelling } from "@/lib/spell";
 import { loadWhoPerson, pool } from "@/lib/who-data";
 import { lineForMany } from "@/lib/spoiler-line-data";
 import { isHidden, lineContextFrom } from "@/lib/spoiler-line";
 import { holdBackCredits } from "@/lib/spoiler-mask";
-import { findRelation, matchCast, matchCredits, matchEpisodes, nameWindows, relatives, splitActorQuery, splitTitleQuery } from "@/lib/who-actor";
+import { findRelation, matchCast, parseCastBlurbs, restWords, roleHas, type Relation, matchCredits, matchEpisodes, nameWindows, relatives, splitActorQuery, splitTitleQuery } from "@/lib/who-actor";
 import type { MediaType } from "@/lib/types";
 
 type Multi = { id: number; media_type: string; name?: string; title?: string; profile_path: string | null; poster_path: string | null; first_air_date?: string; release_date?: string; popularity?: number };
@@ -56,20 +57,11 @@ async function solve(q: string, param: (n: string) => string | null): Promise<Re
       const cast = await getCast(t.title.type, t.title.id, 2000).catch(() => []);
       const rel = findRelation(t.rest);
       if (rel) {
-        // Birth years of the possible relatives, to tell a mother from a sister.
-        const sur = new Map<number, number | null>();
-        const first = relatives(cast, rel.anchor, rel.rel, () => null);
-        if (first) {
-          await pool([first.of, ...first.people].slice(0, 8), 4, async (c) => { sur.set(c.id, await loadWhoPerson(c.id).then((p) => (p.birthday ? Number(p.birthday.slice(0, 4)) : null)).catch(() => null)); });
-          const rs = relatives(cast, rel.anchor, rel.rel, (id) => sur.get(id) ?? null);
-          if (rs) {
-            const of = rs.of.role.replace(/\s*\(.*?\)\s*/g, " ").replace(/\s+/g, " ").trim();
-            return { person: null, title: head, people: rs.people.slice(0, 8).map((c) => ({ id: c.id, name: c.name, photo: c.photo, role: c.role, why: `${of}'s ${rel.word}` })), matches: [] };
-          }
-        }
+        const ans = await relationAnswer([t.title], rel.anchor, rel.rel, rel.word);
+        if (ans) return { person: null, title: head, people: ans, matches: [] };
       }
       if (t.rest.length) titleOnly = { person: null, title: head, people: [], matches: [] };
-      const hit = matchCast(cast, t.rest);
+      const hit = matchCast(cast, t.rest, t.rest.length ? await castBlurbs(t.title.type, t.title.id, t.title.key, param) : undefined);
       if (hit.length) return { person: null, title: head, people: hit, matches: [] };
       if (t.title.type === "tv" && t.rest.length) {
         // No character fits: maybe it describes an episode ("asian restaurant" -> The Chinese Restaurant). Never for a series that is Watching with a spoiler line.
@@ -81,6 +73,13 @@ async function solve(q: string, param: (n: string) => string | null): Promise<Re
           if (hitEps.length) return { person: null, title: head, people: [], episodes: hitEps, matches: [] };
         }
       }
+    }
+    // No title named, but "sheldon cooper mom": whose relative? Look for the character in the best matches, and in the other shows its actors appear as it.
+    const rel = findRelation(restWords(q));
+    if (rel) {
+      const seeds = titles.filter((x) => (x.popularity ?? 0) >= 3).sort((a, b) => Number(rel.anchor.some((w) => b.title.toLowerCase().includes(w))) - Number(rel.anchor.some((w) => a.title.toLowerCase().includes(w))) || (b.popularity ?? 0) - (a.popularity ?? 0)).slice(0, 4);
+      const ans = seeds.length ? await relationAnswer(seeds, rel.anchor, rel.rel, rel.word) : null;
+      if (ans) return { person: null, title: null, people: ans, matches: [] };
     }
     found = splitActorQuery(q, people, { partial: true });
   }
@@ -107,4 +106,48 @@ async function solve(q: string, param: (n: string) => string | null): Promise<Re
 async function heldBack(key: string, param: (n: string) => string | null): Promise<boolean> {
   const l = (await lineForMany([key], lineContextFrom(param)))[key];
   return !!l && isHidden(l);
+}
+
+type Show = { key: string; type: MediaType; id: number; title: string };
+/**
+ * Relatives of a character ("sheldon cooper mom") in the given shows, and in the other shows the actors of that character appear as it (Young Sheldon's
+ * Sheldon is also in The Big Bang Theory, as is his voice-over in Young Sheldon), so a character with two casts gives both mothers. Null when no show has it.
+ */
+async function relationAnswer(seeds: Show[], anchor: string[], rel: Relation, word: string) {
+  const out: { id: number; name: string; photo: string | null; role: string; why: string; show: string }[] = [];
+  const seen = new Set<string>();
+  const visit = async (show: Show, expand: boolean): Promise<boolean> => {
+    if (seen.has(show.key) || seen.size >= 8) return false;
+    seen.add(show.key);
+    const cast = await getCast(show.type, show.id, 2000).catch(() => []);
+    const first = relatives(cast, anchor, rel, () => null);
+    if (!first) return false;
+    const born = new Map<number, number | null>();
+    await pool([first.of, ...first.people].slice(0, 10), 4, async (c) => { born.set(c.id, await loadWhoPerson(c.id).then((p) => (p.birthday ? Number(p.birthday.slice(0, 4)) : null)).catch(() => null)); });
+    const rs = relatives(cast, anchor, rel, (id) => born.get(id) ?? null);
+    if (rs) {
+      const of = rs.of.role.replace(/\s*\(.*?\)\s*/g, " ").replace(/\s+/g, " ").trim();
+      for (const c of rs.people.slice(0, 6)) if (!out.some((o) => o.id === c.id)) out.push({ id: c.id, name: c.name, photo: c.photo, role: c.role, why: `${of}'s ${word}`, show: show.title });
+    }
+    if (expand) {
+      // The same character in other shows: from what its actors are credited as.
+      const actors = cast.filter((c) => roleHas(c.role, anchor)).slice(0, 3);
+      const more = await pool(actors, 3, (a) => loadWhoPerson(a.id).then((p) => p.credits.filter((c) => !c.extra && c.key !== show.key && roleHas(c.role, anchor)).sort((x, y) => y.votes - x.votes).slice(0, 3)).catch(() => []));
+      for (const c of (more.flat().filter(Boolean) as { key: string; type: MediaType; id: number; title: string }[])) await visit({ key: c.key, type: c.type, id: c.id, title: c.title }, false);
+    }
+    return true;
+  };
+  for (const s of seeds) if (await visit(s, true)) break;
+  return out.length ? out : null;
+}
+
+/** What Wikipedia's cast section says about each character ("a sergeant (later lieutenant)"), to match words like "sergeant" that TMDB's bare names lack. Fails soft; never for a series held back by a spoiler line. */
+async function castBlurbs(type: MediaType, id: number, key: string, param: (n: string) => string | null): Promise<Map<string, string>> {
+  try {
+    if (type === "tv" && (await heldBack(key, param))) return new Map();
+    const imdb = await getTitleImdbId(type, id);
+    const art = await getArticle((await getWikiFacts(imdb))?.article ?? null);
+    const text = (art?.sections ?? []).filter((s) => /^(cast|characters|cast and characters)\b/i.test(s.name)).map((s) => s.text).join("\n");
+    return parseCastBlurbs(text);
+  } catch { return new Map(); }
 }

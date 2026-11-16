@@ -17,7 +17,7 @@ import type { PCredit } from "@/lib/who-types";
 interface ActorFind {
   person: { id: number; name: string; photo: string | null } | null; matches: { credit: PCredit; role: string; by: string }[];
   /** A title was found instead of an actor ("hunger games haymitch"): its cast that matches. */
-  title?: { key: string; type: "movie" | "tv"; title: string; year: string; poster: string | null }; people?: { id: number; name: string; photo: string | null; role: string; why?: string }[]; episodes?: { s: number; e: number; name: string }[];
+  title?: { key: string; type: "movie" | "tv"; title: string; year: string; poster: string | null }; people?: { id: number; name: string; photo: string | null; role: string; why?: string; show?: string }[]; episodes?: { s: number; e: number; name: string }[];
 }
 
 export interface WhoTitle { key: string; type: "movie" | "tv"; title: string; poster: string | null }
@@ -117,13 +117,15 @@ export default function WhoSearch({ watching }: { watching: WhoTitle[] }) {
         placeholder={sel ? "A name or role, e.g. Brent, the sheriff" : "An actor and a part, e.g. Marlon Brando Corleone"} autoComplete="off" enterKeyHint="search" />
       {!sel && finding && term.length >= 3 && <p className="muted" role="status" aria-live="polite"><span className="spin" aria-hidden="true" />Looking for &ldquo;{term}&rdquo;…</p>}
       {!sel && !finding && actor && term.length >= 3 && (
-        actor.title
+        (actor.title || actor.people?.length)
           ? (
             <>
-              <TitleLink k={actor.title.key} className="whs-person" it={{ title: actor.title.title, year: actor.title.year, poster: actor.title.poster }}>
-                {actor.title.poster && <Photo path={actor.title.poster} name={actor.title.title} w="w92" className="whs-poster" />}
-                <span className="whs-text"><span className="nm">{actor.title.title}</span><span className="row-sub">{actor.title.type === "tv" ? "Series" : "Film"} · {actor.title.year}</span></span>
+              {actor.title && (
+              <TitleLink k={actor.title!.key} className="whs-person" it={{ title: actor.title!.title, year: actor.title!.year, poster: actor.title!.poster }}>
+                {actor.title!.poster && <Photo path={actor.title!.poster} name={actor.title!.title} w="w92" className="whs-poster" />}
+                <span className="whs-text"><span className="nm">{actor.title!.title}</span><span className="row-sub">{actor.title!.type === "tv" ? "Series" : "Film"} · {actor.title!.year}</span></span>
               </TitleLink>
+              )}
               {actor.episodes?.length
                 ? (
                   <ul className="whs-list" aria-label="Matching episodes">
@@ -144,7 +146,7 @@ export default function WhoSearch({ watching }: { watching: WhoTitle[] }) {
                       <li key={m.id}>
                         <PersonLink className="whs-person" pid={m.id} it={{ name: m.name, photo: m.photo }}>
                           <Avatar photo={m.photo} name={m.name} />
-                          <span className="whs-text"><span className="nm">{m.name}</span>{(m.role || m.why) && <span className="row-sub">{m.role && <>as {m.role}</>}{m.why && <>{m.role ? " · " : ""}{m.why}</>}</span>}</span>
+                          <span className="whs-text"><span className="nm">{m.name}</span>{(m.role || m.why) && <span className="row-sub">{[m.role && `as ${m.role}`, m.why, m.show].filter(Boolean).join(" · ")}</span>}</span>
                         </PersonLink>
                       </li>
                     ))}
