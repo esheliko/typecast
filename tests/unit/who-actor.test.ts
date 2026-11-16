@@ -106,6 +106,25 @@ describe("relatives and episodes", () => {
     assert.deepEqual(relatives(cast, f.anchor, f.rel, (id) => born[id] ?? null)!.people.map((p) => p.id), [2]);
     assert.deepEqual(relatives(cast, ["sheldon"], findRelation(["sister", "x"])!.rel, (id) => born[id] ?? null)!.people.map((p) => p.id), [3]);
   });
+  it("a brother: not the father, not a non-binary-marked sister, not a child with no birth year", () => {
+    const c = [
+      { id: 1, name: "Iain", photo: null, role: "Sheldon Cooper", g: 2 },
+      { id: 2, name: "Lance", photo: null, role: "George Cooper", g: 2 },
+      { id: 3, name: "Montana", photo: null, role: "Georgie Cooper", g: 2 },
+      { id: 4, name: "Raegan", photo: null, role: "Missy Cooper", g: 3 },
+      { id: 5, name: "Kid", photo: null, role: "Baby Cooper", g: 2 },
+    ];
+    const b: Record<number, number> = { 1: 2008, 2: 1973, 3: 2003, 4: 2008 };
+    const r = relatives(c, ["sheldon"], findRelation(["sheldon", "brother"])!.rel, (id) => b[id] ?? null)!;
+    assert.deepEqual(r.people.map((p) => p.id), [3]);
+    assert.deepEqual(r.rejected, [2]);
+    // with no brother at all, a gender-3 actor still counts rather than leaving nothing
+    assert.deepEqual(relatives(c.filter((x) => x.id !== 3 && x.id !== 5), ["sheldon"], findRelation(["sheldon", "brother"])!.rel, (id) => b[id] ?? null)!.people.map((p) => p.id), [4]);
+  });
+  it("a Sr. is no brother", () => {
+    const c = [{ id: 1, name: "A", photo: null, role: "Sheldon Cooper", g: 2 }, { id: 2, name: "B", photo: null, role: "George Cooper Sr.", g: 2 }];
+    assert.equal(relatives(c, ["sheldon"], findRelation(["sheldon", "brother"])!.rel, () => null), null);
+  });
   it("needs someone to be related to", () => assert.equal(findRelation(["mom"]), null));
   it("matches an episode by a close word", () => {
     const eps = [{ name: "The Chinese Restaurant" }, { name: "The Contest" }];
