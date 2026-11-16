@@ -639,26 +639,33 @@ button.aw-chip:hover { filter: brightness(1.08); }
 .upnext-h[aria-expanded="true"] .upnext-caret { transform: rotate(90deg); }
 .upnext-peek { flex: 1; min-width: 0; font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .upcoming .upnext-h { flex: 1; min-width: 0; }
-/* Library bars (Watch next + Upcoming), calm but indicative: a soft gold accent whether closed or open.
-   Closed = quiet pill (two collapsed share one row); open = a section heading on its own full-width line. */
-.lib-top { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-start; --up-acc: color-mix(in srgb, var(--gold) 55%, transparent); }
-.lib-top > .upnext { flex: 1 1 0; min-width: 0; margin-top: 6px; }
-.lib-top > .upnext:has(.upnext-h[aria-expanded="true"]) { flex: 1 1 100%; }
-.lib-top > .upnext:has(.upnext-h[aria-expanded="false"]):has(~ .upnext .upnext-h[aria-expanded="true"]),
-.lib-top > .upnext:has(.upnext-h[aria-expanded="true"]) ~ .upnext:has(.upnext-h[aria-expanded="false"]) { flex: 0 1 auto; }
-.lib-top .upnext-h[aria-expanded="false"] { flex: 1; min-width: 0; min-height: 30px; padding: 0 8px 0 10px; gap: 6px; background: transparent; box-shadow: inset 3px 0 0 var(--up-acc); }
-.lib-top .upnext-h[aria-expanded="false"] .upnext-k { font-size: 12px; color: color-mix(in srgb, var(--gold) 60%, var(--muted)); }
-.lib-top .upnext-h[aria-expanded="false"] .upnext-n { font-size: 11px; min-width: 18px; padding: 1px 5px; background: transparent; color: var(--muted); border: 1px solid var(--line); }
-.lib-top .upnext-h[aria-expanded="false"] .upnext-caret { margin-left: auto; font-size: 18px; }
+/* Library bars (Watch next + Upcoming): like tabs. The two headers share ONE row and never move, resize or restyle;
+   the open one's body slides out underneath (rows 2 and 3, full width). Only one body is open at a time, so an
+   open/close is just a height change below the headers: nothing reflows sideways or jumps. Sections are
+   display: contents so headers and bodies can sit in the shared grid. */
+.lib-top { display: grid; grid-template-columns: repeat(var(--cols, 1), minmax(0, 1fr)); column-gap: 8px; row-gap: 0; align-items: start; margin-top: 6px; --up-acc: color-mix(in srgb, var(--gold) 55%, transparent); }
+.lib-top:has(> .upnext + .upnext) { --cols: 2; }
+.lib-top:has(.upcoming) { margin-bottom: 12px; }
+.lib-top > .upnext { display: contents; margin: 0; }
+.lib-top > .upnext > .upnext-bar { grid-row: 1; min-width: 0; }
+.lib-top > .upnext > .collapse, .lib-top > .upnext > .up-sk-wrap { grid-column: 1 / -1; }
+.lib-top > .upnext:nth-child(1) > .collapse, .lib-top > .upnext:nth-child(1) > .up-sk-wrap { grid-row: 2; }
+.lib-top > .upnext:nth-child(2) > .collapse, .lib-top > .upnext:nth-child(2) > .up-sk-wrap { grid-row: 3; }
+.lib-top .upnext-h { width: 100%; min-height: 32px; padding: 0 8px 0 10px; gap: 6px; background: transparent; border-color: transparent; box-shadow: inset 3px 0 0 var(--up-acc); transition: box-shadow .25s ease, background-color .15s ease; }
+.lib-top .upnext-h[aria-expanded="true"] { box-shadow: inset 3px 0 0 var(--gold); }
+.lib-top .upnext-k { font-size: 13px; color: color-mix(in srgb, var(--gold) 60%, var(--muted)); transition: color .25s ease; }
+.lib-top .upnext-h[aria-expanded="true"] .upnext-k { color: var(--gold); }
+.lib-top .upnext-n { font-size: 11px; min-width: 18px; padding: 1px 5px; background: transparent; color: var(--muted); border: 1px solid var(--line); }
+.lib-top .upnext-caret { margin-left: auto; font-size: 18px; }
 .lib-top > .upnext + .upnext .upnext-peek, .lib-top > .upnext:has(+ .upnext) .upnext-peek { display: none; }
-/* Open: a section, not a chip. */
-.lib-top .upnext-h[aria-expanded="true"] { min-height: 32px; padding: 0 4px 0 10px; border: 0; border-radius: 0; background: transparent; box-shadow: none; border-left: 3px solid var(--up-acc); }
-.lib-top .upnext-h[aria-expanded="true"] .upnext-k { font-size: 14px; color: color-mix(in srgb, var(--gold) 80%, var(--muted)); }
-.collapse { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: 0fr; min-width: 0; opacity: 0; transition: grid-template-rows .28s ease, opacity .2s ease; }
-.collapse.on { grid-template-rows: 1fr; opacity: 1; }
-.collapse-in { min-height: 0; min-width: 0; overflow: hidden; }
+.upnext-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.upnext-tools > * { flex: none; }
+/* The sliding body. Its clip box spans the page gutters (-16px / +16px) so the poster strip's edge bleed is never cut or popped. */
+.collapse { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: 0fr; min-width: 0; opacity: 0; transition: grid-template-rows .45s cubic-bezier(.4, 0, .2, 1), opacity .3s ease; }
+.collapse.on { grid-template-rows: 1fr; opacity: 1; transition: grid-template-rows .45s cubic-bezier(.4, 0, .2, 1), opacity .4s ease .1s; }
+.collapse-in { min-height: 0; min-width: 0; overflow: hidden; margin: 0 -16px; padding: 6px 16px 0; }
 .collapse.on.settled .collapse-in { overflow: visible; }
-@media (prefers-reduced-motion: reduce) { .collapse { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .collapse, .collapse.on, .lib-top .upnext-h, .lib-top .upnext-k { transition: none; } }
 .upnext-mine { padding: 0 14px; min-height: 34px; font-size: 13px; white-space: nowrap; }
 .upnext-empty { margin: 6px 2px 4px; font-size: 13px; }
 .upnext-restore { font-size: 13px; color: var(--muted); text-decoration: underline dotted; text-underline-offset: 3px; white-space: nowrap; padding: 10px 4px; }

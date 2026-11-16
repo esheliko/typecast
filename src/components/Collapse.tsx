@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState, type ReactNode } from "react";
 
-const MS = 280; // keep in step with .collapse in globals.css
+const MS = 450; // keep in step with .collapse in globals.css
 
 /**
  * Animated expand / collapse: the body slides open (grid rows 0fr -> 1fr) so what sits below glides down instead of jumping.
