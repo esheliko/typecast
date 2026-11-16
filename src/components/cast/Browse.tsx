@@ -122,6 +122,7 @@ export default function Browse({ filters, filtered, list: initialList, salt: ser
     document.addEventListener("click", onClick, true);
     return () => document.removeEventListener("click", onClick, true);
   }, []);
+  const restored = useRef(false);
   useLayoutEffect(() => {
     let snap: Snap | null = null;
     try { const raw = sessionStorage.getItem(SNAP); if (raw) { snap = JSON.parse(raw); sessionStorage.removeItem(SNAP); } } catch { /* ignore */ }
@@ -138,9 +139,22 @@ export default function Browse({ filters, filtered, list: initialList, salt: ser
     requestAnimationFrame(step);
   }, []);
 
+  // A refresh of "For you" reshuffles the whole grid, so the old scroll position points at nothing familiar: start at the top.
+  // Flags the page so ScrollKeeper (which would put you back) stands down, and stops the browser's own restore.
+  useLayoutEffect(() => {
+    if (restored.current || initialList !== "foryou") return;
+    const nav = performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined;
+    if (nav?.type !== "reload") return;
+    document.documentElement.dataset.freshView = "1";
+    const prev = history.scrollRestoration;
+    try { history.scrollRestoration = "manual"; } catch { /* unsupported */ }
+    window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
+    return () => { delete document.documentElement.dataset.freshView; try { history.scrollRestoration = prev; } catch { /* unsupported */ } };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Whenever the grid's content changes (list, type, filters, search or "For you" seed), start again from the top.
   // A snapshot restore is not a content change: it brings its own scroll position back.
-  const restored = useRef(false);
   const view = `${key}|${salt}`;
   const lastView = useRef(view);
   useEffect(() => {
