@@ -33,3 +33,11 @@ test("isFresh keeps a score 14 days and a 'no score' 3 days", async () => {
   assert.equal(isFresh({ rating: null, fetchedAt: now - 2 * d }, now), true);
   assert.equal(isFresh({ rating: null, fetchedAt: now - 4 * d }, now), false);
 });
+
+test("omdbKeys lists the main key then the spare, skipping blanks and duplicates", async () => {
+  const { omdbKeys } = await import("../../src/lib/imdb-rating");
+  assert.deepEqual(omdbKeys({ OMDB_API_KEY: "a", OMDB_API_KEY_2: "b" }), ["a", "b"]);
+  assert.deepEqual(omdbKeys({ OMDB_API_KEY: "a", OMDB_API_KEY_2: " a " }), ["a"]);
+  assert.deepEqual(omdbKeys({ OMDB_API_KEY_2: "b" }), ["b"]);
+  assert.deepEqual(omdbKeys({}), []);
+});

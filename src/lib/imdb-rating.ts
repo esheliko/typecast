@@ -26,24 +26,36 @@ export function isFresh(row: { rating: number | null; fetchedAt: number }, now: 
   return now - row.fetchedAt < (row.rating ? 14 : 3) * DAY;
 }
 
-// OMDb's free key is ~1000 calls a day. After a "limit reached" answer, stop asking for a while instead of burning requests that fail.
-let pausedUntil = 0;
-const pause = () => { pausedUntil = Date.now() + 15 * 60000; };
+/** OMDb keys in order of use: the main one, then the spare used when the main one's daily limit is reached. */
+export function omdbKeys(env: Record<string, string | undefined> = process.env): string[] {
+  return [env.OMDB_API_KEY, env.OMDB_API_KEY_2].map((k) => (k ?? "").trim()).filter((k, i, a) => !!k && a.indexOf(k) === i);
+}
+export const hasOmdbKey = () => omdbKeys().length > 0;
+
+// OMDb's free key is ~1000 calls a day. After a "limit reached" answer, stop asking with THAT key for a while (the spare key, if any, carries on).
+const pausedUntil = new Map<string, number>();
+
+/** One OMDb call (`query` is everything after `?`, without the key): tries each key not paused, moving on when one hits its limit or is rejected. Throws when no key works. */
+async function omdbGet(query: string): Promise<unknown> {
+  const keys = omdbKeys();
+  if (!keys.length) throw new Error("no OMDB_API_KEY");
+  let tried = false;
+  for (const [i, key] of keys.entries()) {
+    if (Date.now() < (pausedUntil.get(key) ?? 0)) continue;
+    tried = true;
+    const r = await fetch(`https://www.omdbapi.com/?${query}&apikey=${encodeURIComponent(key)}`, { signal: AbortSignal.timeout(4000) });
+    const d = await r.json().catch(() => null);
+    if (r.ok && !omdbFailed(d)) return d;
+    const why = (d as { Error?: string } | null)?.Error ?? "";
+    console.warn(`omdb failed (key ${i + 1}): HTTP ${r.status} ${why}`);
+    if (/limit/i.test(why)) pausedUntil.set(key, Date.now() + 15 * 60000);
+  }
+  throw new Error(tried ? "omdb failed" : "omdb paused");
+}
 
 /** Throws when the call failed (timeout, HTTP error, limit, bad key); null means OMDb answered and has no score. */
 async function fetchRating(imdb: string): Promise<ImdbRating | null> {
-  const key = process.env.OMDB_API_KEY;
-  if (!key) throw new Error("no OMDB_API_KEY");
-  if (Date.now() < pausedUntil) throw new Error("omdb paused");
-  const r = await fetch(`https://www.omdbapi.com/?i=${imdb}&apikey=${encodeURIComponent(key)}`, { signal: AbortSignal.timeout(4000) });
-  const d = await r.json().catch(() => null);
-  if (!r.ok || omdbFailed(d)) {
-    const why = (d as { Error?: string } | null)?.Error ?? "";
-    console.warn(`omdb rating failed: HTTP ${r.status} ${why}`);
-    if (/limit/i.test(why)) pause();
-    throw new Error("omdb failed");
-  }
-  return parseOmdb(d);
+  return parseOmdb(await omdbGet(`i=${imdb}`));
 }
 
 type Row = { rating: number | null; votes: number; fetchedAt: number };
@@ -112,13 +124,8 @@ export function parseOmdbSeason(d: unknown): Record<number, number> {
 }
 
 async function fetchSeason(imdb: string, season: number): Promise<Record<number, number>> {
-  const key = process.env.OMDB_API_KEY;
-  if (!key) return {};
-  if (Date.now() < pausedUntil) throw new Error("omdb paused");
-  const r = await fetch(`https://www.omdbapi.com/?i=${imdb}&Season=${season}&apikey=${encodeURIComponent(key)}`, { signal: AbortSignal.timeout(4000) });
-  const d = await r.json().catch(() => null);
-  if (!r.ok || omdbFailed(d)) { console.warn(`omdb season failed: HTTP ${r.status}`); if (/limit/i.test(String((d as { Error?: string } | null)?.Error ?? ""))) pause(); throw new Error("omdb failed"); }
-  return parseOmdbSeason(d);
+  if (!hasOmdbKey()) return {};
+  return parseOmdbSeason(await omdbGet(`i=${imdb}&Season=${season}`));
 }
 
 const cs = unstable_cache(fetchSeason, ["imdb-season-v2"], { revalidate: 86400 });
