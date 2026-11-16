@@ -559,6 +559,12 @@ button:not([disabled]):active, a.row:active, a.tab:active, .person-chip:active, 
   /* TitleRow keeps its status pill inside the title link: pin it to the right end of the controls line. */
   .mark-row .row-link .pill { position: absolute; right: 16px; bottom: 18px; }
 }
+/* Library rows, every width: the status slot has a fixed width so the stars start at the same x on every row; the saved-episode chip follows, and the quick marks sit at the right end. */
+.lib-row .pill-slot { width: 124px; margin-right: 0; justify-content: flex-start; }
+@media (min-width: 560px) { .lib-row .pill-slot { width: 140px; } }
+.lib-row .qm.inline { margin-left: auto; }
+.ep-chip { text-decoration: none; color: var(--ink); background: var(--chip); border: 1px solid var(--line); cursor: pointer; }
+@media (hover: hover) { .ep-chip:hover { border-color: var(--gold); color: var(--gold); } }
 /* Library rows on wider screens: with the stars the single line no longer fits in the 720px column (the title got squeezed to a sliver), so the title keeps the full width and the controls sit on a second line, as on a phone. */
 @media (min-width: 560px) {
   .lib-row { flex-wrap: wrap; row-gap: 2px; column-gap: 6px; position: relative; padding-block: 8px; }
@@ -573,7 +579,6 @@ button:not([disabled]):active, a.row:active, a.tab:active, .person-chip:active, 
   .lib-row .row-sub { display: inline-block; margin-right: 8px; vertical-align: middle; }
   .lib-row .row-main .pill { vertical-align: middle; margin-right: 4px; }
   .lib-row .row-link { flex: 1 1 100%; padding-right: 78px; }
-  .lib-row .pill-slot { width: auto; justify-content: flex-start; margin-right: auto; }
   .lib-row .gl-b, .lib-row .rel-b { position: absolute; top: 8px; width: 36px; min-width: 36px; height: 36px; padding: 0; justify-content: center; }
   .lib-row .rel-b { right: 8px; }
   .lib-row .gl-b { right: 44px; }
