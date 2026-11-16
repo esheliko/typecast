@@ -9,6 +9,7 @@ import { hiddenOf, markLine } from "@/lib/spoiler-line";
 import Episodes from "@/components/Episodes";
 import Appearances, { EpisodeJump } from "@/components/Appearances";
 import { Avatar } from "@/components/ui";
+import { ImdbRate } from "@/components/ImdbRate";
 import { releaseFor } from "@/lib/release-dates";
 import { todayFor } from "@/lib/today";
 import { epCode, epsLabel, fmtDate, isRunning, plural, untilLabel, yearSpan } from "@/lib/episodes";
@@ -291,7 +292,7 @@ export default async function TitleView({ t, origin, focus }: { t: Title; origin
         {t.poster && <img className="sh-poster" src={img(t.poster, "w185")} alt="" />}
         <div style={{ minWidth: 0 }}>
           <h1 className="sh-title">{t.title} <RelatedButton it={t} /> <GlimpseButton spec={titleSpec(t)} /> {t.imdbId && <a className="imdb-link" href={`https://www.imdb.com/title/${t.imdbId}/`} target="_blank" rel="noopener noreferrer" aria-label="Open on IMDb" title="Open on IMDb">IMDb ↗</a>}</h1>
-          <div className="sh-meta">{meta.map((x, i) => <Fragment key={i}>{i ? " · " : null}{x}</Fragment>)}</div>
+          <div className="sh-meta">{meta.map((x, i) => <Fragment key={i}>{i ? " · " : null}{x}</Fragment>)}{!t.show && <ImdbRate k={t.key} lead={meta.length ? " · " : ""} />}</div>
           {t.show && <ShowFacts t={t} today={today} />}
           {t.release && <ReleaseLine date={releaseFor(t.releaseBy, profile.country, t.release)} k={t.key} today={today} />}
           {mine?.newEp && <div style={{ margin: "4px 0 2px" }}><NewEpPill k={t.key} detail={newEpDetail(mine.newEp)} /></div>}

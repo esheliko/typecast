@@ -85,6 +85,8 @@ textarea { width: 100%; resize: vertical; min-height: 72px; }
 .thumb { width: 44px; height: 64px; border-radius: 6px; background: var(--chip); object-fit: cover; flex: none; }
 .avatar { width: 44px; height: 44px; border-radius: 50%; background: var(--chip); object-fit: cover; flex: none; display: grid; place-items: center; font: 600 16px var(--display); color: var(--muted); }
 .stars { letter-spacing: 2px; color: var(--gold); font-size: 14px; }
+.row-rate { flex: none; letter-spacing: 0; white-space: nowrap; font-size: 18px; }
+.row-rate button { padding: 4px 1px; min-width: 24px; line-height: 1; color: var(--gold); }
 
 .credits { list-style: none; margin: 0; padding: 0; }
 .credit { padding: 4px 0; border-top: 1px solid var(--line); }

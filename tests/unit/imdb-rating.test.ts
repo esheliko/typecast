@@ -15,3 +15,12 @@ test("parseOmdbSeason maps episode numbers to scores and skips N/A", async () =>
   assert.deepEqual(parseOmdbSeason({ Response: "False" }), {});
   assert.deepEqual(parseOmdbSeason(null), {});
 });
+
+test("omdbFailed tells a failed call from a title with no score", async () => {
+  const { omdbFailed } = await import("../../src/lib/imdb-rating");
+  assert.equal(omdbFailed({ Response: "False", Error: "Request limit reached!" }), true);
+  assert.equal(omdbFailed({ Response: "False", Error: "Invalid API key!" }), true);
+  assert.equal(omdbFailed(null), true);
+  assert.equal(omdbFailed({ Response: "False", Error: "Incorrect IMDb ID." }), false);
+  assert.equal(omdbFailed({ Response: "True", imdbRating: "N/A" }), false);
+});

@@ -1,8 +1,9 @@
 "use client";
 import { TitleLink } from "./Modal";
+import { ImdbRate } from "./ImdbRate";
 import { GlimpseButton } from "./Glimpse";
 import { titleSpec } from "@/lib/glimpse";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Thumb } from "./ui";
 import QuickMark from "./cast/QuickMark";
 import { useLib } from "./cast/LibState";
@@ -13,7 +14,7 @@ import { ResumeButton } from "./ResumeSheet";
 import { stoppedLabel, stoppedPct } from "@/lib/film-resume";
 import { typeLabel } from "@/lib/img";
 import { rowNext } from "@/lib/place-strip";
-import { clearProgress, setProgress } from "@/app/actions";
+import { clearProgress, setProgress, setRating } from "@/app/actions";
 import { getJson } from "@/lib/who-client";
 import { PRIORITY_LABEL, STATUS_LABEL, markLabel, type LibItem } from "@/lib/types";
 
@@ -64,6 +65,33 @@ function RowWatched({ it }: { it: LibItem }) {
   return <button type="button" className="ps-row-btn" disabled={busy} onClick={go} aria-label={`Mark S${guess.s} E${guess.e} watched`} title={`Mark S${guess.s} E${guess.e} watched`}>Watched ✓</button>;
 }
 
+/**
+ * Stars on the Library row: rate without opening the title. One write (`setRating`), no refresh; tapping the lit star clears it (same as the popup).
+ * The row shows the saved rating until a tap, then the tap at once; a failed save puts the old rating back.
+ */
+function RowRating({ it }: { it: LibItem }) {
+  const lib = useLib();
+  const m = lib.get(it.key);
+  const [over, setOver] = useState<number | null>(null);
+  useEffect(() => { setOver(null); }, [it.rating, m === null]);
+  if (!m) return null;
+  const stars = over ?? it.rating;
+  const rate = async (n: number) => {
+    const next = stars === n ? 0 : n;
+    const before = stars;
+    setOver(next);
+    try { await setRating(it.type, it.id, next); lib.touch(); if (next > 0) lib.markRich(it.key); }
+    catch { setOver(before); lib.notify("Couldn’t save that rating. Try again."); }
+  };
+  return (
+    <span className="stars row-rate" role="group" aria-label={`Your rating for ${it.title}`}>
+      {[1, 2, 3, 4, 5].map((n) => (
+        <button key={n} type="button" onClick={() => rate(n)} aria-pressed={n === stars} aria-label={n === 1 ? "1 star" : `${n} stars`}>{n <= stars ? "★" : "☆"}</button>
+      ))}
+    </span>
+  );
+}
+
 export default function LibraryList({ items }: { items: LibItem[] }) {
   const [q, setQ] = useState("");
   const { get } = useLib();
@@ -82,13 +110,12 @@ export default function LibraryList({ items }: { items: LibItem[] }) {
               <Thumb path={l.poster} />
               <span className="row-main">
                 <span className="row-title">{l.title}</span>
-                <span className="row-sub">{l.year} · {typeLabel(l.type)}{l.progress ? ` · S${l.progress.s} E${l.progress.e}` : ""}{st ? ` · ${stoppedLabel(st, of)}` : ""}</span>
+                <span className="row-sub">{l.year} · {typeLabel(l.type)}<ImdbRate k={l.key} lead=" · " />{l.progress ? ` · S${l.progress.s} E${l.progress.e}` : ""}{st ? ` · ${stoppedLabel(st, of)}` : ""}</span>
                 {st && of ? <span className="rs-bar-line" role="img" aria-label={`${stoppedPct(st, of)} percent watched`}><i style={{ width: `${stoppedPct(st, of)}%` }} /></span> : null}
                 <NewEpPill k={l.key} />
                 <RowBadge k={l.key} />
-                {l.rating > 0 && <span className="stars" role="img" aria-label={`Rated ${l.rating} of 5`}>{"★".repeat(l.rating) + "☆".repeat(5 - l.rating)}</span>}
               </span>
-            </TitleLink><StatusPill it={l} /><RowWatched it={l} /><QuickMark it={l} variant="inline" /><GlimpseButton spec={titleSpec(l)} /><RelatedButton it={l} />{st ? <span className="rs-act-row"><ResumeButton it={l} stopped={st} runtime={of} className="btn sm gold" /></span> : null}</li>
+            </TitleLink><StatusPill it={l} /><RowRating it={l} /><RowWatched it={l} /><QuickMark it={l} variant="inline" /><GlimpseButton spec={titleSpec(l)} /><RelatedButton it={l} />{st ? <span className="rs-act-row"><ResumeButton it={l} stopped={st} runtime={of} className="btn sm gold" /></span> : null}</li>
             );
           })}
         </ul></div>
