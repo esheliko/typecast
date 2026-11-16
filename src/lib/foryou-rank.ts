@@ -27,7 +27,8 @@ export interface Seed { key: string; id: number; w: number; cand: Cand | null }
 /** How strongly a library entry says "more like this" (> 0) or "less like this" (< 0). 0 = no opinion. */
 export function seedWeight(l: LibItem, now: number): number {
   let w: number;
-  if (l.status === "watchlist") w = l.priority === "must" ? 1.6 : 0.5;
+  // Wanting to see something is a weaker taste signal than having watched it.
+  if (l.status === "watchlist") w = l.priority === "must" ? 1.0 : 0.4;
   else if (l.rating >= 5) w = 3.2;
   else if (l.rating >= 4) w = 2.4;
   else if (l.rating === 3) w = 1.2;
@@ -164,13 +165,25 @@ export const mediaKey = (type: MediaType, id: number) => `${type}:${id}`;
 const votesText = (n: number) => (n >= 1000 ? `${Math.round(n / 100) / 10}k` : String(n));
 const list = (xs: string[]) => (xs.length <= 1 ? xs.join("") : `${xs.slice(0, -1).join(", ")} and ${xs[xs.length - 1]}`);
 
-/** The one-line reason a For you title is shown (hover text). `by`: seed titles that recommend it, strongest first. Only IMDb's score is quoted. */
-export function whyText(o: { by: string[]; genres: string[]; explore: boolean; imdb?: { rating: number; votes: number } }): string {
+/** How a library title relates to you, for the reason text: it decides the wording, so "to watch" is never called "liked". */
+export type How = "loved" | "watched" | "watching" | "must" | "want";
+export function howOf(l: Pick<LibItem, "status" | "rating" | "priority">): How {
+  if (l.status === "watchlist") return l.priority === "must" ? "must" : "want";
+  if (l.rating >= 4) return "loved";
+  return l.status === "watched" ? "watched" : "watching";
+}
+const PHRASE: Record<How, (t: string) => string> = {
+  loved: (t) => `you rated ${t} highly`, watched: (t) => `you watched ${t}`, watching: (t) => `you are watching ${t}`,
+  must: (t) => `${t} is on your must-watch list`, want: (t) => `${t} is on your to-watch list`,
+};
+
+/** The one-line reason a For you title is shown (hover text). `by`: the library titles that recommend it, strongest first. Only IMDb's score is quoted. */
+export function whyText(o: { by: { t: string; how: How }[]; genres: string[]; explore: boolean; imdb?: { rating: number; votes: number } }): string {
   const rate = o.imdb ? `IMDb ${o.imdb.rating.toFixed(1)}${o.imdb.votes ? ` (${votesText(o.imdb.votes)} votes)` : ""}` : "";
   const g = list(o.genres.slice(0, 2));
   if (o.by.length) {
-    const named = o.by.slice(0, 2), more = o.by.length - named.length;
-    return `Because you liked ${list(named)}${more > 0 ? ` and ${more} more` : ""}${g ? `. Also fits your taste for ${g}` : ""}${rate ? `; ${rate}` : ""}.`;
+    const named = o.by.slice(0, 2).map((x) => PHRASE[x.how](x.t)), more = o.by.length - 2;
+    return `Because ${list(named)}${more > 0 ? ` (and ${more} more like it)` : ""}${g ? `. Also fits your taste for ${g}` : ""}${rate ? `; ${rate}` : ""}.`;
   }
   if (o.explore) return `A change of pace: ${rate || "well rated"}, outside your usual genres${g ? ` (${g})` : ""}. Shown now and then so the list does not get stuck.`;
   return `Well liked in genres you lean towards${g ? ` (${g})` : ""}${rate ? `: ${rate}` : ""}.`;

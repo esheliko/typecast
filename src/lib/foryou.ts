@@ -1,7 +1,7 @@
 import { browse, browseItem, genreList, getTitleImdbId, tmdb } from "./tmdb";
 import { getImdbRating } from "./imdb-rating";
 import { interleave } from "./browse";
-import { buildProfile, posWeight, rerank, sampleSeeds, scorePool, seedWeight, topGenres, whyText, type Cand, type Pooled, type Seed } from "./foryou-rank";
+import { buildProfile, howOf, posWeight, rerank, sampleSeeds, scorePool, seedWeight, topGenres, whyText, type Cand, type How, type Pooled, type Seed } from "./foryou-rank";
 import type { BrowseItem, BrowseType, LibItem } from "./types";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -67,15 +67,16 @@ export async function forYou(type: BrowseType, page: number, lib: LibItem[], sal
 
   const maxW = Math.max(...likedD.map((s) => s.w));
   const pool = new Map<number, Pooled>();
-  const by = new Map<number, { t: string; c: number; sid: number }[]>();
-  const titleOf = new Map(likedD.map((s) => [s.id, s.l.title]));
+  const by = new Map<number, { t: string; how: How; c: number; sid: number }[]>();
+  const titleOf = new Map(likedD.map((s) => [s.id, { t: s.l.title, how: howOf(s.l) }]));
   const ok = (r: any) => r.poster_path && !own.has(`${type}:${r.id}`) && (r.vote_count ?? 0) >= 15 && !((r.vote_average ?? 0) < 5.5 && (r.vote_count ?? 0) >= 50);
   for (const { sid, w, off, rs } of recs) rs.forEach((r, i) => {
     if (!ok(r)) return;
     const e = pool.get(r.id) ?? { cand: toCand(r), votesFrom: [], explore: false };
     const c = 0.55 * (w / maxW) * posWeight(off + i);
     e.votesFrom.push(c);
-    by.set(r.id, [...(by.get(r.id) ?? []), { t: titleOf.get(sid) ?? "", c, sid }]);
+    const who = titleOf.get(sid);
+    if (who) by.set(r.id, [...(by.get(r.id) ?? []), { ...who, c, sid }]);
     pool.set(r.id, e);
   });
   for (const r of gems) if (ok(r) && !pool.has(r.id)) pool.set(r.id, { cand: toCand(r), votesFrom: [], explore: false });
@@ -89,7 +90,7 @@ export async function forYou(type: BrowseType, page: number, lib: LibItem[], sal
     const e = pool.get(id)!, r = byId.get(id);
     // Genres of this title that you lean towards, strongest first.
     const mine = topGenres(like, 6).filter((g) => e.cand.genres.includes(g)).map((g) => gname.get(g)).filter((x): x is string => !!x);
-    const from = [...new Map((by.get(id) ?? []).sort((a, b) => b.c - a.c).map((x) => [x.t, x])).values()].map((x) => x.t).filter(Boolean);
+    const from = [...new Map((by.get(id) ?? []).sort((a, b) => b.c - a.c).map((x) => [x.t, { t: x.t, how: x.how }])).values()];
     const theirs = e.cand.genres.map((g) => gname.get(g)).filter((x): x is string => !!x);
     return { ...browseItem(type, r), why: whyText({ by: from, genres: e.explore ? theirs : mine, explore: e.explore, imdb: e.cand.imdb }) };
   };
