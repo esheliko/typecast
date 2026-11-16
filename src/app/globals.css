@@ -220,6 +220,10 @@ a.row { text-decoration: none; color: inherit; }
 .bz-bar .pillsel select:focus, .bz-bar .pillsel select:focus-visible { outline: none; box-shadow: none; border-radius: 999px; }
 .pill-i { flex: none; vertical-align: -2px; margin-right: 2px; }
 .bz-bar .pillsel .pill-i { margin: 0; }
+.bz-bar .pillsel { padding-left: 0; }
+.bz-bar .pillsel .pill-flip { display: inline-flex; align-items: center; justify-content: center; align-self: stretch; padding: 0 4px 0 11px; border: 0; background: transparent; color: inherit; cursor: pointer; border-radius: 999px 0 0 999px; }
+.bz-bar .pillsel .pill-flip .pill-i { transition: transform .15s; }
+.bz-bar .pillsel .pill-flip[aria-pressed="true"] { color: var(--gold-fill); }
 .bz-bar .seg button { padding: 5px 12px; }
 .chip.sm { flex: none; margin-left: auto; padding: 6px 12px; font-size: 13px; white-space: nowrap; }
 .chips.scroll { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 14px -16px 0; padding: 0 16px 2px; }

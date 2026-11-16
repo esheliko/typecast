@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { howOf, buildProfile, quality, rerank, sampleSeeds, scorePool, seedWeight, type Cand, type Pooled } from "../../src/lib/foryou-rank";
+import { howOf, buildProfile, kwFit, parseExtras, peopleFit, personMatches, quality, rerank, sampleSeeds, scorePool, seedWeight, type Cand, type Pooled } from "../../src/lib/foryou-rank";
 import type { LibItem } from "../../src/lib/types";
 
 const NOW = 1_700_000_000_000, DAY = 86400000;
@@ -49,7 +49,7 @@ test("more agreeing seeds and a better genre fit rank higher; dislikes push down
 });
 
 test("rerank spreads genres and gives every 6th slot to exploration", () => {
-  const mk = (id: number, score: number, genres: number[], explore = false) => ({ id, score, genres, explore, parts: { cf: 0, content: 0, q: 0, neg: 0 } });
+  const mk = (id: number, score: number, genres: number[], explore = false) => ({ id, score, genres, explore, parts: { cf: 0, content: 0, q: 0, neg: 0, people: 0 } });
   const scored = [
     ...Array.from({ length: 10 }, (_, i) => mk(i, 1 - i * 0.01, [28])),
     mk(100, 0.93, [35]), mk(101, 0.9, [9648]),
@@ -101,4 +101,58 @@ test("partly watched is its own thing: weaker than watching, and worded as such"
   assert.equal(howOf(lib({ status: "partial" })), "partial");
   assert.equal(howOf(lib({ status: "partial", rating: 5 })), "loved");
   assert.match(whyText({ by: [{ t: "Dune", how: "partial" }], genres: [], explore: false }), /^Because you watched part of Dune\./);
+});
+
+test("parseExtras reads keywords, director/creator and billed cast for films and series", () => {
+  const film = parseExtras({
+    keywords: { keywords: [{ id: 1 }, { id: 2 }] },
+    credits: { cast: [{ id: 20, name: "B", order: 3 }, { id: 10, name: "A", order: 0 }], crew: [{ id: 30, name: "D", job: "Director" }, { id: 31, name: "W", job: "Writer" }] },
+  }, "movie");
+  assert.deepEqual(film.kw, [1, 2]);
+  assert.deepEqual(film.people.map((p) => p.id), [30, 10, 20]);
+  assert.equal(film.people[0].k, 1);
+  assert.ok(film.people[2].k < film.people[1].k);
+  const show = parseExtras({ keywords: { results: [{ id: 7 }] }, created_by: [{ id: 40, name: "C" }], aggregate_credits: { cast: [{ id: 41, name: "E", order: 0 }] } }, "tv");
+  assert.deepEqual(show.kw, [7]);
+  assert.deepEqual(show.people.map((p) => p.id), [40, 41]);
+  assert.deepEqual(parseExtras(null, "movie"), { kw: [], people: [] });
+});
+
+test("people you keep watching boost a candidate; two favourites beat one; unknown people change nothing", () => {
+  const star = { id: 10, name: "A", k: 1 }, other = { id: 11, name: "B", k: 1 };
+  const like = buildProfile([
+    { w: 3.2, cand: cand(1, { people: [star, other] }) },
+    { w: 3.2, cand: cand(2, { people: [star] }) },
+  ]);
+  assert.equal(peopleFit(like, undefined), 0);
+  assert.equal(peopleFit(like, [{ id: 99, name: "Z", k: 1 }]), 0);
+  const one = peopleFit(like, [other]), both = peopleFit(like, [star, other]);
+  assert.ok(one > 0 && both > peopleFit(like, [star]) && both <= 1);
+  assert.equal(personMatches(like, [other, star])[0].person.id, 10);
+  const pool: Pooled[] = [{ cand: cand(5, { people: [star] }), votesFrom: [0.3], explore: false }, { cand: cand(6, { people: [{ id: 99, name: "Z", k: 1 }] }), votesFrom: [0.3], explore: false }];
+  const s = scorePool(pool, like, buildProfile([]), 2026);
+  assert.ok(s[0].score > s[1].score);
+});
+
+test("keyword overlap raises content fit; a candidate without known keywords is not penalised for it", () => {
+  const like = buildProfile([{ w: 3, cand: cand(1, { kw: [1, 2, 3, 4] }) }]);
+  assert.ok(kwFit(like, [1, 2]) > kwFit(like, [8, 9]));
+  assert.equal(kwFit(like, []), 0);
+  const known = scorePool([{ cand: cand(5, { kw: [1, 2, 3] }), votesFrom: [0.3], explore: false }, { cand: cand(6, { kw: [8, 9] }), votesFrom: [0.3], explore: false }], like, buildProfile([]), 2026);
+  assert.ok(known[0].score > known[1].score);
+  const unknown = scorePool([{ cand: cand(7), votesFrom: [0.3], explore: false }], like, buildProfile([]), 2026)[0];
+  assert.ok(unknown.score > known[1].score - 0.05);
+});
+
+test("a title on your services gets a small nudge", () => {
+  const like = buildProfile([{ w: 3, cand: cand(1) }]);
+  const [a, b] = scorePool([{ cand: cand(5, { onService: true }), votesFrom: [], explore: false }, { cand: cand(6), votesFrom: [], explore: false }], like, buildProfile([]), 2026);
+  assert.ok(a.score > b.score);
+});
+
+test("whyText names the shared person and service", () => {
+  const t = whyText({ by: [], genres: ["Drama"], explore: false, people: [{ name: "Bryan Cranston", titles: ["Breaking Bad"] }], onService: true });
+  assert.match(t, /Features Bryan Cranston, who you liked in Breaking Bad/);
+  assert.match(t, /On one of your services/);
+  assert.match(whyText({ by: [{ t: "Heat", how: "loved" }], genres: [], explore: false, people: [{ name: "Al Pacino", titles: ["Heat"] }] }), /Because you rated Heat highly\. Features Al Pacino/);
 });
