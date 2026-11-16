@@ -559,6 +559,16 @@ button:not([disabled]):active, a.row:active, a.tab:active, .person-chip:active, 
   /* TitleRow keeps its status pill inside the title link: pin it to the right end of the controls line. */
   .mark-row .row-link .pill { position: absolute; right: 16px; bottom: 18px; }
 }
+/* Library rows on wider screens: with the stars the single line no longer fits in the 720px column (the title got squeezed to a sliver), so the title keeps the full width and the controls sit on a second line, as on a phone. */
+@media (min-width: 560px) {
+  .lib-row { flex-wrap: wrap; row-gap: 6px; column-gap: 6px; position: relative; }
+  .lib-row .row-link { flex: 1 1 100%; padding-right: 78px; }
+  .lib-row .pill-slot { width: auto; justify-content: flex-start; margin-right: auto; }
+  .lib-row .gl-b, .lib-row .rel-b { position: absolute; top: 8px; width: 36px; min-width: 36px; height: 36px; padding: 0; justify-content: center; }
+  .lib-row .rel-b { right: 8px; }
+  .lib-row .gl-b { right: 44px; }
+  .lib-row .pill-flip svg { display: inline; }
+}
 
 /* Skeletons: placeholders shaped like the content, so a page change shows its layout at once instead of a spinner. */
 .sk-b { background: var(--chip); border-radius: 8px; animation: pulse 1.2s ease-in-out infinite alternate; }
