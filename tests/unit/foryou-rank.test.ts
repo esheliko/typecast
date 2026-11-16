@@ -63,10 +63,20 @@ test("rerank spreads genres and gives every 6th slot to exploration", () => {
 });
 
 import { whyText } from "../../src/lib/foryou-rank";
-test("whyText names the seeds, then falls back to genres, then to exploration", () => {
-  const a = whyText({ by: ["Heat", "Ronin", "Collateral"], genres: ["Crime", "Thriller"], explore: false, avg: 7.84, votes: 12300 });
+test("whyText names the seeds, then falls back to genres, then to exploration; only IMDb's score is quoted", () => {
+  const a = whyText({ by: ["Heat", "Ronin", "Collateral"], genres: ["Crime", "Thriller"], explore: false, imdb: { rating: 8.24, votes: 12300 } });
   assert.match(a, /Because you liked Heat and Ronin and 1 more/);
   assert.match(a, /Crime and Thriller/);
-  assert.match(whyText({ by: [], genres: ["Drama"], explore: false, avg: 7.5, votes: 900 }), /genres you lean towards \(Drama\)/);
-  assert.match(whyText({ by: [], genres: ["Comedy"], explore: true, avg: 7.5, votes: 900 }), /change of pace/);
+  assert.match(a, /IMDb 8\.2 \(12\.3k votes\)/);
+  assert.doesNotMatch(whyText({ by: ["Heat"], genres: [], explore: false }), /IMDb|rated/);
+  assert.match(whyText({ by: [], genres: ["Drama"], explore: false, imdb: { rating: 7.5, votes: 900 } }), /genres you lean towards \(Drama\): IMDb 7\.5/);
+  assert.match(whyText({ by: [], genres: ["Comedy"], explore: true }), /change of pace/);
+});
+
+test("quality uses IMDb's score when known: a title IMDb rates higher ranks higher at equal TMDB numbers", () => {
+  const like = buildProfile([]), none = buildProfile([]);
+  const a = { cand: { ...cand(1), imdb: { rating: 8.4, votes: 200000 } }, votesFrom: [], explore: false };
+  const b = { cand: { ...cand(2), imdb: { rating: 6.2, votes: 200000 } }, votesFrom: [], explore: false };
+  const [sa, sb] = scorePool([a, b], like, none, 2026);
+  assert.ok(sa.score > sb.score);
 });

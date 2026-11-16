@@ -18,6 +18,8 @@ const DAY = 24 * 3600 * 1000;
 /** What we know about a title in TMDB's list results (and, for seeds, its detail record). */
 export interface Cand {
   id: number; genres: number[]; lang: string; year: number; avg: number; votes: number; pop: number;
+  /** IMDb's own score, when known (OMDb). Used instead of TMDB's vote average for quality. */
+  imdb?: { rating: number; votes: number };
 }
 
 export interface Seed { key: string; id: number; w: number; cand: Cand | null }
@@ -102,7 +104,8 @@ export function scorePool(pool: Pooled[], like: Profile, dislike: Profile, year:
     const c = p.cand;
     const cf = 1 - p.votesFrom.reduce((acc, v) => acc * (1 - Math.min(0.9, v)), 1); // noisy-or
     const content = 0.6 * genreFit(like, c.genres) + 0.25 * decadeFit(like, c.year) + 0.15 * langFit(like, c.lang);
-    const q = quality(c.avg, c.votes);
+    // IMDb's score when we have it (its vote counts are bigger, so the prior needs more weight); TMDB's only as a fallback for ranking, never shown.
+    const q = c.imdb ? quality(c.imdb.rating, c.imdb.votes, 6.6, 1000) : quality(c.avg, c.votes);
     const neg = dislike.total ? genreFit(dislike, c.genres) * Math.min(1, dislike.total / (like.total || 1) + 0.3) : 0;
     // Very new titles have few votes: do not punish, nudge. Mega-popular ones are already everywhere: tiny haircut.
     const fresh = c.year >= year - 2 ? 0.04 : 0;
@@ -161,9 +164,9 @@ export const mediaKey = (type: MediaType, id: number) => `${type}:${id}`;
 const votesText = (n: number) => (n >= 1000 ? `${Math.round(n / 100) / 10}k` : String(n));
 const list = (xs: string[]) => (xs.length <= 1 ? xs.join("") : `${xs.slice(0, -1).join(", ")} and ${xs[xs.length - 1]}`);
 
-/** The one-line reason a For you title is shown (hover text). `by`: seed titles that recommend it, strongest first. */
-export function whyText(o: { by: string[]; genres: string[]; explore: boolean; avg: number; votes: number }): string {
-  const rate = o.avg ? `rated ${o.avg.toFixed(1)} by ${votesText(o.votes)} people` : "";
+/** The one-line reason a For you title is shown (hover text). `by`: seed titles that recommend it, strongest first. Only IMDb's score is quoted. */
+export function whyText(o: { by: string[]; genres: string[]; explore: boolean; imdb?: { rating: number; votes: number } }): string {
+  const rate = o.imdb ? `IMDb ${o.imdb.rating.toFixed(1)}${o.imdb.votes ? ` (${votesText(o.imdb.votes)} votes)` : ""}` : "";
   const g = list(o.genres.slice(0, 2));
   if (o.by.length) {
     const named = o.by.slice(0, 2), more = o.by.length - named.length;

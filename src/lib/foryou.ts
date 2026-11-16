@@ -1,4 +1,5 @@
-import { browse, browseItem, genreList, tmdb } from "./tmdb";
+import { browse, browseItem, genreList, getTitleImdbId, tmdb } from "./tmdb";
+import { getImdbRating } from "./imdb-rating";
 import { interleave } from "./browse";
 import { buildProfile, posWeight, rerank, sampleSeeds, scorePool, seedWeight, topGenres, whyText, type Cand, type Pooled, type Seed } from "./foryou-rank";
 import type { BrowseItem, BrowseType, LibItem } from "./types";
@@ -8,6 +9,11 @@ const PAGE = 20;
 const SEEDS = 10;
 const ANCHORS = 3;
 const WEEK = 7 * 24 * 3600;
+/** How many of the best-ranked titles get their IMDb score looked up (cached a day) and are ranked again on it. */
+const SHORTLIST = 60;
+const chunks = <T,>(xs: T[], n: number) => Array.from({ length: Math.ceil(xs.length / n) }, (_, i) => xs.slice(i * n, i * n + n));
+/** Waits for `p`, but never longer than `ms`: whatever has arrived by then is used. */
+const withBudget = (p: Promise<unknown>, ms: number) => Promise.race([p.catch(() => {}), new Promise((r) => setTimeout(r, ms))]);
 
 /** Small deterministic generator, so every page of one visit draws from the same picks but a refresh draws different ones. */
 function rng(seed: number) { let a = seed >>> 0 || 1; return () => { a = (a * 1664525 + 1013904223) >>> 0; return a / 2 ** 32; }; }
@@ -85,10 +91,21 @@ export async function forYou(type: BrowseType, page: number, lib: LibItem[], sal
     const mine = topGenres(like, 6).filter((g) => e.cand.genres.includes(g)).map((g) => gname.get(g)).filter((x): x is string => !!x);
     const from = [...new Map((by.get(id) ?? []).sort((a, b) => b.c - a.c).map((x) => [x.t, x])).values()].map((x) => x.t).filter(Boolean);
     const theirs = e.cand.genres.map((g) => gname.get(g)).filter((x): x is string => !!x);
-    return { ...browseItem(type, r), why: whyText({ by: from, genres: e.explore ? theirs : mine, explore: e.explore, avg: e.cand.avg, votes: e.cand.votes }) };
+    return { ...browseItem(type, r), why: whyText({ by: from, genres: e.explore ? theirs : mine, explore: e.explore, imdb: e.cand.imdb }) };
   };
   for (const [id, xs] of by) { const e = pool.get(id); const top = [...xs].sort((a, b) => b.c - a.c)[0]; if (e && top) e.src = top.sid; }
-  const order = rerank(scorePool([...pool.values()], like, dislike, new Date().getFullYear()));
+  const year = new Date().getFullYear();
+  // First pass ranks on TMDB's numbers; then IMDb's own score is fetched for the front of the list and that part is ranked again on it.
+  let order = rerank(scorePool([...pool.values()], like, dislike, year));
+  if (process.env.OMDB_API_KEY) {
+    const front = order.slice(0, SHORTLIST);
+    await withBudget(Promise.all(chunks(front, 15).map(async (ids) => { for (const id of ids) {
+      const imdb = await getImdbRating(await getTitleImdbId(type, id));
+      if (imdb) pool.get(id)!.cand.imdb = imdb;
+    } })), 6000);
+    const again = rerank(scorePool(front.map((id) => pool.get(id)!), like, dislike, year));
+    order = [...again, ...order.slice(SHORTLIST)];
+  }
   const poolPages = Math.ceil(order.length / PAGE);
   if (page <= poolPages) return { items: order.slice((page - 1) * PAGE, page * PAGE).map((id) => withWhy(id)), more: true };
 

@@ -137,12 +137,10 @@ export async function browse(list: BrowseList, type: BrowseType, page: number): 
 
 /** Why a title is on a quick list, in a sentence (hover text in Browse). */
 export function listWhy(list: BrowseList, type: MediaType, r: any): string {
-  const votes = r.vote_count ?? 0, avg = r.vote_average ?? 0;
-  const k = (n: number) => (n >= 1000 ? `${Math.round(n / 100) / 10}k` : String(n));
   const date = String(r.release_date ?? r.first_air_date ?? "");
   if (list === "trending") return `Trending: one of the ${type === "movie" ? "films" : "series"} people on TMDB have been looking at most this week.`;
   if (list === "popular") return `Popular: among the most-watched ${type === "movie" ? "films" : "series"} on TMDB right now.`;
-  if (list === "top") return `Top rated: ${avg.toFixed(1)} out of 10 from ${k(votes)} votes, one of the best-rated ${type === "movie" ? "films" : "series"} of all time.`;
+  if (list === "top") return `Top rated: one of the best-rated ${type === "movie" ? "films" : "series"} of all time on TMDB.`;
   if (list === "soon") return `Coming soon${date ? `: due ${date}` : ""}, one of the most anticipated ${type === "movie" ? "films" : "series"} in the next six months.`;
   return type === "movie" ? "New: in cinemas now." : "New: has an episode airing in the coming days.";
 }
