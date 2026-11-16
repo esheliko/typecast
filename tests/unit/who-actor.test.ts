@@ -63,3 +63,16 @@ describe("fuzzy", () => {
     assert.deepEqual(matchCast(cast, ["haymich"]).map((x) => x.id), [1]);
   });
 });
+
+describe("one word of a name", () => {
+  const ppl = [{ name: "Wizard", popularity: 0.1 }, { name: "Damaine Radcliff", popularity: 0.4 }, { name: "Daniel Radcliffe", popularity: 4.7 }];
+  it("a cut-short surname finds the most popular person, either word order", () => {
+    for (const q of ["radclif wizard", "wizard radclif"]) {
+      const r = splitActorQuery(q, ppl, { partial: true })!;
+      assert.equal(r.person.name, "Daniel Radcliffe");
+      assert.deepEqual(r.rest, ["wizard"]);
+    }
+  });
+  it("is off unless asked for", () => assert.equal(splitActorQuery("radclif wizard", ppl), null));
+  it("searches the shortened word too", () => assert.ok(nameWindows("radcliff").includes("radclif")));
+});

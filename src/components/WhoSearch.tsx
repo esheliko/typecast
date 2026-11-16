@@ -99,7 +99,7 @@ export default function WhoSearch({ watching }: { watching: WhoTitle[] }) {
   const others = watching.filter((w) => w.key !== sel?.key);
 
   return (
-    <div className="whs">
+    <div className="whs" data-no-lift>
       <div className="whs-row whs-top">
         <button type="button" className="whs-sel" aria-expanded={pick} onClick={() => setChanging((v) => !v)}>
           {sel

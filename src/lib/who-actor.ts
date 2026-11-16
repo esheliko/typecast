@@ -41,17 +41,35 @@ export function near(w: string, x: string): boolean {
 export function nameWindows(q: string): string[] {
   const qw = words(q).slice(0, 6);
   const out: string[] = [];
-  for (const n of [2, 3, 1]) for (let i = 0; i + n <= qw.length; i++) { const w = qw.slice(i, i + n); if (n === 1 && (w[0].length < 4 || FILLER.has(w[0]))) continue; out.push(w.join(" ")); }
+  for (const n of [2, 3, 1]) for (let i = 0; i + n <= qw.length; i++) { const w = qw.slice(i, i + n); if (n === 1 && (w[0].length < 4 || FILLER.has(w[0]))) continue; out.push(w.join(" ")); if (n === 1 && w[0].length >= 6) out.push(w[0].slice(0, -1)); }
   return [...new Set(out)];
 }
 
-/** The person whose full name appears anywhere in the query, allowing small misspellings (longest, then closest, wins), and the words left over. "wizard daniel radcliff" -> Daniel Radcliffe + "wizard". */
-export function splitActorQuery<P extends { name: string }>(q: string, people: readonly P[]): { person: P; rest: string[] } | null {
+/**
+ * The person whose full name appears anywhere in the query, allowing small misspellings (longest, then closest, wins), and the words left over. "wizard daniel radcliff" -> Daniel Radcliffe + "wizard".
+ * With `partial`, a single typed word may be just ONE word of a name (a surname or first name, misspelt or cut short: "radclif wizard"); the most popular such person wins.
+ */
+export function splitActorQuery<P extends { name: string; popularity?: number }>(q: string, people: readonly P[], opts: { partial?: boolean } = {}): { person: P; rest: string[] } | null {
+  if (opts.partial) {
+    const qw = words(q);
+    let best: { person: P; at: number; pop: number } | null = null;
+    for (const p of people) {
+      const nw = words(p.name);
+      qw.forEach((w, at) => {
+        if (w.length < 4 || FILLER.has(w) || !nw.some((x) => x === w || near(w, x))) return;
+        const pop = p.popularity ?? 0;
+        if (!best || pop > best.pop) best = { person: p, at, pop };
+      });
+    }
+    const b = best as { person: P; at: number } | null;
+    return b ? { person: b.person, rest: qw.filter((_, i) => i !== b.at).filter((w) => !FILLER.has(w)) } : null;
+  }
   const qw = words(q);
   let best: { person: P; n: number; d: number; at: number } | null = null;
   for (const p of people) {
     const nw = words(p.name);
     if (!nw.length || nw.length > qw.length) continue;
+    if (nw.length === 1 && (p.popularity ?? 0) < 1) continue; // a one-word name only when it is a star (Cher), not any "Wizard" TMDB lists
     for (let at = 0; at + nw.length <= qw.length; at++) {
       let d = 0, ok = true;
       for (let i = 0; i < nw.length && ok; i++) {
