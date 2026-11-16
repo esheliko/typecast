@@ -47,7 +47,7 @@ export default function ScrollKeeper() {
     window.addEventListener("touchstart", cancel, { passive: true, once: true });
     window.addEventListener("keydown", cancel, { once: true });
     const tick = () => {
-      if (stop) return;
+      if (stop || document.documentElement.dataset.freshView) return; // a refreshed, reshuffled page starts at the top
       const max = document.documentElement.scrollHeight - window.innerHeight;
       if (max >= target || performance.now() - t0 > 2500) {
         window.scrollTo(0, Math.min(target, Math.max(0, max)));
