@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { setWatchedUpTo } from "@/app/actions";
 import { CreditRow } from "./CreditRow";
 import { aired, airsLabel, epCode, fmtDate, nextAfter, plural, prevEpisode, untilLabel, upTo } from "@/lib/episodes";
@@ -136,6 +137,13 @@ export default function Episodes({ item, seasons, progress, status, today, ended
     if (ss === s && data) { setOpen(e); want.current = null; requestAnimationFrame(() => root.current?.querySelector(`[data-ep="${e}"]`)?.scrollIntoView({ behavior: "smooth", block: "start" })); }
     else setS(ss);
   }, [s, data]);
+  // Opened from a Library row's episode chip (`?ep=S.E`): open that episode once, when the popup first shows.
+  const epParam = useSearchParams().get("ep");
+  const epAsked = useRef<string | null>(null);
+  useEffect(() => {
+    const m = epParam && epAsked.current !== epParam ? /^(\d+)\.(\d+)$/.exec(epParam) : null;
+    if (m) { epAsked.current = epParam; jump(Number(m[1]), Number(m[2])); }
+  }, [epParam, jump]);
   useEffect(() => {
     const on = (ev: Event) => { const d = (ev as CustomEvent<{ s: number; e: number }>).detail; if (d) jump(d.s, d.e); };
     window.addEventListener("tc:episode", on);
