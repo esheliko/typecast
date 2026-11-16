@@ -30,12 +30,13 @@ export function PersonProvider({ id, children }: { id: number; children: React.R
   return <FromPerson.Provider value={id}>{children}</FromPerson.Provider>;
 }
 
-export function TitleLink({ k, it, onClick, ...rest }: { k: string; it?: Peek } & Omit<ComponentProps<typeof Link>, "href" | "replace" | "scroll" | "prefetch">) {
+export function TitleLink({ k, it, ep, onClick, ...rest }: { k: string; it?: Peek; /** Open the popup with this episode opened and in view (Episodes reads `?ep=S.E`). */ ep?: { s: number; e: number } } & Omit<ComponentProps<typeof Link>, "href" | "replace" | "scroll" | "prefetch">) {
   const from = useContext(FromTitle);
   const person = useContext(FromPerson);
   const inModal = useContext(InModal);
   const q = new URLSearchParams(from && from.key !== k ? { from: from.key, fn: from.name } : {});
   if (person) q.set("p", String(person));
+  if (ep) q.set("ep", `${ep.s}.${ep.e}`);
   const qs = q.toString();
   const url = qs ? `${href(k)}?${qs}` : href(k);
   // Reuse the poster image already on screen (an exact cache hit) so the popup has art the moment it opens.
