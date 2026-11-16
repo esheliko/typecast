@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useOptimistic, useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useLib } from "@/components/cast/LibState";
 import StarRating from "@/components/StarRating";
 import StatusIcon from "@/components/cast/StatusIcon";
@@ -17,19 +17,20 @@ export default function StatusControls({ item, lib }: { item: Item; lib: LibItem
   const status = m?.status ?? null;
   const priority: Priority = m?.priority ?? lib?.priority ?? defaultPriority;
   const [pending, start] = useTransition();
-  const [rating, setR] = useOptimistic<number, number>(lib?.rating ?? 0, (_s, n) => n);
   const [err, setErr] = useState("");
-  const [saved, setSaved] = useState<number | null>(null);
+  // The tap shows at once (`over`); the server value is only the starting point. A failed save puts the old rating back.
+  const [over, setOver] = useState<number | null>(null);
   // A removed title loses its rating on the server; start from zero if it is added again before the page refreshes.
-  useEffect(() => { if (!m) setSaved(0); }, [m]);
-  const stars = !m ? 0 : saved ?? rating;
+  useEffect(() => { if (!m) setOver(0); }, [m]);
+  const stars = !m ? 0 : over ?? lib?.rating ?? 0;
   const toggle = (s: Status) => mark(item, status === s ? null : s, s === "watchlist" ? priority : undefined);
   const rate = (n: number) => {
     const next = stars === n ? 0 : n;
+    const before = stars;
+    setErr(""); setOver(next);
     start(async () => {
-      setErr(""); setR(next);
-      try { await setRating(item.type, item.id, next); setSaved(next); touch(); if (next > 0) markRich(item.key); }
-      catch { setErr("Could not save that. Check your connection and try again."); }
+      try { await setRating(item.type, item.id, next); touch(); if (next > 0) markRich(item.key); }
+      catch { setOver(before); setErr("Could not save that. Check your connection and try again."); }
     });
   };
   const [open, setOpen] = useState(false);
