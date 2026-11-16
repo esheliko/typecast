@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { findRelation, initials, matchCast, matchCredits, matchEpisodes, nameWindows, near, relatives, splitActorQuery, splitTitleQuery } from "../../src/lib/who-actor";
+import { parseCastBlurbs, findRelation, initials, matchCast, matchCredits, matchEpisodes, nameWindows, near, relatives, splitActorQuery, splitTitleQuery } from "../../src/lib/who-actor";
 import type { PCredit } from "../../src/lib/who-types";
 
 const c = (id: number, title: string, role: string, votes = 1): PCredit => ({ key: `movie:${id}`, type: "movie", id, title, year: "2000", poster: null, role, date: "", eps: 0, cids: [], extra: false, votes });
@@ -110,5 +110,32 @@ describe("relatives and episodes", () => {
   it("matches an episode by a close word", () => {
     const eps = [{ name: "The Chinese Restaurant" }, { name: "The Contest" }];
     assert.deepEqual(matchEpisodes(eps, ["asian", "restaurant"]).map((e) => e.name), ["The Chinese Restaurant"]);
+  });
+});
+
+describe("abbreviations and bracketed notes", () => {
+  it("'sergent' finds Sgt. Wade Grey", () => {
+    const cast = [{ id: 1, name: "Nathan Fillion", photo: null, role: "John Nolan" }, { id: 2, name: "Richard T. Jones", photo: null, role: "Sgt. Wade Grey" }];
+    assert.deepEqual(matchCast(cast, ["sergent"]).map((x) => x.id), [2]);
+    assert.deepEqual(matchCast(cast, ["sergeant", "wade"]).map((x) => x.id), [2]);
+  });
+  it("a voice note is not a surname", () => {
+    const cast = [
+      { id: 1, name: "Jim Parsons", photo: null, role: "Sheldon Cooper (voice)", g: 2 },
+      { id: 2, name: "Ann Voice", photo: null, role: "Bonnie Swanson (voice)", g: 1 },
+    ];
+    assert.equal(relatives(cast, ["sheldon"], findRelation(["sheldon", "mom"])!.rel, () => null), null);
+  });
+});
+
+describe("wikipedia blurbs", () => {
+  const text = 'Nathan Fillion as Jonathan "John" Nolan: The oldest rookie at the LAPD. He studied.\nRichard T. Jones as Wade Grey: A sergeant (later lieutenant), watch commander at the Mid-Wilshire Station, Grey doubts Nolan.\nnot a cast line';
+  const cast = [{ id: 1, name: "Nathan Fillion", photo: null, role: "John Nolan" }, { id: 2, name: "Richard T. Jones", photo: null, role: "Wade Grey" }, { id: 3, name: "Ken Patterson", photo: null, role: "Sergeant Wims" }];
+  it("parses 'Name as Role: description' lines", () => assert.equal(parseCastBlurbs(text).get("richard t jones"), "A sergeant (later lieutenant), watch commander at the Mid-Wilshire Station, Grey doubts Nolan."));
+  it("finds the main character by rank, ahead of a bit part with the rank in the name", () => {
+    const r = matchCast(cast, ["sergent"], parseCastBlurbs(text));
+    assert.deepEqual(r.map((x) => x.id), [2, 3]);
+    assert.match(r[0].why ?? "", /sergeant/);
+    assert.equal(r[1].why, undefined);
   });
 });
