@@ -100,10 +100,10 @@ export async function forYou(type: BrowseType, page: number, lib: LibItem[], sal
   let order = rerank(scorePool([...pool.values()], like, dislike, year));
   if (process.env.OMDB_API_KEY) {
     const front = order.slice(0, SHORTLIST);
-    await withBudget(Promise.all(chunks(front, 15).map(async (ids) => { for (const id of ids) {
+    await withBudget(Promise.all(chunks(front, 3).map(async (ids) => { for (const id of ids) {
       const imdb = await getImdbRating(await getTitleImdbId(type, id));
       if (imdb) pool.get(id)!.cand.imdb = imdb;
-    } })), 6000);
+    } })), 2500);
     const again = rerank(scorePool(front.map((id) => pool.get(id)!), like, dislike, year));
     order = [...again, ...order.slice(SHORTLIST)];
   }
