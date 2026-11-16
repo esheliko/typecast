@@ -78,7 +78,7 @@ export default function LibraryList({ items }: { items: LibItem[] }) {
   const list = items.filter((l) => !q.trim() || l.title.toLowerCase().includes(q.trim().toLowerCase()));
   return (
     <>
-      {items.length > 5 && <div className="field" style={{ marginTop: 12 }}><input type="search" aria-label="Filter library" placeholder="Filter your library" value={q} onChange={(e) => setQ(e.target.value)} /></div>}
+      {items.length > 5 && <div className="field lib-find"><input type="search" aria-label="Filter library" placeholder="Filter your library" value={q} onChange={(e) => setQ(e.target.value)} /></div>}
       {list.length === 0 ? <p className="muted" style={{ marginTop: 20 }}>{q.trim() ? <>Nothing in this list matches “{q.trim()}”. <button type="button" className="linkish" onClick={() => setQ("")}>Clear the filter</button></> : "Nothing in this list yet."}</p> : (
         <div className="card" style={{ marginTop: 14 }}><ul className="rows">
           {list.map((l) => {
