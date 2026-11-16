@@ -214,7 +214,7 @@ function TopRow({ hit, known }: { hit: SearchHit; known: string[] }) {
         {/* eslint-disable-next-line @next/next/no-img-element */}
         {t.poster ? <img className="top-poster" src={img(t.poster, "w154")} alt="" decoding="async" /> : <span className="top-poster ph" />}
         <span className="top-text">
-          <span className="nm">{t.title}</span>
+          <span className="nm" title={t.title}>{t.title}</span>
           <span className="row-sub">{[t.type === "tv" ? "Series" : "Film", t.year || "TBA"].join(" · ")}<ImdbRate k={t.key} lead=" · " /></span>
         </span>
       </TitleLink>

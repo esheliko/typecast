@@ -89,7 +89,7 @@ export default function LibraryList({ items }: { items: LibItem[] }) {
             <li key={l.key} className="row lib-row"><TitleLink className="row-link" k={l.key} it={l}>
               <Thumb path={l.poster} />
               <span className="row-main">
-                <span className="row-title">{l.title}</span>
+                <span className="row-title" title={l.title}>{l.title}</span>
                 <span className="row-sub">{l.year} · {typeLabel(l.type)}<ImdbRate k={l.key} lead=" · " />{st ? ` · ${stoppedLabel(st, of)}` : ""}</span>
                 {st && of ? <span className="rs-bar-line" role="img" aria-label={`${stoppedPct(st, of)} percent watched`}><i style={{ width: `${stoppedPct(st, of)}%` }} /></span> : null}
                 <NewEpPill k={l.key} />

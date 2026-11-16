@@ -17,7 +17,7 @@ export default function MarkRow({ it, sub, small, actor, extra, actorId }: { it:
       <TitleLink k={it.key} it={it} className="row-link">
         <Thumb path={it.poster} />
         <span className="row-main">
-          <span className="row-title" style={small ? { fontSize: 17 } : undefined}>{it.title}</span>
+          <span className="row-title" style={small ? { fontSize: 17 } : undefined} title={it.title}>{it.title}</span>
           <span className="row-sub">{it.year} · {typeLabel(it.type)}<ImdbRate k={it.key} lead=" · " />{sub ? ` · ${sub}` : ""}{extra ? ` · ${extra}` : ""}</span>
         </span>
       </TitleLink>

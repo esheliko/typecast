@@ -113,7 +113,7 @@ export default function UpNext({ picks: all, services, prefs }: { picks: Pick[];
                   {p.kind === "new-eps" && <span className="upnext-badge">{p.fresh ? newEpLabel({ season: p.fresh === "season" }) : "New eps"}</span>}
                   {p.tag && <span className="upnext-svc">{p.tag}</span>}
                 </span>
-                <span className="upnext-t">{p.title}</span>
+                <span className="upnext-t" title={p.title}>{p.title}</span>
                 {!p.go && !p.resume && <span className="upnext-w">{p.why}</span>}
                 {!p.go && p.length && <span className="mono upnext-len">{p.length}</span>}
               </TitleLink>

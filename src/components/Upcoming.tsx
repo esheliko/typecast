@@ -61,7 +61,7 @@ export default function Upcoming({ entries: all, today: serverToday, open: initi
                         ? <img className="thumb" src={img(e.poster, "w92")} alt="" loading="lazy" decoding="async" />
                         : <span className="thumb" />}
                       <span className="row-main">
-                        <span className="row-title">{e.title}</span>
+                        <span className="row-title" title={e.title}>{e.title}</span>
                         <span className="row-sub">{subLine(e)}{e.svc && <span className="up-svc">{e.svc}</span>}</span>
                       </span>
                       <span className="up-when">
