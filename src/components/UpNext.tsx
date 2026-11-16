@@ -90,12 +90,14 @@ export default function UpNext({ picks: all, services, prefs }: { picks: Pick[];
           <span className="mono upnext-n">{list.length}</span>
           <span className="upnext-caret" aria-hidden="true">›</span>
         </button>
-        {!closed && (kind !== "all" || mixed(base)) && <div className="upnext-kind"><KindSeg value={kind} onChange={chooseKind} label="Films or series" /></div>}
-        {!closed && <div className="seg upnext-src" role="group" aria-label="Show picks from">{SOURCES.map(([k, text]) => <button key={k} type="button" aria-pressed={src === k} onClick={() => chooseSrc(k)}>{text}</button>)}</div>}
-        {!closed && canFilter && <button type="button" className="chip upnext-mine" aria-pressed={mine} onClick={toggleMine} title="Only what you can stream tonight on the services you picked in Settings">On my services</button>}
-        {!closed && hidden > 0 && <button type="button" className="upnext-restore" onClick={restore}>{hidden} hidden · bring back</button>}
       </div>
       <Collapse open={!closed}>
+      <div className="upnext-tools">
+        {(kind !== "all" || mixed(base)) && <div className="upnext-kind"><KindSeg value={kind} onChange={chooseKind} label="Films or series" /></div>}
+        <div className="seg upnext-src" role="group" aria-label="Show picks from">{SOURCES.map(([k, text]) => <button key={k} type="button" aria-pressed={src === k} onClick={() => chooseSrc(k)}>{text}</button>)}</div>
+        {canFilter && <button type="button" className="chip upnext-mine" aria-pressed={mine} onClick={toggleMine} title="Only what you can stream tonight on the services you picked in Settings">On my services</button>}
+        {hidden > 0 && <button type="button" className="upnext-restore" onClick={restore}>{hidden} hidden · bring back</button>}
+      </div>
       {!list.length && <p className="muted upnext-empty">{empty}{mine && services === "yes" && <> <button type="button" className="upnext-restore" onClick={toggleMine}>Show everything</button></>}</p>}
       {list.length > 0 && (
         <ul className="upnext-strip">

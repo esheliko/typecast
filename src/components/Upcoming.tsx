@@ -82,11 +82,11 @@ export default function Upcoming({ entries: all, today: serverToday, open: initi
 }
 
 /** A slim placeholder while the dates load. Only shown when the library holds something that may turn up. */
-export function UpcomingSkeleton() {
+export function UpcomingSkeleton({ open }: { open: boolean }) {
   return (
     <section className="upnext upcoming" aria-hidden="true">
       <div className="upnext-bar"><span className="upnext-h"><span className="upnext-k">Upcoming</span></span></div>
-      <div className="sk-b up-sk" />
+      {open && <div className="up-sk-wrap"><div className="sk-b up-sk" /></div>}
     </section>
   );
 }
