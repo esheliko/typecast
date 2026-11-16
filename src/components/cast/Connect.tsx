@@ -126,7 +126,7 @@ function TitleStarts({ onPick }: { onPick: (t: Item) => void }) {
   );
 }
 
-function PeopleResult({ r }: { r: PeopleLink }) {
+export function PeopleResult({ r }: { r: PeopleLink }) {
   if (r.shared.length) return (
     <>
       <h2>{r.shared.length} together</h2>
@@ -170,7 +170,7 @@ function PeopleResult({ r }: { r: PeopleLink }) {
   );
 }
 
-function TitlesResult({ r }: { r: TitlesLink }) {
+export function TitlesResult({ r }: { r: TitlesLink }) {
   return (
     <>
       <h2>{r.shared.length ? `${r.shared.length} in both` : "No actors in both"}</h2>
