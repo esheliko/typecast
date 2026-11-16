@@ -93,3 +93,12 @@ test("wanting to watch is a weaker signal than having watched, and is worded as 
   assert.match(whyText({ by: [{ t: "Dune", how: "must" }], genres: [], explore: false }), /^Because Dune is on your must-watch list\./);
   assert.doesNotMatch(whyText({ by: [{ t: "Dune", how: "want" }], genres: [], explore: false }), /liked|rated|watched Dune/);
 });
+
+test("partly watched is its own thing: weaker than watching, and worded as such", () => {
+  const w = (o: Partial<LibItem>) => seedWeight(lib(o), NOW);
+  assert.ok(w({ status: "partial" }) < w({ status: "watching" }));
+  assert.ok(w({ status: "partial" }) > 0);
+  assert.equal(howOf(lib({ status: "partial" })), "partial");
+  assert.equal(howOf(lib({ status: "partial", rating: 5 })), "loved");
+  assert.match(whyText({ by: [{ t: "Dune", how: "partial" }], genres: [], explore: false }), /^Because you watched part of Dune\./);
+});

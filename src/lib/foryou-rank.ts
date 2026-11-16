@@ -35,6 +35,8 @@ export function seedWeight(l: LibItem, now: number): number {
   else if (l.rating > 0) w = l.rating === 2 ? -0.8 : -1.6;
   else w = l.status === "watching" || l.status === "partial" ? 1.3 : 1.5; // watched, never rated: mildly positive
   if (w <= 0) return w;
+  // Only part of it was seen: a weaker sign of taste than finishing it or being in the middle of it.
+  if (l.status === "partial") w *= 0.6;
   // Taste drifts: a title from years ago counts for at least half.
   const age = Math.max(0, now - (l.watchedAt ?? l.updated ?? l.added ?? now)) / DAY;
   return w * (0.5 + 0.5 * 2 ** (-age / 730));
@@ -166,14 +168,14 @@ const votesText = (n: number) => (n >= 1000 ? `${Math.round(n / 100) / 10}k` : S
 const list = (xs: string[]) => (xs.length <= 1 ? xs.join("") : `${xs.slice(0, -1).join(", ")} and ${xs[xs.length - 1]}`);
 
 /** How a library title relates to you, for the reason text: it decides the wording, so "to watch" is never called "liked". */
-export type How = "loved" | "watched" | "watching" | "must" | "want";
+export type How = "loved" | "watched" | "watching" | "partial" | "must" | "want";
 export function howOf(l: Pick<LibItem, "status" | "rating" | "priority">): How {
   if (l.status === "watchlist") return l.priority === "must" ? "must" : "want";
   if (l.rating >= 4) return "loved";
-  return l.status === "watched" ? "watched" : "watching";
+  return l.status === "watched" ? "watched" : l.status === "partial" ? "partial" : "watching";
 }
 const PHRASE: Record<How, (t: string) => string> = {
-  loved: (t) => `you rated ${t} highly`, watched: (t) => `you watched ${t}`, watching: (t) => `you are watching ${t}`,
+  loved: (t) => `you rated ${t} highly`, watched: (t) => `you watched ${t}`, watching: (t) => `you are watching ${t}`, partial: (t) => `you watched part of ${t}`,
   must: (t) => `${t} is on your must-watch list`, want: (t) => `${t} is on your to-watch list`,
 };
 
