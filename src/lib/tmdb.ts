@@ -504,7 +504,7 @@ export async function getAllCredits(id: number): Promise<{ id: number; name: str
 export async function getCast(type: MediaType, id: number, limit = 60): Promise<CastMember[]> {
   const d = await tmdb(type === "tv" ? `/tv/${id}/aggregate_credits` : `/movie/${id}/credits`, {}, 24 * HOUR);
   return (d.cast ?? []).filter((c: any) => !BAD_ROLE.test(type === "tv" ? c.roles?.[0]?.character ?? "" : c.character ?? "")).slice(0, limit).map((c: any) => ({
-    id: c.id, name: c.name, photo: c.profile_path ?? null,
+    id: c.id, name: c.name, photo: c.profile_path ?? null, g: c.gender ?? 0,
     role: type === "tv" ? c.roles?.[0]?.character ?? "" : c.character ?? "",
   }));
 }

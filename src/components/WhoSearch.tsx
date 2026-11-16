@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { PersonLink, TitleLink } from "./Modal";
 import { Avatar } from "./ui";
 import { useLib } from "./cast/LibState";
@@ -16,7 +17,7 @@ import type { PCredit } from "@/lib/who-types";
 interface ActorFind {
   person: { id: number; name: string; photo: string | null } | null; matches: { credit: PCredit; role: string; by: string }[];
   /** A title was found instead of an actor ("hunger games haymitch"): its cast that matches. */
-  title?: { key: string; type: "movie" | "tv"; title: string; year: string; poster: string | null }; people?: { id: number; name: string; photo: string | null; role: string }[];
+  title?: { key: string; type: "movie" | "tv"; title: string; year: string; poster: string | null }; people?: { id: number; name: string; photo: string | null; role: string; why?: string }[]; episodes?: { s: number; e: number; name: string }[];
 }
 
 export interface WhoTitle { key: string; type: "movie" | "tv"; title: string; poster: string | null }
@@ -123,7 +124,19 @@ export default function WhoSearch({ watching }: { watching: WhoTitle[] }) {
                 {actor.title.poster && <Photo path={actor.title.poster} name={actor.title.title} w="w92" className="whs-poster" />}
                 <span className="whs-text"><span className="nm">{actor.title.title}</span><span className="row-sub">{actor.title.type === "tv" ? "Series" : "Film"} · {actor.title.year}</span></span>
               </TitleLink>
-              {!actor.people?.length
+              {actor.episodes?.length
+                ? (
+                  <ul className="whs-list" aria-label="Matching episodes">
+                    {actor.episodes.map((e) => (
+                      <li key={`${e.s}-${e.e}`}>
+                        <Link className="whs-person" href={`/watching?k=${actor.title!.key.replace(":", "-")}&s=${e.s}&e=${e.e}`}>
+                          <span className="whs-text"><span className="nm">{e.name}</span><span className="row-sub">Season {e.s} · Episode {e.e}</span></span>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                )
+                : !actor.people?.length
                 ? <p className="muted" role="status">No one in the cast matches that. Try part of the character or the actor&rsquo;s name.</p>
                 : (
                   <ul className="whs-list" aria-label="Matching cast">
@@ -131,7 +144,7 @@ export default function WhoSearch({ watching }: { watching: WhoTitle[] }) {
                       <li key={m.id}>
                         <PersonLink className="whs-person" pid={m.id} it={{ name: m.name, photo: m.photo }}>
                           <Avatar photo={m.photo} name={m.name} />
-                          <span className="whs-text"><span className="nm">{m.name}</span>{m.role && <span className="row-sub">as {m.role}</span>}</span>
+                          <span className="whs-text"><span className="nm">{m.name}</span>{(m.role || m.why) && <span className="row-sub">{m.role && <>as {m.role}</>}{m.why && <>{m.role ? " · " : ""}{m.why}</>}</span>}</span>
                         </PersonLink>
                       </li>
                     ))}
