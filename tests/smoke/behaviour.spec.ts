@@ -581,10 +581,16 @@ test.describe("behaviour (signed in)", () => {
     }
   });
 
-  // Search > Who's that?: starts on the Watching series (Breaking Bad, saved place S2 E3) at the episode after it, and finds a cast member by name. It is the third tab next to Browse and Connections (?view=who).
-  test("search: Who's that? starts at the saved place and finds a person by name", async ({ page }) => {
+  // Search > Who's that?: starts with no title chosen (an actor plus a part or title finds their credits); picking the Watching series (Breaking Bad, saved place S2 E3) starts at the episode after it and finds a cast member by name. It is the third tab next to Browse and Connections (?view=who).
+  test("search: Who's that? starts with no title, finds an actor's part, then a person at the saved place", async ({ page }) => {
     await page.goto("/?view=who");
     await expect(page.getByRole("tab", { name: "Who\u2019s that?" })).toHaveAttribute("aria-selected", "true", { timeout: 30_000 });
+    await expect(page.getByRole("button", { name: /^Where you are/ })).toHaveCount(0);
+    const box = page.getByRole("searchbox", { name: "A name or role you remember" });
+    await box.fill("kate winslet spotless mind");
+    await expect(page.getByRole("list", { name: "Matching roles" }).getByRole("link", { name: /Eternal Sunshine/ }).first()).toBeVisible({ timeout: 30_000 });
+    await box.fill("");
+    await page.getByRole("group", { name: "Your Watching series" }).getByRole("button", { name: "Breaking Bad" }).click();
     await expect(page.getByRole("button", { name: /^Where you are: S2 · E4/ })).toBeVisible({ timeout: 30_000 });
     await page.getByRole("searchbox", { name: "A name or role you remember" }).fill("walter");
     const hit = page.getByRole("list", { name: "Matching cast" }).getByRole("link", { name: /Walter/ }).first();
