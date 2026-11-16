@@ -95,4 +95,7 @@ export interface PeopleLink { a: PersonLite; b: PersonLite; shared: SharedTitle[
 export interface SharedActor extends PersonLite { roles: [string, string] }
 export interface TitlesLink { a: Item; b: Item; shared: SharedActor[] }
 /** An actor who keeps turning up in the user's library. */
+/** A suggested second pick for Connections: why it is suggested, and its title/person fields. */
+export type SuggestedPerson = PersonLite & { why: string };
+export type SuggestedTitle = Item & { why: string };
 export interface Regular extends PersonLite { titles: { key: string; title: string; role: string }[] }

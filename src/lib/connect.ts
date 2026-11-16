@@ -1,5 +1,6 @@
 import { getAllCredits, getCast, getTitle } from "./tmdb";
-import type { Bridge, Credit, Item, LibItem, MediaType, PeopleLink, Regular, SharedActor, TitlesLink } from "./types";
+import { rankCands, whyLine, type Cand } from "./connect-suggest";
+import type { Bridge, Credit, Item, LibItem, MediaType, PeopleLink, PersonLite, Regular, SharedActor, SuggestedPerson, SuggestedTitle, TitlesLink } from "./types";
 
 /** Run `fn` over `list` with at most `n` requests in flight. Failures are dropped. */
 export async function pool<T, R>(list: T[], n: number, fn: (x: T) => Promise<R>): Promise<(R | null)[]> {
@@ -63,4 +64,55 @@ export async function regulars(lib: LibItem[]): Promise<Regular[]> {
     map.set(c.id, r);
   }));
   return [...map.values()].filter((r) => r.titles.length > 1).sort((x, y) => y.titles.length - x.titles.length).slice(0, 12);
+}
+
+/** The titles the user has seen (top-billed cast loaded), and how many of them each actor is in. */
+async function libraryCast(lib: LibItem[]) {
+  const seen = lib.filter((l) => l.status !== "watchlist").slice(0, 40);
+  const titles = (await pool(seen, 12, (l) => getTitle(l.type, l.id))).filter((t): t is NonNullable<typeof t> => !!t);
+  const count = new Map<number, number>();
+  titles.forEach((t) => t.people.slice(0, 15).forEach((c) => count.set(c.id, (count.get(c.id) ?? 0) + 1)));
+  return { titles, count };
+}
+
+/** First-pick suggestions for "Two titles": titles of yours whose cast overlaps the rest of your library the most. */
+export async function suggestTitles(lib: LibItem[]): Promise<SuggestedTitle[]> {
+  const { titles, count } = await libraryCast(lib);
+  const cands: Cand<SuggestedTitle>[] = titles.map((t) => {
+    const shared = t.people.slice(0, 15).filter((c) => (count.get(c.id) ?? 0) > 1);
+    return { item: { key: t.key, type: t.type, id: t.id, title: t.title, year: t.year, poster: t.poster, why: "" }, links: shared.length, via: shared.map((c) => c.name), mine: 0 };
+  });
+  return rankCands(cands, 10).map((c) => ({ ...c.item, why: c.links === 1 ? `1 actor also in your other titles: ${c.via[0]}` : `${c.links} actors also in your other titles: ${c.via.slice(0, 3).join(", ")}` }));
+}
+
+/**
+ * Second-pick suggestions. People: co-stars of the first person (most shared titles first) and people from your library.
+ * Titles: titles sharing the most actors with the first title, and titles in your library.
+ */
+export async function suggestSecond(mode: "people" | "titles", a: { type?: MediaType; id: number }, lib: LibItem[]): Promise<{ people: SuggestedPerson[] } | { titles: SuggestedTitle[] }> {
+  if (mode === "people") {
+    const [cr, mineData] = await Promise.all([getAllCredits(a.id), libraryCast(lib)]);
+    const top = cr.known.slice(0, 15);
+    const casts = await pool(top, 10, (k) => getCast(k.type, k.id, 30));
+    const map = new Map<number, Cand<PersonLite>>();
+    const at = (p: PersonLite) => { let c = map.get(p.id); if (!c) { c = { item: lite(p), links: 0, via: [], mine: mineData.count.get(p.id) ?? 0 }; map.set(p.id, c); } return c; };
+    casts.forEach((cast, i) => cast?.forEach((p) => { if (p.id === a.id) return; const c = at(p); c.links++; if (c.via.length < 4) c.via.push(top[i].title); }));
+    mineData.titles.forEach((t) => t.people.slice(0, 15).forEach((p) => { if (p.id !== a.id) at(p); }));
+    const out = rankCands([...map.values()], 8).map((c) => ({ ...c.item, why: whyLine(c, cr.name, "title") }));
+    return { people: out };
+  }
+  const type = a.type ?? "movie";
+  const cast = await getCast(type, a.id, 12);
+  const credits = await pool(cast, 10, (p) => getAllCredits(p.id));
+  const map = new Map<string, Cand<SuggestedTitle>>();
+  const inLib = new Set(lib.map((l) => l.key));
+  const self = `${type}:${a.id}`;
+  credits.forEach((cr, i) => cr?.known.slice(0, 80).forEach((k) => {
+    if (k.key === self) return;
+    const c = map.get(k.key) ?? { item: { key: k.key, type: k.type, id: k.id, title: k.title, year: k.year, poster: k.poster, why: "" }, links: 0, via: [], mine: inLib.has(k.key) ? 1 : 0 };
+    c.links++; if (c.via.length < 4) c.via.push(cast[i].name);
+    map.set(k.key, c);
+  }));
+  lib.filter((l) => l.key !== self).forEach((l) => { if (!map.has(l.key)) map.set(l.key, { item: { key: l.key, type: l.type, id: l.id, title: l.title, year: l.year, poster: l.poster, why: "" }, links: 0, via: [], mine: 1 }); });
+  return { titles: rankCands([...map.values()], 8).map((c) => ({ ...c.item, why: whyLine(c, "", "actor") })) };
 }
