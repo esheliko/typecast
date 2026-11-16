@@ -7,7 +7,7 @@
  * An open panel keeps its full height in the layout; `hide = (1 - e) * h` of it is covered / shifted away while e < 1.
  * A closing panel stays in the layout until its animation ends, then it is hidden and the shift resets in the same frame.
  */
-export const PANEL_MS = 260;
+export const PANEL_MS = 190;
 
 type P = { el: HTMLElement; h: number; e: number; from: number; to: number; t0: number | null; ms: number };
 type Group = { panels: Map<HTMLElement, P>; raf: number };
@@ -102,7 +102,7 @@ export function setPanel(el: HTMLElement, open: boolean, animate = true) {
   const h = el.getBoundingClientRect().height; // fractional, like the layout (offsetHeight rounds, which made the first frame nudge the wrong way)
   const e = cur ? cur.e : open ? 0 : 1;
   const to = open ? 1 : 0;
-  g.panels.set(el, { el, h, e, from: e, to, t0: null, ms: Math.max(140, PANEL_MS * Math.abs(to - e)) }); // reversing partway keeps the same speed instead of restarting a full slide
+  g.panels.set(el, { el, h, e, from: e, to, t0: null, ms: Math.max(100, PANEL_MS * Math.abs(to - e)) }); // reversing partway keeps the same speed instead of restarting a full slide
   el.inert = !open;
   paint(top, g); // same task as the click: the first painted frame already matches what was on screen
   if (!g.raf) g.raf = requestAnimationFrame((n) => frame(top, g!, n));
