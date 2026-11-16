@@ -44,7 +44,7 @@ export default function Connect({ initialMode, initialA }: { initialMode: Mode; 
         {mode === "people" ? "See every title two people worked on together. If there are none, see who links them." : "See which actors were in both, and who they played."}
       </p>
       <div className="pair">
-        <Picker kind={kind} value={a} onChange={setA} label={mode === "people" ? "First person" : "First title"} />
+        <Picker kind={kind} value={a} onChange={setA} label={mode === "people" ? "First person" : "First title"} autoFocus={!a} />
         <span className="pair-and" aria-hidden="true">+</span>
         <Picker kind={kind} value={b} onChange={setB} label={mode === "people" ? "Second person" : "Second title"} autoFocus={!!a && !b} />
       </div>
