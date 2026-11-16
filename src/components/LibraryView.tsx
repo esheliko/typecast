@@ -3,8 +3,7 @@ import { useState } from "react";
 import LibraryList from "./LibraryList";
 import { useRef } from "react";
 import { useRetained } from "@/lib/useRetained";
-import { STATUS_LABEL, type LibItem, type Status } from "@/lib/types";
-import { SORTS, type SortKey } from "@/lib/library-sort";
+import { STATUS_LABEL, type LibItem, type Status } from "@/lib/types";import { SORTS, orderItems, type SortKey } from "@/lib/library-sort";
 import { KindSeg } from "./KindSeg";
 import { mixed, ofKind, type Kind } from "@/lib/kind";
 import { KindContext } from "@/lib/kind-context";
@@ -12,21 +11,13 @@ import { LIBRARY_TAB_ORDER, tabGroup } from "@/lib/status-order";
 
 const TABS: [Status | "all", string][] = LIBRARY_TAB_ORDER.map((k) => [k, k === "all" ? "All" : STATUS_LABEL[k]]);
 
-const num = (y: string) => parseInt(y, 10) || 0;
-const SORTERS: Record<SortKey, ((a: LibItem, b: LibItem) => number) | null> = {
-  added: null, // the library arrives newest-first
-  title: (a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: "base", numeric: true }),
-  year: (a, b) => num(b.year) - num(a.year),
-  yearOld: (a, b) => (num(a.year) || 9999) - (num(b.year) || 9999),
-  rating: (a, b) => b.rating - a.rating,
-  watched: (a, b) => (b.watchedAt ?? 0) - (a.watchedAt ?? 0),
-};
-
 /** The filter chips and the list. Switching chips is instant (no server trip); the URL is kept in step so a refresh or shared link lands on the same filter. */
-export default function LibraryView({ items, initial, initialSort = "watched", initialKind = "all", top, between }: { items: LibItem[]; initial: Status | "all"; initialSort?: SortKey; initialKind?: Kind; top?: React.ReactNode; between?: React.ReactNode }) {
+export default function LibraryView({ items, initial, initialSort = "watched", initialKind = "all", initialFlip = false, initialUnrated = false, top, between }: { items: LibItem[]; initial: Status | "all"; initialSort?: SortKey; initialKind?: Kind; initialFlip?: boolean; initialUnrated?: boolean; top?: React.ReactNode; between?: React.ReactNode }) {
   const [filter, setFilter] = useState<Status | "all">(initial);
   const [sort, setSort] = useState<SortKey>(initialSort);
   const [kind, setKind] = useState<Kind>(initialKind);
+  const [flip, setFlip] = useState(initialFlip);
+  const [unrated, setUnrated] = useState(initialUnrated);
   const pool = ofKind(items, kind);
   const count = (s: Status | "all") => (s === "all" ? pool.length : pool.filter((l) => l.status === s).length);
   // Rows hold their place while you work: an unmarked title stays (unmarked) so you can mark it again, and a changed one
@@ -37,9 +28,13 @@ export default function LibraryView({ items, initial, initialSort = "watched", i
   const at = (l: LibItem) => where.current.get(l.key)!;
   const ofType = ofKind(all, kind);
   const picked = filter === "all" ? ofType : ofType.filter((l) => at(l).status === filter);
-  const by = SORTERS[sort];
-  const sorted = by ? [...picked].sort(by) : picked; // stable, so ties keep newest-first
-  const shown = filter === "watchlist" && (!by || sort === "watched") ? [...sorted].sort((a, b) => Number(!at(a).must) - Number(!at(b).must)) : sorted; // default order puts must-watch first
+  const sorted = orderItems(picked, sort, flip, unrated); // stable, so ties keep newest-first
+  const shown = filter === "watchlist" && (sort === "added" || sort === "watched") && !flip ? [...sorted].sort((a, b) => Number(!at(a).must) - Number(!at(b).must)) : sorted; // default order puts must-watch first
+  const setParam = (key: string, on: boolean) => {
+    const u = new URL(window.location.href);
+    if (on) u.searchParams.set(key, "1"); else u.searchParams.delete(key);
+    window.history.replaceState(window.history.state, "", u);
+  };
   function choose(k: Status | "all") {
     reset(); where.current.clear();
     setFilter(k);
@@ -73,6 +68,8 @@ export default function LibraryView({ items, initial, initialSort = "watched", i
             {SORTS.map(([k, label]) => <option key={k} value={k}>{label}</option>)}
           </select>
         </label>
+        <button type="button" className="chip sm" aria-pressed={flip} aria-label="Flip sort order" title="Flip sort order" onClick={() => { setFlip(!flip); setParam("r", !flip); }}>⇅ Flip</button>
+        <button type="button" className="chip sm" aria-pressed={unrated} title="Only titles you haven't rated" onClick={() => { setUnrated(!unrated); setParam("u", !unrated); }}>Unrated</button>
       </div>
       {between}
       <LibraryList items={shown} />
