@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildProfile, quality, rerank, sampleSeeds, scorePool, seedWeight, type Cand, type Pooled } from "../../src/lib/foryou-rank";
+import { howOf, buildProfile, quality, rerank, sampleSeeds, scorePool, seedWeight, type Cand, type Pooled } from "../../src/lib/foryou-rank";
 import type { LibItem } from "../../src/lib/types";
 
 const NOW = 1_700_000_000_000, DAY = 86400000;
@@ -63,10 +63,33 @@ test("rerank spreads genres and gives every 6th slot to exploration", () => {
 });
 
 import { whyText } from "../../src/lib/foryou-rank";
-test("whyText names the seeds, then falls back to genres, then to exploration", () => {
-  const a = whyText({ by: ["Heat", "Ronin", "Collateral"], genres: ["Crime", "Thriller"], explore: false, avg: 7.84, votes: 12300 });
-  assert.match(a, /Because you liked Heat and Ronin and 1 more/);
+test("whyText names the seeds, then falls back to genres, then to exploration; only IMDb's score is quoted", () => {
+  const a = whyText({ by: [{ t: "Heat", how: "loved" as const }, { t: "Ronin", how: "want" as const }, { t: "Collateral", how: "watched" as const }], genres: ["Crime", "Thriller"], explore: false, imdb: { rating: 8.24, votes: 12300 } });
+  assert.match(a, /Because you rated Heat highly and Ronin is on your to-watch list \(and 1 more like it\)/);
   assert.match(a, /Crime and Thriller/);
-  assert.match(whyText({ by: [], genres: ["Drama"], explore: false, avg: 7.5, votes: 900 }), /genres you lean towards \(Drama\)/);
-  assert.match(whyText({ by: [], genres: ["Comedy"], explore: true, avg: 7.5, votes: 900 }), /change of pace/);
+  assert.match(a, /IMDb 8\.2 \(12\.3k votes\)/);
+  assert.doesNotMatch(whyText({ by: [{ t: "Heat", how: "must" }], genres: [], explore: false }), /IMDb|rated/);
+  assert.match(whyText({ by: [], genres: ["Drama"], explore: false, imdb: { rating: 7.5, votes: 900 } }), /genres you lean towards \(Drama\): IMDb 7\.5/);
+  assert.match(whyText({ by: [], genres: ["Comedy"], explore: true }), /change of pace/);
+});
+
+test("quality uses IMDb's score when known: a title IMDb rates higher ranks higher at equal TMDB numbers", () => {
+  const like = buildProfile([]), none = buildProfile([]);
+  const a = { cand: { ...cand(1), imdb: { rating: 8.4, votes: 200000 } }, votesFrom: [], explore: false };
+  const b = { cand: { ...cand(2), imdb: { rating: 6.2, votes: 200000 } }, votesFrom: [], explore: false };
+  const [sa, sb] = scorePool([a, b], like, none, 2026);
+  assert.ok(sa.score > sb.score);
+});
+
+test("wanting to watch is a weaker signal than having watched, and is worded as such", () => {
+  const w = (o: Partial<LibItem>) => seedWeight(lib(o), NOW);
+  assert.ok(w({ rating: 0 }) > w({ status: "watchlist", priority: "must" }));
+  assert.ok(w({ rating: 3 }) > w({ status: "watchlist", priority: "must" }));
+  assert.equal(howOf(lib({ status: "watchlist", priority: "must" })), "must");
+  assert.equal(howOf(lib({ status: "watchlist" })), "want");
+  assert.equal(howOf(lib({ rating: 5 })), "loved");
+  assert.equal(howOf(lib({ rating: 0 })), "watched");
+  assert.equal(howOf(lib({ status: "watching" })), "watching");
+  assert.match(whyText({ by: [{ t: "Dune", how: "must" }], genres: [], explore: false }), /^Because Dune is on your must-watch list\./);
+  assert.doesNotMatch(whyText({ by: [{ t: "Dune", how: "want" }], genres: [], explore: false }), /liked|rated|watched Dune/);
 });
