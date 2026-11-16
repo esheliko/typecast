@@ -12,7 +12,7 @@ import type { BrowseItem, SearchHit } from "@/lib/types";
 import { ImdbRate } from "@/components/ImdbRate";
 import { FindAnswer, useActorFind } from "./who/FindAnswer";
 import PairConnect from "./cast/PairConnect";
-import { splitPair } from "@/lib/search-pair";
+import { splitPair, splitCandidates } from "@/lib/search-pair";
 
 type Coll = { id: number; name: string; pop?: number; votes?: number; items: BrowseItem[] };
 
@@ -85,6 +85,7 @@ export default function Search({ onActive }: { onActive: (on: boolean) => void }
     const p = splitPair(term);
     return p && !(top?.kind === "title" && norm(top.title) === norm(term)) ? p : null;
   }, [term, top]);
+  const cuts = useMemo(() => (pair || (top?.kind === "title" && norm(top.title) === norm(term)) ? [] : splitCandidates(term)), [term, pair, top]);
   const known = useMemo(() => (top?.kind === "person" ? youKnowFrom(top, (k) => getRef.current(k)) : []), [top]);
 
   const links = useCallback(() => Array.from(box.current?.querySelectorAll<HTMLAnchorElement>('a[href^="/title/"]:not([tabindex="-1"]), a[href^="/person/"]') ?? []), []);
@@ -137,7 +138,7 @@ export default function Search({ onActive }: { onActive: (on: boolean) => void }
             <div style={{ opacity: state === "loading" ? 0.55 : 1, transition: "opacity .15s" }}>
               {fix && <p className="muted" style={{ marginTop: 16 }}>Showing results for <b>{fix}</b>. <button type="button" className="linkish" onClick={() => setExact(true)}>Search for &quot;{term}&quot; instead</button></p>}
               {hits.length === 0 && colls.length === 0 && !showWho && <p className="muted" style={{ marginTop: 20 }}>Nothing found for &quot;{term}&quot;. Try the full name or add the year.</p>}
-              {pair && <PairConnect pair={pair} onShown={setPairShown} />}
+              {(pair || cuts.length > 0) && <PairConnect pair={pair} cuts={cuts} onShown={setPairShown} />}
               {showWho && who && (
                 <div className="whs">
                   <h2>Who&rsquo;s that?</h2>
