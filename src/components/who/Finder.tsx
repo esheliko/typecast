@@ -215,7 +215,7 @@ export function Finder({ roster, loading, more, err, q, setQ, inputRef, recents,
       <RecentRow recents={recents} onRestore={onRestore} onWarm={prefetchPerson} />
 
       {loading && !err && <GridSkeleton />}
-      {more && !loading && <p className="small muted wx-soft" role="status">Checking more sources for guest stars&hellip;</p>}
+      {more && !loading && <p className="small muted wx-more" role="status">Checking more sources for guest stars&hellip;</p>}
       {err && <p className="small muted wx-soft" role="alert">Couldn&rsquo;t load who&rsquo;s in it. <button type="button" className="linkish" onClick={onRetry}>Try again</button></p>}
       {noMatch && <p className="small muted">{query ? `No one in this cast matches “${query}”.${common?.err ? " Couldn’t search titles just now." : ""}` : "No one to show for this filter."}</p>}
       <div ref={wrap} onKeyDown={arrows} hidden={loading && !err}>
