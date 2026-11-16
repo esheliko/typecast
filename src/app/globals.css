@@ -1052,7 +1052,7 @@ body:has(.modal) .toast-slot { bottom: calc(84px + env(safe-area-inset-bottom, 0
 .wx-scopenote { margin: 4px 0 8px; padding: 8px 12px; border-radius: 10px; background: color-mix(in srgb, var(--gold-fill) 16%, transparent); border: 1px solid color-mix(in srgb, var(--gold-fill) 45%, transparent); }
 .wx-soft { margin: 8px 0; }
 /* Takes no layout space, so faces below never shift when it appears or goes. */
-.wx-more { position: fixed; left: 50%; bottom: calc(76px + env(safe-area-inset-bottom)); transform: translateX(-50%); margin: 0; padding: 6px 12px; border-radius: 999px; background: color-mix(in srgb, var(--bg, #000) 88%, transparent); border: 1px solid color-mix(in srgb, currentColor 18%, transparent); pointer-events: none; z-index: 5; white-space: nowrap; }
+.wx-checking { position: fixed; left: 50%; bottom: calc(76px + env(safe-area-inset-bottom)); transform: translateX(-50%); margin: 0; padding: 6px 12px; border-radius: 999px; background: color-mix(in srgb, var(--bg, #000) 88%, transparent); border: 1px solid color-mix(in srgb, currentColor 18%, transparent); pointer-events: none; z-index: 5; white-space: nowrap; }
 
 .wx-recent { margin: 10px 0 4px; }
 .wx-recent-row { display: flex; gap: 8px; overflow-x: auto; padding: 6px 0 4px; scrollbar-width: thin; }
