@@ -14,7 +14,8 @@ export default function Tabs({ where }: { where: "top" | "bottom" }) {
   return (
     <nav className={where === "top" ? "tabs-top" : "tabs-bottom"} aria-label="Sections">
       {TABS.map((t) => (
-        <Link key={t.href} className="tab" href={t.href} prefetch aria-current={active(t.href) ? "page" : undefined}>
+        <Link key={t.href} className="tab" href={t.href} prefetch aria-current={active(t.href) ? "page" : undefined}
+          onClick={() => { if (t.href === "/" && path === "/") window.dispatchEvent(new Event("tc:clear-search")); }}>
           <svg viewBox="0 0 24 24" aria-hidden="true" dangerouslySetInnerHTML={{ __html: t.icon }} />
           {t.label}
         </Link>
