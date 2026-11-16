@@ -3,7 +3,7 @@ import { useEffect } from "react";
 
 // On phones the on-screen keyboard covers the bottom of the page. Publish its height as --kb (pages and sheets pad
 // their bottom by it, so everything stays scrollable above the keyboard) and lift a focused field to the top of
-// the visible area so the results that appear beneath it are in view.
+// the visible area so the results that appear beneath it are in view (unless it sits in a `data-no-lift` box).
 export default function KeyboardAware() {
   useEffect(() => {
     const vv = window.visualViewport;
@@ -17,6 +17,7 @@ export default function KeyboardAware() {
     const lift = (e: Event) => {
       const el = e.target;
       if (!(el instanceof HTMLElement) || !el.matches("input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=range]), textarea")) return;
+      if (el.closest("[data-no-lift]")) return; // this field opts out of being scrolled into view
       clearTimeout(timer);
       timer = setTimeout(() => {
         update();
