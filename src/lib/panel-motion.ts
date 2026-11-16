@@ -7,9 +7,9 @@
  * An open panel keeps its full height in the layout; `hide = (1 - e) * h` of it is covered / shifted away while e < 1.
  * A closing panel stays in the layout until its animation ends, then it is hidden and the shift resets in the same frame.
  */
-export const PANEL_MS = 340;
+export const PANEL_MS = 260;
 
-type P = { el: HTMLElement; h: number; e: number; from: number; to: number; t0: number | null };
+type P = { el: HTMLElement; h: number; e: number; from: number; to: number; t0: number | null; ms: number };
 type Group = { panels: Map<HTMLElement, P>; raf: number };
 const groups = new WeakMap<Element, Group>();
 
@@ -30,14 +30,33 @@ const after = (top: Element) => { const out: HTMLElement[] = []; for (let n = to
 
 function paint(top: Element, g: Group) {
   const order = [...top.querySelectorAll<HTMLElement>(".collapse")].filter((el) => g.panels.has(el));
+  const moving = order.filter((el) => g.panels.get(el)!.from !== g.panels.get(el)!.to);
   let shift = 0;
-  for (const el of order) {
-    const p = g.panels.get(el)!;
-    const hide = (1 - p.e) * p.h; // how much of this panel is not shown yet
-    el.style.transform = shift ? `translateY(${-shift}px)` : "";
-    el.style.clipPath = hide > 0.01 ? `inset(0 -16px ${hide}px -16px)` : "";
-    el.style.opacity = p.e < 1 ? String(Math.min(1, p.e * 1.6)) : "";
-    shift += hide;
+  if (moving.length > 1) {
+    // A SWITCH (one panel closing while another opens): stack both on the same spot under the headers and cross-fade them
+    // while the shared height eases from one to the other. Nothing slides sideways or up while the page below grows or shrinks.
+    let full = 0, seen = 0;
+    for (const el of order) full += g.panels.get(el)!.h;
+    for (const el of order) seen += g.panels.get(el)!.e * g.panels.get(el)!.h;
+    let above = 0;
+    for (const el of order) {
+      const p = g.panels.get(el)!;
+      el.style.transform = above ? `translateY(${-above}px)` : "";
+      const crop = Math.max(0, p.h - seen);
+      el.style.clipPath = crop > 0.01 ? `inset(0 -16px ${crop}px -16px)` : "";
+      el.style.opacity = String(Math.min(1, Math.max(0, (p.e - 0.5) / 0.5))); // fully out by the half way point, the other fades in after it
+      above += p.h;
+    }
+    shift = full - seen;
+  } else {
+    for (const el of order) {
+      const p = g.panels.get(el)!;
+      const hide = (1 - p.e) * p.h; // how much of this panel is not shown yet
+      el.style.transform = shift ? `translateY(${-shift}px)` : "";
+      el.style.clipPath = hide > 0.01 ? `inset(0 -16px ${hide}px -16px)` : "";
+      el.style.opacity = p.e < 1 ? String(Math.min(1, p.e * 1.6)) : "";
+      shift += hide;
+    }
   }
   for (const b of after(top)) { b.style.transform = shift ? `translateY(${-shift}px)` : ""; b.style.willChange = "transform"; b.style.overflowAnchor = "none"; }
   return shift;
@@ -51,7 +70,7 @@ function frame(top: Element, g: Group, ts: number) {
   g.raf = 0;
   for (const [el, p] of g.panels) {
     if (p.t0 === null) p.t0 = ts; // the clock starts at the first painted frame, so a slow click never skips the start
-    const t = Math.min(1, (ts - p.t0) / PANEL_MS);
+    const t = Math.min(1, (ts - p.t0) / p.ms);
     p.e = p.from + (p.to - p.from) * ease(t);
     if (t >= 1) {
       p.e = p.to;
@@ -80,9 +99,10 @@ export function setPanel(el: HTMLElement, open: boolean, animate = true) {
   const cur = g.panels.get(el);
   if (!cur && el.hidden === !open) return; // already there
   if (open) el.hidden = false; // joins the layout at its FINAL size right now
-  const h = el.offsetHeight;
+  const h = el.getBoundingClientRect().height; // fractional, like the layout (offsetHeight rounds, which made the first frame nudge the wrong way)
   const e = cur ? cur.e : open ? 0 : 1;
-  g.panels.set(el, { el, h, e, from: e, to: open ? 1 : 0, t0: null });
+  const to = open ? 1 : 0;
+  g.panels.set(el, { el, h, e, from: e, to, t0: null, ms: Math.max(140, PANEL_MS * Math.abs(to - e)) }); // reversing partway keeps the same speed instead of restarting a full slide
   el.inert = !open;
   paint(top, g); // same task as the click: the first painted frame already matches what was on screen
   if (!g.raf) g.raf = requestAnimationFrame((n) => frame(top, g!, n));
