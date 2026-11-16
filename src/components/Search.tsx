@@ -10,6 +10,7 @@ import { img } from "@/lib/img";
 import { layoutSearch, pickCollections, youKnowFrom, type PersonHit, type TitleHit } from "@/lib/search-intent";
 import type { BrowseItem, SearchHit } from "@/lib/types";
 import { ImdbRate } from "@/components/ImdbRate";
+import { FindAnswer, useActorFind } from "./who/FindAnswer";
 
 type Coll = { id: number; name: string; pop?: number; votes?: number; items: BrowseItem[] };
 
@@ -34,6 +35,9 @@ export default function Search({ onActive }: { onActive: (on: boolean) => void }
   const box = useRef<HTMLDivElement>(null);
   const term = q.trim();
   const { get } = useLib();
+  // "Who's that?" logic too (an actor and a part, a title and a character...): only for several words, and only shown when it says more than the plain results.
+  const { actor: who } = useActorFind(term, !/\s/.test(term));
+  const showWho = !!who && !who.plain && !!(who.person || who.title || who.people?.length);
 
   useEffect(() => { onActive(term.length >= 2); }, [term, onActive]);
   useEffect(() => { setRecent(readRecent()); }, []);
@@ -124,7 +128,13 @@ export default function Search({ onActive }: { onActive: (on: boolean) => void }
           {hits && state !== "error" && (
             <div style={{ opacity: state === "loading" ? 0.55 : 1, transition: "opacity .15s" }}>
               {fix && <p className="muted" style={{ marginTop: 16 }}>Showing results for <b>{fix}</b>. <button type="button" className="linkish" onClick={() => setExact(true)}>Search for &quot;{term}&quot; instead</button></p>}
-              {hits.length === 0 && colls.length === 0 && <p className="muted" style={{ marginTop: 20 }}>Nothing found for &quot;{term}&quot;. Try the full name or add the year.</p>}
+              {hits.length === 0 && colls.length === 0 && !showWho && <p className="muted" style={{ marginTop: 20 }}>Nothing found for &quot;{term}&quot;. Try the full name or add the year.</p>}
+              {showWho && who && (
+                <div className="whs">
+                  <h2>Who&rsquo;s that?</h2>
+                  <FindAnswer actor={who} term={term} />
+                </div>
+              )}
               {top && (
                 <>
                   <h2>Top result</h2>

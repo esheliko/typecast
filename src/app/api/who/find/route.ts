@@ -7,7 +7,7 @@ import { loadWhoPerson, pool } from "@/lib/who-data";
 import { lineForMany } from "@/lib/spoiler-line-data";
 import { isHidden, lineContextFrom } from "@/lib/spoiler-line";
 import { holdBackCredits } from "@/lib/spoiler-mask";
-import { findRelation, matchCast, parseCastBlurbs, restWords, roleHas, type Relation, matchCredits, matchEpisodes, nameWindows, relatives, splitActorQuery, splitTitleQuery } from "@/lib/who-actor";
+import { findRelation, matchCast, parseCastBlurbs, restWords, roleHas, type Relation, mainCast, popularTitle, matchCredits, matchEpisodes, nameWindows, relatives, splitActorQuery, splitTitleQuery } from "@/lib/who-actor";
 import type { MediaType } from "@/lib/types";
 
 type Multi = { id: number; media_type: string; name?: string; title?: string; profile_path: string | null; poster_path: string | null; first_air_date?: string; release_date?: string; popularity?: number };
@@ -16,7 +16,7 @@ const DAY = 24 * 60 * 60;
 /**
  * GET ?q=: "Who's that?" with no title chosen; typos are fine (when TMDB finds nothing at all, Wikipedia's spelling of the whole text is tried once). In this order:
  *  1. An actor's full name anywhere in the text ("george clooney as criminal", "wizard daniel radcliff").
- *  2. A title anywhere (even cut short, or its initials), then what is left ("hunger games haymitch", "kev shameless", "himym ...", "big bang sheldon mom"): that
+ *  2. A title anywhere (alone, "harry potter", it gives that title's main cast) (even cut short, or its initials), then what is left ("hunger games haymitch", "kev shameless", "himym ...", "big bang sheldon mom"): that
  *     title's cast by character or name, or a relative of a character ("sheldon mom"), or an episode by its name.
  *  3. One word of an actor's name, misspelt or cut short ("radclif wizard"); the most popular match.
  * For an actor: their credits where the rest matches the character, the title, or what the title is about (TMDB keywords). Series that are Watching keep their
@@ -53,12 +53,18 @@ async function solve(q: string, param: (n: string) => string | null): Promise<Re
   if (!found) {
     const t = splitTitleQuery(q, titles);
     if (t) {
+      if (!t.rest.length) t.title = popularTitle(q, titles) ?? t.title;
       const head = { key: t.title.key, type: t.title.type, title: t.title.title, year: t.title.year, poster: t.title.poster };
       const cast = await getCast(t.title.type, t.title.id, 2000).catch(() => []);
       const rel = findRelation(t.rest);
       if (rel) {
         const ans = await relationAnswer([t.title], rel.anchor, rel.rel, rel.word);
         if (ans) return { person: null, title: head, people: ans, matches: [] };
+      }
+      if (!t.rest.length) {
+        // Just a title ("harry potter"): its main cast, the characters named in the text first (Harry Potter -> Daniel Radcliffe).
+        const main = mainCast(cast, q);
+        if (main.length) return { person: null, title: head, people: main, matches: [], plain: true };
       }
       if (t.rest.length) titleOnly = { person: null, title: head, people: [], matches: [] };
       const hit = matchCast(cast, t.rest, t.rest.length ? await castBlurbs(t.title.type, t.title.id, t.title.key, param) : undefined);
@@ -99,7 +105,7 @@ async function solve(q: string, param: (n: string) => string | null): Promise<Re
   const keys = ms.filter((m) => m.credit.type === "tv").map((m) => m.credit.key);
   const lines = await lineForMany(keys, lineContextFrom(param));
   const held = holdBackCredits(ms.map((m) => m.credit), lines);
-  return { person: { id: p.id, name: p.name, photo: p.photo }, matches: ms.map((m, i) => ({ credit: held[i], role: m.role, by: m.by })) };
+  return { person: { id: p.id, name: p.name, photo: p.photo }, plain: !found.rest.length, matches: ms.map((m, i) => ({ credit: held[i], role: m.role, by: m.by })) };
 }
 
 /** Is this series held back by a spoiler line for this request (so its episode names must not be listed)? */

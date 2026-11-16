@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { parseCastBlurbs, findRelation, initials, matchCast, matchCredits, matchEpisodes, nameWindows, near, relatives, splitActorQuery, splitTitleQuery } from "../../src/lib/who-actor";
+import { mainCast, popularTitle, parseCastBlurbs, findRelation, initials, matchCast, matchCredits, matchEpisodes, nameWindows, near, relatives, splitActorQuery, splitTitleQuery } from "../../src/lib/who-actor";
 import type { PCredit } from "../../src/lib/who-types";
 
 const c = (id: number, title: string, role: string, votes = 1): PCredit => ({ key: `movie:${id}`, type: "movie", id, title, year: "2000", poster: null, role, date: "", eps: 0, cids: [], extra: false, votes });
@@ -137,5 +137,22 @@ describe("wikipedia blurbs", () => {
     assert.deepEqual(r.map((x) => x.id), [2, 3]);
     assert.match(r[0].why ?? "", /sergeant/);
     assert.equal(r[1].why, undefined);
+  });
+});
+
+describe("mainCast", () => {
+  const cast = [{ id: 1, name: "Rupert Grint", photo: null, role: "Ron Weasley" }, { id: 2, name: "Daniel Radcliffe", photo: null, role: "Harry Potter" }, { id: 3, name: "Emma Watson", photo: null, role: "Hermione Granger" }];
+  it("puts the character named in the text first, then billing order", () => {
+    assert.deepEqual(mainCast(cast, "harry potter").map((x) => x.id), [2, 1, 3]);
+    assert.deepEqual(mainCast(cast, "hunger games").map((x) => x.id), [1, 2, 3]);
+  });
+  it("is cut to max", () => assert.equal(mainCast(cast, "x", 2).length, 2));
+});
+
+describe("popularTitle", () => {
+  const ts = [{ title: "Harry Potter", popularity: 15 }, { title: "Harry Potter and the Philosopher's Stone", popularity: 42 }, { title: "Dirty Harry", popularity: 5 }];
+  it("takes the most popular title that starts with the words", () => {
+    assert.equal(popularTitle("harry potter", ts)!.popularity, 42);
+    assert.equal(popularTitle("nothing here", ts), null);
   });
 });
