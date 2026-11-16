@@ -660,12 +660,10 @@ button.aw-chip:hover { filter: brightness(1.08); }
 .lib-top > .upnext + .upnext .upnext-peek, .lib-top > .upnext:has(+ .upnext) .upnext-peek { display: none; }
 .upnext-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .upnext-tools > * { flex: none; }
-/* The sliding body. Its clip box spans the page gutters (-16px / +16px) so the poster strip's edge bleed is never cut or popped. */
-.collapse { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: 0fr; min-width: 0; opacity: 0; transition: grid-template-rows .45s cubic-bezier(.4, 0, .2, 1), opacity .3s ease; }
-.collapse.on { grid-template-rows: 1fr; opacity: 1; transition: grid-template-rows .45s cubic-bezier(.4, 0, .2, 1), opacity .4s ease .1s; }
-.collapse-in { min-height: 0; min-width: 0; overflow: hidden; margin: 0 -16px; padding: 6px 16px 0; }
-.collapse.on.settled .collapse-in { overflow: visible; }
-@media (prefers-reduced-motion: reduce) { .collapse, .collapse.on, .lib-top .upnext-h, .lib-top .upnext-k { transition: none; } }
+/* The sliding body: laid out at its final size; src/lib/panel-motion.ts reveals it (clip) and slides what is below (transform). Its box spans the page gutters (-16px / +16px) so the poster strip's edge bleed is never cut. */
+.collapse { min-width: 0; }
+.collapse[hidden] { display: none; }
+.collapse-in { min-width: 0; margin: 0 -16px; padding: 6px 16px 0; }
 .upnext-mine { padding: 0 14px; min-height: 34px; font-size: 13px; white-space: nowrap; }
 .upnext-empty { margin: 6px 2px 4px; font-size: 13px; }
 .upnext-restore { font-size: 13px; color: var(--muted); text-decoration: underline dotted; text-underline-offset: 3px; white-space: nowrap; padding: 10px 4px; }
