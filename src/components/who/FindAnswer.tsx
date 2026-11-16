@@ -4,12 +4,14 @@ import Link from "next/link";
 import { PersonLink, TitleLink } from "../Modal";
 import { Avatar } from "../ui";
 import { Photo } from "./bits";
+import { GlimpseButton } from "../Glimpse";
+import { castSpec, charOf, creditSpec } from "@/lib/glimpse";
 import type { PCredit } from "@/lib/who-types";
 
 export interface ActorFind {
   person: { id: number; name: string; photo: string | null } | null; matches: { credit: PCredit; role: string; by: string }[];
   /** A title was found instead of an actor ("hunger games haymitch"): its cast that matches. */
-  title?: { key: string; type: "movie" | "tv"; title: string; year: string; poster: string | null }; people?: { id: number; name: string; photo: string | null; role: string; why?: string; show?: string }[]; episodes?: { s: number; e: number; name: string }[];
+  title?: { key: string; type: "movie" | "tv"; title: string; year: string; poster: string | null }; people?: { id: number; name: string; photo: string | null; role: string; why?: string; show?: string; tkey?: string; ttype?: "movie" | "tv" }[]; episodes?: { s: number; e: number; name: string }[];
   /** Only a name or a title, nothing left to match: the plain answer a normal search already gives. */
   plain?: boolean;
 }
@@ -58,14 +60,20 @@ export function FindAnswer({ actor, term }: { actor: ActorFind; term: string }) 
           ? <p className="muted" role="status">No one in the cast matches that. Try part of the character or the actor&rsquo;s name.</p>
           : (
             <ul className="whs-list" aria-label="Matching cast">
-              {actor.people.map((m) => (
-                <li key={m.id}>
-                  <PersonLink className="whs-person" pid={m.id} it={{ name: m.name, photo: m.photo }}>
-                    <Avatar photo={m.photo} name={m.name} />
-                    <span className="whs-text"><span className="nm">{m.name}</span>{(m.role || m.why) && <span className="row-sub">{[m.role && `as ${m.role}`, m.why, m.show].filter(Boolean).join(" · ")}</span>}</span>
-                  </PersonLink>
-                </li>
-              ))}
+              {actor.people.map((m) => {
+                // A character was found: the Glimpse button opens its note and images (the title is the answer's own, or the show the relative was found in).
+                const t = actor.title ? { title: actor.title.title, year: actor.title.year, type: actor.title.type, key: actor.title.key } : m.tkey && m.ttype ? { title: m.show ?? "", type: m.ttype, key: m.tkey } : null;
+                const ch = charOf(m.role);
+                return (
+                  <li key={m.id} className="whs-rowg">
+                    <PersonLink className="whs-person" pid={m.id} it={{ name: m.name, photo: m.photo }}>
+                      <Avatar photo={m.photo} name={m.name} />
+                      <span className="whs-text"><span className="nm">{m.name}</span>{(m.role || m.why) && <span className="row-sub">{[m.role && `as ${m.role}`, m.why, m.show].filter(Boolean).join(" · ")}</span>}</span>
+                    </PersonLink>
+                    {t && ch && <GlimpseButton spec={castSpec(m.name, m.role, t, "Acting", m.id)} label={`About ${m.name} as ${ch}: the character and images`} />}
+                  </li>
+                );
+              })}
             </ul>
           )}
       </>
@@ -82,12 +90,13 @@ export function FindAnswer({ actor, term }: { actor: ActorFind; term: string }) 
         : (
           <ul className="whs-list" aria-label="Matching roles">
             {actor.matches.map((m) => (
-              <li key={m.credit.key}>
+              <li key={m.credit.key} className="whs-rowg">
                 <TitleLink k={m.credit.key} className="whs-person" it={{ title: m.credit.title, year: m.credit.year, poster: m.credit.poster }}>
                   {m.credit.poster && <Photo path={m.credit.poster} name={m.credit.title} w="w92" className="whs-poster" />}
                   <span className="whs-text"><span className="nm">{m.credit.title}</span>{m.by === "theme" ? <span className="row-sub">{m.role ? `as ${m.role} · ` : ""}the story fits &ldquo;{term}&rdquo;</span> : m.role && <span className="row-sub">as {m.role}</span>}</span>
                   <span className="whs-n">{m.credit.year}</span>
                 </TitleLink>
+                {m.role && actor.person && <GlimpseButton spec={creditSpec(actor.person.name, m.role, { title: m.credit.title, year: m.credit.year, type: m.credit.type, key: m.credit.key }, actor.person.id)} label={`About ${actor.person.name} as ${charOf(m.role) || m.role} in ${m.credit.title}: the role and images`} />}
               </li>
             ))}
           </ul>

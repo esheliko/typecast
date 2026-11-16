@@ -36,6 +36,8 @@ export async function GET(req: NextRequest) {
   } catch (e) { return failWho(e); }
 }
 
+const words1 = (name: string) => name.trim().split(/\s+/).length === 1;
+
 async function solve(q: string, param: (n: string) => string | null): Promise<Record<string, unknown> | null> {
   const sets = await Promise.all(nameWindows(q).map((t) => tmdb("/search/multi", { query: t, include_adult: "false" }, 60 * 60).then((d) => (d.results ?? []) as Multi[]).catch(() => [] as Multi[])));
   const seenP = new Set<number>(), seenT = new Set<string>();
@@ -50,36 +52,42 @@ async function solve(q: string, param: (n: string) => string | null): Promise<Re
 
   let found = splitActorQuery(q, people);
   let titleOnly: Record<string, unknown> | null = null; // a title was named but nothing in it fits: shown if no actor fits either
-  if (!found) {
+  /** A title named anywhere in the text, then what is left: its cast, a relative of a character, or an episode. */
+  const byTitle = async (): Promise<Record<string, unknown> | null> => {
     const t = splitTitleQuery(q, titles);
-    if (t) {
-      if (!t.rest.length) t.title = popularTitle(q, titles) ?? t.title;
-      const head = { key: t.title.key, type: t.title.type, title: t.title.title, year: t.title.year, poster: t.title.poster };
-      const cast = await getCast(t.title.type, t.title.id, 2000).catch(() => []);
-      const rel = findRelation(t.rest);
-      if (rel) {
-        const ans = await relationAnswer([t.title], rel.anchor, rel.rel, rel.word);
-        if (ans) return { person: null, title: head, people: ans, matches: [] };
-      }
-      if (!t.rest.length) {
-        // Just a title ("harry potter"): its main cast, the characters named in the text first (Harry Potter -> Daniel Radcliffe).
-        const main = mainCast(cast, q);
-        if (main.length) return { person: null, title: head, people: main, matches: [], plain: true };
-      }
-      if (t.rest.length) titleOnly = { person: null, title: head, people: [], matches: [] };
-      const hit = matchCast(cast, t.rest, t.rest.length ? await castBlurbs(t.title.type, t.title.id, t.title.key, param) : undefined);
-      if (hit.length) return { person: null, title: head, people: hit, matches: [] };
-      if (t.title.type === "tv" && t.rest.length) {
-        // No character fits: maybe it describes an episode ("asian restaurant" -> The Chinese Restaurant). Never for a series that is Watching with a spoiler line.
-        if (!(await heldBack(t.title.key, param))) {
-          const n = (await tmdb(`/tv/${t.title.id}`, {}, DAY).catch(() => null))?.number_of_seasons ?? 0;
-          const seasons = await pool(Array.from({ length: Math.min(n, 15) }, (_, i) => i + 1), 4, (s) => getSeason(t.title.id, s).catch(() => null));
-          const eps = seasons.flatMap((sn, i) => (sn?.episodes ?? []).map((e) => ({ s: i + 1, e: e.e, name: e.name })));
-          const hitEps = matchEpisodes(eps, t.rest);
-          if (hitEps.length) return { person: null, title: head, people: [], episodes: hitEps, matches: [] };
-        }
+    if (!t) return null;
+    if (!t.rest.length) t.title = popularTitle(q, titles) ?? t.title;
+    const head = { key: t.title.key, type: t.title.type, title: t.title.title, year: t.title.year, poster: t.title.poster };
+    const cast = await getCast(t.title.type, t.title.id, 2000).catch(() => []);
+    const rel = findRelation(t.rest);
+    if (rel) {
+      const ans = await relationAnswer([t.title], rel.anchor, rel.rel, rel.word);
+      if (ans) return { person: null, title: head, people: ans, matches: [] };
+    }
+    if (!t.rest.length) {
+      // Just a title ("harry potter"): its main cast, the characters named in the text first (Harry Potter -> Daniel Radcliffe).
+      const main = mainCast(cast, q);
+      if (main.length) return { person: null, title: head, people: main, matches: [], plain: true };
+    }
+    if (t.rest.length) titleOnly = { person: null, title: head, people: [], matches: [] };
+    const hit = matchCast(cast, t.rest, t.rest.length ? await castBlurbs(t.title.type, t.title.id, t.title.key, param) : undefined);
+    if (hit.length) return { person: null, title: head, people: hit, matches: [] };
+    if (t.title.type === "tv" && t.rest.length) {
+      // No character fits: maybe it describes an episode ("asian restaurant" -> The Chinese Restaurant). Never for a series that is Watching with a spoiler line.
+      if (!(await heldBack(t.title.key, param))) {
+        const n = (await tmdb(`/tv/${t.title.id}`, {}, DAY).catch(() => null))?.number_of_seasons ?? 0;
+        const seasons = await pool(Array.from({ length: Math.min(n, 15) }, (_, i) => i + 1), 4, (s) => getSeason(t.title.id, s).catch(() => null));
+        const eps = seasons.flatMap((sn, i) => (sn?.episodes ?? []).map((e) => ({ s: i + 1, e: e.e, name: e.name })));
+        const hitEps = matchEpisodes(eps, t.rest);
+        if (hitEps.length) return { person: null, title: head, people: [], episodes: hitEps, matches: [] };
       }
     }
+    return null;
+  };
+  // "himym lisa": a one-word actor name ("LISA") must not beat a named title that has that character.
+  if (found && found.rest.length && words1(found.person.name)) { const a = await byTitle(); if (a) return a; titleOnly = null; }
+  if (!found) {
+    { const a = await byTitle(); if (a) return a; }
     // No title named, but "sheldon cooper mom": whose relative? Look for the character in the best matches, and in the other shows its actors appear as it.
     const rel = findRelation(restWords(q));
     if (rel) {
@@ -88,6 +96,8 @@ async function solve(q: string, param: (n: string) => string | null): Promise<Re
       if (ans) return { person: null, title: null, people: ans, matches: [] };
     }
     found = splitActorQuery(q, people, { partial: true });
+    // Still nothing and it is a relative ("ted sister"): the character may be in any well-known show, not only one the search named.
+    if (!found && rel) { const ans = await famousRelation(rel.anchor, rel.rel, rel.word); if (ans) return { person: null, title: null, people: ans, matches: [] }; }
   }
   if (!found) return titleOnly;
 
@@ -120,8 +130,9 @@ type Show = { key: string; type: MediaType; id: number; title: string };
  * Sheldon is also in The Big Bang Theory, as is his voice-over in Young Sheldon), so a character with two casts gives both mothers. Null when no show has it.
  */
 async function relationAnswer(seeds: Show[], anchor: string[], rel: Relation, word: string) {
-  const out: { id: number; name: string; photo: string | null; role: string; why: string; show: string }[] = [];
+  const out: { id: number; name: string; photo: string | null; role: string; why: string; show: string; tkey: string; ttype: MediaType }[] = [];
   const seen = new Set<string>();
+  const tooOld = new Set<number>(); // actors whose age ruled them out as this relative in a show already seen (the father George Cooper in Young Sheldon is not Sheldon's brother in Big Bang either)
   const visit = async (show: Show, expand: boolean): Promise<boolean> => {
     if (seen.has(show.key) || seen.size >= 8) return false;
     seen.add(show.key);
@@ -129,11 +140,12 @@ async function relationAnswer(seeds: Show[], anchor: string[], rel: Relation, wo
     const first = relatives(cast, anchor, rel, () => null);
     if (!first) return false;
     const born = new Map<number, number | null>();
-    await pool([first.of, ...first.people].slice(0, 10), 4, async (c) => { born.set(c.id, await loadWhoPerson(c.id).then((p) => (p.birthday ? Number(p.birthday.slice(0, 4)) : null)).catch(() => null)); });
+    await pool([first.of, ...first.people].slice(0, 16), 4, async (c) => { born.set(c.id, await loadWhoPerson(c.id).then((p) => (p.birthday ? Number(p.birthday.slice(0, 4)) : null)).catch(() => null)); });
     const rs = relatives(cast, anchor, rel, (id) => born.get(id) ?? null);
+    rs?.rejected.forEach((id) => tooOld.add(id));
     if (rs) {
       const of = rs.of.role.replace(/\s*\(.*?\)\s*/g, " ").replace(/\s+/g, " ").trim();
-      for (const c of rs.people.slice(0, 6)) if (!out.some((o) => o.id === c.id)) out.push({ id: c.id, name: c.name, photo: c.photo, role: c.role, why: `${of}'s ${word}`, show: show.title });
+      for (const c of rs.people.filter((x) => !tooOld.has(x.id)).slice(0, 6)) if (!out.some((o) => o.id === c.id)) out.push({ id: c.id, name: c.name, photo: c.photo, role: c.role, why: `${of}'s ${word}`, show: show.title, tkey: show.key, ttype: show.type });
     }
     if (expand) {
       // The same character in other shows: from what its actors are credited as.
@@ -145,6 +157,19 @@ async function relationAnswer(seeds: Show[], anchor: string[], rel: Relation, wo
   };
   for (const s of seeds) if (await visit(s, true)) break;
   return out.length ? out : null;
+}
+
+/**
+ * "ted sister" names no show, and the search for "ted" finds Ted Lasso and the films: look through the casts of the most-voted series (How I Met Your Mother is one)
+ * for a character with that name, and answer from the first show that has such a relative. Last resort, so only asked when nothing else answered.
+ */
+async function famousRelation(anchor: string[], rel: Relation, word: string) {
+  const pages = await Promise.all([1, 2, 3, 4].map((page) => tmdb("/discover/tv", { sort_by: "vote_count.desc", page: String(page) }, DAY).catch(() => null)));
+  const shows: Show[] = pages.flatMap((d) => (d?.results ?? []) as { id: number; name: string }[]).map((r) => ({ key: `tv:${r.id}`, type: "tv" as const, id: r.id, title: r.name }));
+  // The show where the character is billed highest (Ted Mosby, the lead of HIMYM, before Ted Wheeler, a side part of Stranger Things).
+  const has = await pool(shows, 8, async (s) => { const i = (await getCast(s.type, s.id, 2000).catch(() => [])).findIndex((c) => roleHas(c.role, anchor)); return i < 0 ? null : { s, i }; });
+  for (const h of has.filter(Boolean).sort((a, b) => a!.i - b!.i).slice(0, 3)) { const ans = await relationAnswer([h!.s], anchor, rel, word); if (ans) return ans; }
+  return null;
 }
 
 /** What Wikipedia's cast section says about each character ("a sergeant (later lieutenant)"), to match words like "sergeant" that TMDB's bare names lack. Fails soft; never for a series held back by a spoiler line. */
