@@ -1,15 +1,16 @@
 "use client";
 import { usePathname, useRouter } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { setStatus, setStatusMany, undoStatusMany } from "@/app/actions";
+import { setRating, setStatus, setStatusMany, undoStatusMany } from "@/app/actions";
+import StarRating from "../StarRating";
 import { FranchiseSheet, type Group } from "./Franchise";
 import { sameMark, unpackMarks, withPlace, withStopped, type PackedMarks } from "@/lib/marks";
 import { PRIORITY_LABEL, STATUS_LABEL, markLabel, type Item, type Mark, type Priority, type Status } from "@/lib/types";
 
 interface Ctx {
   get: (key: string) => Mark | undefined;
-  /** `quiet` turns off the "related titles" suggestion that follows a Watched mark. */
-  mark: (it: Item, status: Status | null, priority?: Priority, quiet?: boolean, opts?: { msg?: string }) => Promise<boolean>;
+  /** `quiet` turns off the "related titles" suggestion that follows a Watched mark. `opts.rate` adds rating stars to the Watched toast (for places that have no stars of their own). */
+  mark: (it: Item, status: Status | null, priority?: Priority, quiet?: boolean, opts?: { msg?: string; rate?: boolean }) => Promise<boolean>;
   /** Mark several unmarked titles at once, with one Undo. */
   markMany: (its: Item[], status: Status) => void;
   /** Open the franchise sheet for a title; says so in a toast instead when it has no related titles. */
@@ -51,7 +52,7 @@ const SKIP_KEY = "typecast.skipped";
 const SKIP_MAX = 3000;
 export const PRIO_KEY = "typecast.defaultPriority";
 
-interface Toast { id: number; msg: string; undo?: () => void; err?: boolean; pending?: boolean; action?: { label: string; run: () => void } }
+interface Toast { id: number; msg: string; undo?: () => void; err?: boolean; pending?: boolean; action?: { label: string; run: () => void }; rate?: Item }
 
 /**
  * Holds the user's marks for the cast tab. Marks change instantly on screen, are saved in the background,
@@ -148,7 +149,7 @@ export function LibProvider({ packed, children }: { packed: PackedMarks; childre
     return run;
   }, [show]);
 
-  const mark = useCallback((it: Item, status: Status | null, priority?: Priority, quiet?: boolean, opts?: { msg?: string }): Promise<boolean> => {
+  const mark = useCallback((it: Item, status: Status | null, priority?: Priority, quiet?: boolean, opts?: { msg?: string; rate?: boolean }): Promise<boolean> => {
     const k = it.key;
     const prev = (k in overRef.current ? overRef.current[k] : live.current[k]) ?? null;
     if ((prev?.status ?? null) === status && (priority === undefined || prev?.priority === priority)) return Promise.resolve(true);
@@ -171,8 +172,11 @@ export function LibProvider({ packed, children }: { packed: PackedMarks; childre
         } };
       };
       const action = status ? flip({ status, priority: priority ?? prev?.priority ?? "someday", rich: false, progress: prev?.progress }) : undefined;
-      const id = show({ msg, pending: true, action, undo: canUndo ? () => { setToast(null); save(it, prev?.status ?? null, status ? { status, priority: priority ?? "someday", rich: false, progress: prev?.progress } : null, prev?.priority); } : undefined });
+      // Marked Watched from a place with no stars of its own and not rated yet: the toast offers the stars. One write (`setRating`), queued behind the mark's own save.
+      const rate = status === "watched" && opts?.rate && prev?.status !== "watched" && !prev?.rich ? it : undefined;
+      const id = show({ msg, pending: true, action, rate, undo: canUndo ? () => { setToast(null); save(it, prev?.status ?? null, status ? { status, priority: priority ?? "someday", rich: false, progress: prev?.progress } : null, prev?.priority); } : undefined });
       // Having watched one, offer the rest of its franchise: the toast grows a button once we know there is something to mark.
+      if (rate) { clearTimeout(timer.current); timer.current = setTimeout(() => setToast(null), 8000); }
       if (status === "watched" && !quiet) franchise(it).then((groups) => {
         const left = new Set(groups.flatMap((g) => g.items).filter((i) => !current(i.key)).map((i) => i.key)).size;
         if (!left) return;
@@ -210,6 +214,15 @@ export function LibProvider({ packed, children }: { packed: PackedMarks; childre
       return !m || m.rich ? o : { ...o, [key]: { ...m, rich: true } };
     });
   }, []);
+
+  const rateFromToast = useCallback((it: Item, n: number) => {
+    setToast(null);
+    (saveQueue.current.get(it.key) ?? Promise.resolve(true)).then(async (ok) => {
+      if (!ok) return;
+      try { await setRating(it.type, it.id, n); dirty.current = true; markRich(it.key); show({ msg: `${it.title}: rated ${"★".repeat(n)}` }); }
+      catch { show({ msg: `Could not save that rating. Check your connection.`, err: true }); }
+    });
+  }, [show, markRich]);
 
   const similar = useCallback((it: Item) =>
     fetch(`/api/franchise?type=${it.type}&id=${it.id}&similar=1&v=2`).then((r) => r.json()).then((j) => (j.groups ?? []) as Group[]).catch(() => [] as Group[]), []);
@@ -253,8 +266,9 @@ export function LibProvider({ packed, children }: { packed: PackedMarks; childre
       {sheet && <FranchiseSheet it={sheet} load={franchise} loadSimilar={similar} onClose={() => setSheet(null)} />}
       <div className="toast-slot" aria-live="polite">
         {toast && (
-          <div key={toast.id} className={`toast${toast.err ? " bad" : ""}`} role="status">
+          <div key={toast.id} className={`toast${toast.err ? " bad" : ""}${toast.rate ? " rate" : ""}`} role="status">
             <span>{toast.pending && <span className="spin" aria-hidden="true" />}{toast.msg}</span>
+            {toast.rate && <StarRating className="toast-rate" value={0} onRate={(n) => rateFromToast(toast.rate!, n)} label={`Rate ${toast.rate.title}`} />}
             {toast.undo && <button className="toast-undo plain" onClick={toast.undo}>Undo</button>}
             {toast.action && <button className="toast-undo" onClick={toast.action.run}>{toast.action.label}</button>}
           </div>

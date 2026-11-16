@@ -5,11 +5,12 @@ import { PRIORITY_LABEL, STATUS_LABEL } from "@/lib/types";
 import type { Item } from "@/lib/types";
 
 /**
+ * (`rate`: Watched also offers rating stars in its toast; off where the row has its own stars.)
  * Three one-tap toggles: Watching (in progress), To watch and Watched.
  * To watch is a single button: it adds the title at your default priority (Some day or Must watch, chosen in Profile),
  * shows the matching icon, and the confirmation offers to switch to the other priority.
  */
-export default function QuickMark({ it, variant = "over", quiet }: { it: Item; variant?: "over" | "inline"; quiet?: boolean }) {
+export default function QuickMark({ it, variant = "over", quiet, rate = true }: { it: Item; variant?: "over" | "inline"; quiet?: boolean; rate?: boolean }) {
   const { get, mark, defaultPriority } = useLib();
   const m = get(it.key);
   const s = m?.status;
@@ -29,7 +30,7 @@ export default function QuickMark({ it, variant = "over", quiet }: { it: Item; v
         aria-label={onList ? `${STATUS_LABEL.watchlist}: ${PRIORITY_LABEL[prio]}. Tap to remove` : `${STATUS_LABEL.watchlist}: ${PRIORITY_LABEL[prio]}`} title={`${STATUS_LABEL.watchlist}: ${PRIORITY_LABEL[prio]}`}>
         <StatusIcon kind={must ? "must" : "watchlist"} />
       </button>
-      <button type="button" className="qm-b watched" aria-pressed={s === "watched"} onClick={() => mark(it, s === "watched" ? null : "watched", undefined, quiet)}
+      <button type="button" className="qm-b watched" aria-pressed={s === "watched"} onClick={() => mark(it, s === "watched" ? null : "watched", undefined, quiet, rate ? { rate: true } : undefined)}
         aria-label={s === "watched" ? `${STATUS_LABEL.watched}. Tap to remove` : `Mark ${STATUS_LABEL.watched}`} title={STATUS_LABEL.watched}>
         <StatusIcon kind="watched" />
       </button>
