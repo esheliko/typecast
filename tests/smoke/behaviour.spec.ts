@@ -134,7 +134,7 @@ test.describe("behaviour (signed in)", () => {
     }
   });
 
-  // The place card on a Watching series: S/E headline from the saved place at once, "Watched ✓" is ONE write (progress moves one episode), and the Library row has the same button.
+  // The place card on a Watching series: S/E headline from the saved place at once, "Watched ✓" is ONE write (progress moves one episode), and the Library row shows the saved place as a chip that opens the popup at that episode.
   // Breaking Bad is seeded Watching with progress S2 E3, so the card says S2 E4.
   test("Place card: Watched ✓ marks the shown episode in one write", async ({ page }) => {
     const { sb, userId } = await smokeClient();
@@ -149,7 +149,7 @@ test.describe("behaviour (signed in)", () => {
       await expect(card.getByText(/S2 E5/)).toBeVisible({ timeout: 15_000 });
       // The Library row offers the same button for a Watching series.
       await page.goto("/library");
-      await expect(page.locator(".lib-row", { hasText: "Breaking Bad" }).getByRole("button", { name: /^Mark S2 E5 watched/ })).toBeVisible({ timeout: 30_000 });
+      await expect(page.locator(".lib-row", { hasText: "Breaking Bad" }).getByRole("link", { name: /^Season 2 episode 4\./ })).toBeVisible({ timeout: 30_000 });
     } finally {
       await sb.from("library_items").update({ progress_season: 2, progress_episode: 3 }).eq("user_id", userId).eq("tmdb_type", "tv").eq("tmdb_id", bb.tmdb_id);
     }

@@ -13,9 +13,7 @@ import RelatedButton from "./cast/RelatedButton";
 import { ResumeButton } from "./ResumeSheet";
 import { stoppedLabel, stoppedPct } from "@/lib/film-resume";
 import { typeLabel } from "@/lib/img";
-import { rowNext } from "@/lib/place-strip";
-import { clearProgress, setProgress, setRating } from "@/app/actions";
-import { getJson } from "@/lib/who-client";
+import { setRating } from "@/app/actions";
 import { PRIORITY_LABEL, STATUS_LABEL, markLabel, type LibItem } from "@/lib/types";
 
 /** The status label as a fixed-width column. Tap it to flip To watch <-> Must watch or Watching <-> Partly watched. */
@@ -38,31 +36,16 @@ function StatusPill({ it }: { it: LibItem }) {
 }
 
 /**
- * Library "Watched ✓" on a Watching series: marks the episode after the saved place, using only what the row has (no TMDB call per row). At the tap it asks for the
- * size of the place's season once (cached) so a season's last episode rolls into the next season; if that fails it simply takes the next number. One write, no refresh.
+ * The saved place of a Watching / Partly watched series as a small chip ("S4 E16"). It opens the title popup with that episode open and in view, so the next
+ * place can be picked there. Replaces the old "Watched ✓" button; it is a link, so it makes no write and no TMDB call.
  */
-function RowWatched({ it }: { it: LibItem }) {
-  const lib = useLib();
-  const m = lib.get(it.key);
-  const [busy, setBusy] = useState(false);
-  if (it.type !== "tv" || m?.status !== "watching") return null;
+function RowEpisode({ it }: { it: LibItem }) {
+  const { get } = useLib();
+  const m = get(it.key);
+  if (it.type !== "tv" || (m?.status !== "watching" && m?.status !== "partial")) return null;
   const prog = m.progress === undefined ? it.progress : m.progress;
-  const guess = rowNext(prog);
-  const go = async () => {
-    if (busy) return;
-    setBusy(true);
-    const size = prog ? await getJson<{ episodes: unknown[] }>(`/api/who/season?tv=${it.id}&s=${prog.s}`).then((r) => r.episodes.length).catch(() => null) : null;
-    const to = rowNext(prog, size);
-    try {
-      await setProgress(it.type, it.id, to.s, to.e);
-      lib.touch(); lib.setPlace(it.key, to);
-      lib.notify(`S${to.s} E${to.e} marked watched`, () => {
-        (prog ? setProgress(it.type, it.id, prog.s, prog.e) : clearProgress(it.type, it.id)).then(() => { lib.touch(); lib.setPlace(it.key, prog ?? null); }).catch(() => {});
-      });
-    } catch { lib.notify("Couldn’t save that. Try again."); }
-    setBusy(false);
-  };
-  return <button type="button" className="ps-row-btn" disabled={busy} onClick={go} aria-label={`Mark S${guess.s} E${guess.e} watched`} title={`Mark S${guess.s} E${guess.e} watched`}>Watched ✓</button>;
+  if (!prog) return null;
+  return <TitleLink className="pill ep-chip" k={it.key} it={it} ep={prog} title="Open this episode" aria-label={`Season ${prog.s} episode ${prog.e}. Open the episode list`}>S{prog.s} E{prog.e}</TitleLink>;
 }
 
 /**
@@ -110,12 +93,12 @@ export default function LibraryList({ items }: { items: LibItem[] }) {
               <Thumb path={l.poster} />
               <span className="row-main">
                 <span className="row-title">{l.title}</span>
-                <span className="row-sub">{l.year} · {typeLabel(l.type)}<ImdbRate k={l.key} lead=" · " />{l.progress ? ` · S${l.progress.s} E${l.progress.e}` : ""}{st ? ` · ${stoppedLabel(st, of)}` : ""}</span>
+                <span className="row-sub">{l.year} · {typeLabel(l.type)}<ImdbRate k={l.key} lead=" · " />{st ? ` · ${stoppedLabel(st, of)}` : ""}</span>
                 {st && of ? <span className="rs-bar-line" role="img" aria-label={`${stoppedPct(st, of)} percent watched`}><i style={{ width: `${stoppedPct(st, of)}%` }} /></span> : null}
                 <NewEpPill k={l.key} />
                 <RowBadge k={l.key} />
               </span>
-            </TitleLink><StatusPill it={l} /><RowRating it={l} /><RowWatched it={l} /><QuickMark it={l} variant="inline" /><GlimpseButton spec={titleSpec(l)} /><RelatedButton it={l} />{st ? <span className="rs-act-row"><ResumeButton it={l} stopped={st} runtime={of} className="btn sm gold" /></span> : null}</li>
+            </TitleLink><StatusPill it={l} /><RowRating it={l} /><RowEpisode it={l} /><QuickMark it={l} variant="inline" /><GlimpseButton spec={titleSpec(l)} /><RelatedButton it={l} />{st ? <span className="rs-act-row"><ResumeButton it={l} stopped={st} runtime={of} className="btn sm gold" /></span> : null}</li>
             );
           })}
         </ul></div>
