@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Barlow_Condensed, IBM_Plex_Mono, Instrument_Sans } from "next/font/google";
+import ActionSkew from "@/components/ActionSkew";
 import KeyboardAware from "@/components/KeyboardAware";
 import SwRegister from "@/components/SwRegister";
 import "./globals.css";
@@ -31,6 +32,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         {children}
         <SwRegister />
+        <ActionSkew />
         <KeyboardAware />
       </body>
     </html>
