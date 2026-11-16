@@ -44,6 +44,12 @@ export default function Search({ onActive }: { onActive: (on: boolean) => void }
 
   useEffect(() => { onActive(term.length >= 2); }, [term, onActive]);
   useEffect(() => { setRecent(readRecent()); }, []);
+  // Tapping the Browse tab while already on it clears the query (Tabs fires this).
+  useEffect(() => {
+    const clear = () => { setQ(""); setExact(false); };
+    window.addEventListener("tc:clear-search", clear);
+    return () => window.removeEventListener("tc:clear-search", clear);
+  }, []);
   // A refresh keeps the typed query (a normal visit starts empty).
   useEffect(() => {
     try {
