@@ -1,9 +1,10 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useDeferredValue, useEffect, useState } from "react";
 import LibraryList from "./LibraryList";
 import { useRef } from "react";
 import { useRetained } from "@/lib/useRetained";
-import { STATUS_LABEL, type LibItem, type Status } from "@/lib/types";import { SORTS, orderItems, type SortKey } from "@/lib/library-sort";
+import { STATUS_LABEL, type LibItem, type Status } from "@/lib/types";
+import { SORTS, orderItems, type SortKey } from "@/lib/library-sort";
 import { KindSeg } from "./KindSeg";
 import { mixed, ofKind, type Kind } from "@/lib/kind";
 import { KindContext } from "@/lib/kind-context";
@@ -28,8 +29,9 @@ export default function LibraryView({ items, initial, initialSort = "watched", i
   const at = (l: LibItem) => where.current.get(l.key)!;
   const ofType = ofKind(all, kind);
   const picked = filter === "all" ? ofType : ofType.filter((l) => at(l).status === filter);
-  const sorted = orderItems(picked, sort, flip, unrated); // stable, so ties keep newest-first
-  const shown = filter === "watchlist" && (sort === "added" || sort === "watched") && !flip ? [...sorted].sort((a, b) => Number(!at(a).must) - Number(!at(b).must)) : sorted; // default order puts must-watch first
+  const listFlip = useDeferredValue(flip); // the button flips at once; the (possibly long) list re-orders right behind it
+  const sorted = orderItems(picked, sort, listFlip, unrated); // stable, so ties keep newest-first
+  const shown = filter === "watchlist" && (sort === "added" || sort === "watched") && !listFlip ? [...sorted].sort((a, b) => Number(!at(a).must) - Number(!at(b).must)) : sorted; // default order puts must-watch first
   const setParam = (key: string, on: boolean) => {
     const u = new URL(window.location.href);
     if (on) u.searchParams.set(key, "1"); else u.searchParams.delete(key);
@@ -74,13 +76,15 @@ export default function LibraryView({ items, initial, initialSort = "watched", i
       </div>
       <div className="bz-bar" style={{ marginTop: 12 }}>
         {(kind !== "all" || mixed(items)) && <KindSeg value={kind} onChange={chooseKind} />}
-        <span className="pillsel" title="Sort order">
-          <button type="button" className="pill-flip" aria-pressed={flip} aria-label="Flip sort order" title="Flip sort order" onClick={() => { setFlip(!flip); setParam("r", !flip); }}>
-            <svg className="pill-i" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" style={{ transform: flip ? "rotate(180deg)" : undefined }}><path d="M12 4v16m0 0-5-5m5 5 5-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+        <span className="sortgrp">
+          <button type="button" className="sort-flip" aria-pressed={flip} aria-label="Flip sort order" title={flip ? "Reversed: click to restore" : "Click to reverse the order"} onClick={() => { setFlip(!flip); setParam("r", !flip); }}>
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M12 5v14m0 0-5-5m5 5 5-5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
           </button>
-          <select aria-label="Sort library" value={sort} onChange={(e) => chooseSort(e.target.value as SortKey)}>
-            {SORTS.map(([k, label]) => <option key={k} value={k}>{label}</option>)}
-          </select>
+          <label className="pillsel" title="Sort by">
+            <select aria-label="Sort library" value={sort} onChange={(e) => chooseSort(e.target.value as SortKey)}>
+              {SORTS.map(([k, label]) => <option key={k} value={k}>{label}</option>)}
+            </select>
+          </label>
         </span>
         <button type="button" className="chip sm" aria-pressed={unrated} title="Only titles you haven't rated" onClick={() => { setUnrated(!unrated); setParam("u", !unrated); }}>Unrated</button>
       </div>

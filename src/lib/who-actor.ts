@@ -155,14 +155,22 @@ export interface CastHit { id: number; name: string; photo: string | null; role:
  * Relatives of a character, from names alone (TMDB has no family tree): the character the typed words name ("sheldon" -> Sheldon Cooper), then the others who share
  * their surname with the right gender and a fitting age gap (the actors' birth years; unknown years are not held against anyone). "sheldon mom" -> Mary Cooper, not his sister.
  */
-export function relatives(cast: readonly CastHit[], anchor: readonly string[], r: Relation, born: (id: number) => number | null): { of: CastHit; people: CastHit[] } | null {
+export function relatives(cast: readonly CastHit[], anchor: readonly string[], r: Relation, born: (id: number) => number | null): { of: CastHit; people: CastHit[]; rejected: number[] } | null {
   const of = cast.find((c) => roleHas(c.role, anchor));
   if (!of) return null;
   const sur = roleWords(of.role).slice(-1)[0];
   if (!sur) return null;
   const a = born(of.id);
-  const people = cast.filter((c) => c.id !== of.id && (c.g === r.g || c.g === 3) && roleWords(c.role).includes(sur) && (() => { const o = born(c.id); return a == null || o == null || AGE[r.kind](a, o); })());
-  return people.length ? { of, people } : null;
+  const named = cast.filter((c) => c.id !== of.id && roleWords(c.role).includes(sur) && !(r.kind === "sibling" && roleWords(c.role).some((w) => w === "sr" || w === "senior")));
+  const young = (c: CastHit) => { const o = born(c.id); return a == null || o == null || AGE[r.kind](a, o); };
+  const aged = named.filter(young);
+  // An actor whose birth year is unknown (a child actor TMDB has no date for) only counts when no one's age is known to fit.
+  const fits = a != null && aged.some((c) => born(c.id) != null) ? aged.filter((c) => born(c.id) != null) : aged;
+  const rejected = named.filter((c) => !young(c)).map((c) => c.id); // right surname, wrong generation
+  // TMDB marks some actors non-binary (gender 3), which says nothing about the character: they count only when nobody of the right gender fits.
+  const exact = fits.filter((c) => c.g === r.g);
+  const people = exact.length ? exact : fits.filter((c) => c.g === 3);
+  return people.length ? { of, people, rejected } : null;
 }
 
 /** Episodes whose name has every leftover word (misspelt or a close word allowed: "asian" for "The Chinese Restaurant"). */
