@@ -559,10 +559,10 @@ button:not([disabled]):active, a.row:active, a.tab:active, .person-chip:active, 
   /* TitleRow keeps its status pill inside the title link: pin it to the right end of the controls line. */
   .mark-row .row-link .pill { position: absolute; right: 16px; bottom: 18px; }
 }
-/* Library rows, every width: the status slot has a fixed width so the stars start at the same x on every row; the saved-episode chip follows, and the quick marks sit at the right end. */
-.lib-row .pill-slot { width: 124px; margin-right: 0; justify-content: flex-start; }
-@media (min-width: 560px) { .lib-row .pill-slot { width: 140px; } }
-.lib-row .qm.inline { margin-left: auto; }
+/* Library rows, every width: the saved-episode chip sits in a fixed-width left slot so the stars start at the same x on every row; the status switch sits right beside the quick marks at the right end. */
+.lib-row .ep-slot { flex: none; width: 84px; display: flex; justify-content: flex-start; }
+.lib-row .pill-slot { width: auto; margin-left: auto; margin-right: 0; justify-content: flex-end; }
+.lib-row .qm.inline { margin-left: 0; }
 .ep-chip { text-decoration: none; color: var(--ink); background: var(--chip); border: 1px solid var(--line); cursor: pointer; }
 @media (hover: hover) { .ep-chip:hover { border-color: var(--gold); color: var(--gold); } }
 /* Library rows on wider screens: with the stars the single line no longer fits in the 720px column (the title got squeezed to a sliver), so the title keeps the full width and the controls sit on a second line, as on a phone. */
