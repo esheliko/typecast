@@ -13,7 +13,7 @@ import type { Pos, WhoFace } from "@/lib/who-types";
 import type { SearchHit } from "@/lib/types";
 import type { PCredit } from "@/lib/who-types";
 
-interface ActorFind { person: { id: number; name: string; photo: string | null } | null; matches: { credit: PCredit; role: string }[] }
+interface ActorFind { person: { id: number; name: string; photo: string | null } | null; matches: { credit: PCredit; role: string; by: string }[] }
 
 export interface WhoTitle { key: string; type: "movie" | "tv"; title: string; poster: string | null }
 
@@ -107,7 +107,7 @@ export default function WhoSearch({ watching }: { watching: WhoTitle[] }) {
       </div>
 
       <input type="search" className="whs-t" value={q} onChange={(e) => setQ(e.target.value)} aria-label="A name or role you remember"
-        placeholder={sel ? "A name or role, e.g. Brent, the sheriff" : "An actor and a part, e.g. Emmy Rossum Fiona"} autoComplete="off" enterKeyHint="search" />
+        placeholder={sel ? "A name or role, e.g. Brent, the sheriff" : "An actor and a part, e.g. Marlon Brando Corleone"} autoComplete="off" enterKeyHint="search" />
       {!sel && actor && term.length >= 3 && (
         !actor.person
           ? <p className="muted" role="status">Couldn&rsquo;t tell who that is. Start with the actor&rsquo;s full name, then a character or title.</p>
@@ -124,7 +124,7 @@ export default function WhoSearch({ watching }: { watching: WhoTitle[] }) {
                       <li key={m.credit.key}>
                         <TitleLink k={m.credit.key} className="whs-person" it={{ title: m.credit.title, year: m.credit.year, poster: m.credit.poster }}>
                           {m.credit.poster && <Photo path={m.credit.poster} name={m.credit.title} w="w92" className="whs-poster" />}
-                          <span className="whs-text"><span className="nm">{m.credit.title}</span>{m.role && <span className="row-sub">as {m.role}</span>}</span>
+                          <span className="whs-text"><span className="nm">{m.credit.title}</span>{m.by === "theme" ? <span className="row-sub">{m.role ? `as ${m.role} · ` : ""}the story fits &ldquo;{term}&rdquo;</span> : m.role && <span className="row-sub">as {m.role}</span>}</span>
                           <span className="whs-n">{m.credit.year}</span>
                         </TitleLink>
                       </li>

@@ -26,3 +26,12 @@ describe("matchCredits", () => {
   });
   it("lists their best work with nothing left over", () => assert.equal(matchCredits(list, []).length, 3));
 });
+
+describe("matchCredits themes", () => {
+  const list = [c(1, "Heat", "Neil McCauley"), c(2, "Up", "Carl")];
+  it("matches what a title is about when no character fits, after the solid matches", () => {
+    const r = matchCredits(list, ["criminal"], { "movie:1": ["heist", "los angeles"], "movie:2": ["balloon"] });
+    assert.deepEqual(r.map((m) => [m.credit.id, m.by]), [[1, "theme"]]);
+    assert.deepEqual(matchCredits(list, ["lawyer"], { "movie:2": ["courtroom"] }).map((m) => m.credit.id), [2]);
+  });
+});

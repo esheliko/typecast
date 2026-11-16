@@ -10,8 +10,8 @@ const FILLER = new Set(["as", "in", "playing", "plays", "played", "role", "a", "
 
 /** Ways a part is described that TMDB's character names ("Attorney Pelly", "Prison Guard") spell differently. */
 const SAME: Record<string, string[]> = {
-  lawyer: ["attorney", "counsel", "counselor", "barrister", "solicitor", "da", "prosecutor", "judge", "defense"],
-  criminal: ["thief", "robber", "convict", "inmate", "prisoner", "gangster", "mobster", "crook", "killer", "burglar", "outlaw", "bandit"],
+  lawyer: ["attorney", "counsel", "counselor", "barrister", "solicitor", "da", "prosecutor", "judge", "defense", "courtroom", "trial", "legal", "law"],
+  criminal: ["thief", "robber", "convict", "inmate", "prisoner", "gangster", "mobster", "mafia", "crook", "killer", "burglar", "outlaw", "bandit", "crime", "heist", "robbery", "prison"],
   cop: ["officer", "detective", "sheriff", "police", "deputy", "inspector", "trooper"],
   police: ["officer", "detective", "sheriff", "cop", "deputy", "inspector"],
   doctor: ["dr", "surgeon", "physician", "nurse"],
@@ -33,10 +33,11 @@ export function splitActorQuery<P extends { name: string }>(q: string, people: r
   return { person: best.person, rest: qw.slice(best.n).filter((w) => !FILLER.has(w)) };
 }
 
-export interface ActorMatch { credit: PCredit; role: string; by: "role" | "title" | "both" | "all" }
+/** `theme`: the title is about it (a TMDB keyword such as "lawyer" or "heist"), which says the title fits, not that this actor plays that part. */
+export interface ActorMatch { credit: PCredit; role: string; by: "role" | "title" | "both" | "theme" | "all" }
 
 /** The credits where every leftover word starts a word of the character or the title (or a close match for the character, see SAME). No leftover words: their best-known work. */
-export function matchCredits(credits: readonly PCredit[], rest: readonly string[], max = 24): ActorMatch[] {
+export function matchCredits(credits: readonly PCredit[], rest: readonly string[], themes: Readonly<Record<string, readonly string[]>> = {}, max = 24): ActorMatch[] {
   const rows: { m: ActorMatch; rank: number }[] = [];
   for (const c of credits) {
     const role = roleLabel(c.role);
@@ -44,9 +45,12 @@ export function matchCredits(credits: readonly PCredit[], rest: readonly string[
     const rw = words(role), tw = words(c.title);
     const inRole = (w: string) => rw.some((x) => x.startsWith(w) || (SAME[w] ?? []).includes(x));
     const inTitle = (w: string) => tw.some((x) => x.startsWith(w));
-    if (!rest.every((w) => inRole(w) || inTitle(w))) continue;
+    const kw = (themes[c.key] ?? []).flatMap(words);
+    const inTheme = (w: string) => kw.some((x) => x === w || x.startsWith(w) || (SAME[w] ?? []).includes(x));
+    if (!rest.every((w) => inRole(w) || inTitle(w) || inTheme(w))) continue;
     const allRole = rest.every(inRole), allTitle = rest.every(inTitle);
-    rows.push({ rank: allRole ? 0 : allTitle ? 1 : 2, m: { credit: c, role, by: allRole ? "role" : allTitle ? "title" : "both" } });
+    const solid = rest.every((w) => inRole(w) || inTitle(w));
+    rows.push({ rank: allRole ? 0 : allTitle ? 1 : solid ? 2 : 3, m: { credit: c, role, by: allRole ? "role" : allTitle ? "title" : solid ? "both" : "theme" } });
   }
   return rows.sort((a, b) => a.rank - b.rank || (a.m.credit.order ?? 99) - (b.m.credit.order ?? 99) || b.m.credit.votes - a.m.credit.votes).slice(0, max).map((r) => r.m);
 }
