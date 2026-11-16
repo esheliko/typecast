@@ -1,6 +1,5 @@
 "use client";
-import { useState } from "react";
-import SettingRow from "@/components/SettingRow";
+import { useEffect, useState } from "react";
 import { THEMES, THEME_KEY, type Theme } from "@/lib/theme";
 
 function saved(): Theme {
@@ -14,18 +13,15 @@ function apply(t: Theme) {
 
 /** Appearance row: System (follows the device), Light or Dark. Stored on this device only. */
 export default function ThemeChoice() {
+  const [t, setT] = useState<Theme>("system");
+  // Read the saved choice after mount so server and client render the same markup.
+  useEffect(() => { setT(saved()); }, []);
   return (
-    <SettingRow label="Theme" title="Theme">
-      <Picker />
-    </SettingRow>
-  );
-}
-
-function Picker() {
-  const [t, setT] = useState<Theme>(saved);
-  return (
-    <div className="seg" role="group" aria-label="Theme">
-      {THEMES.map(([k, text]) => <button key={k} type="button" aria-pressed={t === k} onClick={() => { setT(k); apply(k); }}>{text}</button>)}
+    <div className="srow stack">
+      <span id="theme-l">Theme</span>
+      <div className="seg" role="group" aria-labelledby="theme-l">
+        {THEMES.map(([k, text]) => <button key={k} type="button" aria-pressed={t === k} onClick={() => { setT(k); apply(k); }}>{text}</button>)}
+      </div>
     </div>
   );
 }

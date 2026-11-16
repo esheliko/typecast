@@ -1,5 +1,5 @@
 "use client";
-import { useDeferredValue, useState } from "react";
+import { useDeferredValue, useMemo, useState } from "react";
 import LibraryList from "./LibraryList";
 import { useRef } from "react";
 import { useRetained } from "@/lib/useRetained";
@@ -26,12 +26,17 @@ export default function LibraryView({ items, initial, initialSort = "watched", i
   const [all, reset] = useRetained(items, "start");
   const where = useRef(new Map<string, { status: Status; must: boolean }>());
   for (const l of all) if (!where.current.has(l.key)) where.current.set(l.key, { status: l.status, must: l.priority === "must" });
-  const at = (l: LibItem) => where.current.get(l.key)!;
-  const ofType = ofKind(all, kind);
-  const picked = filter === "all" ? ofType : ofType.filter((l) => at(l).status === filter);
+  const picked = useMemo(() => {
+    const ofType = ofKind(all, kind);
+    return filter === "all" ? ofType : ofType.filter((l) => where.current.get(l.key)!.status === filter);
+  }, [all, kind, filter]);
   const listFlip = useDeferredValue(flip); // the button flips at once; the (possibly long) list re-orders right behind it
-  const sorted = orderItems(picked, sort, listFlip, unrated); // stable, so ties keep newest-first
-  const shown = filter === "watchlist" && (sort === "added" || sort === "watched") && !listFlip ? [...sorted].sort((a, b) => Number(!at(a).must) - Number(!at(b).must)) : sorted; // default order puts must-watch first
+  // Memoised so the button's own (urgent) render never re-sorts or re-renders the list: that stall froze the flip animation.
+  const shown = useMemo(() => {
+    const sorted = orderItems(picked, sort, listFlip, unrated); // stable, so ties keep newest-first
+    return filter === "watchlist" && (sort === "added" || sort === "watched") && !listFlip ? [...sorted].sort((a, b) => Number(!where.current.get(a.key)!.must) - Number(!where.current.get(b.key)!.must)) : sorted; // default order puts must-watch first
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [picked, filter, sort, listFlip, unrated]);
   const setParam = (key: string, on: boolean) => {
     const u = new URL(window.location.href);
     if (on) u.searchParams.set(key, "1"); else u.searchParams.delete(key);

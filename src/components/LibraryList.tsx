@@ -3,7 +3,7 @@ import { TitleLink } from "./Modal";
 import { ImdbRate } from "./ImdbRate";
 import { GlimpseButton } from "./Glimpse";
 import { titleSpec } from "@/lib/glimpse";
-import { useEffect, useState } from "react";
+import { memo, useEffect, useState } from "react";
 import StarRating from "./StarRating";
 import { Thumb } from "./ui";
 import QuickMark from "./cast/QuickMark";
@@ -72,7 +72,7 @@ function RowRating({ it }: { it: LibItem }) {
   );
 }
 
-export default function LibraryList({ items }: { items: LibItem[] }) {
+export default memo(function LibraryList({ items }: { items: LibItem[] }) {
   const [q, setQ] = useState("");
   const { get } = useLib();
   const list = items.filter((l) => !q.trim() || l.title.toLowerCase().includes(q.trim().toLowerCase()));
@@ -102,4 +102,4 @@ export default function LibraryList({ items }: { items: LibItem[] }) {
       )}
     </>
   );
-}
+});
