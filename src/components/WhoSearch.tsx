@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { PersonLink } from "./Modal";
+import { PersonLink, TitleLink } from "./Modal";
 import { Avatar } from "./ui";
 import { useLib } from "./cast/LibState";
 import { Photo } from "./who/bits";
@@ -11,6 +11,9 @@ import { posLabel } from "@/lib/who-scope";
 import type { WhoBrief } from "@/lib/who-data";
 import type { Pos, WhoFace } from "@/lib/who-types";
 import type { SearchHit } from "@/lib/types";
+import type { PCredit } from "@/lib/who-types";
+
+interface ActorFind { person: { id: number; name: string; photo: string | null } | null; matches: { credit: PCredit; role: string }[] }
 
 export interface WhoTitle { key: string; type: "movie" | "tv"; title: string; poster: string | null }
 
@@ -22,7 +25,7 @@ const Marked = ({ parts }: { parts: Part[] }) => <>{parts.map((p, i) => (p.hit ?
  */
 export default function WhoSearch({ watching }: { watching: WhoTitle[] }) {
   const { get } = useLib();
-  const [sel, setSel] = useState<WhoTitle | null>(watching[0] ?? null);
+  const [sel, setSel] = useState<WhoTitle | null>(null);
   const [brief, setBrief] = useState<WhoBrief | null>(null);
   const [pos, setPos] = useState<Pos | null | undefined>(undefined); // undefined: not known yet; null: a film
   const [faces, setFaces] = useState<WhoFace[] | null>(null);
@@ -31,6 +34,7 @@ export default function WhoSearch({ watching }: { watching: WhoTitle[] }) {
   const [tq, setTq] = useState("");
   const [hits, setHits] = useState<WhoTitle[] | null>(null);
   const [changing, setChanging] = useState(false);
+  const [actor, setActor] = useState<ActorFind | null>(null);
   const getRef = useRef(get);
   getRef.current = get;
 
@@ -71,6 +75,17 @@ export default function WhoSearch({ watching }: { watching: WhoTitle[] }) {
     return () => { live = false; clearTimeout(h); };
   }, [tq]);
 
+  // No title chosen: the text is an actor and a part or title ("george clooney as criminal").
+  useEffect(() => {
+    const t = q.trim();
+    if (sel || t.length < 3) { setActor(null); return; }
+    let live = true;
+    const h = setTimeout(() => {
+      fetch(`/api/who/find?q=${encodeURIComponent(t)}`).then((r) => (r.ok ? r.json() : Promise.reject())).then((j: ActorFind) => { if (live) setActor(j); }).catch(() => { if (live) setActor({ person: null, matches: [] }); });
+    }, 300);
+    return () => { live = false; clearTimeout(h); };
+  }, [q, sel]);
+
   const matches = useMemo(() => (faces ? matchWho(faces, q) : []), [faces, q]);
   const term = q.trim();
   const pick = changing || !sel;
@@ -91,8 +106,33 @@ export default function WhoSearch({ watching }: { watching: WhoTitle[] }) {
         )}
       </div>
 
-      {sel && (
-        <input type="search" className="whs-t" value={q} onChange={(e) => setQ(e.target.value)} aria-label="A name or role you remember" placeholder="A name or role, e.g. Brent, the sheriff" autoComplete="off" enterKeyHint="search" />
+      <input type="search" className="whs-t" value={q} onChange={(e) => setQ(e.target.value)} aria-label="A name or role you remember"
+        placeholder={sel ? "A name or role, e.g. Brent, the sheriff" : "An actor and a part, e.g. Emmy Rossum Fiona"} autoComplete="off" enterKeyHint="search" />
+      {!sel && actor && term.length >= 3 && (
+        !actor.person
+          ? <p className="muted" role="status">Couldn&rsquo;t tell who that is. Start with the actor&rsquo;s full name, then a character or title.</p>
+          : (
+            <>
+              <PersonLink className="whs-person" pid={actor.person.id} it={{ name: actor.person.name, photo: actor.person.photo }}>
+                <Avatar photo={actor.person.photo} name={actor.person.name} /><span className="whs-text"><span className="nm">{actor.person.name}</span></span>
+              </PersonLink>
+              {actor.matches.length === 0
+                ? <p className="muted" role="status">Nothing of theirs matches that. TMDB lists character names, so try the name of the part.</p>
+                : (
+                  <ul className="whs-list" aria-label="Matching roles">
+                    {actor.matches.map((m) => (
+                      <li key={m.credit.key}>
+                        <TitleLink k={m.credit.key} className="whs-person" it={{ title: m.credit.title, year: m.credit.year, poster: m.credit.poster }}>
+                          {m.credit.poster && <Photo path={m.credit.poster} name={m.credit.title} w="w92" className="whs-poster" />}
+                          <span className="whs-text"><span className="nm">{m.credit.title}</span>{m.role && <span className="row-sub">as {m.role}</span>}</span>
+                          <span className="whs-n">{m.credit.year}</span>
+                        </TitleLink>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+            </>
+          )
       )}
 
       {pick && (
