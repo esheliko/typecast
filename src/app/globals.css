@@ -684,11 +684,10 @@ button.aw-chip:hover { filter: brightness(1.08); }
    the open one's body slides out underneath (rows 2 and 3, full width). Only one body is open at a time, so an
    open/close is just a height change below the headers: nothing reflows sideways or jumps. Sections are
    display: contents so headers and bodies can sit in the shared grid. */
-/* Library filters (status chips + kind/sort bar) stay pinned under the sticky header while the list scrolls. */
-.lib-stick { position: sticky; top: calc(var(--top-h, 56px) - 1px); z-index: 15; margin: 0 calc(-1 * max(16px, env(safe-area-inset-right, 0px))) 0 calc(-1 * max(16px, env(safe-area-inset-left, 0px))); padding: 4px max(16px, env(safe-area-inset-right, 0px)) 8px max(16px, env(safe-area-inset-left, 0px)); background: var(--bg); }
-.lib-stick > .bz-bar { margin-top: 8px !important; }
-/* "Filter your library" pins right under the filters above it. */
-.lib-find { position: sticky; top: calc(var(--top-h, 56px) + var(--lib-stick-h, 90px) - 1px); z-index: 14; margin: 4px calc(-1 * max(16px, env(safe-area-inset-right, 0px))) 0 calc(-1 * max(16px, env(safe-area-inset-left, 0px))); padding: 4px max(16px, env(safe-area-inset-right, 0px)) 8px max(16px, env(safe-area-inset-left, 0px)); background: var(--bg); }
+/* Library status chips stay pinned under the sticky header while the list scrolls. */
+.lib-stick { position: sticky; top: calc(var(--top-h, 56px) - 1px); z-index: 15; margin: 0 calc(-1 * max(16px, env(safe-area-inset-right, 0px))) 0 calc(-1 * max(16px, env(safe-area-inset-left, 0px))); padding: 2px max(16px, env(safe-area-inset-right, 0px)) 6px max(16px, env(safe-area-inset-left, 0px)); background: var(--bg); }
+/* Sort bar and "Filter your library" scroll away with the list: only the header and the status chips stay pinned. */
+.lib-find { margin: 4px calc(-1 * max(16px, env(safe-area-inset-right, 0px))) 0 calc(-1 * max(16px, env(safe-area-inset-left, 0px))); padding: 4px max(16px, env(safe-area-inset-right, 0px)) 8px max(16px, env(safe-area-inset-left, 0px)); background: var(--bg); }
 .lib-top { display: grid; grid-template-columns: repeat(var(--cols, 1), minmax(0, 1fr)); column-gap: 8px; row-gap: 0; align-items: start; margin-top: 6px; --up-acc: color-mix(in srgb, var(--gold) 55%, transparent); }
 .lib-top:has(> .upnext + .upnext) { --cols: 2; }
 .lib-top:has(.upcoming) { margin-bottom: 12px; }
