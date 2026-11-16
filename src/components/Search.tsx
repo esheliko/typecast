@@ -7,10 +7,12 @@ import QuickMark from "./cast/QuickMark";
 import { useLib } from "./cast/LibState";
 import { KindFilter } from "./KindSeg";
 import { img } from "@/lib/img";
-import { layoutSearch, pickCollections, youKnowFrom, type PersonHit, type TitleHit } from "@/lib/search-intent";
+import { layoutSearch, norm, pickCollections, youKnowFrom, type PersonHit, type TitleHit } from "@/lib/search-intent";
 import type { BrowseItem, SearchHit } from "@/lib/types";
 import { ImdbRate } from "@/components/ImdbRate";
 import { FindAnswer, useActorFind } from "./who/FindAnswer";
+import PairConnect from "./cast/PairConnect";
+import { splitPair } from "@/lib/search-pair";
 
 type Coll = { id: number; name: string; pop?: number; votes?: number; items: BrowseItem[] };
 
@@ -31,13 +33,14 @@ export default function Search({ onActive }: { onActive: (on: boolean) => void }
   const [focused, setFocused] = useState(false);
   const [recent, setRecent] = useState<string[]>([]);
   const [showFolded, setShowFolded] = useState(false);
+  const [pairShown, setPairShown] = useState(false);
   const input = useRef<HTMLInputElement>(null);
   const box = useRef<HTMLDivElement>(null);
   const term = q.trim();
   const { get } = useLib();
   // "Who's that?" logic too (an actor and a part, a title and a character...): only for several words, and only shown when it says more than the plain results.
   const { actor: who } = useActorFind(term, !/\s/.test(term));
-  const showWho = !!who && !who.plain && !!(who.person || who.title || who.people?.length);
+  const showWho = !pairShown && !!who && !who.plain && !!(who.person || who.title || who.people?.length);
 
   useEffect(() => { onActive(term.length >= 2); }, [term, onActive]);
   useEffect(() => { setRecent(readRecent()); }, []);
@@ -77,6 +80,11 @@ export default function Search({ onActive }: { onActive: (on: boolean) => void }
   const lay = useMemo(() => (hits ? layoutSearch(fix ?? term, hits, (k) => getRef.current(k)) : null), [hits, fix, term]);
   const top = lay?.top ?? null;
   const shownColls = useMemo(() => pickCollections(colls, lay, (k) => getRef.current(k)), [colls, lay]);
+  // "A + B" / "A and B": the connection between two people or two titles, unless the whole text is itself a title ("Pride and Prejudice").
+  const pair = useMemo(() => {
+    const p = splitPair(term);
+    return p && !(top?.kind === "title" && norm(top.title) === norm(term)) ? p : null;
+  }, [term, top]);
   const known = useMemo(() => (top?.kind === "person" ? youKnowFrom(top, (k) => getRef.current(k)) : []), [top]);
 
   const links = useCallback(() => Array.from(box.current?.querySelectorAll<HTMLAnchorElement>('a[href^="/title/"]:not([tabindex="-1"]), a[href^="/person/"]') ?? []), []);
@@ -129,6 +137,7 @@ export default function Search({ onActive }: { onActive: (on: boolean) => void }
             <div style={{ opacity: state === "loading" ? 0.55 : 1, transition: "opacity .15s" }}>
               {fix && <p className="muted" style={{ marginTop: 16 }}>Showing results for <b>{fix}</b>. <button type="button" className="linkish" onClick={() => setExact(true)}>Search for &quot;{term}&quot; instead</button></p>}
               {hits.length === 0 && colls.length === 0 && !showWho && <p className="muted" style={{ marginTop: 20 }}>Nothing found for &quot;{term}&quot;. Try the full name or add the year.</p>}
+              {pair && <PairConnect pair={pair} onShown={setPairShown} />}
               {showWho && who && (
                 <div className="whs">
                   <h2>Who&rsquo;s that?</h2>

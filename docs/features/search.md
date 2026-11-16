@@ -17,6 +17,8 @@ With **no title chosen (the default; the tab no longer pre-picks a Watching seri
 
 A title alone ("harry potter") answers with the most popular title that starts with those words and its main cast, characters named in the text first (`mainCast`, `popularTitle`; `plain: true` in the answer). The main search box (`Search.tsx`) also asks `/api/who/find` for queries of two words or more and shows the same answer (`who/FindAnswer.tsx`, shared with the tab) under "Who's that?" above the Top result, unless the answer is `plain` (a bare name or title the normal results already show).
 
+**Connections in the search box.** Two names with a separator ("tom hanks + meg ryan", "and", "&", "with", "vs", comma or slash) show a Connection block above the results (`components/cast/PairConnect.tsx`, pure `splitPair` in `src/lib/search-pair.ts`, unit tested). Each side is resolved with `layoutSearch` (clear top match only); two people or two titles go to `/api/connect` and render the Connections tab's `PeopleResult` / `TitlesResult`. Nothing shows for a person + a title, an unclear side, or when the whole text is itself a title ("Pride and Prejudice"). While it shows, "Who's that?" is hidden. Characters are not resolved here.
+
 ## Summary rule (moved from CLAUDE.md)
 
 - Search results are laid out by pure `layoutSearch` (`src/lib/search-intent.ts`, unit tested): Top result, other kind, weak matches folded; spell-fix only when intent is unclear. Search has a "Who's that?" mode (`components/WhoSearch.tsx`, pure `src/lib/who-search.ts`: find cast by a name or role you remember, cut at your place). Details: `docs/features/search.md` (read before changing this feature).
