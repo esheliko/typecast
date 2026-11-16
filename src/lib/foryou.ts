@@ -1,5 +1,5 @@
 import { browse, browseItem, genreList, getTitleImdbId, tmdb } from "./tmdb";
-import { getImdbRatings } from "./imdb-rating";
+import { getImdbRatings, hasOmdbKey } from "./imdb-rating";
 import { interleave } from "./browse";
 import { buildProfile, howOf, posWeight, rerank, sampleSeeds, scorePool, seedWeight, topGenres, whyText, type Cand, type How, type Pooled, type Seed } from "./foryou-rank";
 import type { BrowseItem, BrowseType, LibItem } from "./types";
@@ -98,7 +98,7 @@ export async function forYou(type: BrowseType, page: number, lib: LibItem[], sal
   const year = new Date().getFullYear();
   // First pass ranks on TMDB's numbers; then IMDb's own score is fetched for the front of the list and that part is ranked again on it.
   let order = rerank(scorePool([...pool.values()], like, dislike, year));
-  if (process.env.OMDB_API_KEY) {
+  if (hasOmdbKey()) {
     const front = order.slice(0, SHORTLIST);
     await withBudget((async () => {
       const imdbId = new Map<number, string | null>();
