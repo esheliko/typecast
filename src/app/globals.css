@@ -707,10 +707,19 @@ button.aw-chip:hover { filter: brightness(1.08); }
 /* The OPEN pill reads as open at a glance, beyond the caret: a gold wash and border, a solid count, and a bar down its left edge. Its body carries the
    same gold: no seam under the headers, just a soft wash fading downward, so pill and section look like one object. */
 .lib-top .upnext-h { transition: box-shadow .19s cubic-bezier(.37, 0, .63, 1), background-color .19s cubic-bezier(.37, 0, .63, 1), border-color .19s cubic-bezier(.37, 0, .63, 1), border-radius .19s cubic-bezier(.37, 0, .63, 1); }
-.lib-top .upnext-h[aria-expanded="true"] { background: color-mix(in srgb, var(--gold) 15%, var(--surface)); border-color: color-mix(in srgb, var(--gold) 45%, transparent); border-bottom-color: transparent; border-radius: 12px 12px 0 0; }
+.lib-top { --wash: color-mix(in srgb, var(--gold) 14%, var(--surface)); --wash-edge: color-mix(in srgb, var(--gold) 40%, transparent); }
+.lib-top .upnext-h[aria-expanded="true"],
+.lib-top .upnext-h[aria-expanded="true"]:hover,
+.lib-top .upnext-h[aria-expanded="true"]:active,
+.lib-top .upnext-h[aria-expanded="true"]:focus-visible { background: var(--wash); border-color: var(--wash-edge); border-bottom-color: transparent; border-radius: 12px 12px 0 0; }
 .lib-top .upnext-h[aria-expanded="true"] .upnext-n { background: color-mix(in srgb, var(--gold) 38%, var(--surface)); border-color: transparent; color: var(--ink); }
+/* A closed tab answers hover and press with a faint gold tint; the open one never changes (its colour IS the panel's). */
+@media (hover: hover) { .lib-top .upnext-h[aria-expanded="false"]:hover { background: color-mix(in srgb, var(--gold) 7%, transparent); border-color: color-mix(in srgb, var(--gold) 22%, transparent); } }
+.lib-top .upnext-h[aria-expanded="false"]:active { background: color-mix(in srgb, var(--gold) 10%, transparent); }
 .collapse-in { position: relative; isolation: isolate; }
-.collapse-in::before { content: ""; position: absolute; z-index: -1; inset: 0 16px auto; height: 76px; pointer-events: none; background: linear-gradient(to bottom, color-mix(in srgb, var(--gold) 15%, var(--surface)), transparent); }
+/* Body = the same wash as the open tab, continuing under it (same colour), fading out below the filter row. */
+.collapse-in::before { content: ""; position: absolute; z-index: -1; inset: 0 16px auto; height: 92px; pointer-events: none; background: linear-gradient(to bottom, var(--wash) 0, var(--wash) 52px, transparent); }
+.collapse-in .seg, .collapse-in .chip:not([aria-pressed="true"]) { background: color-mix(in srgb, var(--surface) 72%, transparent); }
 .upnext-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .upnext-tools > * { flex: none; }
 /* The sliding body: laid out at its final size; src/lib/panel-motion.ts reveals it (clip) and slides what is below (transform). Its box spans the page gutters (-16px / +16px) so the poster strip's edge bleed is never cut. */
