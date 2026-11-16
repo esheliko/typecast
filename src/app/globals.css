@@ -20,7 +20,7 @@
 }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
-html { background: var(--bg); }
+html { background: var(--bg); scrollbar-gutter: stable; }
 body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 var(--body); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-bottom: calc(96px + var(--kb, 0px)); min-height: 100vh; -webkit-text-size-adjust: 100%; }
 button, input, select, textarea { font: inherit; color: inherit; }
 button { cursor: pointer; background: none; border: 0; padding: 0; text-align: left; }
