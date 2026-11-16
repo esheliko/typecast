@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getTitleImdbId } from "@/lib/tmdb";
-import { getImdbRating, getSeasonImdb } from "@/lib/imdb-rating";
+import { getImdbRatings, getSeasonImdb } from "@/lib/imdb-rating";
 
 export const maxDuration = 30;
 const HEADERS = { "Cache-Control": "private, max-age=3600" };
@@ -15,12 +15,11 @@ export async function GET(req: NextRequest) {
   }
   const keys = [...new Set((p.get("k") ?? "").split(",").filter((k) => /^(movie|tv):\d{1,9}$/.test(k)))].slice(0, 40);
   const out: Record<string, number> = {};
+  const ids = new Map<string, string | null>();
   for (let i = 0; i < keys.length; i += 8) {
-    await Promise.all(keys.slice(i, i + 8).map(async (k) => {
-      const [type, id] = k.split(":");
-      const r = await getImdbRating(await getTitleImdbId(type as "movie" | "tv", Number(id)));
-      if (r) out[k] = r.rating;
-    }));
+    await Promise.all(keys.slice(i, i + 8).map(async (k) => { const [type, id] = k.split(":"); ids.set(k, await getTitleImdbId(type as "movie" | "tv", Number(id))); }));
   }
+  const got = await getImdbRatings([...ids.values()]);
+  for (const [k, id] of ids) { const r = id ? got.get(id) : null; if (r) out[k] = r.rating; }
   return NextResponse.json(out, { headers: HEADERS });
 }

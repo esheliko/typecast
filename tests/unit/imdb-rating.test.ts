@@ -24,3 +24,12 @@ test("omdbFailed tells a failed call from a title with no score", async () => {
   assert.equal(omdbFailed({ Response: "False", Error: "Incorrect IMDb ID." }), false);
   assert.equal(omdbFailed({ Response: "True", imdbRating: "N/A" }), false);
 });
+
+test("isFresh keeps a score 14 days and a 'no score' 3 days", async () => {
+  const { isFresh } = await import("../../src/lib/imdb-rating");
+  const now = Date.now(), d = 86400000;
+  assert.equal(isFresh({ rating: 7.5, fetchedAt: now - 13 * d }, now), true);
+  assert.equal(isFresh({ rating: 7.5, fetchedAt: now - 15 * d }, now), false);
+  assert.equal(isFresh({ rating: null, fetchedAt: now - 2 * d }, now), true);
+  assert.equal(isFresh({ rating: null, fetchedAt: now - 4 * d }, now), false);
+});
