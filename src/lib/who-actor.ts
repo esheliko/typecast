@@ -17,6 +17,8 @@ const SAME: Record<string, string[]> = {
   doctor: ["dr", "surgeon", "physician", "nurse"],
   teacher: ["professor", "principal", "coach"],
   soldier: ["captain", "sergeant", "lieutenant", "colonel", "major", "general", "private"],
+  asian: ["chinese", "japanese", "korean", "thai", "vietnamese", "indian"],
+  restaurant: ["diner", "cafe", "waiter", "waitress", "hostess", "chef", "bistro"],
   magician: ["magic", "wizard", "witch", "sorcerer", "illusionist", "warlock", "magical"],
   wizard: ["magic", "magician", "witch", "sorcerer", "warlock", "wizardry", "hogwarts", "magical"],
   villain: ["killer", "mobster", "gangster", "boss"],
@@ -41,17 +43,36 @@ export function near(w: string, x: string): boolean {
 export function nameWindows(q: string): string[] {
   const qw = words(q).slice(0, 6);
   const out: string[] = [];
-  for (const n of [2, 3, 1]) for (let i = 0; i + n <= qw.length; i++) { const w = qw.slice(i, i + n); if (n === 1 && (w[0].length < 4 || FILLER.has(w[0]))) continue; out.push(w.join(" ")); }
+  for (const n of [2, 3, 1]) for (let i = 0; i + n <= qw.length; i++) { const w = qw.slice(i, i + n); if (n === 1 && (w[0].length < 4 || FILLER.has(w[0]))) continue; out.push(w.join(" ")); if (n === 1 && w[0].length >= 6) out.push(w[0].slice(0, -1)); }
   return [...new Set(out)];
 }
 
-/** The person whose full name appears anywhere in the query, allowing small misspellings (longest, then closest, wins), and the words left over. "wizard daniel radcliff" -> Daniel Radcliffe + "wizard". */
-export function splitActorQuery<P extends { name: string }>(q: string, people: readonly P[]): { person: P; rest: string[] } | null {
+/**
+ * The person whose full name appears anywhere in the query, allowing small misspellings (longest, then closest, wins), and the words left over. "wizard daniel radcliff" -> Daniel Radcliffe + "wizard".
+ * With `partial`, a single typed word may be just ONE word of a name (a surname or first name, misspelt or cut short: "radclif wizard"); the most popular such person wins.
+ */
+export function splitActorQuery<P extends { name: string; popularity?: number }>(q: string, people: readonly P[], opts: { partial?: boolean } = {}): { person: P; rest: string[] } | null {
+  if (opts.partial) {
+    const qw = words(q);
+    let best: { person: P; at: number; pop: number } | null = null;
+    for (const p of people) {
+      const nw = words(p.name);
+      qw.forEach((w, at) => {
+        if (w.length < 4 || FILLER.has(w) || !nw.some((x) => x === w || near(w, x))) return;
+        const pop = p.popularity ?? 0;
+        if (pop < 2) return; // a half-typed name only for someone well known, not any TMDB person called "Asian" or "Wizard"
+        if (!best || pop > best.pop) best = { person: p, at, pop };
+      });
+    }
+    const b = best as { person: P; at: number } | null;
+    return b ? { person: b.person, rest: qw.filter((_, i) => i !== b.at).filter((w) => !FILLER.has(w)) } : null;
+  }
   const qw = words(q);
   let best: { person: P; n: number; d: number; at: number } | null = null;
   for (const p of people) {
     const nw = words(p.name);
     if (!nw.length || nw.length > qw.length) continue;
+    if (nw.length === 1 && (p.popularity ?? 0) < 1) continue; // a one-word name only when it is a star (Cher), not any "Wizard" TMDB lists
     for (let at = 0; at + nw.length <= qw.length; at++) {
       let d = 0, ok = true;
       for (let i = 0; i < nw.length && ok; i++) {
@@ -68,20 +89,77 @@ export function splitActorQuery<P extends { name: string }>(q: string, people: r
 }
 
 const THE = /^(the|a|an)\s+/i;
-/** The title whose name starts the query ("hunger games haymitch" -> The Hunger Games + "haymitch"), allowing small misspellings. Longest title wins, then the first in `titles` (TMDB's best). */
-export function splitTitleQuery<T extends { title: string }>(q: string, titles: readonly T[]): { title: T; rest: string[] } | null {
+/** Initials of a title ("How I Met Your Mother" -> "himym", "The Big Bang Theory" -> "tbbt"). */
+export const initials = (title: string): string => words(title).map((w) => w[0]).join("");
+
+/**
+ * The title named anywhere in the query, and the words left over. The typed words must follow the title's own words in order ("hunger games haymitch", "kev shameless",
+ * "sienfeld ..."), may stop short of its end when at least two words match ("big bang sheldon mom" -> The Big Bang Theory), may be misspelt, or may be its initials ("himym").
+ * The most words matched wins, then the more popular.
+ */
+export function splitTitleQuery<T extends { title: string; popularity?: number }>(q: string, titles: readonly T[]): { title: T; rest: string[] } | null {
   const qw = words(q);
-  let best: { t: T; n: number } | null = null;
+  let best: { t: T; k: number; at: number; score: number } | null = null;
   for (const t of titles) {
     const tw = words(t.title.replace(THE, ""));
-    if (!tw.length || tw.length > qw.length) continue;
-    if (!tw.every((w, i) => qw[i] === w || (qw[i].length >= 5 && lev(qw[i], w) <= 1))) continue;
-    if (!best || tw.length > best.n) best = { t, n: tw.length };
+    if (!tw.length) continue;
+    for (let at = 0; at < qw.length; at++) {
+      let k = 0;
+      while (k < tw.length && at + k < qw.length && (qw[at + k] === tw[k] || (qw[at + k].length >= 4 && near(qw[at + k], tw[k])))) k++;
+      let score = k >= tw.length || k >= 2 ? k : 0;
+      if (!score && qw[at].length >= 3 && qw[at].length <= 7 && tw.length >= 3 && qw[at] === initials(t.title)) { k = 1; score = 1; } // "himym"
+      if (!score) continue;
+      const pop = t.popularity ?? 100;
+      if (k === 1 && pop < 10) continue; // a one-word match only for a well-known title, not every obscure "The Restaurant"
+      score = k * 1e6 + pop * (k >= tw.length ? 3 : 1); // more words first, then popularity (the whole title counts triple against the start of a longer one)
+      if (!best || score > best.score) best = { t, k, at, score };
+    }
   }
-  return best ? { title: best.t, rest: qw.slice(best.n).filter((w) => !FILLER.has(w)) } : null;
+  return best ? { title: best.t, rest: qw.filter((_, i) => i < best!.at || i >= best!.at + best!.k).filter((w) => !FILLER.has(w)) } : null;
 }
 
-export interface CastHit { id: number; name: string; photo: string | null; role: string }
+/** How a character is related to another ("sheldon mom"): the relative's TMDB gender and how their age compares. */
+const REL: Record<string, { g: number; kind: "parent" | "child" | "sibling" | "spouse" | "grand" | "elder" }> = {
+  mom: { g: 1, kind: "parent" }, mother: { g: 1, kind: "parent" }, mum: { g: 1, kind: "parent" }, mama: { g: 1, kind: "parent" },
+  dad: { g: 2, kind: "parent" }, father: { g: 2, kind: "parent" }, papa: { g: 2, kind: "parent" },
+  sister: { g: 1, kind: "sibling" }, brother: { g: 2, kind: "sibling" },
+  wife: { g: 1, kind: "spouse" }, husband: { g: 2, kind: "spouse" },
+  daughter: { g: 1, kind: "child" }, son: { g: 2, kind: "child" },
+  grandma: { g: 1, kind: "grand" }, grandmother: { g: 1, kind: "grand" }, grandpa: { g: 2, kind: "grand" }, grandfather: { g: 2, kind: "grand" },
+  aunt: { g: 1, kind: "elder" }, uncle: { g: 2, kind: "elder" },
+};
+export type Relation = (typeof REL)[string];
+/** A relation word among the leftover words, and the words that name whose relative ("sheldon mom" -> mom of "sheldon"). Needs someone to be related to. */
+export function findRelation(rest: readonly string[]): { rel: Relation; word: string; anchor: string[] } | null {
+  const i = rest.findIndex((w) => REL[w]);
+  return i < 0 || rest.length < 2 ? null : { rel: REL[rest[i]], word: rest[i], anchor: rest.filter((_, j) => j !== i) };
+}
+
+const AGE: Record<Relation["kind"], (anchor: number, other: number) => boolean> = {
+  parent: (a, o) => o <= a - 12, child: (a, o) => o >= a + 12, sibling: (a, o) => Math.abs(o - a) <= 15, spouse: () => true, grand: (a, o) => o <= a - 30, elder: (a, o) => o <= a - 5,
+};
+
+export interface CastHit { id: number; name: string; photo: string | null; role: string; g?: number }
+/**
+ * Relatives of a character, from names alone (TMDB has no family tree): the character the typed words name ("sheldon" -> Sheldon Cooper), then the others who share
+ * their surname with the right gender and a fitting age gap (the actors' birth years; unknown years are not held against anyone). "sheldon mom" -> Mary Cooper, not his sister.
+ */
+export function relatives(cast: readonly CastHit[], anchor: readonly string[], r: Relation, born: (id: number) => number | null): { of: CastHit; people: CastHit[] } | null {
+  const of = cast.find((c) => { const rw = words(roleLabel(c.role)); return anchor.every((w) => rw.some((x) => near(w, x))); });
+  if (!of) return null;
+  const sur = words(roleLabel(of.role)).slice(-1)[0];
+  if (!sur) return null;
+  const a = born(of.id);
+  const people = cast.filter((c) => c.id !== of.id && c.g === r.g && words(roleLabel(c.role)).includes(sur) && (() => { const o = born(c.id); return a == null || o == null || AGE[r.kind](a, o); })());
+  return people.length ? { of, people } : null;
+}
+
+/** Episodes whose name has every leftover word (misspelt or a close word allowed: "asian" for "The Chinese Restaurant"). */
+export function matchEpisodes<E extends { name: string }>(eps: readonly E[], rest: readonly string[], max = 6): E[] {
+  if (!rest.length) return [];
+  return eps.filter((e) => { const nw = words(e.name); return rest.every((w) => nw.some((x) => near(w, x) || (SAME[w] ?? []).includes(x))); }).slice(0, max);
+}
+
 /** Cast of one title whose character or name matches every leftover word (misspellings allowed); the characters first. */
 export function matchCast(cast: readonly CastHit[], rest: readonly string[], max = 12): CastHit[] {
   if (!rest.length) return [];

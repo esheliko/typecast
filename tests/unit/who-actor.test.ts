@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { matchCast, matchCredits, nameWindows, near, splitActorQuery, splitTitleQuery } from "../../src/lib/who-actor";
+import { findRelation, initials, matchCast, matchCredits, matchEpisodes, nameWindows, near, relatives, splitActorQuery, splitTitleQuery } from "../../src/lib/who-actor";
 import type { PCredit } from "../../src/lib/who-types";
 
 const c = (id: number, title: string, role: string, votes = 1): PCredit => ({ key: `movie:${id}`, type: "movie", id, title, year: "2000", poster: null, role, date: "", eps: 0, cids: [], extra: false, votes });
@@ -61,5 +61,54 @@ describe("fuzzy", () => {
     const cast = [{ id: 1, name: "Woody Harrelson", photo: null, role: "Haymitch Abernathy" }, { id: 2, name: "Jennifer Lawrence", photo: null, role: "Katniss Everdeen" }];
     assert.deepEqual(matchCast(cast, ["haymitch"]).map((x) => x.id), [1]);
     assert.deepEqual(matchCast(cast, ["haymich"]).map((x) => x.id), [1]);
+  });
+});
+
+describe("one word of a name", () => {
+  const ppl = [{ name: "Wizard", popularity: 0.1 }, { name: "Damaine Radcliff", popularity: 0.4 }, { name: "Daniel Radcliffe", popularity: 4.7 }];
+  it("a cut-short surname finds the most popular person, either word order", () => {
+    for (const q of ["radclif wizard", "wizard radclif"]) {
+      const r = splitActorQuery(q, ppl, { partial: true })!;
+      assert.equal(r.person.name, "Daniel Radcliffe");
+      assert.deepEqual(r.rest, ["wizard"]);
+    }
+  });
+  it("is off unless asked for", () => assert.equal(splitActorQuery("radclif wizard", ppl), null));
+  it("searches the shortened word too", () => assert.ok(nameWindows("radcliff").includes("radclif")));
+});
+
+describe("title anywhere, cut short, initials", () => {
+  const titles = [{ title: "Shameless" }, { title: "The Big Bang Theory", popularity: 77 }, { title: "How I Met Your Mother", popularity: 1684 }, { title: "Big Bang", popularity: 2 }];
+  it("a title at the end, in the middle, or cut short", () => {
+    assert.deepEqual(splitTitleQuery("kev shameless", titles)?.rest, ["kev"]);
+    const r = splitTitleQuery("big bang sheldon mom", titles)!;
+    assert.equal(r.title.title, "The Big Bang Theory");
+    assert.deepEqual(r.rest, ["sheldon", "mom"]);
+  });
+  it("initials, and a one-word cut is not enough", () => {
+    assert.equal(initials("How I Met Your Mother"), "himym");
+    assert.deepEqual(splitTitleQuery("paralegal himym", titles)?.rest, ["paralegal"]);
+    assert.equal(splitTitleQuery("bang", [{ title: "The Big Bang Theory" }]), null);
+  });
+});
+
+describe("relatives and episodes", () => {
+  const cast = [
+    { id: 1, name: "Jim Parsons", photo: null, role: "Sheldon Cooper", g: 2 },
+    { id: 2, name: "Laurie Metcalf", photo: null, role: "Mary Cooper", g: 1 },
+    { id: 3, name: "Courtney Henggeler", photo: null, role: "Missy Cooper", g: 1 },
+    { id: 4, name: "Kaley Cuoco", photo: null, role: "Penny", g: 1 },
+  ];
+  const born: Record<number, number> = { 1: 1973, 2: 1955, 3: 1978 };
+  it("finds the mother, not the sister, by age", () => {
+    const f = findRelation(["sheldon", "mom"])!;
+    assert.deepEqual(f.anchor, ["sheldon"]);
+    assert.deepEqual(relatives(cast, f.anchor, f.rel, (id) => born[id] ?? null)!.people.map((p) => p.id), [2]);
+    assert.deepEqual(relatives(cast, ["sheldon"], findRelation(["sister", "x"])!.rel, (id) => born[id] ?? null)!.people.map((p) => p.id), [3]);
+  });
+  it("needs someone to be related to", () => assert.equal(findRelation(["mom"]), null));
+  it("matches an episode by a close word", () => {
+    const eps = [{ name: "The Chinese Restaurant" }, { name: "The Contest" }];
+    assert.deepEqual(matchEpisodes(eps, ["asian", "restaurant"]).map((e) => e.name), ["The Chinese Restaurant"]);
   });
 });

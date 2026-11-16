@@ -22,7 +22,7 @@ export interface Related extends Item { rel: string }
 /** `eps` / `since`: for a series, how many episodes they were in and the date of their first one. */
 export interface Credit extends Item { role: string; votes: number; rating: number; date: string; eps?: number; since?: string; /** TMDB credit ids (series, one per part), to look up which episodes. */ cids?: string[] }
 /** `eps` and `credits` only for a series: episodes they appeared in, and TMDB credit ids (one per role) for looking up which. */
-export interface CastMember { id: number; name: string; photo: string | null; role: string; eps?: number; credits?: string[] }
+export interface CastMember { id: number; name: string; photo: string | null; role: string; /** TMDB gender: 1 female, 2 male (0 unknown). Only from getCast. */ g?: number; eps?: number; credits?: string[] }
 /** One episode, as listed in a season. */
 export interface EpisodeLite { s: number; e: number; name: string; air: string; runtime: number | null; rating: number; votes: number; finale?: boolean }
 export interface Episode extends EpisodeLite { overview: string; still: string | null; directors: string[]; writers: string[]; guests: CastMember[] }
