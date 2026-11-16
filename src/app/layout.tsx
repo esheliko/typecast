@@ -3,6 +3,7 @@ import { Barlow_Condensed, IBM_Plex_Mono, Instrument_Sans } from "next/font/goog
 import ActionSkew from "@/components/ActionSkew";
 import KeyboardAware from "@/components/KeyboardAware";
 import SwRegister from "@/components/SwRegister";
+import { THEME_INIT } from "@/lib/theme";
 import "./globals.css";
 
 // Self-hosted at build time: no request to Google Fonts before the page can paint, and the fallback is size-matched so text does not jump.
@@ -24,8 +25,9 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${display.variable} ${body.variable} ${mono.variable}`}>
+    <html lang="en" suppressHydrationWarning className={`${display.variable} ${body.variable} ${mono.variable}`}>
       <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT }} />
         {/* Posters and photos all come from here; open the connection while the page is still loading. */}
         <link rel="preconnect" href="https://image.tmdb.org" />
       </head>

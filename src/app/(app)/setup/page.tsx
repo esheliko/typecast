@@ -1,4 +1,5 @@
 import DetailOrder from "@/components/DetailOrder";
+import ThemeChoice from "@/components/ThemeChoice";
 import ChangePassword from "@/components/ChangePassword";
 import InstallButton from "@/components/InstallButton";
 import LetterboxdPanel from "@/components/LetterboxdPanel";
@@ -37,6 +38,7 @@ export default async function Setup() {
         <div className="srow"><span>Signed in</span><span className="sval"><span>{data?.claims?.email as string | undefined}</span></span></div>
         <a className="srow" href="/api/export" download><span>Export backup</span><span className="sval"><span className="chev" aria-hidden="true">›</span></span></a>
         <RestoreBackup />
+        <ThemeChoice />
         <ChangePassword />
         <SettingRow label="Install app"><div className="small muted"><InstallButton /></div></SettingRow>
         <form action={signOut}><button className="srow link" type="submit"><span>Sign out</span><span className="sval"><span className="chev" aria-hidden="true">›</span></span></button></form>
