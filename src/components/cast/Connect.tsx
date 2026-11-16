@@ -6,7 +6,7 @@ import RelatedButton from "./RelatedButton";
 import { PersonLink, TitleLink } from "../Modal";
 import { KindFilter } from "../KindSeg";
 import { typeLabel } from "@/lib/img";
-import type { Item, PeopleLink, PersonLite, Regular, SearchHit, TitlesLink } from "@/lib/types";
+import type { Item, PeopleLink, PersonLite, Regular, SearchHit, SuggestedPerson, SuggestedTitle, TitlesLink } from "@/lib/types";
 
 export type Mode = "people" | "titles";
 type Pick = { kind: "person"; p: PersonLite } | { kind: "title"; t: Item };
@@ -53,8 +53,76 @@ export default function Connect({ initialMode, initialA }: { initialMode: Mode; 
       {state === "error" && <p className="err" style={{ marginTop: 16 }}>{error}</p>}
       {res && "bridges" in res && <PeopleResult r={res} />}
       {res && !("bridges" in res) && <TitlesResult r={res} />}
-      {!a && !b && <Regulars onPick={(p) => { switchMode("people"); setA({ kind: "person", p }); }} />}
+      {a && !b && <NextUp a={a} onPick={setB} />}
+      {!a && !b && mode === "titles" && <TitleStarts onPick={(t) => setA({ kind: "title", t })} />}
+      {!a && !b && mode === "people" && <Regulars onPick={(p) => { switchMode("people"); setA({ kind: "person", p }); }} />}
     </section>
+  );
+}
+
+/** Suggestions for the second pick: strongly linked to the first, or in your library. */
+function NextUp({ a, onPick }: { a: Pick; onPick: (p: Pick) => void }) {
+  const ref = a.kind === "person" ? `person:${a.p.id}` : a.t.key;
+  const [got, setGot] = useState<{ ref: string; people?: SuggestedPerson[]; titles?: SuggestedTitle[] } | null>(null);
+  useEffect(() => {
+    let live = true;
+    fetch(`/api/connect?next=${ref}`).then((r) => r.json()).then((j) => { if (live) setGot({ ref, people: j.people, titles: j.titles }); }).catch(() => live && setGot({ ref }));
+    return () => { live = false; };
+  }, [ref]);
+  const cur = got && got.ref === ref ? got : null;
+  if (!cur) return <><h2>Suggestions</h2><p className="muted"><span className="spin" />Finding good matches</p></>;
+  const list = cur.people ?? cur.titles ?? [];
+  if (list.length === 0) return null;
+  return (
+    <>
+      <h2>Try connecting with</h2>
+      <div className="card"><ul className="rows">
+        {cur.people?.map((p) => (
+          <li key={p.id} className="row">
+            <button type="button" className="row-link" onClick={() => onPick({ kind: "person", p: { id: p.id, name: p.name, photo: p.photo } })}>
+              <Avatar photo={p.photo} name={p.name} />
+              <span className="row-main"><span className="row-title" style={{ fontSize: 17 }}>{p.name}</span><span className="row-sub">{p.why}</span></span>
+            </button>
+          </li>
+        ))}
+        {cur.titles?.map((t) => (
+          <li key={t.key} className="row">
+            <button type="button" className="row-link" onClick={() => onPick({ kind: "title", t: { key: t.key, type: t.type, id: t.id, title: t.title, year: t.year, poster: t.poster } })}>
+              <Thumb path={t.poster} />
+              <span className="row-main"><span className="row-title" style={{ fontSize: 17 }}>{t.title}</span><span className="row-sub">{t.year} · {typeLabel(t.type)}</span><span className="row-sub">{t.why}</span></span>
+            </button>
+          </li>
+        ))}
+      </ul></div>
+    </>
+  );
+}
+
+/** Titles of yours to start a "Two titles" connection from. */
+function TitleStarts({ onPick }: { onPick: (t: Item) => void }) {
+  const [list, setList] = useState<SuggestedTitle[] | null>(null);
+  useEffect(() => {
+    let live = true;
+    fetch("/api/connect?titlesFirst=1").then((r) => r.json()).then((j) => { if (live) setList(j.titles ?? []); }).catch(() => live && setList([]));
+    return () => { live = false; };
+  }, []);
+  if (list === null) return <><h2>Start from one of yours</h2><p className="muted"><span className="spin" />Looking through your library</p></>;
+  return (
+    <>
+      <h2>Start from one of yours</h2>
+      {list.length === 0 ? <p className="muted small">Titles that share actors with other things you have watched appear here. Mark a few titles Watched to fill this in.</p> : (
+        <div className="card"><ul className="rows">
+          {list.map((t) => (
+            <li key={t.key} className="row">
+              <button type="button" className="row-link" onClick={() => onPick({ key: t.key, type: t.type, id: t.id, title: t.title, year: t.year, poster: t.poster })}>
+                <Thumb path={t.poster} />
+                <span className="row-main"><span className="row-title" style={{ fontSize: 17 }}>{t.title}</span><span className="row-sub">{t.year} · {typeLabel(t.type)}</span><span className="row-sub">{t.why}</span></span>
+              </button>
+            </li>
+          ))}
+        </ul></div>
+      )}
+    </>
   );
 }
 
@@ -164,7 +232,7 @@ function Picker({ kind, value, onChange, label, autoFocus }: { kind: "person" | 
   const [active, setActive] = useState(0);
   const input = useRef<HTMLInputElement>(null);
 
-  useEffect(() => { if (autoFocus) input.current?.focus(); }, [autoFocus]);
+  useEffect(() => { if (autoFocus) input.current?.focus({ preventScroll: true }); }, [autoFocus]);
   useEffect(() => {
     const term = q.trim();
     if (term.length < 2) { setHits([]); setBusy(false); return; }
