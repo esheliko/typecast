@@ -98,7 +98,7 @@ export default function LibraryList({ items }: { items: LibItem[] }) {
                 <NewEpPill k={l.key} />
                 <RowBadge k={l.key} />
               </span>
-            </TitleLink><span className="ep-slot"><RowEpisode it={l} /></span><RowRating it={l} /><StatusPill it={l} /><QuickMark it={l} variant="inline" /><GlimpseButton spec={titleSpec(l)} /><RelatedButton it={l} />{st ? <span className="rs-act-row"><ResumeButton it={l} stopped={st} runtime={of} className="btn sm gold" /></span> : null}</li>
+            </TitleLink><RowRating it={l} /><RowEpisode it={l} /><StatusPill it={l} /><QuickMark it={l} variant="inline" /><GlimpseButton spec={titleSpec(l)} /><RelatedButton it={l} />{st ? <span className="rs-act-row"><ResumeButton it={l} stopped={st} runtime={of} className="btn sm gold" /></span> : null}</li>
             );
           })}
         </ul></div>
