@@ -221,12 +221,12 @@ a.row { text-decoration: none; color: inherit; }
 .pill-i { flex: none; vertical-align: -2px; margin-right: 2px; }
 .bz-bar .pillsel .pill-i { margin: 0; }
 /* Sort direction is its own round button, beside (not inside) the sort pill. The arrow turns half a turn when flipped; the press squeezes it. */
-.bz-bar .sortgrp { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
-.bz-bar .sortgrp .pillsel { padding-left: 11px; }
-.bz-bar .sort-flip { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 32px; height: 32px; padding: 0; border-radius: 50%; border: 1.5px solid color-mix(in srgb, currentColor 22%, transparent); background: var(--chip); color: inherit; cursor: pointer; transition: transform .12s ease, background-color .2s, color .2s, border-color .2s; }
+.bz-bar .sortgrp { display: inline-flex; align-items: center; gap: 0; min-width: 0; background: var(--chip); border-radius: 999px; }
+.bz-bar .sortgrp .pillsel { background: transparent; padding-left: 4px; border-radius: 999px; }
+.bz-bar .sort-flip { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 32px; height: 32px; padding: 0; border-radius: 50%; border: 0; background: transparent; color: inherit; cursor: pointer; transition: transform .12s ease, background-color .2s, color .2s; }
 .bz-bar .sort-flip svg { display: block; transition: transform .35s cubic-bezier(.34, 1.56, .64, 1); }
 .bz-bar .sort-flip[aria-pressed="true"] svg { transform: rotate(180deg); }
-.bz-bar .sort-flip[aria-pressed="true"] { background: color-mix(in srgb, var(--gold-fill) 24%, var(--chip)); border-color: var(--gold-fill); }
+.bz-bar .sort-flip[aria-pressed="true"] { background: color-mix(in srgb, var(--gold-fill) 24%, transparent); }
 .bz-bar .sort-flip:active { transform: scale(.88); }
 .bz-bar .sort-flip:focus-visible { outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--gold-fill) 30%, transparent), 0 0 0 2px var(--gold-fill); }
 @media (prefers-reduced-motion: reduce) { .bz-bar .sort-flip, .bz-bar .sort-flip svg { transition: none; } }
