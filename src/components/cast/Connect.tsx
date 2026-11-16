@@ -261,7 +261,7 @@ function Picker({ kind, value, onChange, label, autoFocus }: { kind: "person" | 
   );
   const id = `pk-${label.replace(/\s/g, "")}`;
   return (
-    <div className="pick">
+    <div className="pick" data-no-lift>
       <input ref={input} type="search" value={q} placeholder={kind === "person" ? "Search a person" : "Search a film or series"} aria-label={label}
         role="combobox" aria-expanded={open && hits.length > 0} aria-controls={id} aria-autocomplete="list" autoComplete="off"
         onChange={(e) => { setQ(e.target.value); setOpen(true); }} onFocus={() => setOpen(true)} onBlur={() => setTimeout(() => setOpen(false), 150)}
