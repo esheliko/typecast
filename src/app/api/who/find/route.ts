@@ -86,6 +86,8 @@ async function solve(q: string, param: (n: string) => string | null): Promise<Re
   };
   // "himym lisa": a one-word actor name ("LISA") must not beat a named title that has that character.
   if (found && found.rest.length && words1(found.person.name)) { const a = await byTitle(); if (a) return a; titleOnly = null; }
+  // "izzy stevens": TMDB lists some unknown person of that name, but it is a character of a famous show.
+  if (found && !found.rest.length && (found.person.popularity ?? 0) < 1 && restWords(q).length >= 2) { const a = await famousCharacter(restWords(q)); if (a) return { person: null, title: null, people: a, matches: [] }; }
   if (!found) {
     { const a = await byTitle(); if (a) return a; }
     // No title named, but "sheldon cooper mom": whose relative? Look for the character in the best matches, and in the other shows its actors appear as it.
@@ -95,6 +97,8 @@ async function solve(q: string, param: (n: string) => string | null): Promise<Re
       const ans = seeds.length ? await relationAnswer(seeds, rel.anchor, rel.rel, rel.word) : null;
       if (ans) return { person: null, title: null, people: ans, matches: [] };
     }
+    // "meredith grey": no show named, but the words are one character of a well-known show.
+    if (!rel && restWords(q).length >= 2) { const a = await famousCharacter(restWords(q)); if (a) return { person: null, title: null, people: a, matches: [] }; }
     found = splitActorQuery(q, people, { partial: true });
     // Still nothing and it is a relative ("ted sister"): the character may be in any well-known show, not only one the search named.
     if (!found && rel) { const ans = await famousRelation(rel.anchor, rel.rel, rel.word); if (ans) return { person: null, title: null, people: ans, matches: [] }; }
@@ -170,6 +174,15 @@ async function famousRelation(anchor: string[], rel: Relation, word: string) {
   const has = await pool(shows, 8, async (s) => { const i = (await getCast(s.type, s.id, 2000).catch(() => [])).findIndex((c) => roleHas(c.role, anchor)); return i < 0 ? null : { s, i }; });
   for (const h of has.filter(Boolean).sort((a, b) => a!.i - b!.i).slice(0, 3)) { const ans = await relationAnswer([h!.s], anchor, rel, word); if (ans) return ans; }
   return null;
+}
+
+/** A character named with no show ("meredith grey", "izzy stevens"): the well-known series where it is billed highest, with the actors who play it. Null when no such character. */
+async function famousCharacter(anchor: string[]) {
+  const pages = await Promise.all([1, 2, 3, 4].map((page) => tmdb("/discover/tv", { sort_by: "vote_count.desc", page: String(page) }, DAY).catch(() => null)));
+  const shows: Show[] = pages.flatMap((d) => (d?.results ?? []) as { id: number; name: string }[]).map((r) => ({ key: `tv:${r.id}`, type: "tv" as const, id: r.id, title: r.name }));
+  const has = await pool(shows, 8, async (s) => { const cast = await getCast(s.type, s.id, 2000).catch(() => []); const i = cast.findIndex((c) => roleHas(c.role, anchor)); return i < 0 ? null : { s, i, hits: cast.filter((c) => roleHas(c.role, anchor)).slice(0, 3) }; });
+  const best = has.filter(Boolean).sort((a, b) => a!.i - b!.i)[0];
+  return best ? best.hits.map((c) => ({ id: c.id, name: c.name, photo: c.photo, role: c.role, why: "", show: best.s.title, tkey: best.s.key, ttype: best.s.type })) : null;
 }
 
 /** What Wikipedia's cast section says about each character ("a sergeant (later lieutenant)"), to match words like "sergeant" that TMDB's bare names lack. Fails soft; never for a series held back by a spoiler line. */
