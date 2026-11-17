@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { characterName, pickListed, pickSeenIn, weakReason, sortByRelease, seenInText, type KnownTitle } from "../../src/lib/who-known";
+import { characterName, sameFranchise, pickListed, pickSeenIn, weakReason, sortByRelease, seenInText, type KnownTitle } from "../../src/lib/who-known";
 
 const seen = (...keys: string[]) => (k: string) => (keys.includes(k) ? { status: "watched", rich: false } : undefined);
 
@@ -111,4 +111,18 @@ test("pickListed: only watchlist titles, best recognised first, character kept",
   assert.equal(p.key, "tv:3");
   assert.equal(seenInText(p), "Stanton in Listed Hit");
   assert.equal(pickListed(top, "tv:3", (k) => k === "tv:3", 2026), null);
+});
+
+test("the same franchise or character as the title being watched is a weak answer", () => {
+  const top: KnownTitle[] = [
+    ["movie:1", "The Hunger Games", "2012", "Katniss Everdeen", 0, 20000, 0],
+    ["movie:2", "The Hunger Games: Catching Fire", "2013", "Katniss Everdeen", 0, 15000, 0],
+    ["movie:3", "Silver Linings", "2012", "Tiffany", 0, 9000, 0],
+  ];
+  assert.equal(pickSeenIn(top, "movie:1", seen("movie:2", "movie:3"), 2026, "The Hunger Games")!.key, "movie:3");
+  // still offered when nothing else is known
+  assert.equal(pickSeenIn(top, "movie:1", seen("movie:2"), 2026, "The Hunger Games")!.key, "movie:2");
+  assert.equal(pickListed(top, "movie:1", (k) => k !== "movie:1", 2026, "The Hunger Games")!.key, "movie:3");
+  assert.ok(sameFranchise("Scream", "Scream VI") && sameFranchise("Harry Potter and the Chamber of Secrets", "Harry Potter and the Goblet of Fire"));
+  assert.ok(!sameFranchise("Mad Max", "Mad Men") && !sameFranchise("Star Trek", "Star Wars") && !sameFranchise("Breaking Bad", "Breaking In"));
 });
