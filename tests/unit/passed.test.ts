@@ -4,21 +4,25 @@ import { showChance, roll, faded, type Passed } from "../../src/lib/passed";
 
 const DAY = 24 * 3600 * 1000;
 const NOW = 1_700_000_000_000;
+// Mirrors the constants in src/lib/passed.ts (not exported): update together.
+const FORGIVE_DAYS = 4;
+const FALLOFF = 0.7;
+const FLOOR = 0.1;
 
 test("showChance is 1 for a title never passed over", () => assert.equal(showChance(undefined, NOW), 1));
 
 test("showChance falls with each pass and stops at the floor", () => {
   const c = (n: number) => showChance([n, NOW], NOW);
-  assert.ok(Math.abs(c(1) - 0.55) < 1e-9);
+  assert.ok(Math.abs(c(1) - FALLOFF) < 1e-9);
   assert.ok(c(2) < c(1) && c(3) < c(2));
-  assert.equal(c(8), 0.04);
-  assert.equal(c(50), 0.04);
+  assert.equal(c(8), FLOOR);
+  assert.equal(c(50), FLOOR);
 });
 
-test("a pass is forgiven every 21 days", () => {
-  assert.equal(showChance([2, NOW - 20 * DAY], NOW), showChance([2, NOW], NOW));
-  assert.equal(showChance([2, NOW - 21 * DAY], NOW), showChance([1, NOW], NOW));
-  assert.equal(showChance([1, NOW - 21 * DAY], NOW), 1);
+test("a pass is forgiven every FORGIVE_DAYS days", () => {
+  assert.equal(showChance([2, NOW - (FORGIVE_DAYS - 1) * DAY], NOW), showChance([2, NOW], NOW));
+  assert.equal(showChance([2, NOW - FORGIVE_DAYS * DAY], NOW), showChance([1, NOW], NOW));
+  assert.equal(showChance([1, NOW - FORGIVE_DAYS * DAY], NOW), 1);
   assert.equal(showChance([1, NOW - 400 * DAY], NOW), 1);
 });
 
