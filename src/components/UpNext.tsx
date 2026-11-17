@@ -1,5 +1,5 @@
 "use client";
-import { useContext, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { readUi, saveUi, type UiPrefs } from "@/lib/ui-prefs";
 import { TitleLink } from "./Modal";
@@ -9,7 +9,6 @@ import { newEpLabel } from "@/lib/new-episode";
 import { bySource, onYourServices, SOURCES, type Pick, type Source } from "@/lib/upnext";
 import { mixed, ofKind, type Kind } from "@/lib/kind";
 import { KindSeg } from "./KindSeg";
-import { KindContext } from "@/lib/kind-context";
 import { useLib } from "./cast/LibState";
 import { ResumeButton } from "./ResumeSheet";
 
@@ -37,7 +36,7 @@ function saveSnoozed(s: Snoozed) { try { localStorage.setItem(SNOOZE_KEY, JSON.s
 export type ServicesState = "yes" | "no" | "pending" | "failed";
 
 export default function UpNext({ picks: all, services, prefs }: { picks: Pick[]; services: ServicesState; prefs: UiPrefs }) {
-  const base = ofKind(all, useContext(KindContext)); // follows the Library's Films / Series switch
+  const base = all; // independent of the Library's Films / Series switch
   // Saved choices arrive from the server (cookie), so the first paint is already right: no open-then-close flash.
   const [kind, setKind] = useState<Kind>(prefs.unKind); // the strip has its own Films / Series choice
   const [closed, setClosed] = useState(prefs.unClosed);

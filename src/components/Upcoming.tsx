@@ -1,11 +1,9 @@
 "use client";
-import { useContext, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { TitleLink } from "./Modal";
 import Collapse from "./Collapse";
 import { readUi, saveUi } from "@/lib/ui-prefs";
 import { img } from "@/lib/img";
-import { ofKind } from "@/lib/kind";
-import { KindContext } from "@/lib/kind-context";
 import { setUpcomingBadges } from "@/lib/upcoming-badges";
 import { countdown, dateLabel, groupUpcoming, isSoon, localDay, subLine, type UpEntry } from "@/lib/upcoming";
 
@@ -13,11 +11,11 @@ const SHOW = 8;
 
 /**
  * Unreleased films and the next episodes of your series, grouped by date (see lib/upcoming.ts). Collapsed until you open it
- * (remembered on this device) and absent when nothing is coming. Follows the Library's Films / Series switch.
+ * (remembered on this device) and absent when nothing is coming. Not filtered by the Library's Films / Series switch.
  * `today` comes from the server and is corrected to the device's own day after mount, so "tomorrow" is right in any time zone.
  */
 export default function Upcoming({ entries: all, today: serverToday, open: initialOpen }: { entries: UpEntry[]; today: string; open: boolean }) {
-  const entries = ofKind(all, useContext(KindContext));
+  const entries = all;
   const [open, setOpen] = useState(initialOpen);
   // Only one of Watch next / Upcoming is open at a time: opening the other closes this one.
   useEffect(() => {
