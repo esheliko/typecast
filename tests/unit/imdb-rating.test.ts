@@ -57,3 +57,10 @@ test("omdbKeys lists the main key then the spare, skipping blanks and duplicates
   assert.deepEqual(omdbKeys({ OMDB_API_KEY_2: "b" }), ["b"]);
   assert.deepEqual(omdbKeys({}), []);
 });
+
+test("parseOmdbSeasonReleased takes the newest dated episode", async () => {
+  const { parseOmdbSeasonReleased } = await import("../../src/lib/imdb-rating");
+  assert.equal(parseOmdbSeasonReleased({ Episodes: [{ Released: "01 Jan 2020" }, { Released: "N/A" }, { Released: "08 Jan 2020" }] }), Date.parse("08 Jan 2020"));
+  assert.equal(parseOmdbSeasonReleased({ Episodes: [{ Released: "N/A" }] }), null);
+  assert.equal(parseOmdbSeasonReleased(null), null);
+});

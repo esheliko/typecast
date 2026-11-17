@@ -1,4 +1,3 @@
-import { unstable_cache } from "next/cache";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 /** IMDb's own score for one title or episode, via OMDb (needs OMDB_API_KEY). Never throws: null means "unknown". */
@@ -139,18 +138,47 @@ export function parseOmdbSeason(d: unknown): Record<number, number> {
   return out;
 }
 
-async function fetchSeason(imdb: string, season: number): Promise<Record<number, number>> {
-  if (!hasOmdbKey()) return {};
-  return parseOmdbSeason(await omdbGet(`i=${imdb}&Season=${season}`));
+/** Pure: release time (ms) of the newest dated episode in OMDb's season body, null when none is dated. A season still airing counts as young, so it is re-checked soon. */
+export function parseOmdbSeasonReleased(d: unknown): number | null {
+  const o = d as { Episodes?: { Released?: string }[] } | null;
+  let best: number | null = null;
+  for (const x of o?.Episodes ?? []) { const t = Date.parse(String(x.Released ?? "")); if (Number.isFinite(t) && (best == null || t > best)) best = t; }
+  return best;
 }
 
-const cs = unstable_cache(fetchSeason, ["imdb-season-v2"], { revalidate: 86400 });
+type SeasonRow = { eps: Record<number, number>; fetchedAt: number; released: number | null };
 
-/** IMDb scores for every episode of one season in ONE OMDb call. Never throws; empty means unknown. */
+async function readSeason(imdb: string, season: number): Promise<SeasonRow | null> {
+  const s = store();
+  if (!s) return null;
+  try {
+    const { data, error } = await s.from("imdb_seasons").select("*").eq("imdb_id", imdb).eq("season", season).maybeSingle();
+    if (error) { console.warn(`imdb_seasons read: ${error.message}`); return null; }
+    if (!data) return null;
+    return { eps: (data.eps ?? {}) as Record<number, number>, fetchedAt: Date.parse(data.fetched_at), released: data.released ? Date.parse(data.released) : null };
+  } catch (e) { console.warn(`imdb_seasons read: ${String(e)}`); return null; }
+}
+
+async function writeSeason(imdb: string, season: number, eps: Record<number, number>, released: number | null) {
+  const s = store();
+  if (!s) return;
+  try {
+    const { error } = await s.from("imdb_seasons").upsert({ imdb_id: imdb, season, eps, released: released == null ? null : new Date(released).toISOString().slice(0, 10), fetched_at: new Date().toISOString() });
+    if (error) console.warn(`imdb_seasons write: ${error.message}`);
+  } catch (e) { console.warn(`imdb_seasons write: ${String(e)}`); }
+}
+
+/** IMDb scores for every episode of one season in ONE OMDb call, kept in the database as long as the season's age allows (same rule as titles). Never throws; empty means unknown. */
 export async function getSeasonImdb(imdb: string | null | undefined, season: number): Promise<Record<number, number>> {
   if (!imdb || !/^tt\d+$/.test(imdb) || !Number.isInteger(season) || season < 0) return {};
-  try { return await cs(imdb, season); } catch (e) {
-    if (/incrementalCache missing/.test(String(e))) return fetchSeason(imdb, season).catch(() => ({}));
-    return {};
-  }
+  const row = await readSeason(imdb, season), now = Date.now();
+  const has = !!row && Object.keys(row.eps).length > 0;
+  if (row && isFresh({ rating: has ? 1 : null, fetchedAt: row.fetchedAt, released: row.released }, now)) return row.eps;
+  if (!hasOmdbKey()) return row?.eps ?? {};
+  try {
+    const d = await omdbGet(`i=${imdb}&Season=${season}`);
+    const eps = parseOmdbSeason(d);
+    await writeSeason(imdb, season, eps, parseOmdbSeasonReleased(d));
+    return eps;
+  } catch { return row?.eps ?? {}; }
 }
