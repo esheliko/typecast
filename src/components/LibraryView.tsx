@@ -64,27 +64,41 @@ export default function LibraryView({ items, initial, initialSort = "watched", i
     window.history.replaceState(window.history.state, "", u);
   }
   const stickRef = useRef<HTMLDivElement>(null);
-  // Publish the pinned filters' height so the search box can stick right under them.
+  // Phones: the pinned chips + sort bar collapse like a browser's address bar, tied to the finger. `off` (px, 0..R, R = their height) moves 1:1 with the scroll
+  // distance (scroll down: slide up under the header, any upward scroll: slide back down), and the filter box (pinned right under them) moves with them, so
+  // when they are gone it sits directly under the header. Both read `--lib-off` in their sticky `top` (globals.css). Written straight to the DOM, no state
+  // per scroll event; when scrolling stops, a half-way stack settles to the nearer end. Wider screens keep everything pinned (off stays 0).
   useEffect(() => {
     const el = stickRef.current;
     if (!el) return;
-    const set = () => document.documentElement.style.setProperty("--lib-stick-h", `${el.getBoundingClientRect().height}px`);
-    set();
-    const ro = new ResizeObserver(set);
-    ro.observe(el);
-    return () => { ro.disconnect(); document.documentElement.style.removeProperty("--lib-stick-h"); };
-  }, []);
-  // Scrolling down hides the chips and sort bar (the filter box stays pinned); scrolling up (or reaching the top, or focusing a control) brings them back.
-  useEffect(() => {
     const root = document.documentElement;
-    let last = window.scrollY;
+    const phone = () => window.matchMedia("(max-width: 559px)").matches;
+    let R = 0, off = 0, last = window.scrollY, raf = 0, idle: ReturnType<typeof setTimeout> | undefined;
+    const apply = (v: number) => { off = Math.min(R, Math.max(0, v)); root.style.setProperty("--lib-off", `${off}px`); };
+    const measure = () => { R = el.getBoundingClientRect().height; root.style.setProperty("--lib-stick-h", `${R}px`); apply(phone() ? off : 0); };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
     const onScroll = () => {
-      const y = window.scrollY, dy = y - last;
-      if (y < 160 || dy < -6) { root.removeAttribute("data-lib-hide"); last = y; }
-      else if (dy > 8 && !document.querySelector(".lib-stick :focus-visible")) { root.setAttribute("data-lib-hide", ""); last = y; }
+      const y = window.scrollY, d = y - last;
+      last = y;
+      if (!phone()) return;
+      cancelAnimationFrame(raf);
+      apply(y <= 0 ? 0 : off + d);
+      clearTimeout(idle);
+      idle = setTimeout(() => {
+        const from = off, to = from > R / 2 && window.scrollY >= R ? R : 0;
+        if (from === to || window.matchMedia("(prefers-reduced-motion: reduce)").matches) { apply(to); return; }
+        const t0 = performance.now();
+        const step = (now: number) => { const k = Math.min(1, (now - t0) / 160); apply(from + (to - from) * (1 - (1 - k) * (1 - k))); if (k < 1) raf = requestAnimationFrame(step); };
+        raf = requestAnimationFrame(step);
+      }, 140);
     };
     window.addEventListener("scroll", onScroll, { passive: true });
-    return () => { window.removeEventListener("scroll", onScroll); root.removeAttribute("data-lib-hide"); };
+    return () => {
+      ro.disconnect(); window.removeEventListener("scroll", onScroll); cancelAnimationFrame(raf); clearTimeout(idle);
+      for (const v of ["--lib-off", "--lib-stick-h"]) root.style.removeProperty(v);
+    };
   }, []);
   return (
     <>
