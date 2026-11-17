@@ -713,6 +713,8 @@ button.aw-chip:hover { filter: brightness(1.08); }
 .lib-top .upnext-h[aria-expanded="true"]:active,
 .lib-top .upnext-h[aria-expanded="true"]:focus-visible { background: var(--wash); border-color: var(--wash-edge); border-bottom-color: transparent; border-radius: 12px 12px 0 0; }
 .lib-top .upnext-h[aria-expanded="true"] .upnext-n { background: color-mix(in srgb, var(--gold) 38%, var(--surface)); border-color: transparent; color: var(--ink); }
+/* The global light-theme "button:hover { filter: brightness(.94) }" (above) darkened the open tab against its panel: the tabs use their own tint instead. */
+:root .lib-top button.upnext-h:not([disabled]):hover { filter: none; }
 /* A closed tab answers hover and press with a faint gold tint; the open one never changes (its colour IS the panel's). */
 @media (hover: hover) { .lib-top .upnext-h[aria-expanded="false"]:hover { background: color-mix(in srgb, var(--gold) 7%, transparent); border-color: color-mix(in srgb, var(--gold) 22%, transparent); } }
 .lib-top .upnext-h[aria-expanded="false"]:active { background: color-mix(in srgb, var(--gold) 10%, transparent); }
