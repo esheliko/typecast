@@ -80,6 +80,26 @@ export function weakReason(role: string, eps: number, year: string, nowYear: num
   return null;
 }
 
+/** A title the person played in that is the same story as the one being watched (sequel, spin-off, remake) scores this much of its usual value. */
+export const SAME_STORY_FACTOR = 0.2;
+const lead = (t: string) => t.toLowerCase().replace(/&/g, " and ").replace(/[^\p{L}\p{N}\s]/gu, " ").split(/\s+/).filter(Boolean).filter((w, i) => !(i === 0 && /^(the|a|an)$/.test(w)));
+/** Two titles that are plainly the same franchise: they share the leading words ("The Hunger Games" / "The Hunger Games: Catching Fire"). */
+export function sameFranchise(a: string, b: string): boolean {
+  const x = lead(a), y = lead(b);
+  if (!x.length || !y.length) return false;
+  const n = Math.min(x.length, y.length);
+  let i = 0;
+  while (i < n && x[i] === y[i]) i++;
+  return i === n && (n >= 2 || x.length !== y.length || x.join(" ") === y.join(" ")) || i >= 2;
+}
+/** `current` is the title being watched: other parts in its franchise, or as the same character, are weak answers. */
+function sameStoryFactor(top: KnownTitle[], exclude: string, title: string, role: string, current?: string): number {
+  if (current === undefined) return 1;
+  const mine = characterName(top.find(([k]) => k === exclude)?.[3] ?? "").toLowerCase();
+  const there = characterName(role).toLowerCase();
+  return sameFranchise(current, title) || (!!mine && mine === there) ? SAME_STORY_FACTOR : 1;
+}
+
 export interface Pick { key: string; title: string; year: string; character: string; score: number; chip: string | null }
 
 /**
@@ -87,7 +107,7 @@ export interface Pick { key: string; title: string; year: string; character: str
  * was (named character, number of episodes), how famous the title is (a hit is watched and discussed, so it sticks), and that you rated or
  * noted it. The current title is never offered. Returns null when you have seen none of them.
  */
-export function pickSeenIn(top: KnownTitle[], exclude: string, mark: (key: string) => KnownMark | undefined, nowYear = new Date().getFullYear()): Pick | null {
+export function pickSeenIn(top: KnownTitle[], exclude: string, mark: (key: string) => KnownMark | undefined, nowYear = new Date().getFullYear(), current?: string): Pick | null {
   let best: Pick | null = null;
   for (const [key, title, year, role, eps, votes, order] of top) {
     if (key === exclude) continue;
@@ -95,7 +115,7 @@ export function pickSeenIn(top: KnownTitle[], exclude: string, mark: (key: strin
     const sw = m ? SEEN_WEIGHT[m.status] : undefined;
     if (!sw) continue;
     // Partly watched series: only the episodes you saw count, and we do not know which, so trust the part size less.
-    const score = sw * (0.1 + partWeight(role, eps, order)) * (0.3 + fame(votes)) * (m!.rich ? 1.2 : 1);
+    const score = sw * (0.1 + partWeight(role, eps, order)) * (0.3 + fame(votes)) * (m!.rich ? 1.2 : 1) * sameStoryFactor(top, exclude, title, role, current);
     if (!best || score > best.score) best = { key, title, year, character: characterName(role), score, chip: weakReason(role, eps, year, nowYear) };
   }
   return best;
@@ -105,11 +125,11 @@ export function pickSeenIn(top: KnownTitle[], exclude: string, mark: (key: strin
  * The title on your watchlist (not seen yet) the person is most recognisable from: always a weak answer, shown faded with the
  * character kept. `listed` says whether a key is on the watchlist. Null when none of their titles is.
  */
-export function pickListed(top: KnownTitle[], exclude: string, listed: (key: string) => boolean, nowYear = new Date().getFullYear()): Pick | null {
+export function pickListed(top: KnownTitle[], exclude: string, listed: (key: string) => boolean, nowYear = new Date().getFullYear(), current?: string): Pick | null {
   let best: Pick | null = null;
   for (const [key, title, year, role, eps, votes, order] of top) {
     if (key === exclude || !listed(key)) continue;
-    const score = recognition(role, eps, votes, order);
+    const score = recognition(role, eps, votes, order) * sameStoryFactor(top, exclude, title, role, current);
     if (!best || score > best.score) best = { key, title, year, character: characterName(role), score, chip: weakReason(role, eps, year, nowYear) };
   }
   return best;

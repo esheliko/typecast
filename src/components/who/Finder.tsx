@@ -321,8 +321,8 @@ function Tile({ f, known, seenW, eager, then, year, onOpen, onPop }: { f: WhoFac
   };
   const hide = () => { clearTimeout(timer.current); onPop(null); };
   useEffect(() => () => clearTimeout(timer.current), []);
-  const pick = known ? pickSeenIn(known, brief.key, (k) => { const m = lib.get(k); return m && SEEN_STATUS.has(m.status) ? seenMarkAt(k, m, seenW) : undefined; }) : null; // a Watching series is "seen" only when the server confirmed they appeared by the saved place (spoiler line)
-  const listedPick = !pick && known ? pickListed(known, brief.key, (k) => lib.get(k)?.status === "watchlist") : null; // on your list, not seen: always faded
+  const pick = known ? pickSeenIn(known, brief.key, (k) => { const m = lib.get(k); return m && SEEN_STATUS.has(m.status) ? seenMarkAt(k, m, seenW) : undefined; }, undefined, brief.title) : null; // a Watching series is "seen" only when the server confirmed they appeared by the saved place (spoiler line)
+  const listedPick = !pick && known ? pickListed(known, brief.key, (k) => lib.get(k)?.status === "watchlist", undefined, brief.title) : null; // on your list, not seen: always faded
   const shown = pick ?? listedPick;
   const faded = !!listedPick || !!pick?.chip;
   const seen = shown ? seenInText(shown) : "";
