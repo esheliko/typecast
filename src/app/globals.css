@@ -224,9 +224,16 @@ a.row { text-decoration: none; color: inherit; }
 .bz-bar .sortgrp { display: inline-flex; align-items: center; gap: 0; min-width: 0; background: var(--chip); border-radius: 999px; }
 .bz-bar .sortgrp .pillsel { background: transparent; padding-left: 4px; border-radius: 999px; }
 .bz-bar .sort-flip { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 32px; height: 32px; padding: 0; border-radius: 50%; border: 0; background: transparent; color: inherit; cursor: pointer; transition: transform .12s ease, background-color .2s, color .2s; }
-.bz-bar .sort-flip svg { display: block; transition: transform .35s cubic-bezier(.34, 1.56, .64, 1); }
+.bz-bar .sort-flip svg { display: block; transition: transform .3s cubic-bezier(.4, 0, .2, 1); will-change: transform; }
 .bz-bar .sort-flip[aria-pressed="true"] svg { transform: rotate(180deg); }
 .bz-bar .sort-flip[aria-pressed="true"] { background: color-mix(in srgb, var(--gold-fill) 24%, transparent); }
+@media (hover: hover) {
+  .bz-bar .sortgrp { transition: background-color .2s; }
+  .bz-bar .sortgrp:hover { background: color-mix(in srgb, var(--chip) 82%, currentColor); }
+  .bz-bar .sort-flip:hover { background: color-mix(in srgb, currentColor 12%, transparent); }
+  .bz-bar .sort-flip[aria-pressed="true"]:hover { background: color-mix(in srgb, var(--gold-fill) 38%, transparent); }
+  .bz-bar .sortgrp .pillsel select { cursor: pointer; }
+}
 .bz-bar .sort-flip:active { transform: scale(.88); }
 .bz-bar .sort-flip:focus-visible { outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--gold-fill) 30%, transparent), 0 0 0 2px var(--gold-fill); }
 @media (prefers-reduced-motion: reduce) { .bz-bar .sort-flip, .bz-bar .sort-flip svg { transition: none; } }

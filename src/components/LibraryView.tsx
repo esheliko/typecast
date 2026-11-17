@@ -1,5 +1,5 @@
 "use client";
-import { useDeferredValue, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import LibraryList from "./LibraryList";
 import { useRef } from "react";
 import { useRetained } from "@/lib/useRetained";
@@ -30,7 +30,9 @@ export default function LibraryView({ items, initial, initialSort = "watched", i
     const ofType = ofKind(all, kind);
     return filter === "all" ? ofType : ofType.filter((l) => where.current.get(l.key)!.status === filter);
   }, [all, kind, filter]);
-  const listFlip = useDeferredValue(flip); // the button flips at once; the (possibly long) list re-orders right behind it
+  // The arrow turns at once; the (possibly long) list re-orders only after the turn has finished, so a heavy render can't stall the animation.
+  const [listFlip, setListFlip] = useState(initialFlip);
+  useEffect(() => { const t = setTimeout(() => setListFlip(flip), 380); return () => clearTimeout(t); }, [flip]);
   // Memoised so the button's own (urgent) render never re-sorts or re-renders the list: that stall froze the flip animation.
   const shown = useMemo(() => {
     const sorted = orderItems(picked, sort, listFlip, unrated); // stable, so ties keep newest-first
