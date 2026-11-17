@@ -63,15 +63,25 @@ export default function LibraryView({ items, initial, initialSort = "watched", i
     if (k === "watched") u.searchParams.delete("s"); else u.searchParams.set("s", k);
     window.history.replaceState(window.history.state, "", u);
   }
+  const stickRef = useRef<HTMLDivElement>(null);
+  // Publish the pinned filters' height so the search box can stick right under them.
+  useEffect(() => {
+    const el = stickRef.current;
+    if (!el) return;
+    const set = () => document.documentElement.style.setProperty("--lib-stick-h", `${el.getBoundingClientRect().height}px`);
+    set();
+    const ro = new ResizeObserver(set);
+    ro.observe(el);
+    return () => { ro.disconnect(); document.documentElement.style.removeProperty("--lib-stick-h"); };
+  }, []);
   return (
     <>
       <KindContext.Provider value={kind}>{top}</KindContext.Provider>
-      <div className="lib-stick">
+      <div className="lib-stick" ref={stickRef}>
       <div className="chips scroll lib-chips" role="group" aria-label="Filter">
         {TABS.map(([k, label], i) => { const { group, pairStart } = tabGroup(k, i); return <button key={k} type="button" className={`chip${group ? ` lib-${group}` : ""}${pairStart ? " lib-pair-start" : ""}`} aria-pressed={filter === k} onClick={() => choose(k)}>{label} <span className="mono">{count(k)}</span></button>; })}
       </div>
-      </div>
-      <div className="bz-bar" style={{ marginTop: 4 }}>
+      <div className="bz-bar" style={{ marginTop: 12 }}>
         {(kind !== "all" || mixed(items)) && <KindSeg value={kind} onChange={chooseKind} />}
         <span className="sortgrp">
           <button type="button" className="sort-flip" aria-pressed={flip} aria-label="Flip sort order" title={flip ? "Reversed: click to restore" : "Click to reverse the order"} onClick={() => { setFlip(!flip); setParam("r", !flip); }}>
@@ -84,6 +94,7 @@ export default function LibraryView({ items, initial, initialSort = "watched", i
           </label>
         </span>
         <button type="button" className="chip sm" aria-pressed={unrated} title="Only titles you haven't rated" onClick={() => { setUnrated(!unrated); setParam("u", !unrated); }}>Unrated</button>
+      </div>
       </div>
       {between}
       <LibraryList items={shown} />
