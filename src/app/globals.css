@@ -691,11 +691,16 @@ button.aw-chip:hover { filter: brightness(1.08); }
    the open one's body slides out underneath (rows 2 and 3, full width). Only one body is open at a time, so an
    open/close is just a height change below the headers: nothing reflows sideways or jumps. Sections are
    display: contents so headers and bodies can sit in the shared grid. */
-/* Library: only the "Filter your library" box is pinned under the sticky header; the chips and sort bar scroll with the list. */
-.lib-stick { margin: 0 0 0 0; padding: 4px 0 0; }
-.lib-stick > .bz-bar { margin-top: 8px !important; }
-.lib-find { position: sticky; top: calc(var(--top-h, 56px) - 1px); z-index: 15; margin: 2px calc(-1 * max(16px, env(safe-area-inset-right, 0px))) 0 calc(-1 * max(16px, env(safe-area-inset-left, 0px))); padding: 2px max(16px, env(safe-area-inset-right, 0px)) 6px max(16px, env(safe-area-inset-left, 0px)); background: var(--bg); transition: transform .22s ease; }
+/* Library filters (status chips + kind/sort bar) stay pinned under the sticky header while the list scrolls. */
+.lib-stick { position: sticky; top: calc(var(--top-h, 56px) - 1px); z-index: 15; margin: 0 calc(-1 * max(16px, env(safe-area-inset-right, 0px))) 0 calc(-1 * max(16px, env(safe-area-inset-left, 0px))); padding: 2px max(16px, env(safe-area-inset-right, 0px)) 4px max(16px, env(safe-area-inset-left, 0px)); background: var(--bg); transition: transform .22s ease; }
+.lib-stick > .bz-bar { margin-top: 6px !important; }
+/* "Filter your library" pins right under the filters above it. */
+.lib-find { position: sticky; top: calc(var(--top-h, 56px) + var(--lib-stick-h, 90px) - 1px); z-index: 14; margin: 2px calc(-1 * max(16px, env(safe-area-inset-right, 0px))) 0 calc(-1 * max(16px, env(safe-area-inset-left, 0px))); padding: 2px max(16px, env(safe-area-inset-right, 0px)) 6px max(16px, env(safe-area-inset-left, 0px)); background: var(--bg); transition: top .22s ease; }
 .field.lib-find input { padding: 9px 14px; }
+/* Scrolling down slides the chips and sort bar up out of view behind the header; the first scroll up brings them back. */
+html[data-lib-hide] .lib-stick { transform: translateY(-220px); pointer-events: none; }
+/* While the chips and sort bar are hidden the filter box stays pinned, moving up to sit right under the header. */
+html[data-lib-hide] .lib-find { top: calc(var(--top-h, 56px) - 1px); }
 .lib-top { display: grid; grid-template-columns: repeat(var(--cols, 1), minmax(0, 1fr)); column-gap: 8px; row-gap: 0; align-items: start; margin-top: 6px; --up-acc: color-mix(in srgb, var(--gold) 55%, transparent); }
 .lib-top:has(> .upnext + .upnext) { --cols: 2; }
 .lib-top:has(.upcoming) { margin-bottom: 12px; }
