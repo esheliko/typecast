@@ -9,7 +9,7 @@ import { typeLabel } from "@/lib/img";
 import type { Item, PeopleLink, SearchHit, TitlesLink } from "@/lib/types";
 
 type Who = { id: number; name: string; photo: string | null; role: string };
-type CharMatch = { show: Item; a: Who; b: Who };
+type CharMatch = { show: Item; members: Who[] };
 type Block = { id: string; kind: "people"; r: PeopleLink } | { id: string; kind: "titles"; r: TitlesLink } | { id: string; kind: "chars"; r: CharMatch[] };
 
 const topOf = async (side: string, signal: AbortSignal): Promise<SearchHit | null> => {
@@ -23,12 +23,12 @@ const getJson = async (url: string, signal: AbortSignal) => { const r = await fe
  * "A + B" typed in the main search box: how two people, two titles or two characters ("sheldon + penny") connect, the same answer as the Connections tab.
  * Each answer is shown the moment it arrives; a spinner stays while others are still loading. Nothing shows unless an answer is found.
  */
-export default function PairConnect({ pair, cuts, onShown }: { pair?: [string, string] | null; cuts?: [string, string][]; onShown?: (on: boolean) => void }) {
+export default function PairConnect({ pair, cuts, charText, onShown }: { pair?: [string, string] | null; cuts?: [string, string][]; /** No separator and no clear title or person: look for one show whose cast has every typed word ("nolan harper lucy tim"). */ charText?: string | null; onShown?: (on: boolean) => void }) {
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [pending, setPending] = useState(true);
-  const key = pair ? pair.join("|") : (cuts ?? []).map((c) => c.join("|")).join("||");
+  const key = pair ? pair.join("|") : (cuts ?? []).map((c) => c.join("|")).join("||") + "#" + (charText ?? "");
   // A typed separator is a sure sign of a connection, so the spinner shows at once; a guessed cut (no separator) stays silent until something is found.
-  const spin = pending && (blocks.length > 0 || !!pair);
+  const spin = pending && (blocks.length > 0 || !!pair || !!charText);
   useEffect(() => { onShown?.(blocks.length > 0 || spin); }, [blocks, spin, onShown]);
   useEffect(() => () => onShown?.(false), [onShown]);
   useEffect(() => {
@@ -64,6 +64,11 @@ export default function PairConnect({ pair, cuts, onShown }: { pair?: [string, s
           jobs.push(getJson(`/api/connect/characters?a=${encodeURIComponent(pair[0])}&b=${encodeURIComponent(pair[1])}`, ctl.signal)
             .then((j) => add(j?.matches?.length ? { id: "c", kind: "chars", r: j.matches } : null)).catch(() => {}));
         }
+        // No separator, nothing clear: the words may be characters of one show ("sheldon penny", "ted mosby", "nolan harper lucy tim").
+        if (!pair && charText && !jobs.length) {
+          jobs.push(getJson(`/api/connect/characters?q=${encodeURIComponent(charText)}`, ctl.signal)
+            .then((j) => add(j?.matches?.length ? { id: "c", kind: "chars", r: j.matches } : null)).catch(() => {}));
+        }
         await Promise.all(jobs);
       } catch { /* aborted or failed: the normal results still show */ }
       if (!ctl.signal.aborted) setPending(false);
@@ -71,7 +76,7 @@ export default function PairConnect({ pair, cuts, onShown }: { pair?: [string, s
     return () => { clearTimeout(t); ctl.abort(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
-  const text = pair ? pair.join(" ") : (cuts?.[0] ?? []).join(" ");
+  const text = pair ? pair.join(" ") : charText ?? (cuts?.[0] ?? []).join(" ");
   if (!blocks.length && !spin) return pair && !pending ? <div className="pair-answer"><p className="muted" style={{ marginTop: 16 }}>No connection found for these two.</p><GoogleLink term={text} suffix=" connection" /></div> : null;
   return (
     <div className="pair-answer">
@@ -86,7 +91,7 @@ export default function PairConnect({ pair, cuts, onShown }: { pair?: [string, s
 function CharsResult({ r }: { r: CharMatch[] }) {
   return (
     <>
-      <h2>Together in</h2>
+      <h2>{r[0]?.members.length > 1 ? "Together in" : "Played by"}</h2>
       <div className="card"><ul className="rows">
         {r.map((m) => (
           <li key={m.show.key} className="row conn-row">
@@ -94,8 +99,7 @@ function CharsResult({ r }: { r: CharMatch[] }) {
               <span className="row-main">
                 <span className="row-title" style={{ fontSize: 17 }}>{m.show.title}</span>
                 <span className="row-sub">{m.show.year} · {typeLabel(m.show.type)}</span>
-                <span className="row-sub"><b>{m.a.role}</b>: {m.a.name}</span>
-                <span className="row-sub"><b>{m.b.role}</b>: {m.b.name}</span>
+                {m.members.map((w) => <span key={w.id} className="row-sub"><b>{w.role}</b>: {w.name}</span>)}
               </span>
             </TitleLink>
           </li>
