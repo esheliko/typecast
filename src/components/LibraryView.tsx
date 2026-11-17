@@ -7,7 +7,6 @@ import { STATUS_LABEL, type LibItem, type Status } from "@/lib/types";
 import { SORTS, orderItems, type SortKey } from "@/lib/library-sort";
 import { KindSeg } from "./KindSeg";
 import { mixed, ofKind, type Kind } from "@/lib/kind";
-import { KindContext } from "@/lib/kind-context";
 import { LIBRARY_TAB_ORDER, tabGroup } from "@/lib/status-order";
 
 const TABS: [Status | "all", string][] = LIBRARY_TAB_ORDER.map((k) => [k, k === "all" ? "All" : STATUS_LABEL[k]]);
@@ -118,7 +117,7 @@ export default function LibraryView({ items, initial, initialSort = "watched", i
   useEffect(() => { reapply.current(); }); // the filter box appears/disappears with the list: give it the current offset
   return (
     <>
-      <KindContext.Provider value={kind}>{top}</KindContext.Provider>
+      {top}
       <div className="lib-stick" ref={stickRef}>
       <div className="chips scroll lib-chips" role="group" aria-label="Filter">
         {TABS.map(([k, label], i) => { const { group, pairStart } = tabGroup(k, i); return <button key={k} type="button" className={`chip${group ? ` lib-${group}` : ""}${pairStart ? " lib-pair-start" : ""}`} aria-pressed={filter === k} onClick={() => choose(k)}>{label} <span className="mono">{count(k)}</span></button>; })}
