@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { mainCast, popularTitle, parseCastBlurbs, findRelation, initials, matchCast, matchCredits, matchEpisodes, nameWindows, near, relatives, splitActorQuery, splitTitleQuery } from "../../src/lib/who-actor";
+import { nearRole, roleHas, mainCast, popularTitle, parseCastBlurbs, findRelation, initials, matchCast, matchCredits, matchEpisodes, nameWindows, near, relatives, splitActorQuery, splitTitleQuery } from "../../src/lib/who-actor";
 import type { PCredit } from "../../src/lib/who-types";
 
 const c = (id: number, title: string, role: string, votes = 1): PCredit => ({ key: `movie:${id}`, type: "movie", id, title, year: "2000", poster: null, role, date: "", eps: 0, cids: [], extra: false, votes });
@@ -174,4 +174,18 @@ describe("popularTitle", () => {
     assert.equal(popularTitle("harry potter", ts)!.popularity, 42);
     assert.equal(popularTitle("nothing here", ts), null);
   });
+});
+
+describe("search by character, possessive titles and nicknames", () => {
+  it("a title typed without its possessive still matches (grey anatomy, greys anatomy, grey's anatomy)", () => {
+    const ts = [{ title: "Grey's Anatomy", popularity: 694 }, { title: "Station 19", popularity: 37 }];
+    for (const q of ["grey anatomy christina", "greys anatomy christina", "grey's anatomy christina"]) assert.deepEqual(splitTitleQuery(q, ts)?.rest, ["christina"], q);
+    assert.deepEqual(splitTitleQuery("burke grey anatomy", ts)?.rest, ["burke"]);
+  });
+  it("izzy is Izzie, but not any word", () => {
+    assert.ok(nearRole("izzy", "izzie"));
+    assert.ok(roleHas("Dr. Izzie Stevens", ["izzy", "stevens"]));
+    assert.ok(!nearRole("tony", "tom"));
+  });
+  it("meredith grey is one character", () => assert.ok(roleHas("Meredith Grey", ["meredith", "grey"])));
 });

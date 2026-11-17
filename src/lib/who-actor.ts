@@ -42,7 +42,9 @@ export function near(w: string, x: string): boolean {
 /** Abbreviations in character names ("Sgt. Wade Grey") and what they stand for. */
 const ABBR: Record<string, string> = { sgt: "sergeant", lt: "lieutenant", ltn: "lieutenant", capt: "captain", cpt: "captain", det: "detective", dr: "doctor", ofc: "officer", prof: "professor", col: "colonel", gen: "general", cmdr: "commander", insp: "inspector", pvt: "private", cpl: "corporal", supt: "superintendent", mr: "mister", mrs: "missus" };
 /** A typed word against a word of a character name: a prefix or near miss, also through abbreviations ("sergent" ~ "Sgt."). */
-export const nearRole = (w: string, x: string): boolean => near(w, x) || near(w, ABBR[x] ?? x) || near(ABBR[w] ?? w, x);
+export const nearRole = (w: string, x: string): boolean => near(w, x) || near(w, ABBR[x] ?? x) || near(ABBR[w] ?? w, x) || nick(w, x);
+/** Nicknames spelt differently from the character's name ("izzy" for Izzie, "andy" for Andie, "bobby" for Bobbie): the same once a final -ie / -y / -ey is ignored. */
+const nick = (w: string, x: string): boolean => { const c = (a: string) => a.replace(/(ie|ey|y)$/, "i"); return w.length >= 4 && x.length >= 4 && c(w) === c(x); };
 /** The words of a character name, without bracketed notes like "(voice)". */
 const roleWords = (role: string): string[] => words(roleLabel(role).replace(/\(.*?\)/g, " "));
 
@@ -96,6 +98,8 @@ export function splitActorQuery<P extends { name: string; popularity?: number }>
 }
 
 const THE = /^(the|a|an)\s+/i;
+/** Words of a title or of typed text with a possessive folded in ("Grey's Anatomy" -> grey s anatomy would never match "grey anatomy"; it becomes "greys anatomy", and "grey" starts "greys"). */
+const twords = (s: string): string[] => words(s.replace(/['’]s\b/gi, "s"));
 /** Initials of a title ("How I Met Your Mother" -> "himym", "The Big Bang Theory" -> "tbbt"). */
 export const initials = (title: string): string => words(title).map((w) => w[0]).join("");
 
@@ -105,10 +109,10 @@ export const initials = (title: string): string => words(title).map((w) => w[0])
  * The most words matched wins, then the more popular.
  */
 export function splitTitleQuery<T extends { title: string; popularity?: number }>(q: string, titles: readonly T[]): { title: T; rest: string[] } | null {
-  const qw = words(q);
+  const qw = twords(q);
   let best: { t: T; k: number; at: number; score: number } | null = null;
   for (const t of titles) {
-    const tw = words(t.title.replace(THE, ""));
+    const tw = twords(t.title.replace(THE, ""));
     if (!tw.length) continue;
     for (let at = 0; at < qw.length; at++) {
       let k = 0;
@@ -199,7 +203,7 @@ export function parseCastBlurbs(text: string): Map<string, string> {
 export function popularTitle<T extends { title: string; popularity?: number }>(q: string, titles: readonly T[]): T | null {
   const qw = restWords(q).filter((w) => w !== "the");
   if (!qw.length) return null;
-  const hit = titles.filter((t) => { const tw = words(t.title.replace(THE, "")); return qw.every((w, i) => tw[i] === w); });
+  const hit = titles.filter((t) => { const tw = twords(t.title.replace(THE, "")); return qw.every((w, i) => tw[i] === w); });
   return hit.sort((a, b) => (b.popularity ?? 0) - (a.popularity ?? 0))[0] ?? null;
 }
 
