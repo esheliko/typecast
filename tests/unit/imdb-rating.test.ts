@@ -34,10 +34,33 @@ test("isFresh keeps a score 14 days and a 'no score' 3 days", async () => {
   assert.equal(isFresh({ rating: null, fetchedAt: now - 4 * d }, now), false);
 });
 
+test("ttlDays scales with the title's age and isFresh uses it", async () => {
+  const { ttlDays, isFresh, parseOmdbReleased } = await import("../../src/lib/imdb-rating");
+  const now = Date.now(), d = 86400000;
+  assert.equal(ttlDays(now - 5 * d, true, now), 2);          // brand new: 2-day floor
+  assert.equal(Math.round(ttlDays(now - 365 * d, true, now)), 37); // a year old
+  assert.equal(ttlDays(now - 9000 * d, true, now), 180);     // classic: capped
+  assert.equal(ttlDays(null, true, now), 14);                // unknown: old rule
+  assert.equal(ttlDays(now - 9000 * d, false, now), 30);     // no score on an old title: capped at 30
+  assert.equal(ttlDays(now - 5 * d, false, now), 3);
+  assert.equal(isFresh({ rating: 8, fetchedAt: now - 100 * d, released: now - 9000 * d }, now), true);
+  assert.equal(isFresh({ rating: 8, fetchedAt: now - 3 * d, released: now - 5 * d }, now), false);
+  assert.equal(parseOmdbReleased({ Released: "15 Mar 2019" }), Date.parse("15 Mar 2019"));
+  assert.equal(parseOmdbReleased({ Released: "N/A", Year: "2008–2013" }), Date.UTC(2008, 0, 1));
+  assert.equal(parseOmdbReleased({ Released: "N/A", Year: "N/A" }), null);
+});
+
 test("omdbKeys lists the main key then the spare, skipping blanks and duplicates", async () => {
   const { omdbKeys } = await import("../../src/lib/imdb-rating");
   assert.deepEqual(omdbKeys({ OMDB_API_KEY: "a", OMDB_API_KEY_2: "b" }), ["a", "b"]);
   assert.deepEqual(omdbKeys({ OMDB_API_KEY: "a", OMDB_API_KEY_2: " a " }), ["a"]);
   assert.deepEqual(omdbKeys({ OMDB_API_KEY_2: "b" }), ["b"]);
   assert.deepEqual(omdbKeys({}), []);
+});
+
+test("parseOmdbSeasonReleased takes the newest dated episode", async () => {
+  const { parseOmdbSeasonReleased } = await import("../../src/lib/imdb-rating");
+  assert.equal(parseOmdbSeasonReleased({ Episodes: [{ Released: "01 Jan 2020" }, { Released: "N/A" }, { Released: "08 Jan 2020" }] }), Date.parse("08 Jan 2020"));
+  assert.equal(parseOmdbSeasonReleased({ Episodes: [{ Released: "N/A" }] }), null);
+  assert.equal(parseOmdbSeasonReleased(null), null);
 });

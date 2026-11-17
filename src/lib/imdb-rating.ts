@@ -1,4 +1,3 @@
-import { unstable_cache } from "next/cache";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 /** IMDb's own score for one title or episode, via OMDb (needs OMDB_API_KEY). Never throws: null means "unknown". */
@@ -20,10 +19,25 @@ export function omdbFailed(d: unknown): boolean {
   return !o || (o.Response === "False" && /limit|api key|unauthor/i.test(String(o.Error ?? "")));
 }
 
+/** Pure: release time (ms) out of an OMDb body: the full date when given, else Jan 1 of the year. null when unknown. */
+export function parseOmdbReleased(d: unknown): number | null {
+  const o = d as { Released?: string; Year?: string } | null;
+  const t = Date.parse(String(o?.Released ?? ""));
+  if (Number.isFinite(t)) return t;
+  const y = /^\d{4}/.exec(String(o?.Year ?? ""));
+  return y ? Date.UTC(Number(y[0]), 0, 1) : null;
+}
+
 const DAY = 86400000;
-/** Pure: is a stored row still good? A score is kept 14 days (it barely moves); "OMDb has no score" is re-asked after 3. */
-export function isFresh(row: { rating: number | null; fetchedAt: number }, now: number): boolean {
-  return now - row.fetchedAt < (row.rating ? 14 : 3) * DAY;
+/** Pure: how long a stored score is trusted. Scales with the title's age (a tenth of it) so a fresh release is re-checked every couple of days while its score still settles,
+ *  and an old classic is kept up to 180 days. Unknown or future release: 14 days (the old rule). "OMDb has no score" is re-asked after a quarter of that, 3 to 30 days. */
+export function ttlDays(released: number | null, hasScore: boolean, now: number): number {
+  const base = released == null ? 14 : Math.min(180, Math.max(2, (now - released) / DAY / 10));
+  return hasScore ? base : Math.min(30, Math.max(3, base / 4));
+}
+/** Pure: is a stored row still good? */
+export function isFresh(row: { rating: number | null; fetchedAt: number; released?: number | null }, now: number): boolean {
+  return now - row.fetchedAt < ttlDays(row.released ?? null, !!row.rating, now) * DAY;
 }
 
 /** OMDb keys in order of use: the main one, then the spare used when the main one's daily limit is reached. */
@@ -53,12 +67,13 @@ async function omdbGet(query: string): Promise<unknown> {
   throw new Error(tried ? "omdb failed" : "omdb paused");
 }
 
-/** Throws when the call failed (timeout, HTTP error, limit, bad key); null means OMDb answered and has no score. */
-async function fetchRating(imdb: string): Promise<ImdbRating | null> {
-  return parseOmdb(await omdbGet(`i=${imdb}`));
+/** Throws when the call failed (timeout, HTTP error, limit, bad key); rating null means OMDb answered and has no score. */
+async function fetchRating(imdb: string): Promise<{ rating: ImdbRating | null; released: number | null }> {
+  const d = await omdbGet(`i=${imdb}`);
+  return { rating: parseOmdb(d), released: parseOmdbReleased(d) };
 }
 
-type Row = { rating: number | null; votes: number; fetchedAt: number };
+type Row = { rating: number | null; votes: number; fetchedAt: number; released: number | null };
 let db: SupabaseClient | null | undefined;
 function store(): SupabaseClient | null {
   if (db !== undefined) return db;
@@ -71,18 +86,18 @@ async function readRows(ids: string[]): Promise<Map<string, Row>> {
   const out = new Map<string, Row>(), s = store();
   if (!s || !ids.length) return out;
   try {
-    const { data, error } = await s.from("imdb_ratings").select("imdb_id,rating,votes,fetched_at").in("imdb_id", ids);
+    const { data, error } = await s.from("imdb_ratings").select("*").in("imdb_id", ids);
     if (error) { console.warn(`imdb_ratings read: ${error.message}`); return out; }
-    for (const r of data ?? []) out.set(r.imdb_id, { rating: r.rating, votes: r.votes ?? 0, fetchedAt: Date.parse(r.fetched_at) });
+    for (const r of data ?? []) out.set(r.imdb_id, { rating: r.rating, votes: r.votes ?? 0, fetchedAt: Date.parse(r.fetched_at), released: r.released ? Date.parse(r.released) : null });
   } catch (e) { console.warn(`imdb_ratings read: ${String(e)}`); }
   return out;
 }
 
-async function writeRow(id: string, r: ImdbRating | null) {
+async function writeRow(id: string, r: ImdbRating | null, released: number | null) {
   const s = store();
   if (!s) return;
   try {
-    const { error } = await s.from("imdb_ratings").upsert({ imdb_id: id, rating: r?.rating ?? null, votes: r?.votes ?? 0, fetched_at: new Date().toISOString() });
+    const { error } = await s.from("imdb_ratings").upsert({ imdb_id: id, rating: r?.rating ?? null, votes: r?.votes ?? 0, released: released == null ? null : new Date(released).toISOString().slice(0, 10), fetched_at: new Date().toISOString() });
     if (error) console.warn(`imdb_ratings write: ${error.message}`);
   } catch (e) { console.warn(`imdb_ratings write: ${String(e)}`); }
 }
@@ -100,7 +115,7 @@ export async function getImdbRatings(ids: (string | null | undefined)[]): Promis
   }
   for (let i = 0; i < todo.length; i += 6) {
     await Promise.all(todo.slice(i, i + 6).map(async (id) => {
-      try { const r = await fetchRating(id); out.set(id, r); await writeRow(id, r); } catch { out.set(id, toRating(rows.get(id))); }
+      try { const f = await fetchRating(id); out.set(id, f.rating); await writeRow(id, f.rating, f.released); } catch { out.set(id, toRating(rows.get(id))); }
     }));
   }
   return out;
@@ -123,18 +138,47 @@ export function parseOmdbSeason(d: unknown): Record<number, number> {
   return out;
 }
 
-async function fetchSeason(imdb: string, season: number): Promise<Record<number, number>> {
-  if (!hasOmdbKey()) return {};
-  return parseOmdbSeason(await omdbGet(`i=${imdb}&Season=${season}`));
+/** Pure: release time (ms) of the newest dated episode in OMDb's season body, null when none is dated. A season still airing counts as young, so it is re-checked soon. */
+export function parseOmdbSeasonReleased(d: unknown): number | null {
+  const o = d as { Episodes?: { Released?: string }[] } | null;
+  let best: number | null = null;
+  for (const x of o?.Episodes ?? []) { const t = Date.parse(String(x.Released ?? "")); if (Number.isFinite(t) && (best == null || t > best)) best = t; }
+  return best;
 }
 
-const cs = unstable_cache(fetchSeason, ["imdb-season-v2"], { revalidate: 86400 });
+type SeasonRow = { eps: Record<number, number>; fetchedAt: number; released: number | null };
 
-/** IMDb scores for every episode of one season in ONE OMDb call. Never throws; empty means unknown. */
+async function readSeason(imdb: string, season: number): Promise<SeasonRow | null> {
+  const s = store();
+  if (!s) return null;
+  try {
+    const { data, error } = await s.from("imdb_seasons").select("*").eq("imdb_id", imdb).eq("season", season).maybeSingle();
+    if (error) { console.warn(`imdb_seasons read: ${error.message}`); return null; }
+    if (!data) return null;
+    return { eps: (data.eps ?? {}) as Record<number, number>, fetchedAt: Date.parse(data.fetched_at), released: data.released ? Date.parse(data.released) : null };
+  } catch (e) { console.warn(`imdb_seasons read: ${String(e)}`); return null; }
+}
+
+async function writeSeason(imdb: string, season: number, eps: Record<number, number>, released: number | null) {
+  const s = store();
+  if (!s) return;
+  try {
+    const { error } = await s.from("imdb_seasons").upsert({ imdb_id: imdb, season, eps, released: released == null ? null : new Date(released).toISOString().slice(0, 10), fetched_at: new Date().toISOString() });
+    if (error) console.warn(`imdb_seasons write: ${error.message}`);
+  } catch (e) { console.warn(`imdb_seasons write: ${String(e)}`); }
+}
+
+/** IMDb scores for every episode of one season in ONE OMDb call, kept in the database as long as the season's age allows (same rule as titles). Never throws; empty means unknown. */
 export async function getSeasonImdb(imdb: string | null | undefined, season: number): Promise<Record<number, number>> {
   if (!imdb || !/^tt\d+$/.test(imdb) || !Number.isInteger(season) || season < 0) return {};
-  try { return await cs(imdb, season); } catch (e) {
-    if (/incrementalCache missing/.test(String(e))) return fetchSeason(imdb, season).catch(() => ({}));
-    return {};
-  }
+  const row = await readSeason(imdb, season), now = Date.now();
+  const has = !!row && Object.keys(row.eps).length > 0;
+  if (row && isFresh({ rating: has ? 1 : null, fetchedAt: row.fetchedAt, released: row.released }, now)) return row.eps;
+  if (!hasOmdbKey()) return row?.eps ?? {};
+  try {
+    const d = await omdbGet(`i=${imdb}&Season=${season}`);
+    const eps = parseOmdbSeason(d);
+    await writeSeason(imdb, season, eps, parseOmdbSeasonReleased(d));
+    return eps;
+  } catch { return row?.eps ?? {}; }
 }
