@@ -74,6 +74,18 @@ export default function LibraryView({ items, initial, initialSort = "watched", i
     ro.observe(el);
     return () => { ro.disconnect(); document.documentElement.style.removeProperty("--lib-stick-h"); };
   }, []);
+  // Scrolling down hides the pinned filters, scrolling up (or reaching the top, or focusing a control) brings them back.
+  useEffect(() => {
+    const root = document.documentElement;
+    let last = window.scrollY;
+    const onScroll = () => {
+      const y = window.scrollY, dy = y - last;
+      if (y < 160 || dy < -6) { root.removeAttribute("data-lib-hide"); last = y; }
+      else if (dy > 8 && !document.querySelector(".lib-stick :focus-visible, .lib-find :focus-within")) { root.setAttribute("data-lib-hide", ""); last = y; }
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => { window.removeEventListener("scroll", onScroll); root.removeAttribute("data-lib-hide"); };
+  }, []);
   return (
     <>
       <KindContext.Provider value={kind}>{top}</KindContext.Provider>
