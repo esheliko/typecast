@@ -93,6 +93,14 @@ export default function Search({ onActive }: { onActive: (on: boolean) => void }
     return p && !(top?.kind === "title" && norm(top.title) === norm(term)) ? p : null;
   }, [term, top]);
   const cuts = useMemo(() => (pair || (top?.kind === "title" && norm(top.title) === norm(term)) ? [] : splitCandidates(term)), [term, pair, top]);
+  // No separator, no clear title or person ("sheldon penny", "ted mosby", "nolan harper lucy tim"): maybe characters of one show.
+  const charText = useMemo(() => {
+    const n = term.split(/\s+/).length;
+    if (pair || !lay || n < 2 || n > 6) return null;
+    // A clear title or person that is most of what was typed ("tom hanks", "tom hanks movies") is the answer; one that is only a part of it ("nolan harper" in "nolan harper lucy tim") is not.
+    const named = top ? norm(top.kind === "person" ? top.name : top.title).split(" ").length : 0;
+    return named * 2 > n ? null : term;
+  }, [term, pair, lay, top]);
   const known = useMemo(() => (top?.kind === "person" ? youKnowFrom(top, (k) => getRef.current(k)) : []), [top]);
 
   const links = useCallback(() => Array.from(box.current?.querySelectorAll<HTMLAnchorElement>('a[href^="/title/"]:not([tabindex="-1"]), a[href^="/person/"]') ?? []), []);
@@ -146,7 +154,7 @@ export default function Search({ onActive }: { onActive: (on: boolean) => void }
               {fix && <p className="muted" style={{ marginTop: 16 }}>Showing results for <b>{fix}</b>. <button type="button" className="linkish" onClick={() => setExact(true)}>Search for &quot;{term}&quot; instead</button></p>}
               {hits.length === 0 && colls.length === 0 && !showWho && !pairShown && whoBusy && <p className="muted" style={{ marginTop: 20 }}><span className="spin" aria-hidden="true" />Searching…</p>}
               {hits.length === 0 && colls.length === 0 && !showWho && !pairShown && !whoBusy && <p className="muted" style={{ marginTop: 20 }}>Nothing found for &quot;{term}&quot;. Try the full name or add the year.</p>}
-              {(pair || cuts.length > 0) && <PairConnect pair={pair} cuts={cuts} onShown={setPairShown} />}
+              {(pair || cuts.length > 0 || charText) && <PairConnect pair={pair} cuts={cuts} charText={charText} onShown={setPairShown} />}
               {showWho && who && (
                 <div className="whs">
                   <h2>Who&rsquo;s that?</h2>
