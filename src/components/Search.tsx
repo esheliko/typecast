@@ -39,7 +39,7 @@ export default function Search({ onActive }: { onActive: (on: boolean) => void }
   const term = q.trim();
   const { get } = useLib();
   // "Who's that?" logic too (an actor and a part, a title and a character...): only for several words, and only shown when it says more than the plain results.
-  const { actor: who } = useActorFind(term, !/\s/.test(term));
+  const { actor: who, finding: whoBusy } = useActorFind(term, !/\s/.test(term));
   const showWho = !pairShown && !!who && !who.plain && !!(who.person || who.title || who.people?.length);
 
   useEffect(() => { onActive(term.length >= 2); }, [term, onActive]);
@@ -143,7 +143,8 @@ export default function Search({ onActive }: { onActive: (on: boolean) => void }
           {hits && state !== "error" && (
             <div style={{ opacity: state === "loading" ? 0.55 : 1, transition: "opacity .15s" }}>
               {fix && <p className="muted" style={{ marginTop: 16 }}>Showing results for <b>{fix}</b>. <button type="button" className="linkish" onClick={() => setExact(true)}>Search for &quot;{term}&quot; instead</button></p>}
-              {hits.length === 0 && colls.length === 0 && !showWho && <p className="muted" style={{ marginTop: 20 }}>Nothing found for &quot;{term}&quot;. Try the full name or add the year.</p>}
+              {hits.length === 0 && colls.length === 0 && !showWho && whoBusy && <p className="muted" style={{ marginTop: 20 }}><span className="spin" aria-hidden="true" />Searching…</p>}
+              {hits.length === 0 && colls.length === 0 && !showWho && !whoBusy && <p className="muted" style={{ marginTop: 20 }}>Nothing found for &quot;{term}&quot;. Try the full name or add the year.</p>}
               {(pair || cuts.length > 0) && <PairConnect pair={pair} cuts={cuts} onShown={setPairShown} />}
               {showWho && who && (
                 <div className="whs">
