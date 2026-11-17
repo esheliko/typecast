@@ -8,10 +8,10 @@ const KEY = "typecast.passed";
 const MAX_ENTRIES = 4000;
 const MAX_COUNT = 8;
 /** One pass is forgiven after this long, so a title you ignored a year ago gets another chance. */
-const FORGIVE_MS = 21 * 24 * 3600 * 1000;
+const FORGIVE_MS = 4 * 24 * 3600 * 1000;
 /** Chance of showing a title again falls by this factor for every time it was passed over. */
-const FALLOFF = 0.55;
-const FLOOR = 0.04;
+const FALLOFF = 0.7;
+const FLOOR = 0.1;
 
 /** key -> [times passed over, when last]. */
 export type Passed = Map<string, [number, number]>;
