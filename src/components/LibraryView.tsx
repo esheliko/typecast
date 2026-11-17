@@ -64,42 +64,58 @@ export default function LibraryView({ items, initial, initialSort = "watched", i
     window.history.replaceState(window.history.state, "", u);
   }
   const stickRef = useRef<HTMLDivElement>(null);
-  // Phones: the pinned chips + sort bar collapse like a browser's address bar, tied to the finger. `off` (px, 0..R, R = their height) moves 1:1 with the scroll
+  const reapply = useRef<() => void>(() => {});
+  // The pinned chips + sort bar collapse like a browser's address bar, tied to the finger/wheel. `off` (px, 0..R, R = their height) moves 1:1 with the scroll
   // distance (scroll down: slide up under the header, any upward scroll: slide back down), and the filter box (pinned right under them) moves with them, so
-  // when they are gone it sits directly under the header. Both read `--lib-off` in their sticky `top` (globals.css). Written straight to the DOM, no state
-  // per scroll event; when scrolling stops, a half-way stack settles to the nearer end. Wider screens keep everything pinned (off stays 0).
+  // when they are gone it sits directly under the header. The offset is written straight onto the two elements' sticky `top` (no state per scroll event, and
+  // NOT a custom property on <html>: that restyles every node on the page, ~30 ms a tick on a big library, which made the reveal stutter). When scrolling stops,
+  // a half-way stack settles in the direction you were going (never while a finger is still down).
   useEffect(() => {
     const el = stickRef.current;
     if (!el) return;
-    const root = document.documentElement;
-    const phone = () => window.matchMedia("(max-width: 559px)").matches;
-    let R = 0, off = 0, last = window.scrollY, raf = 0, idle: ReturnType<typeof setTimeout> | undefined;
-    const apply = (v: number) => { off = Math.min(R, Math.max(0, v)); root.style.setProperty("--lib-off", `${off}px`); };
-    const measure = () => { R = el.getBoundingClientRect().height; root.style.setProperty("--lib-stick-h", `${R}px`); apply(phone() ? off : 0); };
+    let R = 0, off = 0, last = window.scrollY, dir = 0, down = false, raf = 0, idle: ReturnType<typeof setTimeout> | undefined;
+    let find: HTMLElement | null = null;
+    const apply = (v: number) => {
+      off = Math.min(R, Math.max(0, v));
+      el.style.top = `calc(var(--top-h, 56px) - 1px - ${off}px)`;
+      if (!find?.isConnected) find = document.querySelector<HTMLElement>(".lib-find");
+      if (find) find.style.top = `calc(var(--top-h, 56px) + ${R}px - 1px - ${off}px)`;
+    };
+    const measure = () => { R = el.getBoundingClientRect().height; apply(off); };
+    reapply.current = () => { find = null; apply(off); };
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(el);
+    const settle = () => {
+      if (down) return;
+      const from = off, to = dir < 0 || window.scrollY < R ? 0 : R;
+      if (from === to || window.matchMedia("(prefers-reduced-motion: reduce)").matches) { apply(to); return; }
+      const t0 = performance.now();
+      const step = (now: number) => { const k = Math.min(1, (now - t0) / 160); apply(from + (to - from) * (1 - (1 - k) * (1 - k))); if (k < 1) raf = requestAnimationFrame(step); };
+      raf = requestAnimationFrame(step);
+    };
     const onScroll = () => {
       const y = window.scrollY, d = y - last;
       last = y;
-      if (!phone()) return;
       cancelAnimationFrame(raf);
+      if (d) dir = d;
       apply(y <= 0 ? 0 : off + d);
       clearTimeout(idle);
-      idle = setTimeout(() => {
-        const from = off, to = from > R / 2 && window.scrollY >= R ? R : 0;
-        if (from === to || window.matchMedia("(prefers-reduced-motion: reduce)").matches) { apply(to); return; }
-        const t0 = performance.now();
-        const step = (now: number) => { const k = Math.min(1, (now - t0) / 160); apply(from + (to - from) * (1 - (1 - k) * (1 - k))); if (k < 1) raf = requestAnimationFrame(step); };
-        raf = requestAnimationFrame(step);
-      }, 140);
+      idle = setTimeout(settle, 140);
     };
+    const touch = (on: boolean) => () => { down = on; if (!on) { clearTimeout(idle); idle = setTimeout(settle, 140); } };
+    const ts = touch(true), te = touch(false);
     window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("touchstart", ts, { passive: true });
+    window.addEventListener("touchend", te, { passive: true });
+    window.addEventListener("touchcancel", te, { passive: true });
     return () => {
-      ro.disconnect(); window.removeEventListener("scroll", onScroll); cancelAnimationFrame(raf); clearTimeout(idle);
-      for (const v of ["--lib-off", "--lib-stick-h"]) root.style.removeProperty(v);
+      ro.disconnect(); cancelAnimationFrame(raf); clearTimeout(idle);
+      window.removeEventListener("scroll", onScroll); window.removeEventListener("touchstart", ts); window.removeEventListener("touchend", te); window.removeEventListener("touchcancel", te);
+      el.style.top = ""; if (find?.isConnected) find.style.top = "";
     };
   }, []);
+  useEffect(() => { reapply.current(); }); // the filter box appears/disappears with the list: give it the current offset
   return (
     <>
       <KindContext.Provider value={kind}>{top}</KindContext.Provider>
