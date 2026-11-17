@@ -6,6 +6,7 @@ import { useLib } from "./cast/LibState";
 import { Photo } from "./who/bits";
 import { PositionPicker } from "./who/PositionControl";
 import { FindAnswer, useActorFind } from "./who/FindAnswer";
+import GoogleLink from "./who/GoogleLink";
 import { whoApi } from "@/lib/who-client";
 import { appearsLabel, matchWho, startPos, type Part } from "@/lib/who-search";
 import { posLabel } from "@/lib/who-scope";
@@ -98,7 +99,7 @@ export default function WhoSearch({ watching }: { watching: WhoTitle[] }) {
       <input type="search" className="whs-t" value={q} onChange={(e) => setQ(e.target.value)} aria-label="A name or role you remember"
         placeholder={sel ? "A name or role, e.g. Brent, the sheriff" : "An actor and a part, e.g. Marlon Brando Corleone"} autoComplete="off" enterKeyHint="search" />
       {!sel && finding && term.length >= 3 && <p className="muted" role="status" aria-live="polite"><span className="spin" aria-hidden="true" />Looking for &ldquo;{term}&rdquo;…</p>}
-      {!sel && !finding && actor && term.length >= 3 && <FindAnswer actor={actor} term={term} />}
+      {!sel && !finding && actor && term.length >= 3 && <><FindAnswer actor={actor} term={term} /><GoogleLink term={term} /></>}
 
       {pick && (
         <div className="whs-change">
