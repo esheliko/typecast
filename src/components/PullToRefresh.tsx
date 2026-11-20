@@ -14,6 +14,7 @@ export default function PullToRefresh() {
     const standalone = window.matchMedia("(display-mode: standalone)").matches || (navigator as unknown as { standalone?: boolean }).standalone === true;
     if (!standalone) return;
     const blocked = (t: EventTarget | null) => {
+      if ((t as HTMLElement | null)?.closest?.(".toast")) return true; // a toast is dragged down to dismiss it
       if (document.querySelector(".modal, .gl-wrap")) return true; // a popup/sheet is open: it scrolls on its own
       for (let el = t as HTMLElement | null; el && el !== document.body; el = el.parentElement) {
         if (el.scrollTop > 0 && /(auto|scroll)/.test(getComputedStyle(el).overflowY)) return true;
