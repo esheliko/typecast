@@ -1,0 +1,1 @@
+REMINDERS (CLAUDE.md): DEPLOYING.md, .claude/, CI, standing rules go to the Deploy Manager via send_message unless the owner says edit directly; reply line 1 = 🔴 NEEDS YOU / 🟢 DONE / ⚙️ AUTO tag (+ "What I did:" for change requests); times in IST; screenshot any visual change you chose or were told about.
