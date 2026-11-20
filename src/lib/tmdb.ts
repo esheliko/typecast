@@ -1,5 +1,5 @@
 import { cache } from "react";
-import { genresFor, interleave, type BrowseQuery, type Tag } from "./browse";
+import { LENGTHS, genresFor, interleave, type BrowseQuery, type Tag } from "./browse";
 import { sumEpisodes, type SeriesTime } from "./stats";
 import { shapeCrew, type CrewBy } from "./details";
 import type { EpisodeFacts } from "./new-episode";
@@ -643,6 +643,7 @@ export async function discover(q: BrowseQuery, page: number, region: string, ser
     // Genres in a mixed search are the merged list; each type gets its own ids, and a type with no such genre is left out.
     const run = (type: MediaType): Promise<BrowsePage | null> => {
       const genres = genresFor(type, q.genres);
+      if (type === "tv" && q.length) return Promise.resolve(null); // a series has no film length
       return genres ? discover({ ...q, type, genres }, page, region, services) : Promise.resolve(null);
     };
     const [m, t] = await Promise.all([run("movie"), run("tv")]);
@@ -651,7 +652,7 @@ export async function discover(q: BrowseQuery, page: number, region: string, ser
     const only = !m ? "series" : !t ? "films" : undefined;
     return {
       items: interleave(a.items, b.items), page, totalPages: Math.max(a.totalPages, b.totalPages),
-      notice: only ? `Only ${only} have this genre.` : a.notice ?? b.notice,
+      notice: only ? `Only ${only} have this ${q.length ? "length" : "genre"}.` : a.notice ?? b.notice,
     };
   }
   if (q.type === "tv" && q.people.length) return tvByPeople(q, page);
@@ -668,6 +669,9 @@ export async function discover(q: BrowseQuery, page: number, region: string, ser
   if (q.people.length) p.with_people = q.people.map((t) => t.id).join(",");
   if (q.companies.length) p.with_companies = q.companies.map((t) => t.id).join("|");
   if (q.keywords.length) p.with_keywords = q.keywords.map((t) => t.id).join("|");
+  const len = movie ? LENGTHS.find((l) => l.value === q.length) : undefined;
+  if (len?.min) p["with_runtime.gte"] = String(len.min);
+  if (len?.max) p["with_runtime.lte"] = String(len.max);
   if (q.country) p.with_origin_country = q.country;
   if (q.lang) p.with_original_language = q.lang;
   if (q.minRating) p["vote_average.gte"] = String(q.minRating);
