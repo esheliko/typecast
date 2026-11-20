@@ -2,6 +2,13 @@
 
 Every change to a rule, instruction, hook, CI or deploy mechanism gets an entry here (newest first) with an expected effect and a review-by date, so a change is judged by what happened, not by feel. Format and workflow: `.claude/skills/process/SKILL.md`. Checked by `tests/unit/process-changelog.test.ts`.
 
+## 2026-11-20 · #170 · Board panels for the automation data
+What: the deploy board gets an Alerts card, a "what the manager used to do" table, a Statistics card and a freshness banner, all from the `automation-data` issue (additive edit of the dashboard artifact).
+Why: the owner wants everything the manager stops doing readable on the board, plus statistics on demand.
+Expected effect: the owner can see current alerts, duty status and statistics on the board without asking a session; the freshness banner turns red if the automation stops.
+Review by: 2026-12-04
+Status: pending
+
 ## 2026-11-20 · #168 · Automation board data (alerts, duties, statistics) written by Actions
 What: `scripts/automation.mjs` + `.github/workflows/automation.yml` write alerts, the list of what the manager session used to do (with replacement and status) and statistics into one issue the deploy board reads; no model, no tokens.
 Why: the owner wants to see on the board everything the manager does and stops doing, and statistics on demand, with zero idle cost.
