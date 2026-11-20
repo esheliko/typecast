@@ -18,9 +18,15 @@ export const SORTERS: Record<SortKey, ((a: LibItem, b: LibItem) => number) | nul
 /** Not rated by you (`rating` is 0-5, 0 = none). */
 export const isUnrated = (l: Pick<LibItem, "rating">) => !l.rating;
 
-/** Optionally keep only unrated titles, sort, and optionally flip the result. Ties keep the incoming (newest-first) order. */
-export function orderItems(items: LibItem[], sort: SortKey, flip: boolean, unrated: boolean): LibItem[] {
-  const kept = unrated ? items.filter(isUnrated) : items;
+/** Rating filter: every title ("any"), only unrated ("none"), or exactly N stars. */
+export const RATINGS = [["any", "Any rating"], ["none", "Unrated"], ["5", "5 stars"], ["4", "4 stars"], ["3", "3 stars"], ["2", "2 stars"], ["1", "1 star"]] as const;
+export type RatingFilter = (typeof RATINGS)[number][0];
+export const isRatingFilter = (s: string | undefined): s is RatingFilter => RATINGS.some(([k]) => k === s);
+export const byRating = (items: LibItem[], r: RatingFilter): LibItem[] => (r === "any" ? items : r === "none" ? items.filter(isUnrated) : items.filter((l) => l.rating === Number(r)));
+
+/** Optionally keep only one rating, sort, and optionally flip the result. Ties keep the incoming (newest-first) order. */
+export function orderItems(items: LibItem[], sort: SortKey, flip: boolean, rating: RatingFilter): LibItem[] {
+  const kept = byRating(items, rating);
   const by = SORTERS[sort];
   const sorted = by ? [...kept].sort(by) : kept;
   return flip ? [...sorted].reverse() : sorted;

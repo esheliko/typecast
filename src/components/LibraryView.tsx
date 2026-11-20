@@ -4,7 +4,7 @@ import LibraryList from "./LibraryList";
 import { useRef } from "react";
 import { useRetained } from "@/lib/useRetained";
 import { STATUS_LABEL, type LibItem, type Status } from "@/lib/types";
-import { SORTS, orderItems, type SortKey } from "@/lib/library-sort";
+import { SORTS, RATINGS, isRatingFilter, orderItems, type RatingFilter, type SortKey } from "@/lib/library-sort";
 import { KindSeg } from "./KindSeg";
 import { mixed, ofKind, type Kind } from "@/lib/kind";
 import { LIBRARY_TAB_ORDER, tabGroup } from "@/lib/status-order";
@@ -12,12 +12,12 @@ import { LIBRARY_TAB_ORDER, tabGroup } from "@/lib/status-order";
 const TABS: [Status | "all", string][] = LIBRARY_TAB_ORDER.map((k) => [k, k === "all" ? "All" : STATUS_LABEL[k]]);
 
 /** The filter chips and the list. Switching chips is instant (no server trip); the URL is kept in step so a refresh or shared link lands on the same filter. */
-export default function LibraryView({ items, initial, initialSort = "watched", initialKind = "all", initialFlip = false, initialUnrated = false, top, between }: { items: LibItem[]; initial: Status | "all"; initialSort?: SortKey; initialKind?: Kind; initialFlip?: boolean; initialUnrated?: boolean; top?: React.ReactNode; between?: React.ReactNode }) {
+export default function LibraryView({ items, initial, initialSort = "watched", initialKind = "all", initialFlip = false, initialRating = "any", top, between }: { items: LibItem[]; initial: Status | "all"; initialSort?: SortKey; initialKind?: Kind; initialFlip?: boolean; initialRating?: RatingFilter; top?: React.ReactNode; between?: React.ReactNode }) {
   const [filter, setFilter] = useState<Status | "all">(initial);
   const [sort, setSort] = useState<SortKey>(initialSort);
   const [kind, setKind] = useState<Kind>(initialKind);
   const [flip, setFlip] = useState(initialFlip);
-  const [unrated, setUnrated] = useState(initialUnrated);
+  const [rating, setRating] = useState<RatingFilter>(initialRating);
   const pool = ofKind(items, kind);
   const count = (s: Status | "all") => (s === "all" ? pool.length : pool.filter((l) => l.status === s).length);
   // Rows hold their place while you work: an unmarked title stays (unmarked) so you can mark it again, and a changed one
@@ -34,15 +34,22 @@ export default function LibraryView({ items, initial, initialSort = "watched", i
   useEffect(() => { const t = setTimeout(() => setListFlip(flip), 380); return () => clearTimeout(t); }, [flip]);
   // Memoised so the button's own (urgent) render never re-sorts or re-renders the list: that stall froze the flip animation.
   const shown = useMemo(() => {
-    const sorted = orderItems(picked, sort, listFlip, unrated); // stable, so ties keep newest-first
+    const sorted = orderItems(picked, sort, listFlip, rating); // stable, so ties keep newest-first
     return filter === "watchlist" && (sort === "added" || sort === "watched") && !listFlip ? [...sorted].sort((a, b) => Number(!where.current.get(a.key)!.must) - Number(!where.current.get(b.key)!.must)) : sorted; // default order puts must-watch first
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [picked, filter, sort, listFlip, unrated]);
+  }, [picked, filter, sort, listFlip, rating]);
   const setParam = (key: string, on: boolean) => {
     const u = new URL(window.location.href);
     if (on) u.searchParams.set(key, "1"); else u.searchParams.delete(key);
     window.history.replaceState(window.history.state, "", u);
   };
+  function chooseRating(r: RatingFilter) {
+    setRating(r);
+    const u = new URL(window.location.href);
+    u.searchParams.delete("u");
+    if (r === "any") u.searchParams.delete("rt"); else u.searchParams.set("rt", r);
+    window.history.replaceState(window.history.state, "", u);
+  }
   function choose(k: Status | "all") {
     reset(); where.current.clear();
     setFilter(k);
@@ -134,7 +141,11 @@ export default function LibraryView({ items, initial, initialSort = "watched", i
             </select>
           </label>
         </span>
-        <button type="button" className="chip sm" aria-pressed={unrated} title="Only titles you haven't rated" onClick={() => { setUnrated(!unrated); setParam("u", !unrated); }}>Unrated</button>
+        <label className="pillsel" title="Filter by your rating">
+          <select aria-label="Filter by rating" value={rating} onChange={(e) => isRatingFilter(e.target.value) && chooseRating(e.target.value)}>
+            {RATINGS.map(([k, label]) => <option key={k} value={k}>{label}</option>)}
+          </select>
+        </label>
       </div>
       </div>
       {between}

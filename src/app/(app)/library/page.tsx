@@ -11,7 +11,7 @@ import { loadUpNext } from "@/lib/upnext-data";
 import { hasUpcomingCandidates, loadUpcoming } from "@/lib/upcoming-data";
 import { dayOf } from "@/lib/upcoming";
 import { tzOf } from "@/lib/today";
-import { isSort } from "@/lib/library-sort";
+import { isSort, isRatingFilter } from "@/lib/library-sort";
 import { isKind } from "@/lib/kind";
 import { SuggestionRows } from "@/components/cast/CreditList";
 import { getLibrary, getProfile } from "@/lib/library";
@@ -77,8 +77,8 @@ async function UpcomingFromList({ lib, prefs }: { lib: LibItem[]; prefs: UiPrefs
   }
 }
 
-export default async function Library({ searchParams }: { searchParams: Promise<{ f?: string; s?: string; k?: string; r?: string; u?: string }> }) {
-  const { f, s, k, r, u } = await searchParams;
+export default async function Library({ searchParams }: { searchParams: Promise<{ f?: string; s?: string; k?: string; r?: string; u?: string; rt?: string }> }) {
+  const { f, s, k, r, u, rt } = await searchParams;
   let lib: LibItem[];
   try { lib = await getLibrary(); }
   catch (e) {
@@ -94,7 +94,7 @@ export default async function Library({ searchParams }: { searchParams: Promise<
           <p className="muted">Find a title on the Browse tab and mark it Watching, To watch or Watched. Suggestions and connections between your titles appear here as your library grows.</p>
           <Link className="btn gold" href="/">Find a title</Link>
         </div>
-      ) : <><div className="page-head"><h1>Library</h1><Link href="/library/stats">Stats <span aria-hidden="true">›</span></Link></div><LibraryView items={lib} initial={filter} initialSort={isSort(s) ? s : "watched"} initialKind={isKind(k) && k !== "all" ? k : "all"} initialFlip={r === "1"} initialUnrated={u === "1"}
+      ) : <><div className="page-head"><h1>Library</h1><Link href="/library/stats">Stats <span aria-hidden="true">›</span></Link></div><LibraryView items={lib} initial={filter} initialSort={isSort(s) ? s : "watched"} initialKind={isKind(k) && k !== "all" ? k : "all"} initialFlip={r === "1"} initialRating={isRatingFilter(rt) ? rt : u === "1" ? "none" : "any"}
         top={<div className="lib-top">
           <Suspense fallback={<UpNext picks={quickPicks(lib)} services="pending" prefs={prefs} />}><WatchNext lib={lib} prefs={prefs} /></Suspense>
           <Suspense fallback={hasUpcomingCandidates(lib) ? <UpcomingSkeleton open={prefs.upOpen && prefs.unClosed} /> : null}><UpcomingFromList lib={lib} prefs={prefs} /></Suspense>
