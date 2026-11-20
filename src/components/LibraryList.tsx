@@ -79,6 +79,7 @@ export default memo(function LibraryList({ items }: { items: LibItem[] }) {
   return (
     <>
       {items.length > 5 && <div className="field lib-find"><input type="search" aria-label="Filter library" placeholder="Filter your library" value={q} onChange={(e) => setQ(e.target.value)} /></div>}
+      {list.length > 0 && <p className="muted mono lib-count" aria-live="polite" style={{ margin: "10px 2px 0", fontSize: 13 }}>{list.length} {list.length === 1 ? "title" : "titles"}</p>}
       {list.length === 0 ? <p className="muted" style={{ marginTop: 20 }}>{q.trim() ? <>Nothing in this list matches “{q.trim()}”. <button type="button" className="linkish" onClick={() => setQ("")}>Clear the filter</button></> : "Nothing in this list yet."}</p> : (
         <div className="card" style={{ marginTop: 14 }}><ul className="rows">
           {list.map((l) => {
