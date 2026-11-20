@@ -115,7 +115,7 @@ test("parseExtras reads keywords, director/creator and billed cast for films and
   const show = parseExtras({ keywords: { results: [{ id: 7 }] }, created_by: [{ id: 40, name: "C" }], aggregate_credits: { cast: [{ id: 41, name: "E", order: 0 }] } }, "tv");
   assert.deepEqual(show.kw, [7]);
   assert.deepEqual(show.people.map((p) => p.id), [40, 41]);
-  assert.deepEqual(parseExtras(null, "movie"), { kw: [], people: [] });
+  assert.deepEqual(parseExtras(null, "movie"), { kw: [], people: [], collection: null });
 });
 
 test("people you keep watching boost a candidate; two favourites beat one; unknown people change nothing", () => {

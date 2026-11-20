@@ -23,3 +23,12 @@ statuses, QuickMark, SEEN sets and `CreditList` weights are unchanged. The stats
 ## Summary rule (moved from CLAUDE.md)
 
 - Watch next (Library) is ranked by pure `rankUpNext` (`src/lib/upnext.ts`, unit tested); `loadUpNext` fetches TMDB facts behind Suspense and falls back to the same ranking without TMDB. Details: `docs/features/watch-next.md` (read before changing this feature).
+
+## Franchises count once (For you, Watch next, Browse directions)
+
+`src/lib/franchise.ts` (pure, unit tested). Films of one TMDB collection share genres, cast, director and themes by construction, so five loved films of a saga are mostly ONE taste signal. Rules:
+- Seed weights fade within a franchise (`decayByFranchise`: 1, 0.63, 0.45, ... strongest first), for likes and dislikes. For you draws 14 seeds, fades, keeps the best 10.
+- For you: a candidate from a saga you already like is scored on a profile WITHOUT that saga's seeds (`scorePool` `without`), so "TMDB recommends it" + "same genres" + "same cast" + "same themes" is not counted four times. Collection is known only after the detail fetch, so the first (TMDB-numbers) pass is not saga-aware; the re-ranked front 60 is. The re-ranker also spaces out titles of one collection.
+- Watch next: `tasteSeeds(lib, max, facts)` gives a franchise at most two slots, `genreTaste` fades later films, and two films of one saga recommending the same title are one vote (`recommenders`, `recPool`). `Facts.collection` comes from `getPickBasics`.
+- Browse directions (`nudges.ts`): a person/studio/theme must be shared by two separate franchises or titles (`distinctGroups`), and a saga's weights fade.
+- Series have no collection, so they are not grouped.

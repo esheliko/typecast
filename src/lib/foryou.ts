@@ -1,12 +1,15 @@
 import { browse, browseItem, genreList, getTitleImdbId, tmdb } from "./tmdb";
 import { getImdbRatings, hasOmdbKey } from "./imdb-rating";
 import { interleave } from "./browse";
-import { buildProfile, extraParam, howOf, parseExtras, personMatches, posWeight, rerank, sampleSeeds, scorePool, seedWeight, topGenres, whyText, type Cand, type How, type Pooled, type Seed } from "./foryou-rank";
+import { decayByFranchise } from "./franchise";
+import { buildProfile, extraParam, howOf, parseExtras, personMatches, posWeight, rerank, sampleSeeds, scorePool, seedWeight, topGenres, whyText, type Cand, type How, type Pooled, type Profile, type Seed, type Without } from "./foryou-rank";
 import type { BrowseItem, BrowseType, LibItem, MediaType } from "./types";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const PAGE = 20;
 const SEEDS = 10;
+/** Seeds drawn before franchise decay: a few extra, so a saga that takes several slots is trimmed without leaving the list short. */
+const DRAW = SEEDS + 4;
 const ANCHORS = 3;
 const WEEK = 7 * 24 * 3600;
 /** How many of the best-ranked titles get their IMDb score looked up (cached a day) and are ranked again on it. */
@@ -45,17 +48,28 @@ export async function forYou(type: BrowseType, page: number, lib: LibItem[], sal
   }
   const now = Date.now();
   const mine = lib.filter((l) => l.type === type).map((l) => ({ l, w: seedWeight(l, now) }));
-  const liked = sampleSeeds(mine.filter((x) => x.w > 0), SEEDS, ANCHORS, rng(salt));
+  const liked = sampleSeeds(mine.filter((x) => x.w > 0), DRAW, ANCHORS, rng(salt));
   if (!liked.length) {
     const r = await browse("popular", type, page);
     return { ...r, notice: "Mark a few titles you have watched or want to watch and this list turns into picks based on them. Showing popular for now." };
   }
   const disliked = mine.filter((x) => x.w < 0).sort((a, b) => a.w - b.w).slice(0, 6);
-  const [likedD, dislikedD] = await Promise.all([
+  const [drawn, dislikedRaw] = await Promise.all([
     Promise.all(liked.map((x) => describe(x.l, x.w))), Promise.all(disliked.map((x) => describe(x.l, x.w))),
   ]);
+  // A saga is one voice: its films after the strongest count less, whether liked or disliked. Then the strongest SEEDS are kept.
+  const fade = <T extends { w: number; cand: Cand | null }>(xs: T[]) => { const d = decayByFranchise(xs, (x) => x.w, (x) => x.cand?.collection); return xs.map((x, i) => ({ ...x, w: d[i] })); };
+  const likedD = fade(drawn).sort((a, b) => b.w - a.w).slice(0, SEEDS), dislikedD = fade(dislikedRaw);
   // Taste comes from the whole strong set, not just the few drawn for recommendations.
   const like = buildProfile(likedD), dislike = buildProfile(dislikedD, -1);
+  // Profiles without one saga's seeds, built only for the sagas a candidate turns out to belong to.
+  const cache = new Map<string, Profile>();
+  const without: Without = (col, sign) => {
+    const k = `${sign}:${col}`;
+    let p = cache.get(k);
+    if (!p) { p = buildProfile((sign === 1 ? likedD : dislikedD).filter((s) => s.cand?.collection !== col), sign); cache.set(k, p); }
+    return p;
+  };
   const lean = topGenres(like, 2), outside = topGenres(like, 8).slice(3);
 
   const own = new Set(lib.map((l) => l.key));
@@ -129,7 +143,7 @@ export async function forYou(type: BrowseType, page: number, lib: LibItem[], sal
   for (const [id, xs] of by) { const e = pool.get(id); const top = [...xs].sort((a, b) => b.c - a.c)[0]; if (e && top) e.src = top.sid; }
   const year = new Date().getFullYear();
   // First pass ranks on TMDB's numbers; then IMDb's own score, keywords and cast are fetched for the front of the list and that part is ranked again on them.
-  let order = rerank(scorePool([...pool.values()], like, dislike, year));
+  let order = rerank(scorePool([...pool.values()], like, dislike, year, without));
   {
     const front = order.slice(0, SHORTLIST);
     // IMDb's score and each title's keywords + people, fetched side by side inside one time budget; what has not arrived is simply not used.
@@ -147,11 +161,11 @@ export async function forYou(type: BrowseType, page: number, lib: LibItem[], sal
           const x = parseExtras(d, type), c = pool.get(id)!.cand;
           // Keep a person already attached (it came from their filmography); add the billed ones from the credits.
           const have = new Set((c.people ?? []).map((p) => p.id));
-          c.kw = x.kw; c.people = [...(c.people ?? []), ...x.people.filter((p) => !have.has(p.id))];
+          c.kw = x.kw; c.collection = x.collection; c.people = [...(c.people ?? []), ...x.people.filter((p) => !have.has(p.id))];
         }
       })),
     ]), 3000);
-    const again = rerank(scorePool(front.map((id) => pool.get(id)!), like, dislike, year));
+    const again = rerank(scorePool(front.map((id) => pool.get(id)!), like, dislike, year, without));
     order = [...again, ...order.slice(SHORTLIST)];
   }
   const poolPages = Math.ceil(order.length / PAGE);
