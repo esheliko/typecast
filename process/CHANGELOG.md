@@ -2,6 +2,13 @@
 
 Every change to a rule, instruction, hook, CI or deploy mechanism gets an entry here (newest first) with an expected effect and a review-by date, so a change is judged by what happened, not by feel. Format and workflow: `.claude/skills/process/SKILL.md`. Checked by `tests/unit/process-changelog.test.ts`.
 
+## 2026-11-20 · #168 · Automation board data (alerts, duties, statistics) written by Actions
+What: `scripts/automation.mjs` + `.github/workflows/automation.yml` write alerts, the list of what the manager session used to do (with replacement and status) and statistics into one issue the deploy board reads; no model, no tokens.
+Why: the owner wants to see on the board everything the manager does and stops doing, and statistics on demand, with zero idle cost.
+Expected effect: the board shows current alerts and duty status within 30 min of any change; the Actions job stays green; the manager session can be retired after a shadow period without losing visibility.
+Review by: 2026-12-04
+Status: pending
+
 ## 2026-11-20 · #167 · `/process` skill and this changelog
 What: project skill `.claude/skills/process/SKILL.md` (on-demand process session: read the request queue, propose one batch, apply after approval in one PR) and this changelog with a format check.
 Why: the owner needs one easy way to keep revising rules without a live manager; changes need an expected effect and a review date.

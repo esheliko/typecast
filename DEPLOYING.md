@@ -13,6 +13,9 @@ Vercel Hobby limits deployments, so **a merge to `main` no longer deploys by its
 
 - **One deployment per sha**: right before the POST the manager re-reads Vercel and refuses (`deployRefusal`) if that sha already has a production deployment (live or in flight) or another production build is running. Two executors (Actions + the manager-watch guard) used to decide from lists read earlier and both deployed (2026-11-13: c52b683 twice, 37 s apart).
 
+## Automation board data (2026-11-20)
+`.github/workflows/automation.yml` runs `scripts/automation.mjs` after every CI run and every 30 min (no model, no Claude session, no tokens). It writes ONE issue labelled `automation-data` (found by label, created on first run): open alerts (red main, red commit in production, stale deploy manager, paused deploys, stuck PRs, failed token checks, process reviews due, unreadable sources) with first/last seen and a recent-resolved list, the list of "what the Deploy Manager session used to do" with its replacement and a status (ok/warn/down/planned/manual), and statistics (deploys, median commit-to-live, CI reds and green-after-rerun, PRs, process requests and changelog state, rules budget). The board reads the JSON block `<!--automation ... -->` (`AUTOMATION_VERSION` 1; pure logic and contract in `scripts/automation-core.mjs`, unit tested). A changed format must bump the version and update the board artifact in the same task. Not pushed anywhere yet: the board is the only surface (owner decision 2026-11-20); the push channel is decided later. The manager session and its watcher keep running until the owner approves the cutover.
+
 ## Policy (see `CFG` in the script)
 - Wait until `main` has been quiet 3 min, or the oldest pending commit is 10 min old (slower tiers when the 24h count is high).
 - Commits touching only docs/`.claude`/`.github`/`supabase`/`artifact.html` never trigger a deployment.
