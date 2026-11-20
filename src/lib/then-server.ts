@@ -45,10 +45,10 @@ async function galleryThen(ep: ThenEp, profilePath: string | null, who: ThenWho)
   } catch { return null; }
 }
 
-export async function chooseThen(q: string, profilePath: string | null, who: ThenWho, ep?: ThenEp | null): Promise<{ configured: boolean; url: string | null }> {
+export async function chooseThen(q: string, profilePath: string | null, who: ThenWho, ep?: ThenEp | null, pid?: number): Promise<{ configured: boolean; url: string | null }> {
   // The episode's own gallery first: a still captioned with this actor in this very episode (the web search can only guess, and returned the show's key art for many faces).
   if (ep) { const g = await galleryThen(ep, profilePath, who); if (g) return { configured: true, url: g }; }
-  const r = await searchImages(q);
+  const r = await searchImages(q, { pid, role: true });
   if (!r.configured) return { configured: false, url: null };
   if (r.error) throw new Error(r.error);
   const ranked = rankThenImages(r.images.map((i) => ({ thumb: i.thumb, page: i.page, title: i.title, w: i.w, h: i.h })), who);

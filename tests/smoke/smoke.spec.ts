@@ -364,6 +364,17 @@ test.describe("signed in", () => {
     await healthy(page, bad);
   });
 
+  test("/api/glimpse: pictures by person and title id (free sources, no Serper needed)", async ({ page }) => {
+    const person = await page.request.get("/api/glimpse?q=Bryan%20Cranston%20actor&p=17419");
+    expect(person.status()).toBe(200);
+    expect(((await person.json()) as { images: unknown[] }).images.length).toBeGreaterThan(0);
+    const title = await page.request.get("/api/glimpse?q=Breaking%20Bad%202008%20TV%20series%20poster&k=tv:1396");
+    expect(title.status()).toBe(200);
+    expect(((await title.json()) as { images: unknown[] }).images.length).toBeGreaterThan(0);
+    expect((await page.request.get("/api/glimpse?q=x")).status()).toBe(200); // too short: empty, not an error
+    expect((await page.request.get("/api/glimpse?q=Some%20Name&p=abc&k=bogus")).status()).not.toBe(500); // bad hints are ignored
+  });
+
   test("/watching: Rookie S2, filter to women, open a face, see the timeline", async ({ page }) => {
     const bad = watch(page);
     await visit(page, "/watching?k=tv-79744&s=2", bad);

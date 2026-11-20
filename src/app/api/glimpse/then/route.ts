@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
   const [tv, sn, ep] = [num("tv"), num("s"), num("e")];
   const exact = tv && sn && ep ? { tv, s: sn, e: ep, imdb: /^tt\d{6,10}$/.test(p.get("imdb") ?? "") ? p.get("imdb")! : null } : null;
   try {
-    const r = await chooseThen(q, profile, { actor: p.get("actor")?.slice(0, 100) ?? "", char: p.get("char")?.slice(0, 100) || undefined, title: p.get("title")?.slice(0, 120) || undefined }, exact);
+    const r = await chooseThen(q, profile, { actor: p.get("actor")?.slice(0, 100) ?? "", char: p.get("char")?.slice(0, 100) || undefined, title: p.get("title")?.slice(0, 120) || undefined }, exact, num("p") || undefined);
     return NextResponse.json(r, { headers: { "Cache-Control": "private, max-age=3600" } });
   } catch (e) {
     console.error("[error] glimpse/then:", e);

@@ -122,7 +122,7 @@ export function Finder({ roster, loading, more, err, q, setQ, inputRef, recents,
         // Retried twice: image search can fail for a moment (rate limit), and a face must not stay without its photo for that.
         for (let a = 0; a < 3; a++) {
           try {
-            const r = await fetchThen(job.q, job.photo, job.who, job.at); // never the Now photo again, checked on the server
+            const r = await fetchThen(job.q, job.photo, job.who, job.at, job.id); // never the Now photo again, checked on the server
             if (!r.configured) { thenQueue.current = []; setThenOk(false); return; }
             const url = r.url;
             if (url) { const pre = new Image(); pre.referrerPolicy = "no-referrer"; pre.src = url; }
