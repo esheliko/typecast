@@ -5,7 +5,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 // @ts-expect-error plain .mjs script, no types
-import { rearmAfter, ciDecision, watchStatus, guardLines, liveLine, LIMITS, readReported, writeReported } from "../../scripts/manager-watch.mjs";
+import { rearmAfter, rearmLimit, ciDecision, watchStatus, guardLines, liveLine, LIMITS, readReported, writeReported } from "../../scripts/manager-watch.mjs";
 // @ts-expect-error plain .mjs script, no types
 import { parseRed } from "../../scripts/ci-watch.mjs";
 
@@ -67,6 +67,13 @@ test("process: green main + fake deploy stays silent until REARM, deploy goes to
   assert.match(r.stdout, /^REARM manager-watch \(no red, \d+ guard ticks, \d+ deploys\)\n$/);
   const log = execFileSync("cat", [`${dir}/manager-watch.log`], { encoding: "utf8" });
   assert.match(log, /^GUARD_DEPLOYED \d\d:\d\d IST :: DEPLOYING abc1234/);
+});
+test("scaled (test) runs never align the REARM to the wall clock; real runs do", () => {
+  for (let m = 0; m < 240; m++) {
+    const now = Date.UTC(2026, 10, 20, 0, 0) + m * 60e3;
+    assert.equal(rearmLimit(now, LIMITS.rearmAfterMs, 1000), LIMITS.rearmAfterMs, `minute ${m}`);
+    assert.equal(rearmLimit(now, LIMITS.rearmAfterMs, 1), rearmAfter(now, LIMITS.rearmAfterMs));
+  }
 });
 test("process: unreadable CI/deploy command ends in WATCH_ERROR", () => {
   const r = spawnSync("node", ["scripts/manager-watch.mjs"], {
