@@ -6,6 +6,7 @@ import { importLetterboxd, rollbackImport } from "@/app/actions";
 import { readZip } from "@/lib/letterboxd-parse";
 import { parseAny, type Plain } from "@/lib/list-parse";
 import type { Applied } from "@/lib/letterboxd";
+import { useSwipeDismiss } from "@/lib/useSwipeDismiss";
 import ImportReviewDialog, { rank, toRows, unsaved, type ReviewRow } from "./ImportReview";
 
 const BATCH = 25;
@@ -53,6 +54,8 @@ export function ImportProvider({ children }: { children: React.ReactNode }) {
   const [tally, setTally] = useState<Tally | null>(null);
   const [review, setReview] = useState<ReviewRow[]>([]);
   const [reviewOpen, setReviewOpen] = useState(false);
+  const [barHidden, setBarHidden] = useState(false);
+  useEffect(() => { if (busy) setBarHidden(false); }, [busy]);
   const [reverted, setReverted] = useState("");
   const [importErr, setImportErr] = useState("");
 
@@ -117,19 +120,21 @@ export function ImportProvider({ children }: { children: React.ReactNode }) {
   }
 
   const value: Ctx = { entries, pasted, setPasted, plain, setPlain, fileKey, picked, readErr, importErr, reverted, busy, done, tally, review, openReview: () => setReviewOpen(true), pick, run };
+  const swipe = useSwipeDismiss(() => { if (!busy) setBarHidden(true); });
   const problems = review.filter((r) => unsaved(r) && !r.gone).length;
   // Off the Settings page, a small bar keeps the import visible and gets back to its review.
-  const bar = path !== "/setup" && (busy || (review.length > 0 && !reviewOpen));
+  const bar = path !== "/setup" && !(barHidden && !busy) && (busy || (review.length > 0 && !reviewOpen));
   return (
     <ImportCtx.Provider value={value}>
       {children}
       {bar && (
         <div className="toast-slot" role="status">
-          <div className="toast">
+          <div className="toast" {...swipe}>
             {busy
               ? <span><span className="spin" />Importing {done} of {entries?.length ?? 0}…</span>
               : <><span>Import finished{problems ? `: ${problems} to check` : ""}</span><button type="button" className="toast-undo" onClick={() => setReviewOpen(true)}>Review</button></>}
             {busy && <Link href="/setup" className="toast-undo plain">Details</Link>}
+            {!busy && <button type="button" className="toast-x" onClick={() => setBarHidden(true)} aria-label="Dismiss">×</button>}
           </div>
         </div>
       )}

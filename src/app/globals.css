@@ -338,6 +338,9 @@ li.row { gap: 10px; }
 /* A bottom sheet covers the tab bar, so the toast drops to just above the screen edge instead of floating over the sheet. */
 @media (max-width: 719px) { body:has(.fsheet-wrap, .gl-wrap) .toast-slot { bottom: calc(16px + env(safe-area-inset-bottom, 0px)); } }
 .toast { pointer-events: auto; display: flex; align-items: center; gap: 14px; background: var(--ink); color: var(--bg); padding: 10px 10px 10px 18px; border-radius: 999px; font-size: 14px; max-width: 100%; box-shadow: 0 8px 24px rgb(0 0 0 / .25); animation: up .18s ease-out; }
+.toast { touch-action: none; }
+.toast-x { flex: none; width: 26px; height: 26px; margin-left: -6px; border-radius: 50%; font-size: 18px; line-height: 1; opacity: .7; }
+.toast-x:hover { opacity: 1; }
 .toast.rate { flex-wrap: wrap; justify-content: center; border-radius: 22px; row-gap: 4px; }
 .toast.rate > span:first-child { white-space: normal; }
 .toast-rate { font-size: 24px; letter-spacing: 0; }

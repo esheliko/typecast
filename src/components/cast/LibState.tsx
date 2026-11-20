@@ -2,6 +2,7 @@
 import { usePathname, useRouter } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { setRating, setStatus, setStatusMany, undoStatusMany } from "@/app/actions";
+import { useSwipeDismiss } from "@/lib/useSwipeDismiss";
 import StarRating from "../StarRating";
 import { FranchiseSheet, type Group } from "./Franchise";
 import { sameMark, unpackMarks, withPlace, withStopped, type PackedMarks } from "@/lib/marks";
@@ -260,17 +261,19 @@ export function LibProvider({ packed, children }: { packed: PackedMarks; childre
     show({ msg: `Hidden: ${it.title}`, undo: () => { setToast(null); const u = new Set(skippedRef.current); u.delete(it.key); skippedRef.current = u; writeSkipped(u); } });
   }, [show, writeSkipped]);
 
+  const swipe = useSwipeDismiss(() => setToast(null));
   return (
     <LibCtx.Provider value={{ get, mark, markMany, openRelated, groupsOf: franchise, marked, skipped, skip, put, touch, markRich, defaultPriority, notify, setPlace, setStopped }}>
       {children}
       {sheet && <FranchiseSheet it={sheet} load={franchise} loadSimilar={similar} onClose={() => setSheet(null)} />}
       <div className="toast-slot" aria-live="polite">
         {toast && (
-          <div key={toast.id} className={`toast${toast.err ? " bad" : ""}${toast.rate ? " rate" : ""}`} role="status">
+          <div key={toast.id} className={`toast${toast.err ? " bad" : ""}${toast.rate ? " rate" : ""}`} role="status" {...swipe}>
             <span>{toast.pending && <span className="spin" aria-hidden="true" />}{toast.msg}</span>
             {toast.rate && <StarRating className="toast-rate" value={0} onRate={(n) => rateFromToast(toast.rate!, n)} label={`Rate ${toast.rate.title}`} />}
             {toast.undo && <button className="toast-undo plain" onClick={toast.undo}>Undo</button>}
             {toast.action && <button className="toast-undo" onClick={toast.action.run}>{toast.action.label}</button>}
+            <button className="toast-x" onClick={() => setToast(null)} aria-label="Dismiss">×</button>
           </div>
         )}
       </div>
