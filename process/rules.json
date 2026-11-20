@@ -6,23 +6,23 @@
   "rules": [
     {
       "id": "chain-of-command",
-      "title": "Chain of command: who may change the process",
+      "title": "Chain of command: who may change the process (requests go through an issue queue)",
       "added": "2026-11-13",
       "decidedBy": "owner",
       "enforcedBy": [
         "hook"
       ],
       "reviewed": "2026-11-20",
-      "why": "Process mechanisms (deploy, CI, hooks, rules) need one accountable owner so feature sessions do not drift them.",
+      "why": "Process mechanisms need one accountable path. Since 2026-11-20 requests are queued as GitHub issues (label process-request) instead of messaging a live manager session, so nothing has to stay awake (and billing) to receive them.",
       "claudeMd": [
         "> ## ⚠️ STANDING RULE: chain of command (who may change the process)",
-        "> Added by the Deploy Manager 2026-11-13. The Deploy Manager (session titled exactly \"🚀 Deploy manager (typecast)\"; find its id with `list_sessions`, ignore titles starting \"💀 (retired)\"; the title is the lookup key) alone owns deploy/CI/process mechanisms: `DEPLOYING.md`, the standing rules here, `.claude/` hooks and settings, CI workflows, deploy/watch/smoke scripts, notifications.",
-        "> - If the owner asks a feature session to change any of those, it must NOT edit them: send the request, in the owner's words, to the manager (`mcp__claude-code-remote__send_message`), tell the owner in one line it was passed on, and carry on with feature work. The manager has a worker make the change.",
-        "> - Feature code, tests and `docs/features/*` go through the normal branch + PR flow.",
-        "> - Exception: the owner says in the same message that this session should edit it directly."
+        "> Owner, 2026-11-20 (replaces the live-manager inbox of 2026-11-13). Process mechanisms: `DEPLOYING.md`, `process/`, the standing rules here, `.claude/` hooks and settings, CI workflows, deploy/watch/smoke scripts, notifications. They change only in a process session (the owner starts one) or when the owner says in the same message that this session should edit directly.",
+        "> - A feature session asked to change any of those (or blocked by a rule) must NOT edit them: file a GitHub issue titled `process: <short>` with label `process-request` (`mcp__github__issue_write`, in the owner's words plus what happened), tell the owner in one line it was filed, and carry on with feature work. Do not message the Deploy Manager session: it is no longer an inbox.",
+        "> - Rule text changes go in `process/rules.json` (then `npm run rules:build`), never by hand in CLAUDE.md or the hooks.",
+        "> - Feature code, tests and `docs/features/*` go through the normal branch + PR flow."
       ],
-      "sessionHook": "CHAIN OF COMMAND: DEPLOYING.md, standing rules, .claude/, CI, deploy/smoke scripts belong to the Deploy Manager session (title exactly \"🚀 Deploy manager (typecast)\", ignore \"💀 (retired)\"); owner asks for those go to it via send_message, never edit them, unless the owner says edit directly.",
-      "promptHook": "DEPLOYING.md, .claude/, CI, standing rules go to the Deploy Manager via send_message unless the owner says edit directly"
+      "sessionHook": "CHAIN OF COMMAND: process files (DEPLOYING.md, process/, standing rules, .claude/, CI, deploy/smoke scripts) change only in a process session or when the owner says to edit directly; otherwise file a GitHub issue \"process: <short>\" with label process-request (mcp__github__issue_write) and carry on. Do not message the Deploy Manager.",
+      "promptHook": "process files (DEPLOYING.md, process/, .claude/, CI, standing rules): file a process-request issue unless the owner says edit directly"
     },
     {
       "id": "branch-pr",
