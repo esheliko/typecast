@@ -4,6 +4,7 @@ import { airsLabel, daysUntil } from "./episodes";
 import { caughtUp, continueHref, continueLabel } from "./watch-library";
 import { cleanRuntime, stoppedShort } from "./film-resume";
 import { nextOut } from "./place-strip";
+import { capPerFranchise, decayByFranchise } from "./franchise";
 import type { Item, LibItem } from "./types";
 
 /**
@@ -39,6 +40,8 @@ export interface Facts {
   /** Series: season sizes (specials excluded) and the newest aired episode, from the same TMDB response. They make "Next: S3 E9" / "Caught up" true. */
   seasons?: { n: number; eps: number }[];
   lastEp?: { s: number; e: number } | null;
+  /** Films: the TMDB collection (franchise) it belongs to. Titles of one franchise are one voice in taste and recommendations (`franchise.ts`). */
+  collection?: number | null;
   /** Names of your streaming services it is on (subscription, free or with ads) in your country. */
   onMine: string[];
   /** Whether it can be streamed anywhere at all in your country. */
@@ -90,24 +93,35 @@ export function lengthLabel(type: Item["type"], runtime: number | null): string 
 }
 
 /** The titles that say most about taste: rated 4+ (or watched and unrated, weaker), most recent first. */
-export function tasteSeeds(lib: LibItem[], max = 12): LibItem[] {
+export function tasteSeeds(lib: LibItem[], max = 12, facts?: Map<string, Facts>): LibItem[] {
   const w = (l: LibItem) => (l.status === "watched" || l.status === "watching" ? (l.rating >= 4 ? 3 : l.rating === 0 ? 1 : 0) : 0);
-  return lib.filter((l) => w(l) > 0).sort((a, b) => w(b) - w(a) || (b.watchedAt ?? b.updated) - (a.watchedAt ?? a.updated)).slice(0, max);
+  const best = lib.filter((l) => w(l) > 0).sort((a, b) => w(b) - w(a) || (b.watchedAt ?? b.updated) - (a.watchedAt ?? a.updated));
+  // With facts known, a franchise takes at most two of the slots, so one saga cannot be the whole taste.
+  return (facts ? capPerFranchise(best, (l) => franchiseOf(l, facts), 2) : best).slice(0, max);
 }
+/** The franchise a library title belongs to, when known. */
+const franchiseOf = (l: LibItem, facts: Map<string, Facts>) => facts.get(l.key)?.collection ?? null;
 
 /** Genre id -> share of taste (0..1, the favourite genre is 1). */
 export function genreTaste(seeds: LibItem[], facts: Map<string, Facts>): Map<number, number> {
   const m = new Map<number, number>();
-  for (const s of seeds) for (const g of facts.get(s.key)?.genres ?? []) m.set(g, (m.get(g) ?? 0) + (s.rating >= 4 ? 2 : 1));
+  // A franchise's later films count less: liking five films of one saga says "I like that saga" more than "I love this genre five times".
+  const w = decayByFranchise(seeds, (s) => (s.rating >= 4 ? 2 : 1), (s) => franchiseOf(s, facts));
+  seeds.forEach((s, i) => { for (const g of facts.get(s.key)?.genres ?? []) m.set(g, (m.get(g) ?? 0) + w[i]); });
   const top = Math.max(0, ...m.values());
   if (top) for (const [g, v] of m) m.set(g, v / top);
   return m;
 }
 
-/** Which taste titles recommend each title (key -> those titles). */
+/** Which taste titles recommend each title (key -> those titles). Two titles of one franchise recommending the same thing are one vote, not two. */
 export function recommenders(seeds: LibItem[], facts: Map<string, Facts>): Map<string, LibItem[]> {
   const m = new Map<string, LibItem[]>();
-  for (const s of seeds) for (const r of facts.get(s.key)?.recs ?? []) m.set(r.key, [...(m.get(r.key) ?? []), s]);
+  for (const s of seeds) for (const r of facts.get(s.key)?.recs ?? []) {
+    const have = m.get(r.key) ?? [];
+    const f = franchiseOf(s, facts);
+    if (f != null && have.some((h) => franchiseOf(h, facts) === f)) continue;
+    m.set(r.key, [...have, s]);
+  }
   return m;
 }
 
@@ -212,7 +226,8 @@ function recPool(lib: LibItem[], seeds: LibItem[], facts: Map<string, Facts>, no
   for (const s of seeds) for (const r of facts.get(s.key)?.recs ?? []) {
     if (own.has(r.key) || !r.poster || !r.released || r.released > today || r.votes < 100 || r.vote < 6.8) continue;
     const e = by.get(r.key) ?? { r, from: [] };
-    if (!e.from.includes(s)) e.from.push(s);
+    const f = franchiseOf(s, facts);
+    if (!e.from.includes(s) && !(f != null && e.from.some((h) => franchiseOf(h, facts) === f))) e.from.push(s);
     by.set(r.key, e);
   }
   return [...by.values()];
@@ -220,7 +235,7 @@ function recPool(lib: LibItem[], seeds: LibItem[], facts: Map<string, Facts>, no
 
 /** Candidates from outside the library worth looking up (for availability and length) before ranking. */
 export function discoveryCandidates(lib: LibItem[], facts: Map<string, Facts>, now: number, max = 8, tz?: string): Rec[] {
-  return recPool(lib, tasteSeeds(lib), facts, now, tz).sort((a, b) => b.from.length - a.from.length || b.r.vote - a.r.vote).slice(0, max).map((e) => e.r);
+  return recPool(lib, tasteSeeds(lib, 12, facts), facts, now, tz).sort((a, b) => b.from.length - a.from.length || b.r.vote - a.r.vote).slice(0, max).map((e) => e.r);
 }
 
 /** New titles from outside the library that loved titles agree on; ones on your services first. */
@@ -240,7 +255,7 @@ export function discoveries(lib: LibItem[], ctx: Ctx, seeds: LibItem[], taste: M
  */
 export function rankUpNext(lib: LibItem[], ctx: Ctx, snoozed: Set<string> = new Set(), max = MAX_PICKS): Pick[] {
   const live = lib.filter((l) => !snoozed.has(l.key));
-  const seeds = tasteSeeds(lib);
+  const seeds = tasteSeeds(lib, 12, ctx.facts);
   const taste = genreTaste(seeds, ctx.facts);
   const recBy = recommenders(seeds, ctx.facts);
   const progress = live.filter((l) => l.status === "watching" || l.status === "partial").map((l) => ({ l, p: filmResume(l, ctx) ?? inProgress(l, ctx) })).filter((x): x is { l: LibItem; p: Pick } => !!x.p);

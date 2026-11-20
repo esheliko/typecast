@@ -11,6 +11,9 @@
  *   candidate with someone you keep coming back to is boosted, and the best of their other work is added as candidates.
  * - Themes: TMDB keywords of the seeds ("heist", "time loop") matched against each candidate, beyond what genres say.
  * - Quality prior: Bayesian average (IMDb-style) so a 9.0 from 12 votes does not outrank an 8.1 from 20,000.
+ * - Franchises: titles of one TMDB collection are one voice, not five (`franchise.ts`). Seeds from a saga decay, and a candidate
+ *   from a saga you already like is scored on evidence OUTSIDE that saga (its genres, cast and themes are what the saga
+ *   already contributed), so being a sequel, similar and sharing cast does not count three times.
  * - Diversity: greedy maximal-marginal-relevance re-rank, so one franchise or one genre does not fill a screen.
  * - Exploration: every few slots go to a well-rated title outside your usual genres.
  */
@@ -25,6 +28,8 @@ export interface Cand {
   imdb?: { rating: number; votes: number };
   /** TMDB keyword ids and the people attached to the title (`k`: 1 = director or lead, less for lower billing). Unknown until fetched. */
   kw?: number[]; people?: Person[];
+  /** The TMDB collection (franchise) a film belongs to, when known (needs the detail record). Series have none. */
+  collection?: number | null;
   /** Streams on one of your services (only set for candidates that came from that lookup). */
   onService?: boolean;
 }
@@ -33,7 +38,7 @@ export interface Person { id: number; name: string; k: number }
 const BILLED = 6;
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /** Pulls keywords and people out of a TMDB detail record fetched with `extraParam`. Pure. */
-export function parseExtras(d: any, type: MediaType): { kw: number[]; people: Person[] } {
+export function parseExtras(d: any, type: MediaType): { kw: number[]; people: Person[]; collection: number | null } {
   const kws: any[] = (type === "movie" ? d?.keywords?.keywords : d?.keywords?.results) ?? [];
   const kw = kws.map((x) => x.id).filter((x) => Number.isFinite(x)).slice(0, 40) as number[];
   const cast: any[] = (type === "movie" ? d?.credits?.cast : d?.aggregate_credits?.cast) ?? [];
@@ -44,7 +49,7 @@ export function parseExtras(d: any, type: MediaType): { kw: number[]; people: Pe
   if (type === "movie") { for (const c of (d?.credits?.crew ?? []) as any[]) if (c.job === "Director") add(c.id, c.name, 1); }
   else for (const c of (d?.created_by ?? []) as any[]) add(c.id, c.name, 1);
   for (const c of [...cast].sort((a, b) => (a.order ?? 99) - (b.order ?? 99)).slice(0, BILLED)) add(c.id, c.name, 1 / (1 + (c.order ?? BILLED) / 3));
-  return { kw, people };
+  return { kw, people, collection: type === "movie" && typeof d?.belongs_to_collection?.id === "number" ? d.belongs_to_collection.id : null };
 }
 /** `append_to_response` value that makes one TMDB detail call carry everything `parseExtras` reads. */
 export const extraParam = (type: MediaType) => (type === "movie" ? "credits,keywords" : "aggregate_credits,keywords");
@@ -82,15 +87,18 @@ export interface Profile {
   genre: Map<number, number>; decade: Map<number, number>; lang: Map<string, number>; total: number;
   /** Keyword id -> weight, and person id -> weight (seed weight x billing), built from the seeds' extras. */
   kw: Map<number, number>; person: Map<number, number>;
+  /** Franchises (collection ids) among the seeds. */
+  franchises: Set<number>;
 }
 const bump = <K,>(m: Map<K, number>, k: K, v: number) => m.set(k, (m.get(k) ?? 0) + v);
 
 export function buildProfile(seeds: { w: number; cand: Cand | null }[], sign: 1 | -1 = 1): Profile {
-  const p: Profile = { genre: new Map(), decade: new Map(), lang: new Map(), total: 0, kw: new Map(), person: new Map() };
+  const p: Profile = { genre: new Map(), decade: new Map(), lang: new Map(), total: 0, kw: new Map(), person: new Map(), franchises: new Set() };
   for (const s of seeds) {
     const w = Math.abs(s.w);
     if (!s.cand || (sign === 1 ? s.w <= 0 : s.w >= 0)) continue;
     p.total += w;
+    if (s.cand.collection != null) p.franchises.add(s.cand.collection);
     for (const g of s.cand.genres) bump(p.genre, g, w / Math.sqrt(s.cand.genres.length));
     if (s.cand.year) { bump(p.decade, Math.floor(s.cand.year / 10), w); }
     if (s.cand.lang) bump(p.lang, s.cand.lang, w);
@@ -153,12 +161,24 @@ export const posWeight = (pos: number) => 1 / (1 + pos / 12);
 /** `src`: the seed that recommends it most, so one seed's neighbours (a franchise) do not fill a screen. */
 export interface Pooled { cand: Cand; votesFrom: number[]; explore: boolean; src?: number }
 
-export interface Scored { src?: number; id: number; score: number; genres: number[]; explore: boolean; parts: { cf: number; content: number; q: number; neg: number; people: number } }
+export interface Scored { src?: number; col?: number | null; id: number; score: number; genres: number[]; explore: boolean; parts: { cf: number; content: number; q: number; neg: number; people: number } }
+
+/**
+ * Profiles with one franchise's seeds left out: `(collection, sign)` -> profile. Given to `scorePool` so a candidate from a saga
+ * you already like is judged on what is NOT explained by that saga.
+ */
+export type Without = (collection: number, sign: 1 | -1) => Profile;
 
 /** Score every candidate. Weights sum to about 1 so the number means something. */
-export function scorePool(pool: Pooled[], like: Profile, dislike: Profile, year: number): Scored[] {
+export function scorePool(pool: Pooled[], likeAll: Profile, dislikeAll: Profile, year: number, without?: Without): Scored[] {
   return pool.map((p) => {
     const c = p.cand;
+    // A sequel of a saga you like: TMDB already vouches for it (cf), and its genres, cast and themes mostly match BECAUSE it is the same saga.
+    // Judge those on the rest of your taste, so one reason is not counted three times.
+    const col = c.collection ?? null;
+    const sib = col != null && !!without && (likeAll.franchises.has(col) || dislikeAll.franchises.has(col));
+    const like = sib && likeAll.franchises.has(col!) ? without!(col!, 1) : likeAll;
+    const dislike = sib && dislikeAll.franchises.has(col!) ? without!(col!, -1) : dislikeAll;
     const cf = 1 - p.votesFrom.reduce((acc, v) => acc * (1 - Math.min(0.9, v)), 1); // noisy-or
     // Themes (keywords) only count once a candidate's keywords are known; until then the older genre-heavy blend is used, so unknowns are not punished.
     const content = c.kw
@@ -174,7 +194,7 @@ export function scorePool(pool: Pooled[], like: Profile, dislike: Profile, year:
     const crowd = c.pop > 150 ? -0.03 : 0;
     const avail = c.onService ? 0.04 : 0;
     const score = 0.38 * cf + 0.24 * content + 0.24 * q + 0.14 * people + fresh + crowd + avail - 0.2 * neg;
-    return { src: p.src, id: c.id, score, genres: c.genres, explore: p.explore, parts: { cf, content, q, neg, people } };
+    return { src: p.src, col, id: c.id, score, genres: c.genres, explore: p.explore, parts: { cf, content, q, neg, people } };
   });
 }
 
@@ -202,7 +222,7 @@ export function rerank(scored: Scored[], opts: { lambda?: number; every?: number
     let best = -1, bestV = -Infinity;
     head.forEach((s, i) => {
       const sim = recent.reduce((m, r) => Math.max(m, jaccard(s.genres, r.genres)), 0);
-      const same = s.src != null ? recent.filter((r) => r.src === s.src).length : 0;
+      const same = recent.filter((r) => (s.src != null && r.src === s.src) || (s.col != null && r.col === s.col)).length;
       const v = s.score - lambda * sim - 0.07 * same;
       if (v > bestV) { bestV = v; best = i; }
     });

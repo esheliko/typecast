@@ -1,5 +1,6 @@
 import { DECADES, type BrowseQuery } from "./browse";
 import { genreList, tmdb } from "./tmdb";
+import { decayByFranchise, distinctGroups } from "./franchise";
 import type { LibItem, MediaType } from "./types";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -10,7 +11,8 @@ export interface Nudge { id: string; label: string; why: string; patch: Partial<
 const MAX_SEEDS = 24;
 const KINDS = { director: 1.4, composer: 1.4, cast: 1, studio: 1.1, theme: 0.9, genre: 0.5 } as const;
 type Kind = keyof typeof KINDS;
-interface Facet { kind: Kind; id: number; name: string; type: MediaType; score: number; n: number; titles: string[] }
+/** `n`: how many separate franchises / loose titles share it (a saga counts once); `titles`: every title involved, for the reason text. */
+interface Facet { kind: Kind; id: number; name: string; type: MediaType; score: number; n: number; titles: string[]; groups: (number | null)[] }
 
 /** Taste signal of one library title: loved counts most, plain watched in the middle, low-rated not at all. */
 function weight(l: LibItem): number {
@@ -18,10 +20,10 @@ function weight(l: LibItem): number {
   return l.priority === "must" ? 1 : 0;
 }
 
-async function facetsOf(l: LibItem): Promise<{ kind: Kind; id: number; name: string }[]> {
+async function facetsOf(l: LibItem): Promise<{ facets: { kind: Kind; id: number; name: string }[]; col: number | null }> {
   const tv = l.type === "tv";
   const d = await tmdb(`/${l.type}/${l.id}`, { append_to_response: `${tv ? "aggregate_credits" : "credits"},keywords` }, 24 * 3600).catch(() => null);
-  if (!d) return [];
+  if (!d) return { facets: [], col: null };
   const out: { kind: Kind; id: number; name: string }[] = [];
   const credits = tv ? d.aggregate_credits : d.credits;
   for (const c of (credits?.cast ?? []).slice(0, tv ? 4 : 5)) out.push({ kind: "cast", id: c.id, name: c.name });
@@ -34,7 +36,7 @@ async function facetsOf(l: LibItem): Promise<{ kind: Kind; id: number; name: str
   for (const c of d.production_companies ?? []) out.push({ kind: "studio", id: c.id, name: c.name });
   for (const k of (tv ? d.keywords?.results : d.keywords?.keywords) ?? []) out.push({ kind: "theme", id: k.id, name: k.name });
   for (const g of d.genres ?? []) out.push({ kind: "genre", id: g.id, name: g.name });
-  return out;
+  return { facets: out, col: typeof d.belongs_to_collection?.id === "number" ? (d.belongs_to_collection.id as number) : null };
 }
 
 const patchOf = (f: Facet): Partial<BrowseQuery> => {
@@ -55,7 +57,10 @@ const patchOf = (f: Facet): Partial<BrowseQuery> => {
 export async function nudges(lib: LibItem[], round = 0): Promise<Nudge[]> {
   const seeds = lib.map((l) => ({ l, w: weight(l) })).filter((x) => x.w > 0).sort((a, b) => b.w - a.w || b.l.added - a.l.added).slice(0, MAX_SEEDS);
   if (seeds.length < 4) return [];
-  const per = await Promise.all(seeds.map((s) => facetsOf(s.l)));
+  const got = await Promise.all(seeds.map((s) => facetsOf(s.l)));
+  const per = got.map((g) => g.facets);
+  // Films of one saga share a director, cast, studio and themes by construction: they add up to one finding, with their weights faded.
+  const faded = decayByFranchise(seeds.map((s, i) => ({ s, col: got[i].col })), (x) => x.s.w, (x) => x.col);
 
   const tally = new Map<string, Facet>();
   seeds.forEach((s, i) => {
@@ -64,8 +69,8 @@ export async function nudges(lib: LibItem[], round = 0): Promise<Nudge[]> {
       const k = `${f.kind}:${f.id}`;
       if (seen.has(k)) continue;
       seen.add(k);
-      const e = tally.get(k) ?? { ...f, type: s.l.type, score: 0, n: 0, titles: [] };
-      e.score += s.w * KINDS[f.kind]; e.n++; e.titles.push(s.l.title);
+      const e = tally.get(k) ?? { ...f, type: s.l.type, score: 0, n: 0, titles: [], groups: [] };
+      e.score += faded[i] * KINDS[f.kind]; e.titles.push(s.l.title); e.groups.push(got[i].col);
       tally.set(k, e);
     }
   });
@@ -74,6 +79,7 @@ export async function nudges(lib: LibItem[], round = 0): Promise<Nudge[]> {
   const picked: Facet[] = [];
   const perKind: Record<string, number> = {};
   const used = new Set<string>();
+  for (const f of tally.values()) f.n = distinctGroups(f.titles.map((t, j) => ({ t, g: f.groups[j] })), (x) => x.g, (x) => x.t);
   for (const f of [...tally.values()].filter((f) => f.n >= 2).sort((a, b) => b.score - a.score)) {
     const sig = f.titles.join("|");
     if ((perKind[f.kind] ?? 0) >= 4 || used.has(sig)) continue; // same set of titles = same finding (e.g. an actor who is also the director)
@@ -89,7 +95,7 @@ export async function nudges(lib: LibItem[], round = 0): Promise<Nudge[]> {
   const window = mixed.length > 4 ? Array.from({ length: 4 }, (_, i) => mixed[(start + i) % mixed.length]) : mixed;
   const out: Nudge[] = window.map((f) => ({
     id: `${f.kind}:${f.id}`, label: f.name,
-    why: `${f.n} of your watched titles${f.kind === "genre" ? " are " + f.name : f.kind === "theme" ? " share this theme" : " involve " + f.name} (${f.titles.slice(0, 3).join(", ")}${f.n > 3 ? "…" : ""})`,
+    why: `${f.titles.length} of your watched titles${f.kind === "genre" ? " are " + f.name : f.kind === "theme" ? " share this theme" : " involve " + f.name} (${f.titles.slice(0, 3).join(", ")}${f.titles.length > 3 ? "…" : ""})`,
     patch: patchOf(f),
   }));
 

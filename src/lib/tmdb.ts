@@ -272,6 +272,7 @@ export async function getPickBasics(type: MediaType, id: number) {
     seasons: type === "tv" ? ((d.seasons ?? []) as any[]).filter((x) => x.season_number >= 1 && x.episode_count > 0).map((x) => ({ n: x.season_number as number, eps: x.episode_count as number })) : [],
     lastEp: (type === "tv" && d.last_episode_to_air?.season_number >= 1 && d.last_episode_to_air?.episode_number >= 1 ? { s: d.last_episode_to_air.season_number as number, e: d.last_episode_to_air.episode_number as number } : null) as { s: number; e: number } | null,
     prov, names,
+    collection: type === "movie" && typeof d.belongs_to_collection?.id === "number" ? (d.belongs_to_collection.id as number) : null,
     recs: ((d.recommendations?.results ?? []) as any[]).slice(0, 12).map((r) => ({
       ...item(type, r), vote: r.vote_average ?? 0, votes: r.vote_count ?? 0, genres: (r.genre_ids ?? []) as number[], released: (r.release_date ?? r.first_air_date ?? "") as string,
     })),

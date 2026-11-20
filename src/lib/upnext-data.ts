@@ -23,7 +23,7 @@ async function factsFor(items: Item[], profile: Profile, into: Map<string, Facts
     if (!b) return;
     const here = b.prov[profile.country] ?? [];
     const onMine = [...new Set(here.filter((id) => mine.has(id)).map((id) => b.names.get(id) ?? profile.serviceNames[String(id)] ?? "your services"))];
-    into.set(it.key, { genres: b.genres, vote: b.vote, votes: b.votes, runtime: b.runtime, released: b.released, lastAired: b.lastAired, nextAir: b.nextAir, seasons: b.seasons, lastEp: b.lastEp, onMine, streamable: here.length > 0, recs: b.recs });
+    into.set(it.key, { genres: b.genres, vote: b.vote, votes: b.votes, runtime: b.runtime, released: b.released, lastAired: b.lastAired, nextAir: b.nextAir, seasons: b.seasons, lastEp: b.lastEp, onMine, streamable: here.length > 0, collection: b.collection, recs: b.recs });
   });
 }
 
@@ -36,7 +36,8 @@ export async function loadUpNext(lib: LibItem[], profile: Profile, now = Date.no
   const progress = lib.filter((l) => l.status === "watching" || l.status === "partial").sort((a, b) => Number(b.status === "watching") - Number(a.status === "watching") || b.updated - a.updated).slice(0, MAX_PROGRESS);
   const wl = lib.filter((l) => l.status === "watchlist").sort((a, b) => Number(b.priority === "must") - Number(a.priority === "must") || b.added - a.added).slice(0, MAX_WATCHLIST);
   const facts = new Map<string, Facts>();
-  await factsFor([...tasteSeeds(lib), ...progress, ...wl], profile, facts);
+  // Eight extra taste titles are looked up: once franchises are known, a saga keeps two slots and the rest go to other titles.
+  await factsFor([...tasteSeeds(lib, 20), ...progress, ...wl], profile, facts);
   await factsFor(discoveryCandidates(lib, facts, now, 8, tzOf(profile.country)), profile, facts);
   // Titles not looked up (a very long watchlist) are still ranked, just on what the library knows.
   // 48 so the "on your services" view still has enough after filtering.
