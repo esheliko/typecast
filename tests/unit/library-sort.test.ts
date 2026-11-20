@@ -14,14 +14,14 @@ const items = [it("B", 3), it("A", 0), it("C", 5), it("D", 0)];
 const names = (l: LibItem[]) => l.map((x) => x.title).join("");
 
 test("default order is kept, flip reverses it", () => {
-  assert.equal(names(orderItems(items, "added", false, false)), "BACD");
-  assert.equal(names(orderItems(items, "added", true, false)), "DCAB");
+  assert.equal(names(orderItems(items, "added", false, "any")), "BACD");
+  assert.equal(names(orderItems(items, "added", true, "any")), "DCAB");
 });
 test("sort by rating, flipped puts lowest first", () => {
-  assert.equal(names(orderItems(items, "rating", false, false)), "CBAD");
-  assert.equal(names(orderItems(items, "rating", true, false)), "DABC");
+  assert.equal(names(orderItems(items, "rating", false, "any")), "CBAD");
+  assert.equal(names(orderItems(items, "rating", true, "any")), "DABC");
 });
 test("unrated keeps only unrated titles, still sortable and flippable", () => {
-  assert.equal(names(orderItems(items, "title", false, true)), "AD");
-  assert.equal(names(orderItems(items, "title", true, true)), "DA");
+  assert.equal(names(orderItems(items, "title", false, "none")), "AD");
+  assert.equal(names(orderItems(items, "title", true, "none")), "DA");
 });
