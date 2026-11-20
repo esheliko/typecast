@@ -36,6 +36,10 @@ export function rearmAfter(now = Date.now(), cap = LIMITS.rearmAfterMs) {
   return Math.min(d, cap);
 }
 
+// Pure: the REARM deadline in ms. Real runs (scale 1) align to the heartbeat; the scaled test runs (scale > 1) must NOT depend on the wall clock:
+// aligned, a test started 5-10 min before an even-hour :46 UTC rearmed before its 10-minute WATCH_ERROR limit and failed main's CI (2026-11-20 02:40 UTC).
+export const rearmLimit = (now, cap, scale = 1) => (scale > 1 ? cap : rearmAfter(now, cap));
+
 // Pure: what to do after a CI poll. `seen` = shas already reported. Returns 'red' | 'ok' | 'wait'.
 export function ciDecision(f, seen) {
   if (!f) return 'wait';
@@ -91,7 +95,7 @@ function run(cmd, args, timeoutMs) {
 async function main() {
   const L = { ...LIMITS };
   const scale = Number(process.env.MANAGER_WATCH_SCALE) || 1;
-  L.rearmAfterMs = rearmAfter(Date.now(), L.rearmAfterMs);
+  L.rearmAfterMs = rearmLimit(Date.now(), L.rearmAfterMs, scale);
   for (const k of Object.keys(L)) L[k] /= scale;
   const logFile = join(process.env.TMPDIR || tmpdir(), 'manager-watch.log');
   const deployCmd = process.env.MANAGER_WATCH_DEPLOY_CMD ? JSON.parse(process.env.MANAGER_WATCH_DEPLOY_CMD) : null;
