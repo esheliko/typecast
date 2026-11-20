@@ -42,8 +42,7 @@ Create a free account at themoviedb.org, then request an API key under Settings,
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase service-role (secret) key. Server-only; needed for user management on the Setup page. Never expose it to the browser. |
 | `ADMIN_EMAIL` | the one account allowed to manage users. If unset, a built-in owner email is used and a warning is logged once per server instance. |
 | `TMDB_LANGUAGE` | optional, for example `de-DE` |
-| `SERPER_API_KEY` | optional, preferred for the Glimpse panel: serper.dev key for inline Google Images results |
-| `GOOGLE_CSE_KEY`, `GOOGLE_CSE_CX` | optional, alternative for Glimpse: Google Programmable Search key and engine id (image search on) |
+| `SERPER_API_KEY`, `SERPER_API_KEY_2` | optional: serper.dev keys for inline Google Images results in the Glimpse panel (the second is used when the first is out of credits). Without them the panel uses TMDB and Wikimedia Commons |
 
 3. Deploy. Open the site on your phone and install it: iPhone, Safari, Share, Add to Home Screen. Android, Chrome menu, Install app.
 4. In Typecast open Setup and choose your country and streaming services.

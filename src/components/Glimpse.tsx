@@ -24,10 +24,12 @@ const gUrl = (q: string) => `https://www.google.com/search?tbm=isch&q=${encodeUR
  */
 const imgCache = new Map<string, Promise<Res>>();
 const imgDone = new Map<string, Res>();
-function loadImages(q: string): Promise<Res> {
+/** The ids the free image sources look things up by (a person, a title); the words alone are what Serper needs. */
+const hintOf = (i: GlimpseInfo | undefined) => (i?.pid ? `&p=${i.pid}` : "") + (i?.key ? `&k=${encodeURIComponent(i.key)}` : "");
+function loadImages(q: string, info?: GlimpseInfo): Promise<Res> {
   const hit = imgCache.get(q);
   if (hit) return hit;
-  const p: Promise<Res> = fetch(`/api/glimpse?q=${encodeURIComponent(q)}`)
+  const p: Promise<Res> = fetch(`/api/glimpse?q=${encodeURIComponent(q)}${hintOf(info)}`)
     .then(async (r): Promise<Res> => {
       const j = await r.json().catch(() => ({})) as { configured?: boolean; images?: GlimpseImage[]; error?: string };
       return r.ok ? { state: "ok", images: j.images ?? [], configured: j.configured !== false } : { state: "error", msg: j.error ?? `Image search failed (${r.status})` };
@@ -60,7 +62,7 @@ export function prefetchGlimpse(spec: GlimpseSpec, images: boolean, enrich: Enri
   spec = enrich(spec);
   const one = (info: GlimpseInfo | undefined, q: string | undefined) => {
     if (info) loadAbout(infoQuery(info)).catch(() => {});
-    if (images && q) loadImages(q);
+    if (images && q) loadImages(q, info ?? spec.info);
   };
   spec.tabs.forEach((t, i) => one(t.info ?? (i === 0 ? spec.info : undefined), t.q));
   if (spec.libRoles && spec.info?.pid) loadRoles(spec.info.pid, spec.info.key).then((rs) => { if (rs.length) enrich({ ...spec, tabs: tabsWithRoles(spec, rs) }).tabs.forEach((t) => one(t.info, t.q)); });
@@ -120,7 +122,7 @@ export function GlimpseProvider({ children }: { children: React.ReactNode }) {
     for (const t of tabs) {
       if (asked.current.has(t.q)) continue;
       asked.current.add(t.q);
-      loadImages(t.q).then((r) => { if (r.state === "error") asked.current.delete(t.q); setRes((m) => ({ ...m, [t.q]: r })); });
+      loadImages(t.q, t.info ?? spec?.info).then((r) => { if (r.state === "error") asked.current.delete(t.q); setRes((m) => ({ ...m, [t.q]: r })); });
       if (t.info) loadAbout(infoQuery(t.info)).catch(() => {});
     }
   }, [tabs]);
