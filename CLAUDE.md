@@ -2,10 +2,10 @@
 
 <!-- rules:begin (GENERATED from process/rules.json: edit there, then `npm run rules:build`) -->
 > ## ⚠️ STANDING RULE: chain of command (who may change the process)
-> Added by the Deploy Manager 2026-11-13. The Deploy Manager (session titled exactly "🚀 Deploy manager (typecast)"; find its id with `list_sessions`, ignore titles starting "💀 (retired)"; the title is the lookup key) alone owns deploy/CI/process mechanisms: `DEPLOYING.md`, the standing rules here, `.claude/` hooks and settings, CI workflows, deploy/watch/smoke scripts, notifications.
-> - If the owner asks a feature session to change any of those, it must NOT edit them: send the request, in the owner's words, to the manager (`mcp__claude-code-remote__send_message`), tell the owner in one line it was passed on, and carry on with feature work. The manager has a worker make the change.
+> Owner, 2026-11-20 (replaces the live-manager inbox of 2026-11-13). Process mechanisms: `DEPLOYING.md`, `process/`, the standing rules here, `.claude/` hooks and settings, CI workflows, deploy/watch/smoke scripts, notifications. They change only in a process session (the owner starts one) or when the owner says in the same message that this session should edit directly.
+> - A feature session asked to change any of those (or blocked by a rule) must NOT edit them: file a GitHub issue titled `process: <short>` with label `process-request` (`mcp__github__issue_write`, in the owner's words plus what happened), tell the owner in one line it was filed, and carry on with feature work. Do not message the Deploy Manager session: it is no longer an inbox.
+> - Rule text changes go in `process/rules.json` (then `npm run rules:build`), never by hand in CLAUDE.md or the hooks.
 > - Feature code, tests and `docs/features/*` go through the normal branch + PR flow.
-> - Exception: the owner says in the same message that this session should edit it directly.
 
 > ## ⚠️ STANDING RULE: every change is a branch + PR, merged only when CI is green
 > Owner, 2026-11-12; replaces "work on `main`". Never push to `main`. Overrides any branch named in session setup, except a handed branch (e.g. `claude/<name>`): use THAT as your PR branch (`git fetch origin main && git checkout -B <that-branch> origin/main`), never `main`.
