@@ -12,6 +12,15 @@ export const SORTS: { value: Sort; label: string }[] = [
 ];
 export const RATINGS = [0, 6, 7, 8] as const;
 
+/** Film length buckets in minutes (TMDB `with_runtime`, inclusive). Films only: a series has per-episode runtimes, not a length. */
+export type Length = "" | "short" | "medium" | "long" | "epic";
+export const LENGTHS: { value: Exclude<Length, "">; label: string; min?: number; max?: number }[] = [
+  { value: "short", label: "Under 90 min", max: 89 },
+  { value: "medium", label: "90–120 min", min: 90, max: 119 },
+  { value: "long", label: "2–2½ hours", min: 120, max: 149 },
+  { value: "epic", label: "2½ hours+", min: 150 },
+];
+
 export interface BrowseQuery {
   type: BrowseType;
   genres: number[];
@@ -24,6 +33,7 @@ export interface BrowseQuery {
   lang: string; // ISO 639-1 code of the original language ("he"), or ""
   sort: Sort;
   minRating: number;
+  length: Length; // film length bucket, or "" (never set for series)
   mine: boolean; // only what's on my streaming services
 }
 
@@ -77,8 +87,10 @@ export function parseBrowse(p: Params): BrowseQuery {
   const rating = Number(one(p, "rating"));
   let from = year(one(p, "from")), to = year(one(p, "to"));
   if (from && to && from > to) [from, to] = [to, from];
+  const type: BrowseType = one(p, "type") === "tv" ? "tv" : one(p, "type") === "movie" ? "movie" : "all";
+  const len = one(p, "len") as Length;
   return {
-    type: one(p, "type") === "tv" ? "tv" : one(p, "type") === "movie" ? "movie" : "all",
+    type,
     genres: [...new Set(all(p, "genre").map(Number).filter((n) => Number.isInteger(n) && n > 0))].slice(0, 6),
     from, to,
     people: tags(p, "person"), companies: tags(p, "company"), keywords: tags(p, "keyword"),
@@ -86,6 +98,7 @@ export function parseBrowse(p: Params): BrowseQuery {
     lang: known(LANGUAGES, one(p, "lang").toLowerCase()),
     sort: SORTS.some((s) => s.value === sort) ? sort : "popular",
     minRating: (RATINGS as readonly number[]).includes(rating) ? rating : 0,
+    length: type !== "tv" && LENGTHS.some((l) => l.value === len) ? len : "",
     mine: one(p, "mine") === "1",
   };
 }
@@ -104,6 +117,7 @@ export function toParams(q: BrowseQuery): URLSearchParams {
   if (q.lang) u.set("lang", q.lang);
   if (q.sort !== "popular") u.set("sort", q.sort);
   if (q.minRating) u.set("rating", String(q.minRating));
+  if (q.length) u.set("len", q.length);
   if (q.mine) u.set("mine", "1");
   return u;
 }

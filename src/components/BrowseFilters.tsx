@@ -1,9 +1,9 @@
 "use client";
 import { useEffect, useState } from "react";
 import TagPicker from "./TagPicker";
-import { COUNTRIES, DECADES, LANGUAGES, RATINGS, type BrowseQuery, type Tag } from "@/lib/browse";
+import { COUNTRIES, DECADES, LANGUAGES, LENGTHS, RATINGS, type Length, type BrowseQuery, type Tag } from "@/lib/browse";
 
-const EMPTY: BrowseQuery = { type: "all", genres: [], from: "", to: "", people: [], companies: [], keywords: [], country: "", lang: "", sort: "popular", minRating: 0, mine: false };
+const EMPTY: BrowseQuery = { type: "all", genres: [], from: "", to: "", people: [], companies: [], keywords: [], country: "", lang: "", sort: "popular", minRating: 0, length: "", mine: false };
 
 /** Detailed filter panel for the Browse view. The URL is the source of truth, so every view is shareable and Back works. Films / Series is chosen in the Browse bar. */
 export default function BrowseFilters({ q, genres, canFilterMine, active, pending, onChange }: { q: BrowseQuery; genres: Tag[]; canFilterMine: boolean; active: boolean; pending: boolean; onChange: (next: BrowseQuery) => void }) {
@@ -43,6 +43,12 @@ export default function BrowseFilters({ q, genres, canFilterMine, active, pendin
         <select aria-label="Minimum rating" className={q.minRating ? "on" : ""} value={q.minRating} onChange={(e) => go({ minRating: Number(e.target.value) })}>
           {RATINGS.map((r) => <option key={r} value={r}>{r ? `★ ${r}+` : "Any rating"}</option>)}
         </select>
+        {q.type !== "tv" && (
+          <select aria-label="Film length" className={q.length ? "on" : ""} value={q.length} onChange={(e) => go({ length: e.target.value as Length })}>
+            <option value="">Any length</option>
+            {LENGTHS.map((l) => <option key={l.value} value={l.value}>{l.label}</option>)}
+          </select>
+        )}
         <select aria-label="Country" className={q.country ? "on" : ""} value={q.country} onChange={(e) => go({ country: e.target.value })}>
           <option value="">Any country</option>
           {COUNTRIES.map(([c, n]) => <option key={c} value={c}>{n}</option>)}

@@ -4,7 +4,7 @@ import { parseBrowse, toParams, isActive, interleave, convertGenres, genresFor, 
 
 test("an empty query is the default and not active", () => {
   const q = parseBrowse({});
-  assert.deepEqual(q, { type: "all", genres: [], from: "", to: "", people: [], companies: [], keywords: [], country: "", lang: "", sort: "popular", minRating: 0, mine: false });
+  assert.deepEqual(q, { type: "all", genres: [], from: "", to: "", people: [], companies: [], keywords: [], country: "", lang: "", sort: "popular", minRating: 0, length: "", mine: false });
   assert.equal(isActive(q), false);
   assert.equal(toParams(q).size, 0);
 });
@@ -70,4 +70,15 @@ test("country and language accept only known codes", () => {
   const q = parseBrowse({ country: "XX", lang: "zz" });
   assert.equal(q.country, ""); assert.equal(q.lang, "");
   assert.equal(parseBrowse({ country: "IL" }).country, "IL");
+});
+
+test("film length: parsed, round-trips, and never applies to series", () => {
+  assert.equal(parseBrowse({ len: "short" }).length, "short");
+  assert.equal(parseBrowse({ type: "movie", len: "epic" }).length, "epic");
+  assert.equal(parseBrowse({ len: "bogus" }).length, "");
+  assert.equal(parseBrowse({ type: "tv", len: "short" }).length, "");
+  const q = parseBrowse({ type: "movie", len: "medium" });
+  assert.equal(toParams(q).get("len"), "medium");
+  assert.deepEqual(parseBrowse(toParams(q)), q);
+  assert.equal(isActive(parseBrowse({ len: "long" })), true);
 });

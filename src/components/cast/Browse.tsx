@@ -44,7 +44,7 @@ export interface BrowseProps {
 
 /** Number of filters set, not counting Films / Series. */
 function countFilters(q: BrowseQuery) {
-  return q.genres.length + (q.from || q.to ? 1 : 0) + q.people.length + q.companies.length + q.keywords.length + (q.sort !== "popular" ? 1 : 0) + (q.minRating ? 1 : 0) + (q.country ? 1 : 0) + (q.lang ? 1 : 0) + (q.mine ? 1 : 0);
+  return q.genres.length + (q.from || q.to ? 1 : 0) + q.people.length + q.companies.length + q.keywords.length + (q.sort !== "popular" ? 1 : 0) + (q.minRating ? 1 : 0) + (q.length ? 1 : 0) + (q.country ? 1 : 0) + (q.lang ? 1 : 0) + (q.mine ? 1 : 0);
 }
 
 /**
@@ -217,7 +217,7 @@ export default function Browse({ filters, filtered, list: initialList, salt: ser
   function chooseType(t: BrowseType) {
     if (t === type) return;
     // With filters set the server runs the search again. Genre ids differ between films and series, so they are translated.
-    if (filtered) { navigate({ ...filters, type: t, genres: convertGenres(filters.genres, type, t) }); return; }
+    if (filtered) { navigate({ ...filters, type: t, genres: convertGenres(filters.genres, type, t), length: t === "tv" ? "" : filters.length }); return; }
     setType(t); setUrl({ type: t === "all" ? null : t });
   }
 
