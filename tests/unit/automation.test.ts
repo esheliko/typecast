@@ -74,6 +74,12 @@ test("dutyList reflects tick age, doctor results and read errors", () => {
   assert.equal(st({}, "stale-red"), "planned");
 });
 
+test("duties describe only how things work now: no replaced-mechanism field and no old-way wording", () => {
+  const text = JSON.stringify(dutyList({ tickAgeMin: 3, doctor: [], readErrors: [] }));
+  assert.ok(!text.includes("replaces"));
+  for (const w of ["manager", "watcher", "heartbeat", "supervisor", "used to", "no longer"]) assert.ok(!text.toLowerCase().includes(w), w);
+});
+
 test("the body round-trips through parseAutomationBody and rejects other versions", () => {
   const parts = { alertInputs: { ...base, doctor: [] }, deploys: deployStats([dep(1)], NOW), ci: ciStats([], NOW), prs: prStats([], [], [], NOW), process: { openRequests: 1, changesPending: 0, changesConfirmed: 0, changesMissed: 0, reviewsDue: [], rules: null } };
   const data = buildAutomation(parts, null, NOW);
