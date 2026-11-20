@@ -5,7 +5,7 @@
 //
 // Silent while main is green. Exactly one stdout line, then exit:
 //   CI_RED <sha> owner=<session> tests=N :: names          (exit 0) main's `verify` is red (run `node scripts/ci-status.mjs --sha <sha>`)
-//   REARM manager-watch (no red, N guard ticks, M deploys) (exit 0) 115 min passed, start it again
+//   REARM manager-watch (no red, N guard ticks, M deploys) (exit 0) next even-hour :46 UTC (max 115 min, see rearmAfter), start it again
 //   STALE_RED_PRS #33,#34 (main green again at <sha>) [sessions=#33:session_x,...]   (exit 0) main went green after a red and these open PRs are red/unverified
 //                                                          without main's green commit: tell their sessions to update_pull_request_branch (each PR+head once)
 //   STUCK_PRS #12(no-verify),#15(conflict+no-verify) [sessions=#12:session_x,...]   (exit 0) open PRs older than 2 h with no `verify` run or with a merge conflict (each PR+head+reason once; checked every 10 min)
@@ -25,6 +25,16 @@ import { staleRedPrs, staleLine, findCandidates, prKey, stuckPrs, stuckLine, stu
 import { newestFinished, parseRed, redReport } from './ci-watch.mjs';
 
 export const LIMITS = { ciEveryMs: 60e3, guardEveryMs: 120e3, rearmAfterMs: 115 * 60e3, brokenAfterMs: 10 * 60e3, stuckEveryMs: 10 * 60e3, childTimeoutMs: 5 * 60e3 };
+
+// Pure: ms until the REARM exit. Lands at the next even-hour :46 UTC, 3 min before the heartbeat (cron 49 */2 UTC), so the two wakes share one
+// prompt-cache window (1 h TTL). Under 5 min away = take the next slot; capped at 115 min (the 2 h Bash limit), which self-corrects after one odd arm.
+export function rearmAfter(now = Date.now(), cap = LIMITS.rearmAfterMs) {
+  const H2 = 2 * 3600e3, MIN = 5 * 60e3;
+  const t = new Date(now);
+  let d = (46 * 60e3 - (t.getUTCHours() % 2) * 3600e3 - t.getUTCMinutes() * 60e3 - t.getUTCSeconds() * 1e3 - t.getUTCMilliseconds() + H2) % H2;
+  if (d < MIN) d += H2;
+  return Math.min(d, cap);
+}
 
 // Pure: what to do after a CI poll. `seen` = shas already reported. Returns 'red' | 'ok' | 'wait'.
 export function ciDecision(f, seen) {
@@ -81,6 +91,7 @@ function run(cmd, args, timeoutMs) {
 async function main() {
   const L = { ...LIMITS };
   const scale = Number(process.env.MANAGER_WATCH_SCALE) || 1;
+  L.rearmAfterMs = rearmAfter(Date.now(), L.rearmAfterMs);
   for (const k of Object.keys(L)) L[k] /= scale;
   const logFile = join(process.env.TMPDIR || tmpdir(), 'manager-watch.log');
   const deployCmd = process.env.MANAGER_WATCH_DEPLOY_CMD ? JSON.parse(process.env.MANAGER_WATCH_DEPLOY_CMD) : null;

@@ -5,7 +5,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 // @ts-expect-error plain .mjs script, no types
-import { ciDecision, watchStatus, guardLines, liveLine, LIMITS, readReported, writeReported } from "../../scripts/manager-watch.mjs";
+import { rearmAfter, ciDecision, watchStatus, guardLines, liveLine, LIMITS, readReported, writeReported } from "../../scripts/manager-watch.mjs";
 // @ts-expect-error plain .mjs script, no types
 import { parseRed } from "../../scripts/ci-watch.mjs";
 
@@ -160,4 +160,15 @@ test("process: a stuck PR prints STUCK_PRS once, then stays quiet", () => {
   assert.equal(r.stdout, "STUCK_PRS #9(no-verify)\n");
   const r2 = spawnSync("node", ["scripts/manager-watch.mjs"], { encoding: "utf8", timeout: 30000, env });
   assert.match(r2.stdout, /^REARM/);
+});
+
+test("rearmAfter lands on even-hour :46 UTC, capped at 115 min, skips slots under 5 min away", () => {
+  const m = 60e3, at = (h: number, mi: number) => Date.UTC(2026, 10, 20, h, mi);
+  assert.equal(rearmAfter(at(10, 0)), 46 * m);          // 10:00 -> 10:46
+  assert.equal(rearmAfter(at(10, 50)), 115 * m);        // 10:50 -> 12:46 is 116 min: capped
+  assert.equal(rearmAfter(at(11, 0)), 106 * m);         // 11:00 -> 12:46
+  assert.equal(rearmAfter(at(12, 46)), 115 * m);        // slot passed/now: next one is 120 min, capped
+  assert.equal(rearmAfter(at(10, 43)), 115 * m);        // 3 min to 10:46: too close, take 12:46 (123 min), capped
+  assert.equal(rearmAfter(at(10, 40)), 6 * m);          // 6 min away is fine
+  assert.equal(rearmAfter(at(10, 0), 10 * m), 10 * m);  // custom cap
 });
