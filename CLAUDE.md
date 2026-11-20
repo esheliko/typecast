@@ -71,7 +71,7 @@ Next.js 16 (App Router) + Supabase (email/password auth, RLS) + TMDB. See README
 - `artifact.html` is the legacy single-file prototype, not part of the site.
 
 ## Token cost (every turn re-reads the whole context, so size x turns is the bill)
-- A session starts at ~105k tokens (tools, skills, connectors) before it reads any code; a small fix costs ~25 turns x that. `.claude/settings.json` switches off the org plugins this project never uses (design, product-management, cowork, vercel); do not re-enable them. Connectors (Figma, Gmail, Drive, Spotify, the Vercel MCP) are account-level: turn them off in claude.ai settings, they add ~10k tokens per session.
+- A session starts at ~104k tokens (measured 2026-11-20 in the Deploy Manager: tools, skills, connectors, before any code); a small fix costs ~25 turns x that. `.claude/settings.json` switches off the org plugins this project never uses (design, product-management, cowork, vercel); do not re-enable them. Connectors (Figma, Gmail, Drive, Spotify, the Vercel MCP) are account-level: turn them off in claude.ai settings, they add ~10k tokens per session.
 - One task per session; start a new session instead of continuing a long one. Never run a manager/orchestrator session for hours (a worker restart re-writes all of it to the cache). Hand work over with a short note, not a long thread.
 - **Orchestrator cap:** any session that spawns child sessions retires at ~250k context and hands off a short note (one reached 784k tokens, $29.56).
 - Read narrowly: `Grep`/`Read` with `offset`+`limit`, never whole big files (`globals.css`, `actions.ts`) or whole docs; read a `docs/features/*.md` only for the feature you change. Use a subagent for wide research so its output stays out of the main context.

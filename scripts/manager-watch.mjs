@@ -5,25 +5,36 @@
 //
 // Silent while main is green. Exactly one stdout line, then exit:
 //   CI_RED <sha> owner=<session> tests=N :: names          (exit 0) main's `verify` is red (run `node scripts/ci-status.mjs --sha <sha>`)
-//   REARM manager-watch (no red, N guard ticks, M deploys) (exit 0) 115 min passed, start it again
+//   REARM manager-watch (no red, N guard ticks, M deploys) (exit 0) next even-hour :46 UTC (max 115 min, see rearmAfter), start it again
 //   STALE_RED_PRS #33,#34 (main green again at <sha>) [sessions=#33:session_x,...]   (exit 0) main went green after a red and these open PRs are red/unverified
 //                                                          without main's green commit: tell their sessions to update_pull_request_branch (each PR+head once)
+//   STUCK_PRS #12(no-verify),#15(conflict+no-verify) [sessions=#12:session_x,...]   (exit 0) open PRs older than 2 h with no `verify` run or with a merge conflict (each PR+head+reason once; checked every 10 min)
 //   DEPLOY_LIVE <HH:MM> IST <sha> <N commits>              (exit 0) a new production deployment is READY (once per deployment, also across restarts via
 //                                                          $TMPDIR/manager-watch-live); the manager answers with a PushNotification and re-arms
 //   WATCH_ERROR <reason>                                   (exit 1) CI or the deploy manager unreadable for >10 min in a row
 // Every 120 s it also runs the deploy guard (`git fetch`, then deploy-manager --no-poll); a `DEPLOYING ` line goes to
 // $TMPDIR/manager-watch.log as `GUARD_DEPLOYED <HH:MM> IST :: <line>`, never to stdout.
 // Env (tests only): MANAGER_WATCH_DEPLOY_CMD (JSON array replacing the deploy manager command), MANAGER_WATCH_CI_CMD
-// (JSON array printing `<sha> ok|red|none`), MANAGER_WATCH_LIVE_CMD (JSON array printing the live production sha), MANAGER_WATCH_STALE_CMD (JSON array printing the candidate PRs as JSON), MANAGER_WATCH_SCALE (divides every interval).
+// (JSON array printing `<sha> ok|red|none`), MANAGER_WATCH_LIVE_CMD (JSON array printing the live production sha), MANAGER_WATCH_STALE_CMD (JSON array printing the candidate PRs as JSON), MANAGER_WATCH_STUCK_CMD (same, for the stuck-PR check), MANAGER_WATCH_SCALE (divides every interval).
 import { spawn, execFileSync } from 'node:child_process';
 import { appendFileSync, existsSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { staleRedPrs, staleLine, findCandidates, prKey } from './stale-red-prs.mjs';
+import { staleRedPrs, staleLine, findCandidates, prKey, stuckPrs, stuckLine, stuckKeys, findStuckCandidates } from './stale-red-prs.mjs';
 import { newestFinished, parseRed, redReport } from './ci-watch.mjs';
 
-export const LIMITS = { ciEveryMs: 60e3, guardEveryMs: 120e3, rearmAfterMs: 115 * 60e3, brokenAfterMs: 10 * 60e3, childTimeoutMs: 5 * 60e3 };
+export const LIMITS = { ciEveryMs: 60e3, guardEveryMs: 120e3, rearmAfterMs: 115 * 60e3, brokenAfterMs: 10 * 60e3, stuckEveryMs: 10 * 60e3, childTimeoutMs: 5 * 60e3 };
+
+// Pure: ms until the REARM exit. Lands at the next even-hour :46 UTC, 3 min before the heartbeat (cron 49 */2 UTC), so the two wakes share one
+// prompt-cache window (1 h TTL). Under 5 min away = take the next slot; capped at 115 min (the 2 h Bash limit), which self-corrects after one odd arm.
+export function rearmAfter(now = Date.now(), cap = LIMITS.rearmAfterMs) {
+  const H2 = 2 * 3600e3, MIN = 5 * 60e3;
+  const t = new Date(now);
+  let d = (46 * 60e3 - (t.getUTCHours() % 2) * 3600e3 - t.getUTCMinutes() * 60e3 - t.getUTCSeconds() * 1e3 - t.getUTCMilliseconds() + H2) % H2;
+  if (d < MIN) d += H2;
+  return Math.min(d, cap);
+}
 
 // Pure: what to do after a CI poll. `seen` = shas already reported. Returns 'red' | 'ok' | 'wait'.
 export function ciDecision(f, seen) {
@@ -80,6 +91,7 @@ function run(cmd, args, timeoutMs) {
 async function main() {
   const L = { ...LIMITS };
   const scale = Number(process.env.MANAGER_WATCH_SCALE) || 1;
+  L.rearmAfterMs = rearmAfter(Date.now(), L.rearmAfterMs);
   for (const k of Object.keys(L)) L[k] /= scale;
   const logFile = join(process.env.TMPDIR || tmpdir(), 'manager-watch.log');
   const deployCmd = process.env.MANAGER_WATCH_DEPLOY_CMD ? JSON.parse(process.env.MANAGER_WATCH_DEPLOY_CMD) : null;
@@ -92,6 +104,8 @@ async function main() {
   const staleFile = join(dir, 'manager-watch-stale');
   const liveFile = join(dir, 'manager-watch-live'); // last live production sha already announced
   const liveCmd = process.env.MANAGER_WATCH_LIVE_CMD ? JSON.parse(process.env.MANAGER_WATCH_LIVE_CMD) : null;
+  const stuckFile = join(dir, 'manager-watch-stuck');
+  const stuckCmd = process.env.MANAGER_WATCH_STUCK_CMD ? JSON.parse(process.env.MANAGER_WATCH_STUCK_CMD) : null;
   const staleCmd = process.env.MANAGER_WATCH_STALE_CMD ? JSON.parse(process.env.MANAGER_WATCH_STALE_CMD) : null;
   let finished = false;
   const finish = (line, code = 0) => {
@@ -160,12 +174,24 @@ async function main() {
       finish(liveLine(prev, cur, n));
     } catch { /* transient: next tick retries */ }
   };
+  // Open PRs older than 2 h without a verify run or with a conflict: say so once per PR+head+reason (independent of main's state).
+  const stuckPoll = () => {
+    if ((deployCmd || ciCmd) && !stuckCmd) return; // tests with fakes must not call GitHub
+    try {
+      const cands = stuckCmd ? JSON.parse(execFileSync(stuckCmd[0], stuckCmd.slice(1), { encoding: 'utf8' })) : findStuckCandidates();
+      const stuck = stuckPrs(cands, new Set(readLines(stuckFile)));
+      const line = stuckLine(stuck);
+      if (line) { try { appendFileSync(stuckFile, stuckKeys(stuck).map((k) => k + '\n').join('')); } catch { /* best effort */ } finish(line); }
+    } catch { /* transient: next check retries */ }
+  };
   const tick = () => {
     const s = watchStatus({ ...st, now: Date.now() }, L);
     if (s.done) finish(s.line, s.line.startsWith('WATCH_ERROR') ? 1 : 0);
   };
   ciPoll();
   guardPoll();
+  stuckPoll();
+  setInterval(stuckPoll, L.stuckEveryMs);
   setInterval(ciPoll, L.ciEveryMs);
   setInterval(guardPoll, L.guardEveryMs);
   setInterval(tick, Math.min(15e3, L.ciEveryMs));

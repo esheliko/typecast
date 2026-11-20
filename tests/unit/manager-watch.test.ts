@@ -5,7 +5,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 // @ts-expect-error plain .mjs script, no types
-import { ciDecision, watchStatus, guardLines, liveLine, LIMITS, readReported, writeReported } from "../../scripts/manager-watch.mjs";
+import { rearmAfter, ciDecision, watchStatus, guardLines, liveLine, LIMITS, readReported, writeReported } from "../../scripts/manager-watch.mjs";
 // @ts-expect-error plain .mjs script, no types
 import { parseRed } from "../../scripts/ci-watch.mjs";
 
@@ -87,7 +87,7 @@ test("the last reported red survives a restart: same sha quiet, new sha reported
 });
 
 // @ts-expect-error plain .mjs script, no types
-import { staleRedPrs, staleLine, verifyVerdict } from "../../scripts/stale-red-prs.mjs";
+import { staleRedPrs, staleLine, verifyVerdict, stuckPrs, stuckLine, stuckKeys } from "../../scripts/stale-red-prs.mjs";
 const pr = (number: number, o = {}) => ({ number, head: `h${number}`, verify: "red", contains: false, ...o });
 test("stale PRs: red or unverified without the fix, once per head", () => {
   const c = [pr(34), pr(33), pr(35, { contains: true }), pr(36, { verify: "ok" }), pr(37, { verify: "none" }), pr(38, { verify: "pending" })];
@@ -136,4 +136,39 @@ test("process: a new live sha prints DEPLOY_LIVE once and is remembered across r
   assert.match(first.stdout, /^DEPLOY_LIVE \d\d:\d\d IST bbbbbbb \? commits\n$/);
   const second = spawnSync("node", ["scripts/manager-watch.mjs"], { encoding: "utf8", timeout: 30000, env });
   assert.match(second.stdout, /^REARM manager-watch/);
+});
+
+const NOW = Date.parse("2026-11-20T12:00:00Z");
+const sp = (number: number, o = {}) => ({ number, head: `h${number}`, createdAt: "2026-11-20T08:00:00Z", updatedAt: "2026-11-20T08:30:00Z", verify: "ok", mergeable: true, ...o });
+test("stuck PRs: old with no verify or a conflict, once per head+reason, never drafts or young or just-touched", () => {
+  const c = [sp(1, { verify: "none" }), sp(2, { mergeable: false }), sp(3, { verify: "none", mergeable: false, session: "session_c" }), sp(4),
+    sp(5, { verify: "none", createdAt: "2026-11-20T11:00:00Z" }), sp(6, { verify: "none", draft: true }), sp(7, { verify: "none", updatedAt: "2026-11-20T11:55:00Z" }), sp(8, { verify: "red" })];
+  const got = stuckPrs(c, new Set(), NOW);
+  assert.deepEqual(got.map((p: { number: number }) => p.number), [1, 2, 3]);
+  assert.equal(stuckLine(got), "STUCK_PRS #1(no-verify),#2(conflict),#3(no-verify+conflict) sessions=#3:session_c");
+  const seen = new Set(stuckKeys(got));
+  assert.equal(stuckPrs(c, seen, NOW).length, 0);
+  assert.equal(stuckPrs([sp(1, { verify: "none", head: "new" })], seen, NOW).length, 1);
+  assert.equal(stuckLine([]), null);
+});
+test("process: a stuck PR prints STUCK_PRS once, then stays quiet", () => {
+  const dir = execFileSync("mktemp", ["-d"], { encoding: "utf8" }).trim();
+  const env = { ...process.env, TMPDIR: dir, MANAGER_WATCH_SCALE: "3000", MANAGER_WATCH_DEPLOY_CMD: JSON.stringify(["true"]),
+    MANAGER_WATCH_CI_CMD: JSON.stringify(["echo", "cafebabe1234 ok"]),
+    MANAGER_WATCH_STUCK_CMD: JSON.stringify(["echo", JSON.stringify([sp(9, { verify: "none", createdAt: "2020-01-01T00:00:00Z", updatedAt: "2020-01-01T00:00:00Z" })])]) };
+  const r = spawnSync("node", ["scripts/manager-watch.mjs"], { encoding: "utf8", timeout: 30000, env });
+  assert.equal(r.stdout, "STUCK_PRS #9(no-verify)\n");
+  const r2 = spawnSync("node", ["scripts/manager-watch.mjs"], { encoding: "utf8", timeout: 30000, env });
+  assert.match(r2.stdout, /^REARM/);
+});
+
+test("rearmAfter lands on even-hour :46 UTC, capped at 115 min, skips slots under 5 min away", () => {
+  const m = 60e3, at = (h: number, mi: number) => Date.UTC(2026, 10, 20, h, mi);
+  assert.equal(rearmAfter(at(10, 0)), 46 * m);          // 10:00 -> 10:46
+  assert.equal(rearmAfter(at(10, 50)), 115 * m);        // 10:50 -> 12:46 is 116 min: capped
+  assert.equal(rearmAfter(at(11, 0)), 106 * m);         // 11:00 -> 12:46
+  assert.equal(rearmAfter(at(12, 46)), 115 * m);        // slot passed/now: next one is 120 min, capped
+  assert.equal(rearmAfter(at(10, 43)), 115 * m);        // 3 min to 10:46: too close, take 12:46 (123 min), capped
+  assert.equal(rearmAfter(at(10, 40)), 6 * m);          // 6 min away is fine
+  assert.equal(rearmAfter(at(10, 0), 10 * m), 10 * m);  // custom cap
 });
