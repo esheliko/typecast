@@ -1,5 +1,5 @@
 // After main's `verify` turns green again, find open PRs that went red (or never got a verdict) while main was red and do not contain the green commit.
-// Used by manager-watch.mjs. Pure parts first (unit tested); `findCandidates` is the only part that talks to GitHub.
+// Used by automation.mjs (stuck PRs); the stale-red part is kept for the planned notice. Pure parts first (unit tested); `findCandidates` is the only part that talks to GitHub.
 import { execFileSync } from 'node:child_process';
 
 const REPO = 'esheliko/typecast';
@@ -49,7 +49,7 @@ export function findCandidates(fixSha) {
   return out;
 }
 
-// --- Stuck PRs (2026-11-20): an open PR older than ~2 h that never got a `verify` run, or that conflicts with main. Used by manager-watch.mjs.
+// --- Stuck PRs (2026-11-20): an open PR older than ~2 h that never got a `verify` run, or that conflicts with main. Used by automation.mjs.
 export const STUCK_AFTER_MS = 2 * 3600e3;
 export const STUCK_QUIET_MS = 10 * 60e3; // a PR touched in the last 10 min may just be waiting for its first CI run
 

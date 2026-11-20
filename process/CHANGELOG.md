@@ -2,6 +2,13 @@
 
 Every change to a rule, instruction, hook, CI or deploy mechanism gets an entry here (newest first) with an expected effect and a review-by date, so a change is judged by what happened, not by feel. Format and workflow: `.claude/skills/process/SKILL.md`. Checked by `tests/unit/process-changelog.test.ts`.
 
+## 2026-11-20 · #172 · Cutover: the Claude-session watcher is retired, DEPLOYING.md trimmed
+What: heartbeat deleted, manager session archived, `scripts/manager-watch.mjs` and its test deleted; DEPLOYING.md rewritten to the current model (83 lines, was 190) with history moved to `process/lessons.md`.
+Why: owner decision: zero idle cost; the automation job and the board replace the watcher and its pushes.
+Expected effect: no Claude session wakes while the project is idle; sessions read a short DEPLOYING.md; red main, red-in-production, stuck PRs, token failures and a stalled automation are visible on the board within 30 min.
+Review by: 2026-11-27
+Status: pending
+
 ## 2026-11-20 · #171 · Board: Statistics tab and "?" help; duties describe only how things work now
 What: statistics moved to their own tab; the explanation panels (how a change ships, alerts, process, duties) live under a "?" and describe only the current model; the duties list no longer carries a "replaces" field.
 Why: owner request: statistics must not sit under Queue, and explanations should only describe how things work now.
