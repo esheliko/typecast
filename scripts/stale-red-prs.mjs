@@ -48,3 +48,49 @@ export function findCandidates(fixSha) {
   }
   return out;
 }
+
+// --- Stuck PRs (2026-11-20): an open PR older than ~2 h that never got a `verify` run, or that conflicts with main. Used by manager-watch.mjs.
+export const STUCK_AFTER_MS = 2 * 3600e3;
+export const STUCK_QUIET_MS = 10 * 60e3; // a PR touched in the last 10 min may just be waiting for its first CI run
+
+// Pure: prs = [{ number, head, createdAt, updatedAt, draft?, verify, mergeable (true|false|null), session? }]; seen = Set of `${prKey}:${reason}`.
+// Returns [{ ...pr, reasons: ['no-verify'|'conflict'] }] for PRs not yet reported with that reason.
+export function stuckPrs(prs, seen, now = Date.now()) {
+  const out = [];
+  for (const p of prs) {
+    if (p.draft || now - Date.parse(p.createdAt) < STUCK_AFTER_MS) continue;
+    const reasons = [];
+    if (p.verify === 'none' && now - Date.parse(p.updatedAt) >= STUCK_QUIET_MS) reasons.push('no-verify');
+    if (p.mergeable === false) reasons.push('conflict');
+    const fresh = reasons.filter((r) => !seen.has(`${prKey(p)}:${r}`));
+    if (fresh.length) out.push({ ...p, reasons: fresh });
+  }
+  return out.sort((a, b) => a.number - b.number);
+}
+
+// Pure: the one stdout line (null when nothing to say).
+export function stuckLine(stuck) {
+  if (!stuck.length) return null;
+  const sessions = stuck.filter((p) => p.session).map((p) => `#${p.number}:${p.session}`);
+  return `STUCK_PRS ${stuck.map((p) => `#${p.number}(${p.reasons.join('+')})`).join(',')}${sessions.length ? ` sessions=${sessions.join(',')}` : ''}`;
+}
+
+export const stuckKeys = (stuck) => stuck.flatMap((p) => p.reasons.map((r) => `${prKey(p)}:${r}`));
+
+// Talks to GitHub: one list call, then check-runs / mergeable only for PRs old enough to matter.
+export function findStuckCandidates(now = Date.now()) {
+  const out = [];
+  for (const pr of gh(`repos/${REPO}/pulls?state=open&per_page=50`)) {
+    if (pr.draft || now - Date.parse(pr.created_at) < STUCK_AFTER_MS) continue;
+    const head = pr.head.sha;
+    const verify = verifyVerdict(gh(`repos/${REPO}/commits/${head}/check-runs?per_page=100`).check_runs);
+    let mergeable = null;
+    try { const d = gh(`repos/${REPO}/pulls/${pr.number}`); mergeable = d.mergeable_state === 'dirty' ? false : d.mergeable; } catch { /* unknown */ }
+    let session;
+    try {
+      for (const c of gh(`repos/${REPO}/pulls/${pr.number}/commits?per_page=100`).reverse()) { const m = c.commit.message.match(/Claude-Session:\s*\S*?(session_\w+)/); if (m) { session = m[1]; break; } }
+    } catch { /* optional */ }
+    out.push({ number: pr.number, head, createdAt: pr.created_at, updatedAt: pr.updated_at, draft: !!pr.draft, verify, mergeable, session });
+  }
+  return out;
+}
