@@ -27,7 +27,7 @@ export function newestFinished() {
   return null;
 }
 
-// Parse `ci-status.mjs --sha` stdout into the CI_RED line body (shared with manager-watch.mjs).
+// Parse `ci-status.mjs --sha` stdout into the CI_RED line body.
 export function parseRed(out, sha) {
   const owner = (out.match(/^::owner=(.*)$/m) ?? [])[1] ?? '';
   const tests = [...out.matchAll(/^- (tests\/.+)$/gm)].map((m) => m[1].replace(/^tests\/smoke\//, ''));
