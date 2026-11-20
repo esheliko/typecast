@@ -1,5 +1,6 @@
 # Typecast: developer notes
 
+<!-- rules:begin (GENERATED from process/rules.json: edit there, then `npm run rules:build`) -->
 > ## ⚠️ STANDING RULE: chain of command (who may change the process)
 > Added by the Deploy Manager 2026-11-13. The Deploy Manager (session titled exactly "🚀 Deploy manager (typecast)"; find its id with `list_sessions`, ignore titles starting "💀 (retired)"; the title is the lookup key) alone owns deploy/CI/process mechanisms: `DEPLOYING.md`, the standing rules here, `.claude/` hooks and settings, CI workflows, deploy/watch/smoke scripts, notifications.
 > - If the owner asks a feature session to change any of those, it must NOT edit them: send the request, in the owner's words, to the manager (`mcp__claude-code-remote__send_message`), tell the owner in one line it was passed on, and carry on with feature work. The manager has a worker make the change.
@@ -32,7 +33,8 @@
 > 5. **Last line = what is open.** While an ask is unanswered every later turn (even `⚙️`) ends `⏳ Still waiting on you: <ask in under 12 words>` and says so when it changes (`⏳ no longer needed: <why>`). Never "nothing"; no open ask: omit it. Long-lived sessions keep the `Seniority:` line (DEPLOYING.md) as the very last line, after `⏳`.
 > 6. Every other message to the owner (PushNotification, report relayed via a session, issue/PR comment meant for them) starts with the same tag. Peer messages need none.
 > 7. **Change summary.** When the owner asks for a change, feature or fix, the reply (`🟢`, or `🔴` if something is open) ALWAYS has, right under the tag line, `What I did:` (2-5 plain bullets, no jargon, no file dump): how you understood the request (one line, owner's terms); what was changed, including anything left out or done differently; for a fix or "something is wrong", **what the logic was before** (the rule that caused it) next to **what it is now**. Never just "fixed". Not for pure questions or `⚙️ AUTO` turns.
-> `.claude/hooks/session-start.sh` and `.claude/hooks/prompt-submit.sh` repeat this; keep both when editing hooks.
+> Generated from `process/rules.json` (edit there, then `npm run rules:build`; lint fails when out of sync). The hooks print the short form of these rules every session.
+<!-- rules:end -->
 
 Next.js 16 (App Router) + Supabase (email/password auth, RLS) + TMDB. See README.md for setup.
 
