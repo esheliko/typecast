@@ -2,6 +2,13 @@
 
 Every change to a rule, instruction, hook, CI or deploy mechanism gets an entry here (newest first) with an expected effect and a review-by date, so a change is judged by what happened, not by feel. Format and workflow: `.claude/skills/process/SKILL.md`. Checked by `tests/unit/process-changelog.test.ts`.
 
+## 2026-11-20 · #171 · Board: Statistics tab and "?" help; duties describe only how things work now
+What: statistics moved to their own tab; the explanation panels (how a change ships, alerts, process, duties) live under a "?" and describe only the current model; the duties list no longer carries a "replaces" field.
+Why: owner request: statistics must not sit under Queue, and explanations should only describe how things work now.
+Expected effect: the Queue tab shows only the queue; the owner finds statistics and explanations without scrolling; no panel mentions the old way.
+Review by: 2026-12-04
+Status: pending
+
 ## 2026-11-20 · #170 · Board panels for the automation data
 What: the deploy board gets an Alerts card, a "what the manager used to do" table, a Statistics card and a freshness banner, all from the `automation-data` issue (additive edit of the dashboard artifact).
 Why: the owner wants everything the manager stops doing readable on the board, plus statistics on demand.

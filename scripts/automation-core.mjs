@@ -10,7 +10,7 @@ const median = (a) => { if (!a.length) return null; const s = [...a].sort((x, y)
 const pct = (a, p) => { if (!a.length) return null; const s = [...a].sort((x, y) => x - y); return s[Math.min(s.length - 1, Math.ceil((p / 100) * s.length) - 1)]; };
 const istDay = (ms) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(new Date(ms));
 
-// Deploy statistics from the manager's recorded deployments [{ sha, n, at, state, latencyMin }].
+// Deploy statistics from the deploy job's recorded deployments [{ sha, n, at, state, latencyMin }].
 export function deployStats(deploys, now) {
   const list = (deploys ?? []).filter((d) => d && d.at);
   const within = (ms) => list.filter((d) => now - d.at <= ms);
@@ -93,24 +93,24 @@ export function mergeAlerts(prev, current, nowIso) {
   return { open, recent };
 }
 
-// What the Deploy Manager session used to do and what does it now. status: ok | warn | down | planned | manual.
+// What runs automatically, how, and whether it is healthy now. status: ok | warn | down | planned | manual. Describes only how things work now.
 export function dutyList(h) {
   const tick = h.tickAgeMin == null ? 'warn' : h.tickAgeMin > 60 ? 'down' : h.tickAgeMin > 20 ? 'warn' : 'ok';
   const doctor = (h.doctor ?? []).length ? ((h.doctor ?? []).some((d) => d.ok === false) ? 'down' : (h.doctor ?? []).some((d) => d.ok == null) ? 'warn' : 'ok') : 'warn';
   const reads = (k) => (h.readErrors ?? []).includes(k) ? 'warn' : 'ok';
   return [
-    { id: 'deploy', name: 'Deploy the head of main in batches', replaces: 'deploy guard loop in the manager session', mechanism: 'GitHub Actions (every CI event + every 5 min)', status: tick, note: h.tickAgeMin == null ? 'last tick unknown' : `last tick ${h.tickAgeMin} min ago` },
-    { id: 'live-notice', name: 'Tell you a deploy went live', replaces: 'DEPLOY_LIVE push from the manager', mechanism: 'Recent deployments on this board (no push yet)', status: 'ok', note: 'push channel to be decided' },
-    { id: 'ci-red', name: 'Detect a red main and name the owner', replaces: 'CI_RED watcher line', mechanism: 'this job + ci-status (issue #2) + each merging session\'s own wait', status: reads('ci runs'), note: 'alert below when red' },
-    { id: 'red-live', name: 'Flag a red commit that reached production', replaces: 'manager triage', mechanism: 'this job (live sha vs its verify run)', status: reads('ci runs'), note: '' },
-    { id: 'stuck-prs', name: 'Find PRs stuck without CI or in conflict', replaces: 'STUCK_PRS watcher line', mechanism: 'this job (PRs older than 2 h)', status: reads('pull requests'), note: 'comment to the PR session: planned' },
-    { id: 'stale-red', name: 'Tell PRs red only because of an old main', replaces: 'STALE_RED_PRS watcher line', mechanism: 'not automated yet', status: 'planned', note: 'still done by the manager watcher until cutover' },
-    { id: 'flake-rerun', name: 'Re-run a red once and label flakes', replaces: 'manager triage', mechanism: 'not automated yet', status: 'planned', note: 'statistics show reds that went green on a re-run' },
-    { id: 'tokens', name: 'Check tokens and access still work', replaces: 'nobody (silent failure before)', mechanism: 'doctor checks in this job', status: doctor, note: (h.doctor ?? []).map((d) => `${d.name}: ${d.ok == null ? 'unknown' : d.ok ? 'ok' : 'FAILED'}`).join(', ') },
-    { id: 'liveness', name: 'Prove the automation is alive', replaces: 'heartbeat + REARM wakes', mechanism: 'this board\'s "updated" time turns red when old', status: 'ok', note: '' },
-    { id: 'requests', name: 'Receive process requests', replaces: 'send_message to the manager', mechanism: 'GitHub issues with label process-request', status: 'ok', note: `${h.openRequests ?? 0} open` },
-    { id: 'review', name: 'Judge process changes by evidence', replaces: 'manager self-criticism duty', mechanism: 'process/CHANGELOG.md review dates + this board', status: 'ok', note: `${(h.reviewsDue ?? []).length} due` },
-    { id: 'resume', name: 'Resume sessions stopped by the usage limit', replaces: 'limit-stopped check', mechanism: 'on request in a process session', status: 'manual', note: '' },
+    { id: 'deploy', name: 'Deploy the head of main in batches', mechanism: 'GitHub Actions (every CI event + every 5 min)', status: tick, note: h.tickAgeMin == null ? 'last tick unknown' : `last tick ${h.tickAgeMin} min ago` },
+    { id: 'live-notice', name: 'Show that a deploy went live', mechanism: 'Recent deployments on this board', status: 'ok', note: 'phone push: not set up yet' },
+    { id: 'ci-red', name: 'Detect a red main and name its owner', mechanism: 'this job, plus the merging session\'s own CI check after every merge', status: reads('ci runs'), note: 'alert below when red' },
+    { id: 'red-live', name: 'Flag a red commit that reached production', mechanism: 'this job (live sha vs its verify run)', status: reads('ci runs'), note: '' },
+    { id: 'stuck-prs', name: 'Find PRs stuck without CI or in conflict', mechanism: 'this job (PRs older than 2 h)', status: reads('pull requests'), note: 'a comment on the PR itself: not built yet' },
+    { id: 'stale-red', name: 'Tell PRs red only because of an old main', mechanism: 'not built yet', status: 'planned', note: '' },
+    { id: 'flake-rerun', name: 'Re-run a red once and label flakes', mechanism: 'not built yet', status: 'planned', note: 'Statistics already count reds that went green on a re-run' },
+    { id: 'tokens', name: 'Check that tokens and access still work', mechanism: 'checks of the Vercel and Supabase tokens in this job', status: doctor, note: (h.doctor ?? []).map((d) => `${d.name}: ${d.ok == null ? 'unknown' : d.ok ? 'ok' : 'FAILED'}`).join(', ') },
+    { id: 'liveness', name: 'Show the automation itself is alive', mechanism: 'this board\'s "updated" time turns red when old', status: 'ok', note: '' },
+    { id: 'requests', name: 'Receive process requests', mechanism: 'GitHub issues with label process-request', status: 'ok', note: `${h.openRequests ?? 0} open` },
+    { id: 'review', name: 'Judge process changes by evidence', mechanism: 'process changelog review dates + this board', status: 'ok', note: `${(h.reviewsDue ?? []).length} due` },
+    { id: 'resume', name: 'Resume sessions stopped by the usage limit', mechanism: 'on request, in a process session', status: 'manual', note: '' },
   ];
 }
 
