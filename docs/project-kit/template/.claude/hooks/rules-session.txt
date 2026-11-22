@@ -1,0 +1,5 @@
+CHAIN OF COMMAND: process files (DEPLOYING.md, process/, standing rules, .claude/, CI, deploy/smoke scripts) change only in a process session or when the owner says to edit directly; otherwise file a GitHub issue "process: <short>" with label process-request (mcp__github__issue_write) and carry on. Do not message the Deploy Manager.
+STANDING RULES (CLAUDE.md top): never push to main; branch from origin/main, ONE PR, merge only on green verify, never deploy (Deploy Manager does), then ci-status --wait --for <sha> in background.
+REPLY: line 1 = 🔴 NEEDS YOU: <ask> | 🟢 DONE: <result> (nothing open) | ⚙️ AUTO: <status> (turns the owner did not type); change requests add "What I did:" bullets (CLAUDE.md tag rules).
+TIMES to the owner: always IST (TZ=Asia/Jerusalem date), never UTC.
+SCREENSHOTS: show one (node scripts/shot.mjs, SendUserFile) for any visual complaint or visual choice of yours; skip only if the owner dictated the exact look or nothing visible changes (CLAUDE.md).

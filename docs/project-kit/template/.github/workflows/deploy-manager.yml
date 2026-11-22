@@ -1,0 +1,40 @@
+name: Deploy Manager
+# Merges to main no longer deploy by themselves (vercel.json). This workflow batches merges into one Vercel deployment
+# and paces them against the plan's deployment limit. Needs repo secret VERCEL_TOKEN (see DEPLOYING.md).
+on:
+  # No `push` trigger, but CI starts on every push to main (i.e. every PR merge; sessions never push to main directly): `requested` starts a manager run that stays alive (polling, up to 24 min) until it has
+  # deployed, `completed` re-evaluates the instant a CI verdict lands. The cron below is best effort only (seen 5h late): never rely on it.
+  # (2026-11-11: with only `completed`, a burst of pushes kept cancelling CI, no manager run started, and a commit waited far past 10 min.)
+  workflow_run:
+    workflows: [CI]
+    types: [requested, completed]
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+concurrency:
+  # A cancelled CI run (superseded by a newer push) must not start a run that cancels the live one: give it its own group; its job is skipped.
+  group: deploy-manager${{ github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'cancelled' && format('-skip-{0}', github.run_id) || '' }}
+  cancel-in-progress: true # newest run wins; any run re-derives all state from Vercel + git
+permissions:
+  contents: read
+  issues: write
+  checks: read # the CI gate reads the head commit's `verify` check
+  actions: read # ci-status.mjs lists CI runs to find the last green commit
+jobs:
+  manage:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion != 'cancelled'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Tick
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          GH_TOKEN: ${{ github.token }}
+          STATUS_ISSUE: '1'
+        run: |
+          if [ -z "$VERCEL_TOKEN" ]; then echo "::warning::VERCEL_TOKEN secret missing: Deploy Manager (Actions) is idle; the Claude supervisor is the fallback"; exit 0; fi
+          node scripts/deploy-manager.mjs tick --wait

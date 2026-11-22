@@ -1,0 +1,11 @@
+node_modules
+.next
+.env*.local
+.env
+next-env.d.ts
+*.tsbuildinfo
+.vercel
+test-results
+playwright-report
+visual-shots
+.smoke-auth

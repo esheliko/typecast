@@ -1,0 +1,36 @@
+name: New project
+# Run this from the kit repo (Actions tab, or a Claude session via actions_run_trigger). It creates the GitHub repo, Supabase project,
+# Vercel project, secrets, first issues and the first commit. Secrets needed once in THIS repo: see docs in scripts/bootstrap.mjs.
+on:
+  workflow_dispatch:
+    inputs:
+      name: { description: 'Display name, e.g. "Habit Tracker"', required: true }
+      slug: { description: 'Repo/project slug, e.g. habit-tracker', required: true }
+      purpose: { description: 'What the project does (one or two sentences)', required: true }
+      visibility: { description: 'private or public', required: false, default: 'private' }
+      region: { description: 'Supabase region (functions follow it)', required: false, default: 'ap-south-1' }
+permissions:
+  contents: read
+concurrency: new-project
+jobs:
+  create:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: Create the project
+        env:
+          KIT_GH_TOKEN: ${{ secrets.KIT_GH_TOKEN }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_TEAM_ID: ${{ secrets.VERCEL_TEAM_ID }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_ORG_ID: ${{ secrets.SUPABASE_ORG_ID }}
+          KIT_OWNER_EMAIL: ${{ secrets.KIT_OWNER_EMAIL }}
+          NAME: ${{ inputs.name }}
+          SLUG: ${{ inputs.slug }}
+          PURPOSE: ${{ inputs.purpose }}
+          VISIBILITY: ${{ inputs.visibility }}
+          REGION: ${{ inputs.region }}
+        run: node scripts/bootstrap.mjs --name "$NAME" --slug "$SLUG" --purpose "$PURPOSE" --visibility "$VISIBILITY" --region "$REGION" | tee "$GITHUB_STEP_SUMMARY"

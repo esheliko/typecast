@@ -1,0 +1,86 @@
+name: CI
+# The `verify` check below is what the Deploy Manager waits for: main is only deployed once it passes (DEPLOYING.md).
+# Pushes don't deploy by themselves, so a red `verify` simply means "not deployed, production keeps the last good version".
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+concurrency:
+  group: ci-${{ github.event_name }}-${{ github.ref }} # a manual run must not cancel the push run the Deploy Manager is waiting for
+  # On main a running CI is NEVER cancelled by a newer push (the newest queued run waits behind it, older queued runs are dropped by GitHub, so runs stay
+  # serialized and the shared smoke test account is never used twice at once). With cancel-in-progress on pushes, a burst of pushes cancelled every run:
+  # 2026-11-11 eight commits in an hour got no verdict at all, so a red main went unnoticed. Pull requests still cancel superseded runs.
+  cancel-in-progress: ${{ github.event_name != 'push' }}
+permissions:
+  contents: read
+jobs:
+  verify:
+    name: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      # Real values when the secrets exist (the smoke test needs them), harmless dummies otherwise (a compile check needs none).
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://example.supabase.co' }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'dummy' }}
+      # With the service-role key every smoke run creates and deletes its own temporary account (tests/smoke/account.ts); without it the suite falls back to the shared SMOKE_* account.
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      SMOKE_EMAIL: ${{ secrets.SMOKE_EMAIL }}
+      SMOKE_PASSWORD: ${{ secrets.SMOKE_PASSWORD }}
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci --no-audit --no-fund
+      - name: Lint (includes the client/server import boundary check)
+        run: npm run lint
+      - run: npm run typecheck
+      - name: Unit tests
+        run: npm test
+      - name: Cache Next build
+        uses: actions/cache@v4
+        with:
+          path: .next/cache
+          key: next-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-${{ hashFiles('src/**', 'next.config.ts') }}
+          restore-keys: next-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-
+      - run: npm run build
+      - name: Playwright version (the browser cache key; the lockfile changes far more often than the browser build does)
+        id: pwv
+        run: echo "v=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+      - name: Cache Playwright browser
+        id: pw
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: pw-${{ runner.os }}-${{ steps.pwv.outputs.v }}
+      - name: Install browser
+        run: |
+          # The runner's apt mirrors fail to resolve now and then: retry a few times before calling it a failure.
+          for i in 1 2 3; do
+            if [ "${{ steps.pw.outputs.cache-hit }}" = "true" ]; then npx playwright install-deps chromium && break; else npx playwright install --with-deps chromium && break; fi
+            [ "$i" = 3 ] && exit 1
+            echo "::warning::browser install failed (try $i), retrying in 30s"; sleep 30
+          done
+      - name: Smoke test (signed-out pages always; signed-in pages when SMOKE_* secrets are set)
+        run: |
+          if [ -z "$SMOKE_EMAIL" ] || [ -z "$SMOKE_PASSWORD" ]; then echo "::warning::SMOKE_EMAIL/SMOKE_PASSWORD secrets missing: only signed-out pages are smoke-tested. See DEPLOYING.md > Smoke test."; fi
+          # One server, two concurrent runs: `core` (behaviour + smoke) writes to the shared test user so it stays on one worker;
+          # `visual` only reads pages, so it runs beside it. SMOKE_SKIP_SETUP keeps visual from seeding or cleaning up under core.
+          npm run start -- -p 3100 > server.log 2>&1 &
+          for i in $(seq 1 60); do curl -sf -o /dev/null http://localhost:3100/login && break; sleep 1; done
+          export SMOKE_BASE_URL=http://localhost:3100
+          npx playwright test --project=core --trace off & core=$!
+          SMOKE_SKIP_SETUP=1 npx playwright test --project=visual --trace off & visual=$!
+          rc=0
+          wait $core || rc=1
+          wait $visual || rc=1
+          exit $rc
+      - name: Upload page screenshots (for a quick human look; 7 days)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with: { name: visual-shots, path: visual-shots, retention-days: 7, if-no-files-found: ignore }
+      - name: Upload report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with: { name: playwright-report, path: playwright-report, if-no-files-found: ignore }

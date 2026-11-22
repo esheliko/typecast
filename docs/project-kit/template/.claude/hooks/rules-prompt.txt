@@ -1,0 +1,1 @@
+REMINDERS (CLAUDE.md): process files (DEPLOYING.md, process/, .claude/, CI, standing rules): file a process-request issue unless the owner says edit directly; reply line 1 = 🔴 NEEDS YOU / 🟢 DONE / ⚙️ AUTO tag (+ "What I did:" for change requests); times in IST; screenshot any visual change you chose or were told about.

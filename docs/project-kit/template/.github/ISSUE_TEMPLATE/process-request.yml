@@ -1,0 +1,22 @@
+name: Process request
+description: A rule, instruction, hook, CI or deploy-process change you want (picked up by the next process session)
+title: "process: "
+labels: ["process-request"]
+body:
+  - type: textarea
+    id: want
+    attributes:
+      label: What should change?
+      description: In your own words. Say what went wrong or what you want different.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: What happened (optional)
+      description: Session, PR or commit that showed the problem.
+  - type: textarea
+    id: effect
+    attributes:
+      label: How will we know it worked? (optional)
+      description: The metric or behaviour that should change, and when to look.
