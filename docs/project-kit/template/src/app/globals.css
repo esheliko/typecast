@@ -1,0 +1,11 @@
+:root { color-scheme: light dark; --bg: #fff; --fg: #15171a; --muted: #6b7280; --line: #e5e7eb; --accent: #2563eb; }
+@media (prefers-color-scheme: dark) { :root { --bg: #0f1114; --fg: #eceef1; --muted: #9aa1ab; --line: #262a31; --accent: #6ea0ff; } }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.5 system-ui, sans-serif; }
+main { max-width: 40rem; margin: 0 auto; padding: 1.5rem 1rem; }
+.muted { color: var(--muted); }
+.err { color: #dc2626; }
+form { display: grid; gap: .6rem; }
+input { padding: .6rem .7rem; border: 1px solid var(--line); border-radius: .5rem; background: transparent; color: inherit; font: inherit; }
+.btn { padding: .65rem 1rem; border: 0; border-radius: .5rem; background: var(--accent); color: #fff; font: inherit; cursor: pointer; }
+.btn:disabled { opacity: .6; }

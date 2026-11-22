@@ -1,0 +1,32 @@
+name: Automation board data
+# Writes alerts, "what the manager used to do" and statistics into the issue labelled `automation-data`; the deploy board reads it (DEPLOYING.md).
+# Read-only apart from that one issue. No Claude session and no model involved: nothing here costs tokens.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+concurrency:
+  group: automation
+  cancel-in-progress: true # newest run wins; every run re-derives everything
+permissions:
+  contents: read
+  issues: write
+  actions: read
+  checks: read
+  pull-requests: read
+jobs:
+  write:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion != 'cancelled'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Write board data
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: node scripts/automation.mjs
