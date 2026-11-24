@@ -93,3 +93,10 @@ export function deadForMs(status: number): number {
 
 /** The keys not currently benched, in order. `dead` maps a key to the time (ms) it may be tried again. */
 export const liveKeys = (keys: string[], dead: ReadonlyMap<string, number>, now: number): string[] => keys.filter((k) => (dead.get(k) ?? 0) <= now);
+
+/** OpenWeb Ninja `realtime-image-search/search` answer: Google-style image results. `thumbnail_url` is the small copy; `source_url` is the page the picture came from. */
+type OwImage = { url?: string; thumbnail_url?: string; title?: string; width?: number; height?: number; source_url?: string; source_domain?: string };
+export function shapeOpenWeb(j: { data?: OwImage[] } | null | undefined): GlimpseImage[] {
+  const rows = (Array.isArray(j?.data) ? j.data : []).filter((r) => r.url && /^https?:\/\//.test(r.url));
+  return uniq(rows.map((r) => ({ thumb: r.thumbnail_url ?? r.url!, full: r.url!, page: r.source_url ?? r.url!, title: r.title ?? "", w: r.width, h: r.height }))).slice(0, MAX);
+}
