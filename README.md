@@ -43,6 +43,7 @@ Create a free account at themoviedb.org, then request an API key under Settings,
 | `ADMIN_EMAIL` | the one account allowed to manage users. If unset, a built-in owner email is used and a warning is logged once per server instance. |
 | `TMDB_LANGUAGE` | optional, for example `de-DE` |
 | `SERPER_API_KEY`, `SERPER_API_KEY_2` | optional: serper.dev keys for inline Google Images results in the Glimpse panel (the second is used when the first is out of credits). Without them the panel uses TMDB and Wikimedia Commons |
+| `OPENWEBNINJA_API_KEY` | optional: OpenWeb Ninja key for image results in the Glimpse panel, used after Serper (not for the Then photo) and before the free TMDB/Commons sources |
 
 3. Deploy. Open the site on your phone and install it: iPhone, Safari, Share, Add to Home Screen. Android, Chrome menu, Install app.
 4. In Typecast open Setup and choose your country and streaming services.

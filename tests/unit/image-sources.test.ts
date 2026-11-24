@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { cleanQuery, deadForMs, liveKeys, parseKey, serperKeys, shapeCommons, shapeProfiles, shapeTagged, shapeTitleImages, wantsPoster } from "../../src/lib/image-sources";
+import { cleanQuery, deadForMs, liveKeys, parseKey, serperKeys, shapeCommons, shapeOpenWeb, shapeProfiles, shapeTagged, shapeTitleImages, wantsPoster } from "../../src/lib/image-sources";
 
 test("title keys", () => {
   assert.deepEqual(parseKey("tv:79744"), { type: "tv", id: 79744 });
@@ -85,4 +85,20 @@ test("benched keys are skipped until their time", () => {
   assert.deepEqual(liveKeys(["a", "b"], dead, 500), ["b"]);
   assert.deepEqual(liveKeys(["a", "b"], dead, 1000), ["a", "b"]);
   assert.deepEqual(liveKeys([], dead, 0), []);
+});
+
+test("OpenWeb Ninja results: thumbnail, page and full size; no empty or non-web addresses", () => {
+  const out = shapeOpenWeb({ data: [
+    { url: "https://en.wikipedia.org/a.png", thumbnail_url: "https://upload.wikimedia.org/a_t.png", title: "A", width: 194, height: 260, source_url: "https://en.wikipedia.org/wiki/A" },
+    { url: "https://x.example/b.jpg", title: "B" },
+    { url: "https://x.example/b.jpg", title: "B again" },
+    { url: "file:///etc/passwd" },
+    { title: "no url" },
+  ] });
+  assert.deepEqual(out, [
+    { thumb: "https://upload.wikimedia.org/a_t.png", full: "https://en.wikipedia.org/a.png", page: "https://en.wikipedia.org/wiki/A", title: "A", w: 194, h: 260 },
+    { thumb: "https://x.example/b.jpg", full: "https://x.example/b.jpg", page: "https://x.example/b.jpg", title: "B", w: undefined, h: undefined },
+  ]);
+  assert.deepEqual(shapeOpenWeb(null), []);
+  assert.deepEqual(shapeOpenWeb({}), []);
 });
