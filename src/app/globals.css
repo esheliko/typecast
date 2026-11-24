@@ -36,6 +36,12 @@ img { max-width: 100%; }
 .logo { display: flex; align-items: center; gap: 10px; font: 700 26px/1 var(--display); letter-spacing: .14em; text-transform: uppercase; }
 .mark { width: 22px; height: 22px; border-radius: 5px; background: repeating-linear-gradient(-45deg, var(--gold-fill) 0 6px, var(--ink) 6px 12px); }
 .tabs-top { display: none; gap: 4px; }
+.wlink { display: inline-flex; align-items: center; gap: 7px; flex: none; padding: 7px 13px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: 600 14px var(--body); text-decoration: none; }
+.wlink svg { width: 18px; height: 18px; stroke: var(--gold); fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.wlink .live-dot { margin-right: 0; }
+.wlink[aria-current="page"] { color: var(--on-gold); background: var(--gold-fill); border-color: transparent; }
+.wlink[aria-current="page"] svg { stroke: currentColor; }
+@media (min-width: 720px) { .top-in { justify-content: flex-start; } .tabs-top { margin-left: auto; } }
 .tab { display: flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 999px; color: var(--muted); font: 600 15px var(--body); }
 .tab svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .tab[aria-current="page"] { color: var(--on-gold) !important; background: var(--gold-fill); }

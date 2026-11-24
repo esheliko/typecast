@@ -11,7 +11,7 @@ import { LibProvider } from "@/components/cast/LibState";
 import { getLibrary } from "@/lib/library";
 import { packMark } from "@/lib/marks";
 import { PageLineProvider } from "@/components/PageLine";
-import { WatchProvider } from "@/components/Watching";
+import { WatchProvider, WatchingLink } from "@/components/Watching";
 import { parseWatch, WATCH_COOKIE } from "@/lib/watching";
 
 export default async function AppLayout({ children, modal }: { children: React.ReactNode; modal: React.ReactNode }) {
@@ -35,6 +35,7 @@ export default async function AppLayout({ children, modal }: { children: React.R
       <header className="top"><div className="top-in">
         <div className="logo"><span className="mark" aria-hidden="true" />Typecast</div>
         <Tabs where="top" />
+        <WatchingLink />
       </div></header>
       <HeaderHeight />
       <main className="wrap" id="main" tabIndex={-1}>{children}</main>
