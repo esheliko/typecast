@@ -64,6 +64,12 @@ const show = { title: "The Rookie", year: "2018", type: "tv", key: "tv:79744" };
       expect(r.map((x) => [x.key, x.char])).toEqual([["tv:1", "Ann"]]);
     });
     test("capped", () => expect(libraryRoles(Array.from({ length: 20 }, (_, i) => c(`tv:${i}`, "X")), new Set(Array.from({ length: 20 }, (_, i) => `tv:${i}`))).length).toBe(6));
+    test("the title the tile names comes first, even past the cap", () => {
+      const keys = Array.from({ length: 20 }, (_, i) => `tv:${i}`);
+      const r = libraryRoles(keys.map((k) => c(k, "X")), new Set(keys), undefined, "tv:15");
+      expect(r.length).toBe(6);
+      expect(r[0].key).toBe("tv:15");
+    });
     test("tabs go after the role being looked at and carry their own About", () => {
       const spec = withLibRoles(castSpec("Sara Rue", "Nell", show, undefined, 123), "Sara Rue");
       const tabs = tabsWithRoles(spec, [{ key: "tv:1", type: "tv", title: "Other", year: "2001", char: "Ann" }]);

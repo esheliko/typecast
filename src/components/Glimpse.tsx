@@ -45,11 +45,11 @@ function loadImages(q: string, info?: GlimpseInfo): Promise<Res> {
 }
 
 const rolesCache = new Map<string, Promise<LibRole[]>>();
-function loadRoles(pid: number, key?: string): Promise<LibRole[]> {
-  const k = `${pid}|${key ?? ""}`;
+function loadRoles(pid: number, key?: string, first?: string): Promise<LibRole[]> {
+  const k = `${pid}|${key ?? ""}|${first ?? ""}`;
   const hit = rolesCache.get(k);
   if (hit) return hit;
-  const p = fetch(`/api/glimpse/roles?p=${pid}${key ? `&k=${encodeURIComponent(key)}` : ""}`)
+  const p = fetch(`/api/glimpse/roles?p=${pid}${key ? `&k=${encodeURIComponent(key)}` : ""}${first ? `&f=${encodeURIComponent(first)}` : ""}`)
     .then(async (r) => (r.ok ? ((await r.json()) as { roles?: LibRole[] }).roles ?? [] : Promise.reject(new Error("roles"))))
     .catch(() => { rolesCache.delete(k); return [] as LibRole[]; });
   rolesCache.set(k, p);
@@ -65,7 +65,7 @@ export function prefetchGlimpse(spec: GlimpseSpec, images: boolean, enrich: Enri
     if (images && q) loadImages(q, info ?? spec.info);
   };
   spec.tabs.forEach((t, i) => one(t.info ?? (i === 0 ? spec.info : undefined), t.q));
-  if (spec.libRoles && spec.info?.pid) loadRoles(spec.info.pid, spec.info.key).then((rs) => { if (rs.length) enrich({ ...spec, tabs: tabsWithRoles(spec, rs) }).tabs.forEach((t) => one(t.info, t.q)); });
+  if (spec.libRoles && spec.info?.pid) loadRoles(spec.info.pid, spec.info.key, spec.libRoles.first).then((rs) => { if (rs.length) enrich({ ...spec, tabs: tabsWithRoles(spec, rs) }).tabs.forEach((t) => one(t.info, t.q)); });
 }
 
 /**
@@ -105,13 +105,14 @@ export function GlimpseProvider({ children }: { children: React.ReactNode }) {
 
   // The actor's other roles in the library arrive after opening (usually already prefetched): extra tabs after the first.
   const pid = spec?.libRoles ? spec.info?.pid : undefined, tkey = spec?.info?.key;
-  const rk = pid ? `${pid}|${tkey ?? ""}` : null;
+  const first = spec?.libRoles?.first;
+  const rk = pid ? `${pid}|${tkey ?? ""}|${first ?? ""}` : null;
   useEffect(() => {
     if (!pid || !rk) return;
     let live = true;
-    loadRoles(pid, tkey).then((v) => { if (live) setRolesSt({ k: rk, v }); });
+    loadRoles(pid, tkey, first).then((v) => { if (live) setRolesSt({ k: rk, v }); });
     return () => { live = false; };
-  }, [pid, tkey, rk]);
+  }, [pid, tkey, first, rk]);
   const tabs = useMemo(() => (spec ? enrich({ ...spec, tabs: tabsWithRoles(spec, rolesSt && rolesSt.k === rk ? rolesSt.v : null) }).tabs : []), [spec, rolesSt, rk, enrich]);
   const curTab = tabs.find((t) => t.q === tabQ) ?? tabs[0];
   const q = curTab?.q;

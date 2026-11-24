@@ -10,7 +10,7 @@ export interface GlimpseSpec {
   tabs: GlimpseTab[];
   info?: GlimpseInfo;
   /** Also add a tab for each other role this actor plays in a title in the user's library (`/api/glimpse/roles`). Set on Watching-now cast buttons. */
-  libRoles?: { actor: string };
+  libRoles?: { actor: string; first?: string };
 }
 /** `heading`: the panel title while this tab is selected (a library role names its own actor, character and title); absent = the spec's heading. */
 export interface GlimpseTab { label: string; q: string; info?: GlimpseInfo; heading?: string }
@@ -116,9 +116,11 @@ const MAX_LIB_ROLES = 6;
  * The actor's roles in titles the user has in their library, other than the title being looked at. Skips talk-show / "Self" style credits (`extra`)
  * and credits with no character name, one tab per title. Pure; unit tested.
  */
-export function libraryRoles(credits: { key: string; type: "movie" | "tv"; title: string; year: string; role: string; extra?: boolean }[], libKeys: ReadonlySet<string>, exclude?: string): LibRole[] {
+export function libraryRoles(credits: { key: string; type: "movie" | "tv"; title: string; year: string; role: string; extra?: boolean }[], libKeys: ReadonlySet<string>, exclude?: string, first?: string): LibRole[] {
   const out: LibRole[] = [];
-  for (const c of credits) {
+  // `first`: the title the tile names as where you know them from; its pill comes right after the current title's, so it goes first (and is never cut by the cap)
+  const ordered = first ? [...credits.filter((c) => c.key === first), ...credits.filter((c) => c.key !== first)] : credits;
+  for (const c of ordered) {
     if (out.length >= MAX_LIB_ROLES) break;
     const char = charOf(c.role);
     if (c.extra || !char || c.key === exclude || !libKeys.has(c.key) || out.some((o) => o.key === c.key)) continue;
@@ -135,7 +137,7 @@ export function libRoleTab(actor: string, pid: number | undefined, r: LibRole, r
 }
 
 /** Mark a cast spec as one that also lists the actor's other library roles. */
-export const withLibRoles = (spec: GlimpseSpec, actor: string): GlimpseSpec => (spec.info?.pid ? { ...spec, libRoles: { actor } } : spec);
+export const withLibRoles = (spec: GlimpseSpec, actor: string, first?: string): GlimpseSpec => (spec.info?.pid ? { ...spec, libRoles: { actor, ...(first ? { first } : {}) } } : spec);
 
 /** The tabs to show: the spec's own, with the library roles after the first (the role being looked at). */
 export function tabsWithRoles(spec: GlimpseSpec, roles: LibRole[] | null): GlimpseTab[] {
