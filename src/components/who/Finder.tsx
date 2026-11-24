@@ -329,7 +329,7 @@ function Tile({ f, known, seenW, eager, then, year, onOpen, onPop }: { f: WhoFac
   const best = known?.find(([k]) => k !== brief.key);
   const role = roleLabel(f.role);
   const n = f.part === "main" || f.n < 1 || (f.part === "episode" && f.n <= 1) ? 0 : f.n;
-  const spec = scopeSpec(withLibRoles(castSpec(f.name, f.role, { title: brief.title, year: brief.year, type: brief.type, key: brief.key }, "Acting", f.id), f.name), { key: brief.key, title: brief.title, clip, spoilers });
+  const spec = scopeSpec(withLibRoles(castSpec(f.name, f.role, { title: brief.title, year: brief.year, type: brief.type, key: brief.key }, "Acting", f.id), f.name, shown?.key), { key: brief.key, title: brief.title, clip, spoilers });
   const ch = roleLabel(f.role);
   return (
     <li className="wx-tli">
