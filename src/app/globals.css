@@ -1365,7 +1365,7 @@ button.wx-tdates:disabled { cursor: default; }
   .wx-top { padding-bottom: 8px; gap: 10px 12px; }
   .wx-pos { width: 100%; order: 5; }
   .wx-topr { order: 2; }
-  .wx-eplist { position: fixed; left: 8px; right: 8px; top: auto; bottom: 8px; width: auto; max-height: 70vh; }
+  .wx-eplist { position: fixed; left: 8px; right: 8px; top: var(--wx-top, 120px); bottom: auto; width: auto; max-height: var(--wx-room, 50vh); }
   .wx-trow { grid-template-columns: 84px minmax(0, 1fr) 44px; grid-template-areas: "d t m" "d r m"; padding-top: 2px; padding-bottom: 2px; }
   .wx-tdates { grid-area: d; align-self: stretch; }
   /* narrow screens: the title wraps (up to 2 lines) and the Film/Seen tags drop under it instead of squeezing it to "Minorit…" */
