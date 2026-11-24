@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { PersonLink, TitleLink } from "./Modal";
 import { useLib } from "./cast/LibState";
@@ -121,6 +121,21 @@ function useNow() {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 30_000); return () => clearInterval(t); }, []);
   return now;
+}
+
+/** Header entry to /watching, always there (a watch or not). Quiet pill; the live dot shows only while a watch is on. */
+export function WatchingLink() {
+  const c = useWatchControl();
+  const path = usePathname();
+  const on = path.startsWith("/watching");
+  return (
+    <Link className="wlink" href="/watching" prefetch={false} aria-current={on ? "page" : undefined} aria-label={c?.watch ? "Watching now (a watch is on)" : "Watching now"}>
+      {c?.watch ? <span className="live-dot" aria-hidden="true" /> : (
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z" /><circle cx="12" cy="12" r="2.8" /></svg>
+      )}
+      <span>Watching</span>
+    </Link>
+  );
 }
 
 function WatchBar({ w }: { w: Watch }) {
