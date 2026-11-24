@@ -74,6 +74,20 @@ export function PositionPicker({ brief, pos, seasons, onChange, onNext, strip }:
   }, [open, brief.id, seasons]);
 
   useEffect(() => { if (open) setOpenS(s); }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Phone: the panel is fixed, so place it just under its button and cap its height so it ends above the details bar instead of sliding under it.
+  useEffect(() => {
+    if (!open) return;
+    const place = () => {
+      const l = list.current, b = btn.current;
+      if (!l || !b) return;
+      const top = b.getBoundingClientRect().bottom + 6;
+      l.style.setProperty("--wx-top", `${Math.max(top, 8)}px`);
+      l.style.setProperty("--wx-room", `${Math.max(window.innerHeight - top - 96, 180)}px`);
+    };
+    place();
+    window.addEventListener("resize", place); window.addEventListener("scroll", place, true);
+    return () => { window.removeEventListener("resize", place); window.removeEventListener("scroll", place, true); };
+  }, [open]);
   useEffect(() => {
     if (!open) return;
     const away = (ev: MouseEvent) => { if (!wrap.current?.contains(ev.target as Node)) setOpen(false); };
