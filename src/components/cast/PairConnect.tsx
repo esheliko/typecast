@@ -4,7 +4,7 @@ import { PeopleResult, TitlesResult } from "./Connect";
 import { TitleLink } from "../Modal";
 import { Thumb } from "../ui";
 import GoogleLink from "../who/GoogleLink";
-import { layoutSearch, nameTier } from "@/lib/search-intent";
+import { exactTitle, layoutSearch, nameTier } from "@/lib/search-intent";
 import { typeLabel } from "@/lib/img";
 import type { Item, PeopleLink, SearchHit, TitlesLink } from "@/lib/types";
 
@@ -12,10 +12,12 @@ type Who = { id: number; name: string; photo: string | null; role: string };
 type CharMatch = { show: Item; members: Who[] };
 type Block = { id: string; kind: "people"; r: PeopleLink } | { id: string; kind: "titles"; r: TitlesLink } | { id: string; kind: "chars"; r: CharMatch[] };
 
-const topOf = async (side: string, signal: AbortSignal): Promise<SearchHit | null> => {
+/** `guess`: a side cut out of longer text; a little-known film that is named exactly still counts ("rumble fish matrix"). */
+const topOf = async (side: string, signal: AbortSignal, guess = false): Promise<SearchHit | null> => {
   const r = await fetch(`/api/search?q=${encodeURIComponent(side)}&exact=1`, { signal });
   if (!r.ok) return null;
-  return layoutSearch(side, (await r.json()).hits ?? []).top;
+  const hits: SearchHit[] = (await r.json()).hits ?? [];
+  return layoutSearch(side, hits).top ?? (guess ? exactTitle(side, hits) : null);
 };
 const getJson = async (url: string, signal: AbortSignal) => { const r = await fetch(url, { signal }); return r.ok ? r.json() : null; };
 
@@ -40,7 +42,7 @@ export default function PairConnect({ pair, cuts, charText, onShown }: { pair?: 
         // A typed separator needs only a clear match per side; a guessed cut needs both sides to be an exact name.
         let x: SearchHit | null = null, y: SearchHit | null = null;
         const tops = new Map<string, Promise<SearchHit | null>>();
-        const top = (s: string) => { let p = tops.get(s); if (!p) tops.set(s, (p = topOf(s, ctl.signal))); return p; };
+        const top = (s: string) => { let p = tops.get(s); if (!p) tops.set(s, (p = topOf(s, ctl.signal, !pair))); return p; };
         const exact = (h: SearchHit | null, s: string) => !!h && nameTier(s, h.kind === "person" ? h.name : h.title) === 4;
         if (pair) {
           [x, y] = await Promise.all([top(pair[0]), top(pair[1])]);

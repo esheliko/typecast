@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { layoutSearch, pickCollections, nameTier, personTier, youKnowFrom, type CollHit, type LibLookup } from "../../src/lib/search-intent";
+import { exactTitle, layoutSearch, pickCollections, nameTier, personTier, youKnowFrom, type CollHit, type LibLookup } from "../../src/lib/search-intent";
 import type { SearchHit } from "../../src/lib/types";
 
 // Shapes and numbers copied from live TMDB answers.
@@ -116,4 +116,12 @@ test("an unknown collection is hidden when a title matched, a known or marked on
   assert.deepEqual(pickCollections([obscure, bond], lay), [bond]);
   assert.deepEqual(pickCollections([obscure], lay, (k) => (k === "movie:900" ? { status: "watched" } : undefined)), [obscure]);
   assert.deepEqual(pickCollections([obscure], layoutSearch("rookie detective", [])), [obscure], "better than an empty page");
+});
+
+test("exactTitle finds a little-known film named in full that layoutSearch will not make the Top result", () => {
+  const hits = [T("Rumble Fish", 3.1, 1200), T("Rumble", 20, 900), T("Rumble Fish: Making of", 0.5, 2)];
+  assert.equal(layoutSearch("rumble fish", hits).top, null);
+  const t = exactTitle("rumble fish", hits);
+  assert.equal(t && t.title, "Rumble Fish");
+  assert.equal(exactTitle("fish matrix", hits), null);
 });
