@@ -36,6 +36,12 @@ export function nameTier(q: string, name: string): 0 | 1 | 2 | 3 | 4 {
   return a.split(" ").every((w) => bw.some((x) => x.startsWith(w))) ? 1 : 0;
 }
 
+/** A title whose whole name is what was typed ("rumble fish"), even when it is too little known to be a Top result; the most voted one wins. Used to guess which words of a longer text are a title. */
+export function exactTitle(q: string, hits: SearchHit[]): TitleHit | null {
+  const m = hits.filter(isTitle).filter((h) => nameTier(q, h.title) === 4);
+  return m.sort((a, b) => (b.votes ?? 0) - (a.votes ?? 0))[0] ?? null;
+}
+
 /** A person's name tier: a half-typed name ("hitchcoc" for Alfred Hitchcock) counts as a word match for a single word of 4+ letters, so people can be found while typing. */
 export function personTier(q: string, name: string): 0 | 1 | 2 | 3 | 4 {
   const t = nameTier(q, name);
