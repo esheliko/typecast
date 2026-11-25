@@ -70,7 +70,7 @@ export default function BrowseFilters({ q, genres, canFilterMine, active, pendin
       )}
 
       <div className="two">
-        <TagPicker kind="person" label="Cast or crew" placeholder="Search a person" value={q.people} onChange={(people) => go({ people })} />
+        <TagPicker kind="person" label="Cast or crew" placeholder="Search a person, or films they share" value={q.people} onChange={(people) => go({ people })} />
         <TagPicker kind="company" label="Studio" placeholder="Pixar, A24…" value={q.companies} onChange={(companies) => go({ companies })} />
       </div>
       <TagPicker kind="keyword" label="Theme or keyword" placeholder="heist, time travel, based on novel…" value={q.keywords} onChange={(keywords) => go({ keywords })} />
