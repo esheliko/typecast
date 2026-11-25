@@ -4,6 +4,7 @@ import { sumEpisodes, type SeriesTime } from "./stats";
 import { shapeCrew, type CrewBy } from "./details";
 import type { EpisodeFacts } from "./new-episode";
 import { releaseByCountry } from "./release-dates";
+import { commonIds, normTitle, sameTitle, titleSplits } from "./shared-cast";
 import type { Appearances, BrowseItem, BrowseList, BrowseType, CastMember, Credit, Episode, EpisodeLite, Item, MediaType, Person, ProviderGroup, Related, SearchHit, ShowInfo, Title } from "./types";
 
 const BASE = process.env.TMDB_BASE_URL ?? "https://api.themoviedb.org/3";
@@ -617,14 +618,51 @@ export async function genreList(type: MediaType): Promise<Tag[]> {
 export interface Suggestion { id: number; name: string; sub: string }
 export type SuggestKind = "person" | "company" | "keyword";
 
-/** Type-ahead for the actor / studio / theme pickers. */
+/**
+ * People who are in every title named in the text: "rumble fish matrix" is Rumble Fish + The Matrix, so Laurence Fishburne.
+ * Each part must match a film or series title exactly (so ordinary names never trigger it). Fails soft: [] on any problem.
+ */
+async function sharedCast(q: string): Promise<Suggestion[]> {
+  try {
+    const splits = titleSplits(q);
+    if (!splits.length) return [];
+    const memo = new Map<string, Promise<{ type: MediaType; id: number; title: string } | null>>();
+    const top = (seg: string) => {
+      if (!memo.has(seg)) memo.set(seg, tmdb("/search/multi", { query: seg, include_adult: "false" }, 24 * HOUR).then((d) => {
+        const r = (d.results ?? []).find((x: any) => (x.media_type === "movie" || x.media_type === "tv") && [x.title, x.name, x.original_title, x.original_name].some((t) => t && sameTitle(seg, t)));
+        return r ? { type: r.media_type as MediaType, id: r.id as number, title: (r.title ?? r.name) as string } : null;
+      }).catch(() => null));
+      return memo.get(seg)!;
+    };
+    for (const parts of splits) {
+      const found = await Promise.all(parts.map(top));
+      if (found.some((f) => !f)) continue;
+      const titles = found as { type: MediaType; id: number; title: string }[];
+      if (new Set(titles.map((t) => `${t.type}:${t.id}`)).size < titles.length) continue;
+      const casts = await Promise.all(titles.map((t) => tmdb(t.type === "tv" ? `/tv/${t.id}/aggregate_credits` : `/movie/${t.id}/credits`, {}, 24 * HOUR).then((d) => (d.cast ?? []) as any[])));
+      const ids = commonIds(casts.map((c) => c.map((p) => p.id as number)));
+      if (!ids.length) continue;
+      const sub = `In ${titles.map((t) => t.title).join(" and ")}`;
+      return ids.slice(0, 8).map((id) => ({ id, name: casts[0].find((p) => p.id === id).name as string, sub }));
+    }
+  } catch { /* decorative: fall back to the plain name search */ }
+  return [];
+}
+
+/** Type-ahead for the actor / studio / theme pickers. A person search that names films ("rumble fish matrix") lists who is in all of them. */
 export async function suggest(kind: SuggestKind, q: string): Promise<Suggestion[]> {
   const d = await tmdb(`/search/${kind}`, { query: q, page: "1", include_adult: "false" }, HOUR);
-  return (d.results ?? []).slice(0, 8).map((r: any): Suggestion => {
+  const list = (d.results ?? []).slice(0, 8).map((r: any): Suggestion => {
     if (kind === "person") return { id: r.id, name: r.name, sub: [r.known_for_department, (r.known_for ?? []).map((k: any) => k.title ?? k.name).slice(0, 2).join(", ")].filter(Boolean).join(" · ") };
     if (kind === "company") return { id: r.id, name: r.name, sub: r.origin_country ?? "" };
     return { id: r.id, name: r.name, sub: "" };
   });
+  if (kind !== "person") return list;
+  const words = normTitle(q).split(" ").filter(Boolean);
+  const named = list.some((p: Suggestion) => { const n = normTitle(p.name); return words.every((w) => n.includes(w)); });
+  if (named || words.length < 2) return list;
+  const shared = await sharedCast(q);
+  return [...shared, ...list.filter((p: Suggestion) => !shared.some((s) => s.id === p.id))].slice(0, 8);
 }
 
 export interface BrowsePage { items: BrowseItem[]; page: number; totalPages: number; notice?: string }
