@@ -18,3 +18,27 @@ test("cuts of a text without separator", () => {
   assert.deepEqual(splitCandidates("tom hanks"), []);
   assert.deepEqual(splitCandidates("tom hanks and meg ryan"), []);
 });
+
+// pickPair: the sides of a guessed cut. Shapes copied from live TMDB answers.
+import { pickPair } from "../../src/lib/search-pair";
+import type { SearchHit } from "../../src/lib/types";
+let id = 100;
+const T = (title: string, pop: number, votes: number): SearchHit => ({ kind: "title", key: `movie:${++id}`, type: "movie", id, title, year: "2000", poster: null, rating: 7, pop, votes });
+const P = (name: string, pop: number): SearchHit => ({ kind: "person", id: ++id, name, photo: null, dept: "Acting", knownFor: [], knownKeys: [], pop });
+
+test("pickPair: a little-known film next to a famous one resolves as two titles", () => {
+  const got = pickPair("rumble fish", "matrix", [T("Rumble Fish", 3, 1200), T("Rumble", 20, 900)], [T("The Matrix", 60, 25000)]);
+  assert.deepEqual(got?.map((h) => (h.kind === "title" ? h.title : "")), ["Rumble Fish", "The Matrix"]);
+});
+
+test("pickPair: a name that is a person AND a film ('erin brockovich') still pairs as two titles", () => {
+  const got = pickPair("rumble fish", "erin brockovich", [T("Rumble Fish", 3, 1200)], [P("Erin Brockovich", 8), T("Erin Brockovich", 14, 6000)]);
+  assert.deepEqual(got?.map((h) => h.kind), ["title", "title"]);
+});
+
+test("pickPair: two people stay two people; a person next to a title is never paired", () => {
+  const two = pickPair("richard gere", "edward norton", [P("Richard Gere", 15)], [P("Edward Norton", 12)]);
+  assert.deepEqual(two?.map((h) => h.kind), ["person", "person"]);
+  assert.equal(pickPair("rumble fish", "tom hanks", [T("Rumble Fish", 3, 1200)], [P("Tom Hanks", 40)]), null);
+  assert.equal(pickPair("pulp fiction", "kill bill", [T("Pulp Fiction", 40, 28000)], [T("Kill Bill: Vol. 1", 30, 17000)]), null);
+});
