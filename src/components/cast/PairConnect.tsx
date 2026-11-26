@@ -4,7 +4,8 @@ import { PeopleResult, TitlesResult } from "./Connect";
 import { TitleLink } from "../Modal";
 import { Thumb } from "../ui";
 import GoogleLink from "../who/GoogleLink";
-import { exactTitle, layoutSearch, nameTier } from "@/lib/search-intent";
+import { layoutSearch } from "@/lib/search-intent";
+import { pickPair } from "@/lib/search-pair";
 import { typeLabel } from "@/lib/img";
 import type { Item, PeopleLink, SearchHit, TitlesLink } from "@/lib/types";
 
@@ -12,12 +13,9 @@ type Who = { id: number; name: string; photo: string | null; role: string };
 type CharMatch = { show: Item; members: Who[] };
 type Block = { id: string; kind: "people"; r: PeopleLink } | { id: string; kind: "titles"; r: TitlesLink } | { id: string; kind: "chars"; r: CharMatch[] };
 
-/** `guess`: a side cut out of longer text; a little-known film that is named exactly still counts ("rumble fish matrix"). */
-const topOf = async (side: string, signal: AbortSignal, guess = false): Promise<SearchHit | null> => {
+const hitsOf = async (side: string, signal: AbortSignal): Promise<SearchHit[]> => {
   const r = await fetch(`/api/search?q=${encodeURIComponent(side)}&exact=1`, { signal });
-  if (!r.ok) return null;
-  const hits: SearchHit[] = (await r.json()).hits ?? [];
-  return layoutSearch(side, hits).top ?? (guess ? exactTitle(side, hits) : null);
+  return r.ok ? ((await r.json()).hits ?? []) : [];
 };
 const getJson = async (url: string, signal: AbortSignal) => { const r = await fetch(url, { signal }); return r.ok ? r.json() : null; };
 
@@ -41,15 +39,16 @@ export default function PairConnect({ pair, cuts, charText, onShown }: { pair?: 
       try {
         // A typed separator needs only a clear match per side; a guessed cut needs both sides to be an exact name.
         let x: SearchHit | null = null, y: SearchHit | null = null;
-        const tops = new Map<string, Promise<SearchHit | null>>();
-        const top = (s: string) => { let p = tops.get(s); if (!p) tops.set(s, (p = topOf(s, ctl.signal, !pair))); return p; };
-        const exact = (h: SearchHit | null, s: string) => !!h && nameTier(s, h.kind === "person" ? h.name : h.title) === 4;
+        const all = new Map<string, Promise<SearchHit[]>>();
+        const hits = (s: string) => { let p = all.get(s); if (!p) all.set(s, (p = hitsOf(s, ctl.signal))); return p; };
         if (pair) {
-          [x, y] = await Promise.all([top(pair[0]), top(pair[1])]);
+          const [hx, hy] = await Promise.all([hits(pair[0]), hits(pair[1])]);
+          x = layoutSearch(pair[0], hx).top; y = layoutSearch(pair[1], hy).top;
         } else {
           for (const [l, r] of cuts ?? []) {
-            const [p, q] = await Promise.all([top(l), top(r)]);
-            if (p && q && p.kind === q.kind && exact(p, l) && exact(q, r)) { x = p; y = q; break; }
+            const [hl, hr] = await Promise.all([hits(l), hits(r)]);
+            const got = pickPair(l, r, hl, hr);
+            if (got) { [x, y] = got; break; }
           }
         }
         const jobs: Promise<void>[] = [];
