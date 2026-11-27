@@ -2,7 +2,6 @@ import CastHome, { type HomeProps } from "@/components/cast/CastHome";
 import type { Page } from "@/components/cast/Browse";
 import { isActive, mergeGenres, parseBrowse } from "@/lib/browse";
 import { getLibrary, getProfile } from "@/lib/library";
-import { forYou } from "@/lib/foryou";
 import { browse, discover, genreList, getPerson, getTitle } from "@/lib/tmdb";
 import { newEpDetail } from "@/lib/new-episode";
 import type { BrowseList } from "@/lib/types";
@@ -39,9 +38,12 @@ export default async function Home({ searchParams }: { searchParams: SP }) {
     const list = LISTS.includes(one(sp.list) as BrowseList) ? (one(sp.list) as BrowseList) : learn ? "foryou" : "trending";
     return { lib, list };
   });
-  const firstP: Promise<Page | null> = plan.then(async ({ lib, list }) => (filtered
+  // "For you" is not awaited here: ranking it is the slow part, so the page is sent at once and the grid asks `/api/browse` for it (same salt, so every page
+  // of the visit comes from one ranking). The other lists and filtered results are quick and still arrive with the page.
+  const firstP: Promise<Page | null> = plan.then(async ({ list }) => (filtered
     ? discover(filters, 1, (await profileP).country, (await profileP).services).then((r) => ({ items: r.items, page: r.page, more: r.page < r.totalPages, notice: r.notice }))
-    : (list === "foryou" ? forYou(filters.type, 1, lib, salt) : browse(list, filters.type, 1)).then((r) => ({ ...r, page: 1 }))
+    : list === "foryou" ? Promise.resolve(null)
+    : browse(list, filters.type, 1).then((r) => ({ ...r, page: 1 }))
   ).catch(() => null));
   const [{ lib, list }, profile, connect, gm, gt, first] = await Promise.all([
     plan, profileP, pick(),

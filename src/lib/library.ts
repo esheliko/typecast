@@ -32,6 +32,13 @@ const getLibraryRaw = cache(async () => {
   return rows.map(toItem);
 });
 
+/** The signed-in user's id (from the signed token, no round trip), or null. Cached per request. */
+export const currentUid = cache(async (): Promise<string | null> => {
+  const sb = await supabaseServer();
+  const { data } = await sb.auth.getClaims();
+  return (data?.claims?.sub as string | undefined) ?? null;
+});
+
 /** One title's row, or null. A single small query, so the popup does not wait for the whole library. Cached per request. */
 export const getLibraryItem = cache(async (key: string): Promise<LibItem | null> => {
   const [type, id] = key.split(":");

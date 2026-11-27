@@ -4,6 +4,20 @@ import { PersonLink } from "./Modal";
 import { Avatar } from "./ui";
 import type { CastMember } from "@/lib/types";
 
+const castCache = new Map<string, { t: number; p: Promise<CastMember[]> }>();
+/** One request per series and season, however many times the section asks (a remount or a second view of the same title). */
+function loadCast(tv: number, s: number): Promise<CastMember[]> {
+  const k = `${tv}:${s}`;
+  const hit = castCache.get(k);
+  if (hit && Date.now() - hit.t < 60_000) return hit.p; // a minute only: a moved saved place changes what the server holds back
+  {
+    const p: Promise<CastMember[]> = fetch(`/api/season-cast?tv=${tv}&s=${s}`).then((r) => (r.ok ? (r.json() as Promise<CastMember[]>) : Promise.reject(new Error("season cast"))));
+    p.catch(() => { if (castCache.get(k)?.p === p) castCache.delete(k); });
+    castCache.set(k, { t: Date.now(), p });
+    return p;
+  }
+}
+
 /** A series' cast changes every season: pick a season to see who was in it. Fails soft (shows a small note). */
 export default function SeasonCast({ tv, seasons }: { tv: number; seasons: number[] }) {
   const [s, setS] = useState(seasons[0]);
@@ -12,9 +26,8 @@ export default function SeasonCast({ tv, seasons }: { tv: number; seasons: numbe
   useEffect(() => {
     if (have) return;
     let live = true;
-    fetch(`/api/season-cast?tv=${tv}&s=${s}`)
-      .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then((d: CastMember[]) => live && setCache((c) => ({ ...c, [s]: d })))
+    loadCast(tv, s)
+      .then((d) => live && setCache((c) => ({ ...c, [s]: d })))
       .catch(() => live && setCache((c) => ({ ...c, [s]: "err" })));
     return () => { live = false; };
   }, [tv, s, have]);

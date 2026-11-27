@@ -21,11 +21,12 @@ async function hitOf(k: Credit, l: LibItem | undefined): Promise<EnrichedMember[
 }
 
 /** For each cast member, work out which titles the user has watched (not just listed to watch) they were in. Exact match by TMDB id. */
-export async function enrich(people: CastMember[], library: LibItem[], curKey: string): Promise<EnrichedMember[]> {
+export async function enrich(people: CastMember[], library: LibItem[], curKey: string, opts: { limit?: number; workers?: number; budgetMs?: number } = {}): Promise<EnrichedMember[]> {
+  const { limit = 20, workers = 20, budgetMs } = opts;
   // "You know them from" means seen it: a title only on the watchlist is not one they know yet.
   const inLib = new Set(library.filter((l) => l.status !== "watchlist").map((l) => l.key));
   const byKey = new Map(library.map((l) => [l.key, l]));
-  const queue = people.slice(0, 20);
+  const queue = people.slice(0, limit);
   const out = new Map<number, EnrichedMember>();
   async function worker() {
     for (let c = queue.shift(); c; c = queue.shift()) {
@@ -43,6 +44,15 @@ export async function enrich(people: CastMember[], library: LibItem[], curKey: s
       } catch { /* leave this person without extras */ }
     }
   }
-  await Promise.all(Array.from({ length: 20 }, worker));
+  const all = Promise.all(Array.from({ length: workers }, worker));
+  if (budgetMs) {
+    // Past the budget the people still waiting are given their plain data (no "you know them from"); work already running finishes in the background and is simply not used.
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    await Promise.race([all, new Promise<void>((r) => { timer = setTimeout(r, budgetMs); })]);
+    clearTimeout(timer); queue.length = 0;
+    const done = new Map(out);
+    return people.map((c) => done.get(c.id) ?? { ...c, hits: [], also: [], top: [] });
+  }
+  await all;
   return people.map((c) => out.get(c.id) ?? { ...c, hits: [], also: [], top: [] });
 }

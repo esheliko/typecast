@@ -172,7 +172,9 @@ function showInfo(d: any): ShowInfo {
   };
 }
 
-export async function getTitle(type: MediaType, id: number): Promise<Title> {
+/** A title with everything on its page. Cached per request, so the page, its metadata and the popup share one read. */
+export const getTitle = cache(getTitleOnce);
+async function getTitleOnce(type: MediaType, id: number): Promise<Title> {
   const append = `${type === "tv" ? "aggregate_credits" : "credits"},watch/providers,recommendations,external_ids${type === "movie" ? ",release_dates" : ""}`;
   const d = await tmdb(`/${type}/${id}`, { append_to_response: append });
   const cast: any[] = (type === "tv" ? d.aggregate_credits?.cast : d.credits?.cast) ?? [];
@@ -634,17 +636,20 @@ async function sharedCast(q: string): Promise<Suggestion[]> {
       }).catch(() => null));
       return memo.get(seg)!;
     };
-    for (const parts of splits) {
+    // Every way of cutting the text is tried at once (a part under 3 characters can never be a title worth matching); the first cut, in order, that has people in common wins.
+    const tries = splits.filter((parts) => parts.every((x) => x.trim().length >= 3)).map(async (parts): Promise<Suggestion[]> => {
       const found = await Promise.all(parts.map(top));
-      if (found.some((f) => !f)) continue;
+      if (found.some((f) => !f)) return [];
       const titles = found as { type: MediaType; id: number; title: string }[];
-      if (new Set(titles.map((t) => `${t.type}:${t.id}`)).size < titles.length) continue;
+      if (new Set(titles.map((t) => `${t.type}:${t.id}`)).size < titles.length) return [];
       const casts = await Promise.all(titles.map((t) => tmdb(t.type === "tv" ? `/tv/${t.id}/aggregate_credits` : `/movie/${t.id}/credits`, {}, 24 * HOUR).then((d) => (d.cast ?? []) as any[])));
       const ids = commonIds(casts.map((c) => c.map((p) => p.id as number)));
-      if (!ids.length) continue;
+      if (!ids.length) return [];
       const sub = `In ${titles.map((t) => t.title).join(" and ")}`;
       return ids.slice(0, 8).map((id) => ({ id, name: casts[0].find((p) => p.id === id).name as string, sub }));
-    }
+    });
+    const settled = await Promise.all(tries.map((t) => t.catch(() => [] as Suggestion[])));
+    return settled.find((r) => r.length) ?? [];
   } catch { /* decorative: fall back to the plain name search */ }
   return [];
 }

@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
   if (q.length < 2) return NextResponse.json({ hits: [] });
   const headers = { "Cache-Control": "private, max-age=300, stale-while-revalidate=3600" };
   try {
-    const [hits, collections] = await Promise.all([search(q, kind), kind === "all" ? searchCollections(q).catch(() => []) : Promise.resolve([])]);
+    const [hits, collections] = await Promise.all([search(q, kind), kind === "all" && req.nextUrl.searchParams.get("sides") !== "1" ? searchCollections(q).catch(() => []) : Promise.resolve([])]);
     // Only when nothing matches well: ask for a spelling fix, and use it only if it gives a clear answer. `exact=1` is "search for what I typed".
     if (kind === "all" && q.length >= 3 && req.nextUrl.searchParams.get("exact") !== "1" && layoutSearch(q, hits).intent === "unclear") {
       const fix = await suggestSpelling(q);

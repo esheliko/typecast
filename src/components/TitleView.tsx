@@ -105,7 +105,7 @@ function CastBlock({ part, t, lib, people, first, last, pending, hold }: CastPro
       {shown.length > 0 && (
         <>
           <h2>{DETAIL_LABEL[part]}</h2>
-          {first && <p className="small" style={{ margin: "-4px 0 10px" }}><Link href={`/?view=connect&t=${t.key}`}>Compare this cast with another title</Link></p>}
+          {first && <p className="small" style={{ margin: "-4px 0 10px" }}><Link href={`/?view=connect&t=${t.key}`} prefetch={false}>Compare this cast with another title</Link></p>}
           <div className={`card pad${part === "cast_main" ? " cast-main" : ""}`}>{shown.length > MAIN_CAST || extras.length ? <CastFilter total={extras.length ? total : undefined}>{list}</CastFilter> : list}</div>
         </>
       )}

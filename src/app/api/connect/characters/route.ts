@@ -1,18 +1,19 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getCast, tmdb } from "@/lib/tmdb";
-import { pool } from "@/lib/who-data";
 import { restWords } from "@/lib/who-actor";
 import { coverCast, pairInCast, type CastLite } from "@/lib/character-pair";
 import { apiError } from "@/lib/errors";
 import type { MediaType } from "@/lib/types";
 
 const DAY = 24 * 3600;
+/** How many shows one request looks through, and how many casts are read at once. */
+const SCAN = 150, CONCURRENCY = 12;
 type Row = { id: number; name?: string; title?: string; first_air_date?: string; release_date?: string; poster_path?: string | null };
 type Show = { key: string; type: MediaType; id: number; title: string; year: string; poster: string | null };
 
 /**
  * ?a=sheldon&b=penny: two characters with no show named. ?q=nolan harper lucy tim: one or more characters, no separator ("sheldon cooper", "ted mosby").
- * Looks through the casts of the most-voted series and films, in batches, and answers from the first batch where all of them are in the same cast
+ * Looks through the casts of the most-voted series and films, in one bounded pass (about 150 shows), and answers as soon as it has matches where all of them are in the same cast
  * (best billed first). Empty list when none is.
  */
 export const maxDuration = 60;
@@ -33,21 +34,26 @@ export async function GET(req: NextRequest) {
         ? { key: `tv:${r.id}`, type, id: r.id, title: r.name ?? "", year: (r.first_air_date ?? "").slice(0, 4), poster: r.poster_path ?? null }
         : { key: `movie:${r.id}`, type, id: r.id, title: r.title ?? "", year: (r.release_date ?? "").slice(0, 4), poster: r.poster_path ?? null }));
     const range = (a: number, b: number) => Array.from({ length: b - a + 1 }, (_, i) => a + i);
+    // The well-known shows only: the most-voted and the currently popular series (pages 1-4 of each) and the most-voted films, about 150 titles in all.
     const pages = await Promise.all([
       ...range(1, 4).map((p) => rows("/discover/tv", "vote_count.desc", p, "tv")),
       ...range(1, 4).map((p) => rows("/discover/tv", "popularity.desc", p, "tv")),
-      ...range(5, 10).map((p) => rows("/discover/tv", "vote_count.desc", p, "tv")),
-      ...range(1, 3).map((p) => rows("/discover/movie", "vote_count.desc", p, "movie")),
-      ...range(1, 2).map((p) => rows("/discover/movie", "popularity.desc", p, "movie")),
+      rows("/discover/movie", "vote_count.desc", 1, "movie"),
     ]);
     const seen = new Set<string>();
-    const shows = pages.flat().filter((x) => !seen.has(x.key) && !!seen.add(x.key));
+    const shows = pages.flat().filter((x) => !seen.has(x.key) && !!seen.add(x.key)).slice(0, SCAN);
     const found: { show: Show; hit: { members: CastLite[]; rank: number } }[] = [];
-    for (let i = 0; i < shows.length && !found.length; i += 24) {
-      const got = await pool(shows.slice(i, i + 24), 8, async (s) => { const hit = match(await getCast(s.type, s.id, 2000).catch(() => [])); // Deep in the billing it is a bit part that only sounds alike (Sheldon Leavitt, Teddy, Lenny), not what was meant; it must not end the search either.
-      return hit && hit.rank <= 15 * hit.members.length ? { show: s, hit } : null; });
-      for (const g of got) if (g) found.push(g);
-    }
+    // One bounded pass, best-known first. It stops starting new casts once three shows match, or a little after the first match (the batch it was in), as the batched scan did.
+    let next = 0, firstAt = -1;
+    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, shows.length) }, async () => {
+      for (let i = next++; i < shows.length; i = next++) {
+        if (found.length >= 3 || (firstAt >= 0 && i >= firstAt + 24)) return;
+        const s = shows[i];
+        const hit = match(await getCast(s.type, s.id, 2000).catch(() => []));
+        // Deep in the billing it is a bit part that only sounds alike (Sheldon Leavitt, Teddy, Lenny), not what was meant; it must not end the search either.
+        if (hit && hit.rank <= 15 * hit.members.length) { found.push({ show: s, hit }); if (firstAt < 0) firstAt = i; }
+      }
+    }));
     found.sort((x, y) => x.hit.rank - y.hit.rank);
     const matches = found.slice(0, 3).map(({ show, hit }) => ({ show, members: hit.members }));
     return NextResponse.json({ matches }, { headers: { "Cache-Control": "private, max-age=3600, stale-while-revalidate=86400" } });

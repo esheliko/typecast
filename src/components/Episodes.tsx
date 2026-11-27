@@ -105,7 +105,7 @@ export default function Episodes({ item, seasons, progress, status, today, ended
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [item.id, s, lineTagKey, shown]);
 
-  // Faces per episode: after the season itself, so the list shows first. Another place or Show is another question; a failure leaves the rows plain.
+  // Faces per episode: asked at the same moment as the season itself (they were asked one after the other), and applied once the list is there. Another place or Show is another question; a failure leaves the rows plain.
   // IMDb's score per episode (one call per season); nothing shows until it arrives or when IMDb has none.
   const [imdbEps, setImdbEps] = useState<Record<number, number>>({});
   useEffect(() => {
@@ -116,13 +116,12 @@ export default function Episodes({ item, seasons, progress, status, today, ended
   }, [item.id, s]);
   const [faces, setFaces] = useState<Map<number, EpisodeFaces> | null>(null);
   useEffect(() => {
-    if (!data) return;
     let live = true;
     loadFaces(item.id, s, lineTagKey, reqPage, shown.has(s)).then((l) => { if (live) setFaces(new Map(l.map((f) => [f.e, f]))); }, () => { if (live) setFaces(null); });
     return () => { live = false; };
     // `lineTagKey` stands for the line and the page.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [item.id, s, lineTagKey, shown, !!data]);
+  }, [item.id, s, lineTagKey, shown]);
 
   // Once the asked-for episode is on screen, open it and bring it into view.
   useEffect(() => {

@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 
 const TABS = [
@@ -10,11 +11,20 @@ const TABS = [
 
 export default function Tabs({ where }: { where: "top" | "bottom" }) {
   const path = usePathname();
+  // Both bars are in the page and CSS shows one of them; only the shown one prefetches, so each tab's page is not fetched twice.
+  const nav = useRef<HTMLElement>(null);
+  const [shown, setShown] = useState(false);
+  useEffect(() => {
+    const check = () => setShown(!!nav.current && getComputedStyle(nav.current).display !== "none");
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
   const active = (h: string) => (h === "/" ? path === "/" || path.startsWith("/title") || path.startsWith("/person") : path.startsWith(h));
   return (
-    <nav className={where === "top" ? "tabs-top" : "tabs-bottom"} aria-label="Sections">
+    <nav ref={nav} className={where === "top" ? "tabs-top" : "tabs-bottom"} aria-label="Sections">
       {TABS.map((t) => (
-        <Link key={t.href} className="tab" href={t.href} prefetch aria-current={active(t.href) ? "page" : undefined}
+        <Link key={t.href} className="tab" href={t.href} prefetch={shown} aria-current={active(t.href) ? "page" : undefined}
           onClick={() => { if (t.href === "/" && path === "/") window.dispatchEvent(new Event("tc:clear-search")); }}>
           <svg viewBox="0 0 24 24" aria-hidden="true" dangerouslySetInnerHTML={{ __html: t.icon }} />
           {t.label}

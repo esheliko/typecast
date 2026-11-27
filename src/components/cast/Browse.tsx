@@ -91,7 +91,9 @@ export default function Browse({ filters, filtered, list: initialList, salt: ser
       const c = JSON.parse(sessionStorage.getItem("tc:nudges") || "null");
       if (c && Array.isArray(c.items)) { setNudges(c.items); setNudgeRound(c.round ?? 0); return; }
     } catch { /* ignore */ }
-    loadNudges(0);
+    // Suggestions are decoration: asked once the grid has had a moment to load, so they never compete with it.
+    const t = setTimeout(() => loadNudges(0), 1500);
+    return () => clearTimeout(t);
   }, [list]);
   const seq = useRef(0);
   const { marked, skipped } = useLib();

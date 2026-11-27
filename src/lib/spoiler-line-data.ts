@@ -1,4 +1,4 @@
-import { getLibrary } from "./library";
+import { getLibrary, getLibraryItem } from "./library";
 import { NONE, spoilerLine, type LineContext, type SpoilerLine } from "./spoiler-line";
 
 /**
@@ -8,7 +8,8 @@ import { NONE, spoilerLine, type LineContext, type SpoilerLine } from "./spoiler
 export async function lineForMany(keys: string[], ctx: LineContext = {}): Promise<Record<string, SpoilerLine>> {
   const out: Record<string, SpoilerLine> = {};
   const tv = [...new Set(keys)].filter((k) => k.startsWith("tv:"));
-  const lib = tv.length ? await getLibrary().catch(() => null) : null;
+  // One series: that single row is read, not the whole library.
+  const lib = tv.length === 1 ? await getLibraryItem(tv[0]).then((l) => (l ? [l] : []), () => null) : tv.length ? await getLibrary().catch(() => null) : null;
   const by = new Map((lib ?? []).map((l) => [l.key, l]));
   for (const k of keys) out[k] = lib ? spoilerLine(k, by.get(k) && { status: by.get(k)!.status, progress: by.get(k)!.progress }, ctx) : NONE;
   return out;
