@@ -148,7 +148,9 @@ export async function browse(list: BrowseList, type: BrowseType, page: number): 
     : type === "movie" ? "/movie/now_playing" : "/tv/on_the_air";
   if (list === "soon") Object.assign(params, { include_adult: "false", sort_by: "popularity.desc", [`${date}.gte`]: daysFrom(1), [`${date}.lte`]: daysFrom(180) });
   const d = await tmdb(path, params, HOUR);
-  return { items: (d.results ?? []).map((r: any) => ({ ...browseItem(type, r), why: listWhy(list, type, r) })), more: page < Math.min(d.total_pages ?? 1, 200) };
+  // Coming soon cards show their release day ("Out 16 Dec") instead of the year.
+  const due = (r: any) => (list === "soon" && /^\d{4}-\d{2}-\d{2}$/.test(r.release_date ?? r.first_air_date ?? "") ? { due: r.release_date ?? r.first_air_date } : {});
+  return { items: (d.results ?? []).map((r: any) => ({ ...browseItem(type, r), why: listWhy(list, type, r), ...due(r) })), more: page < Math.min(d.total_pages ?? 1, 200) };
 }
 
 /** Why a title is on a quick list, in a sentence (hover text in Browse). */

@@ -13,6 +13,7 @@ import RelatedButton from "./RelatedButton";
 import type { Nudge } from "@/lib/nudges";
 import { SORTS, convertGenres, toParams, type BrowseQuery, type Sort, type Tag } from "@/lib/browse";
 import { img } from "@/lib/img";
+import { dueLabel } from "@/lib/upcoming";
 import { newEpLabel } from "@/lib/new-episode";
 import { faded, loadPassed, type Passed } from "@/lib/passed";
 import { STATUS_LABEL, type BrowseItem, type BrowseList, type BrowseType } from "@/lib/types";
@@ -20,6 +21,7 @@ import { ImdbRate } from "@/components/ImdbRate";
 
 const LISTS: { k: BrowseList; label: string; tv?: string }[] = [
   { k: "foryou", label: "For you" },
+  { k: "upcoming", label: "Upcoming" },
   { k: "trending", label: "Trending" },
   { k: "popular", label: "Popular" },
   { k: "top", label: "Top rated" },
@@ -335,7 +337,7 @@ export function Poster({ it, sub, skippable }: { it: BrowseItem; sub?: string; s
       <span className="pc-gl"><GlimpseButton spec={titleSpec(it)} /></span>
       <TitleLink k={it.key} it={it} className="pc-link">
         <span className="pc-t" title={it.title}>{it.title}</span>
-        <span className="pc-s"><KindIcon type={it.type} />{sub ?? <>{it.year || "TBA"}<ImdbRate k={it.key} lead=" · " /></>}</span>
+        <span className="pc-s"><KindIcon type={it.type} />{sub ?? (it.due ? <>{dueLabel(it.due)}</> : <>{it.year || "TBA"}<ImdbRate k={it.key} lead=" · " /></>)}</span>
       </TitleLink>
     </div>
   );

@@ -955,6 +955,8 @@ body:has(.modal) .toast-slot { bottom: calc(84px + env(safe-area-inset-bottom, 0
 /* Upcoming from your list (Library): reuses the Watch next header; rows reuse .row and .thumb. */
 .upcoming { margin-bottom: 12px; }
 .up-grp { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin: 10px 0 4px; }
+.up-picks .up-grp { display: flex; align-items: baseline; justify-content: space-between; margin-top: 16px; }
+.up-all { text-transform: none; letter-spacing: 0; font-size: 12px; color: var(--gold); }
 .up-rows { margin: 0; overflow: hidden; }
 .up-row { text-decoration: none; color: inherit; }
 .up-row .thumb { width: 38px; height: 56px; }

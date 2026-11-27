@@ -17,7 +17,7 @@ export function markLabel(status: Status, priority?: Priority): string {
 /** `avg`: TMDB's average vote (0-10), set only by lists that carry it and only when enough people voted. Not your own rating (`LibItem.rating`, 0-5). */
 export interface Item { key: string; type: MediaType; id: number; title: string; year: string; poster: string | null; avg?: number }
 /** `why`: one line saying why Browse shows it in this list; shown on hover. */
-export interface BrowseItem extends Item { rating: number; why?: string }
+export interface BrowseItem extends Item { rating: number; why?: string; /** YYYY-MM-DD release day, on the Upcoming list (shown instead of the year). */ due?: string }
 export interface Related extends Item { rel: string }
 /** `eps` / `since`: for a series, how many episodes they were in and the date of their first one. */
 export interface Credit extends Item { role: string; votes: number; rating: number; date: string; eps?: number; since?: string; /** TMDB credit ids (series, one per part), to look up which episodes. */ cids?: string[] }
@@ -46,7 +46,7 @@ export interface Title extends Item {
   releaseBy?: Record<string, string>;
 }
 export interface Person { id: number; name: string; photo: string | null; dept: string; bio: string; known: Credit[]; imdbId: string | null }
-export type BrowseList = "foryou" | "trending" | "popular" | "top" | "new" | "soon";
+export type BrowseList = "foryou" | "upcoming" | "trending" | "popular" | "top" | "new" | "soon";
 export type SearchHit =
   | ({ kind: "title"; /** TMDB popularity and vote count, for ranking the results. */ pop?: number; votes?: number } & BrowseItem)
   | { kind: "person"; id: number; name: string; photo: string | null; dept: string; knownFor: string[]; /** Item keys ("movie:603") of the same known-for titles, to check them against the library. */ knownKeys?: string[]; pop?: number };

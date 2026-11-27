@@ -119,6 +119,15 @@ export function dateLabel(e: Pick<UpEntry, "date" | "approx">, today: string): s
   return `${wd} ${d} ${MONTHS[m]}${y !== THIS_YEAR(today) ? ` ${y}` : ""}`;
 }
 
+/** A Browse card's line for an unreleased title: "Out 14 Mar" (with the year when not this year), "Out Dec 2027" when far off. */
+export function dueLabel(date: string, today = localDay()): string {
+  const n = daysUntil(date, today);
+  const approx = n > APPROX_DAYS;
+  const y = Number(date.slice(0, 4)), m = Number(date.slice(5, 7)) - 1, d = Number(date.slice(8, 10));
+  if (!(y > 0) || !(m >= 0)) return "TBA";
+  return approx ? `Out ${MONTHS[m]} ${y}` : `Out ${d} ${MONTHS[m]}${y !== THIS_YEAR(today) ? ` ${y}` : ""}`;
+}
+
 /** "today", "in 4 days", "in 3 months", or "date may change" for an approximate date. */
 export const countdown = (e: Pick<UpEntry, "date" | "approx">, today: string) => (e.approx ? "date may change" : untilLabel(e.date, today));
 

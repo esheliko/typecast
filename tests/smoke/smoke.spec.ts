@@ -117,10 +117,13 @@ test.describe("signed in", () => {
         await expect(row.locator(".pill")).not.toBeEmpty();
         await expect(row).not.toContainText(/NaN|undefined|Invalid/);
       }
-      // The same data puts a small badge ("Out Fri", "S5 in 12 days") on those titles' Library rows, and each has a one-event calendar file.
-      const badges = page.getByTestId("when-badge");
-      await expect(badges.first()).toBeVisible();
-      for (const b of await badges.all()) await expect(b).not.toContainText(/NaN|undefined|Invalid/);
+      // Your own titles in it put a small badge ("Out Fri", "S5 in 12 days") on their Library rows, and each has a one-event calendar file.
+      // The panel may also hold only "You may like" picks (not in the library): those never make badges.
+      if (await upcoming.locator(".up-rows:not(.up-picks .up-rows) .up-row").count()) {
+        const badges = page.getByTestId("when-badge");
+        await expect(badges.first()).toBeVisible();
+        for (const b of await badges.all()) await expect(b).not.toContainText(/NaN|undefined|Invalid/);
+      }
       const href = await rows.first().getAttribute("href");
       const m = /\/title\/(movie|tv)\/(\d+)/.exec(href ?? "");
       if (m) {
@@ -132,6 +135,9 @@ test.describe("signed in", () => {
         expect(body).toMatch(/DTSTART;VALUE=DATE:\d{8}\r\n/);
       }
       await upcoming.getByRole("button", { name: /Upcoming/ }).click(); // leave it collapsed for the steps below
+      // Opening Upcoming folded Watch next (one panel open at a time, remembered): open it again, as the steps below expect.
+      const reopen = upnext.getByRole("button", { name: /^Watch next, \d+\. Show$/ });
+      if (await reopen.count()) { await reopen.click(); await expect(upnext.getByText("Breaking Bad").first()).toBeVisible(); }
     }
     // "On my services" toggle (shown only when the smoke user has services): filters to streamable picks or says nothing qualifies, and undoes cleanly.
     const mine = upnext.getByRole("button", { name: "On my services" });
@@ -362,6 +368,15 @@ test.describe("signed in", () => {
       expect(r.status(), p).toBe(200);
     }
     await healthy(page, bad);
+  });
+
+  test("Browse Upcoming: picks are unreleased, outside the library, with a release day", async ({ page }) => {
+    const r = await page.request.get("/api/browse?list=upcoming&type=all&page=1");
+    expect(r.status()).toBe(200);
+    const j = await r.json();
+    expect(Array.isArray(j.items)).toBe(true);
+    const today = new Date().toISOString().slice(0, 10);
+    for (const it of j.items as { due?: string }[]) expect(it.due && it.due >= today, JSON.stringify(it)).toBeTruthy();
   });
 
   test("/api/glimpse: pictures by person and title id (free sources, no Serper needed)", async ({ page }) => {
