@@ -473,7 +473,7 @@ test.describe("behaviour (signed in)", () => {
     expect(m.id, "id must stay \"/\" so installed apps keep their identity").toBe("/");
     await page.goto("/launch.html");
     await page.waitForURL((u) => u.pathname === "/", { timeout: 30_000 });
-    await expect(page.locator('section[aria-label="Browse"]')).toBeVisible({ timeout: 30_000 });
+    await expect(page.locator('section[aria-label="Browse"]').first()).toBeVisible({ timeout: 30_000 }); // Browse can hold two such sections
   });
 
   test("/api/export returns the library as JSON", async ({ page }) => {
