@@ -117,10 +117,13 @@ test.describe("signed in", () => {
         await expect(row.locator(".pill")).not.toBeEmpty();
         await expect(row).not.toContainText(/NaN|undefined|Invalid/);
       }
-      // The same data puts a small badge ("Out Fri", "S5 in 12 days") on those titles' Library rows, and each has a one-event calendar file.
-      const badges = page.getByTestId("when-badge");
-      await expect(badges.first()).toBeVisible();
-      for (const b of await badges.all()) await expect(b).not.toContainText(/NaN|undefined|Invalid/);
+      // Your own titles in it put a small badge ("Out Fri", "S5 in 12 days") on their Library rows, and each has a one-event calendar file.
+      // The panel may also hold only "You may like" picks (not in the library): those never make badges.
+      if (await upcoming.locator(".up-rows:not(.up-picks .up-rows) .up-row").count()) {
+        const badges = page.getByTestId("when-badge");
+        await expect(badges.first()).toBeVisible();
+        for (const b of await badges.all()) await expect(b).not.toContainText(/NaN|undefined|Invalid/);
+      }
       const href = await rows.first().getAttribute("href");
       const m = /\/title\/(movie|tv)\/(\d+)/.exec(href ?? "");
       if (m) {
