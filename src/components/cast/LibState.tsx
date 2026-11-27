@@ -5,6 +5,7 @@ import { setRating, setStatus, setStatusMany, undoStatusMany } from "@/app/actio
 import { useSwipeDismiss } from "@/lib/useSwipeDismiss";
 import StarRating from "../StarRating";
 import { FranchiseSheet, type Group } from "./Franchise";
+import { askFranchise } from "@/lib/franchise-batch";
 import { sameMark, unpackMarks, withPlace, withStopped, type PackedMarks } from "@/lib/marks";
 import { PRIORITY_LABEL, STATUS_LABEL, markLabel, type Item, type Mark, type Priority, type Status } from "@/lib/types";
 
@@ -68,8 +69,6 @@ export function LibProvider({ packed, children }: { packed: PackedMarks; childre
   const [skipped, setSkipped] = useState<ReadonlySet<string>>(new Set());
   const [sheet, setSheet] = useState<Item | null>(null);
   const related = useRef(new Map<string, Promise<Group[]>>());
-  const busy = useRef(0);
-  const queue = useRef<(() => void)[]>([]);
   /** Saves per title run one after another, so quick changes reach the server in the order they were made. */
   const saveQueue = useRef(new Map<string, Promise<boolean>>());
   const version = useRef(new Map<string, number>());
@@ -119,14 +118,11 @@ export function LibProvider({ packed, children }: { packed: PackedMarks; childre
     return id;
   }, []);
 
-  /** The groups of titles that belong with `it`, fetched once per title. */
+  /** The groups of titles that belong with `it`, fetched once per title. Titles asked for within a moment (a grid of posters) go out as one request. */
   const franchise = useCallback((it: Item) => {
     let p = related.current.get(it.key);
     if (!p) {
-      // At most three lookups at a time, so a long list of seen titles does not flood the server.
-      p = new Promise<void>((go) => { if (busy.current < 3) { busy.current++; go(); } else queue.current.push(go); })
-        .then(() => fetch(`/api/franchise?type=${it.type}&id=${it.id}`)).then((r) => r.json()).then((j) => (j.groups ?? []) as Group[]).catch(() => [] as Group[])
-        .finally(() => { const next = queue.current.shift(); if (next) next(); else busy.current--; });
+      p = askFranchise(it.key).catch(() => [] as Group[]);
       related.current.set(it.key, p);
     }
     return p;

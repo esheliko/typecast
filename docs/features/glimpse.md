@@ -50,3 +50,6 @@ In a cast row the face (a transparent `button.credit-face` over the avatar, outs
 ## Summary rule (moved from CLAUDE.md)
 
 - Glimpse (profile-card button on titles, cast rows, credits): opens About (character note, episodes and dates, title or person summary, all spoiler-scoped on /watching) over the images. Specs carry ids (`lib/glimpse.ts`), server `lib/glimpse-data.ts`, route `/api/glimpse/info`. Cast faces in the title popup open the same sheet (`components/CastFaces.tsx`). Details: `docs/features/glimpse.md` (read before changing this feature).
+
+## Batched lookups
+The About notes and franchise counts that a title page asks for all at once go out as ONE request: `createBatcher` (`lib/batcher.ts`, unit tested) collects the questions of ~50 ms, `POST /api/glimpse/infos` (`{qs:[query strings]}`) answers each exactly as `/api/glimpse/info` would (`lib/glimpse-answer.ts`: same spoiler line, same library reads) and streams one JSON line per answer as it is known; a failed item fails alone. A lone question still uses the plain GET. Franchise: `lib/franchise-batch.ts`, `POST /api/franchise/many`.

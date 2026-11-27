@@ -5,7 +5,8 @@ import { TitleLink } from "../Modal";
 import { Thumb } from "../ui";
 import GoogleLink from "../who/GoogleLink";
 import { layoutSearch } from "@/lib/search-intent";
-import { pickPair } from "@/lib/search-pair";
+import { pickCut } from "@/lib/search-pair";
+import { sideHits } from "@/lib/pair-hits";
 import { typeLabel } from "@/lib/img";
 import type { Item, PeopleLink, SearchHit, TitlesLink } from "@/lib/types";
 
@@ -13,10 +14,6 @@ type Who = { id: number; name: string; photo: string | null; role: string };
 type CharMatch = { show: Item; members: Who[] };
 type Block = { id: string; kind: "people"; r: PeopleLink } | { id: string; kind: "titles"; r: TitlesLink } | { id: string; kind: "chars"; r: CharMatch[] };
 
-const hitsOf = async (side: string, signal: AbortSignal): Promise<SearchHit[]> => {
-  const r = await fetch(`/api/search?q=${encodeURIComponent(side)}&exact=1`, { signal });
-  return r.ok ? ((await r.json()).hits ?? []) : [];
-};
 const getJson = async (url: string, signal: AbortSignal) => { const r = await fetch(url, { signal }); return r.ok ? r.json() : null; };
 
 /**
@@ -39,31 +36,34 @@ export default function PairConnect({ pair, cuts, charText, onShown }: { pair?: 
       try {
         // A typed separator needs only a clear match per side; a guessed cut needs both sides to be an exact name.
         let x: SearchHit | null = null, y: SearchHit | null = null;
-        const all = new Map<string, Promise<SearchHit[]>>();
-        const hits = (s: string) => { let p = all.get(s); if (!p) all.set(s, (p = hitsOf(s, ctl.signal))); return p; };
         if (pair) {
-          const [hx, hy] = await Promise.all([hits(pair[0]), hits(pair[1])]);
+          const [hx, hy] = await Promise.all([sideHits(pair[0]), sideHits(pair[1])]);
           x = layoutSearch(pair[0], hx).top; y = layoutSearch(pair[1], hy).top;
-        } else {
-          for (const [l, r] of cuts ?? []) {
-            const [hl, hr] = await Promise.all([hits(l), hits(r)]);
-            const got = pickPair(l, r, hl, hr);
-            if (got) { [x, y] = got; break; }
-          }
+        } else if (cuts?.length) {
+          // Every distinct side is looked up at once (the search box may already have started the first cut), then the first cut, most even first, whose two sides are exact names wins.
+          const sides = [...new Set(cuts.flat())];
+          const got = new Map<string, SearchHit[]>();
+          await Promise.all(sides.map(async (s) => { got.set(s, await sideHits(s)); }));
+          const hit = pickCut(cuts, (s) => got.get(s));
+          if (hit) [x, y] = hit;
         }
+        if (ctl.signal.aborted) return;
         const jobs: Promise<void>[] = [];
         const id = (h: SearchHit) => (h.kind === "person" ? String(h.id) : h.key);
         // Two people or two titles named outright: the plain connection.
+        let found = false;
         if (x && y && x.kind === y.kind && id(x) !== id(y)) {
           const person = x.kind === "person";
           jobs.push(getJson(`/api/connect?${person ? "people" : "titles"}=${id(x)},${id(y)}`, ctl.signal)
-            .then((j) => add(j && (person ? { id: "p", kind: "people", r: j } : { id: "t", kind: "titles", r: j }))).catch(() => {}));
+            .then((j) => { if (j) found = person ? j.shared?.length > 0 || j.bridges?.length > 0 : j.shared?.length > 0; add(j && (person ? { id: "p", kind: "people", r: j } : { id: "t", kind: "titles", r: j })); }).catch(() => {}));
         }
         // With a typed separator, the sides may also be characters of one show ("sheldon + penny"); skipped when both are clearly famous people or both are titles.
         const named = !!x && !!y && x.kind === y.kind && (x.kind === "title" || ((x.pop ?? 0) >= 5 && ((y as typeof x).pop ?? 0) >= 5));
+        // Looking through the casts of hundreds of shows is the slow part, so it runs only when the title / person / pair step has found nothing, and never keeps the spinner over an answer already shown.
         if (pair && !named) {
-          jobs.push(getJson(`/api/connect/characters?a=${encodeURIComponent(pair[0])}&b=${encodeURIComponent(pair[1])}`, ctl.signal)
-            .then((j) => add(j?.matches?.length ? { id: "c", kind: "chars", r: j.matches } : null)).catch(() => {}));
+          await Promise.all(jobs);
+          if (!found && !ctl.signal.aborted) await getJson(`/api/connect/characters?a=${encodeURIComponent(pair[0])}&b=${encodeURIComponent(pair[1])}`, ctl.signal)
+            .then((j) => add(j?.matches?.length ? { id: "c", kind: "chars", r: j.matches } : null)).catch(() => {});
         }
         // No separator, nothing clear: the words may be characters of one show ("sheldon penny", "ted mosby", "nolan harper lucy tim").
         if (!pair && charText && !jobs.length) {
@@ -73,7 +73,7 @@ export default function PairConnect({ pair, cuts, charText, onShown }: { pair?: 
         await Promise.all(jobs);
       } catch { /* aborted or failed: the normal results still show */ }
       if (!ctl.signal.aborted) setPending(false);
-    }, 350);
+    }, 80);
     return () => { clearTimeout(t); ctl.abort(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);

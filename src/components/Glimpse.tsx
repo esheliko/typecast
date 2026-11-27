@@ -2,6 +2,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { GlimpseImage } from "@/app/api/glimpse/route";
 
+import { createBatcher, readNdjson } from "@/lib/batcher";
 import { infoQuery, tabsWithRoles, withLine, type GlimpseInfo, type GlimpseSpec, type LibRole } from "@/lib/glimpse";
 import type { GlimpseAbout } from "@/lib/glimpse-data";
 import { markLine } from "@/lib/spoiler-line";
@@ -196,10 +197,20 @@ export function GlimpseProvider({ children }: { children: React.ReactNode }) {
 // something else can change what the server tells (marking a title Watched), so the answer is not kept longer.
 const aboutTtl = () => 60_000;
 const aboutCache = new Map<string, { t: number; p: Promise<GlimpseAbout>; v?: GlimpseAbout }>();
+/** Questions asked within ~50 ms (every visible card's note) go out as one request; the answers stream back, each as soon as it is known. A lone one is the plain GET. A failed note fails alone. */
+const askAbout = createBatcher<GlimpseAbout>(async (keys, sink) => {
+  if (keys.length === 1) {
+    const r = await fetch(`/api/glimpse/info?${keys[0]}`);
+    if (!r.ok) return sink.fail(keys[0]);
+    return sink.answer(keys[0], (await r.json()) as GlimpseAbout);
+  }
+  const r = await fetch("/api/glimpse/infos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ qs: keys }) });
+  await readNdjson<{ i: number; v?: GlimpseAbout; err?: number }>(r, (m) => { const k = keys[m.i]; if (k) { if (m.v) sink.answer(k, m.v); else sink.fail(k); } });
+}, { delayMs: 50, max: 24 });
 function loadAbout(qs: string): Promise<GlimpseAbout> {
   const hit = aboutCache.get(qs);
   if (hit && Date.now() - hit.t < aboutTtl()) return hit.p;
-  const p = fetch(`/api/glimpse/info?${qs}`).then(async (r) => { if (!r.ok) throw new Error("lookup failed"); return r.json() as Promise<GlimpseAbout>; });
+  const p = askAbout(qs).catch(() => Promise.reject(new Error("lookup failed")));
   p.catch(() => { if (aboutCache.get(qs)?.p === p) aboutCache.delete(qs); });
   const entry: { t: number; p: Promise<GlimpseAbout>; v?: GlimpseAbout } = { t: Date.now(), p };
   p.then((v) => { entry.v = v; }, () => {});

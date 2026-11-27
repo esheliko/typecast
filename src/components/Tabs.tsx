@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 
 const TABS = [
@@ -10,11 +11,26 @@ const TABS = [
 
 export default function Tabs({ where }: { where: "top" | "bottom" }) {
   const path = usePathname();
+  // Both bars are in the page and CSS shows one of them; only the shown one prefetches, so each tab's page is not fetched twice.
+  const nav = useRef<HTMLElement>(null);
+  const [shown, setShown] = useState(false);
+  // A hard load of a title or person is replayed as a popup over the page underneath (RestorePopup), which fetches that page itself: the tabs wait until a page
+  // that is not a popup is on screen, so "/" is not asked for by both. Once armed it stays armed (opening a popup later does not switch prefetching off and on).
+  // `armed` is that first page (null until then); its own tab is the page just fetched, so it never prefetches.
+  const [armed, setArmed] = useState<string | null>(null);
+  const inPopup = /^\/(title|person)(\/|$)/.test(path);
+  useEffect(() => { if (!inPopup) setArmed((a) => a ?? path); }, [inPopup, path]);
+  useEffect(() => {
+    const check = () => setShown(!!nav.current && getComputedStyle(nav.current).display !== "none");
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
   const active = (h: string) => (h === "/" ? path === "/" || path.startsWith("/title") || path.startsWith("/person") : path.startsWith(h));
   return (
-    <nav className={where === "top" ? "tabs-top" : "tabs-bottom"} aria-label="Sections">
+    <nav ref={nav} className={where === "top" ? "tabs-top" : "tabs-bottom"} aria-label="Sections">
       {TABS.map((t) => (
-        <Link key={t.href} className="tab" href={t.href} prefetch aria-current={active(t.href) ? "page" : undefined}
+        <Link key={t.href} className="tab" href={t.href} prefetch={shown && armed !== null && t.href !== armed} aria-current={active(t.href) ? "page" : undefined}
           onClick={() => { if (t.href === "/" && path === "/") window.dispatchEvent(new Event("tc:clear-search")); }}>
           <svg viewBox="0 0 24 24" aria-hidden="true" dangerouslySetInnerHTML={{ __html: t.icon }} />
           {t.label}

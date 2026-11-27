@@ -1,5 +1,7 @@
+import { after } from "next/server";
 import { browse, browseItem, genreList, getTitleImdbId, tmdb } from "./tmdb";
-import { getImdbRatings, hasOmdbKey } from "./imdb-rating";
+import { getImdbRatings, hasOmdbKey, peekImdbRatings } from "./imdb-rating";
+import { createTtlMemo } from "./ttl-memo";
 import { interleave } from "./browse";
 import { decayByFranchise } from "./franchise";
 import { buildProfile, extraParam, howOf, parseExtras, personMatches, posWeight, rerank, sampleSeeds, scorePool, seedWeight, topGenres, whyText, type Cand, type How, type Pooled, type Profile, type Seed, type Without } from "./foryou-rank";
@@ -9,12 +11,21 @@ import type { BrowseItem, BrowseType, LibItem, MediaType } from "./types";
 const PAGE = 20;
 const SEEDS = 10;
 /** Seeds drawn before franchise decay: a few extra, so a saga that takes several slots is trimmed without leaving the list short. */
-const DRAW = SEEDS + 4;
+const DRAW = SEEDS + 2;
 const ANCHORS = 3;
 const WEEK = 7 * 24 * 3600;
 /** How many of the best-ranked titles get their IMDb score looked up (cached a day) and are ranked again on it. */
-const SHORTLIST = 60;
-const chunks = <T,>(xs: T[], n: number) => Array.from({ length: Math.ceil(xs.length / n) }, (_, i) => xs.slice(i * n, i * n + n));
+const SHORTLIST = 30;
+/** How long page 1 may wait for the second pass (keywords, people, IMDb scores already known); later pages never wait for it again. */
+const SECOND_PASS_MS = 1200;
+/** Runs `fn` over `xs` with at most `n` in flight at once. */
+async function each<T>(xs: T[], n: number, fn: (x: T) => Promise<void>) {
+  let i = 0;
+  await Promise.all(Array.from({ length: Math.min(n, xs.length) }, async () => { for (let j = i++; j < xs.length; j = i++) await fn(xs[j]); }));
+}
+type Out = { items: BrowseItem[]; more: boolean; notice?: string };
+/** The ranked order of one visit (user, kind, salt, library state), kept a few minutes so pages 2, 3... only slice it instead of ranking again. */
+const ranked = createTtlMemo<Promise<(page: number) => Promise<Out>>>(4 * 60_000, 40);
 /** Waits for `p`, but never longer than `ms`: whatever has arrived by then is used. */
 const withBudget = (p: Promise<unknown>, ms: number) => Promise.race([p.catch(() => {}), new Promise((r) => setTimeout(r, ms))]);
 
@@ -41,9 +52,9 @@ async function describe(l: LibItem, w: number): Promise<Seed & { l: LibItem }> {
  * then ordered so neighbours differ. Anything already in your library is left out. When the pool runs out the list
  * continues with popular titles in your favourite genres, so it never ends.
  */
-export async function forYou(type: BrowseType, page: number, lib: LibItem[], salt: number, region?: { country: string; services: number[] }): Promise<{ items: BrowseItem[]; more: boolean; notice?: string }> {
+export async function forYou(type: BrowseType, page: number, lib: LibItem[], salt: number, region?: { country: string; services: number[] }, memoOwner?: string): Promise<Out> {
   if (type === "all") {
-    const [m, t] = await Promise.all([forYou("movie", page, lib, salt, region), forYou("tv", page, lib, salt, region)]);
+    const [m, t] = await Promise.all([forYou("movie", page, lib, salt, region, memoOwner), forYou("tv", page, lib, salt, region, memoOwner)]);
     return { items: interleave(m.items, t.items), more: m.more || t.more, notice: m.notice ?? t.notice };
   }
   const now = Date.now();
@@ -53,6 +64,20 @@ export async function forYou(type: BrowseType, page: number, lib: LibItem[], sal
     const r = await browse("popular", type, page);
     return { ...r, notice: "Mark a few titles you have watched or want to watch and this list turns into picks based on them. Showing popular for now." };
   }
+  // The ranking below is the costly part. It is kept per visit (same owner, kind, salt and library state), so the next pages only slice it.
+  const mk = memoOwner ? `${memoOwner}:${type}:${salt}:${lib.length}:${lib.reduce((a, l) => Math.max(a, l.updated), 0)}` : null;
+  let slicer = mk ? ranked.get(mk) : undefined;
+  if (!slicer) {
+    const built = rank(type, liked, mine, lib, region);
+    slicer = built;
+    if (mk) { ranked.set(mk, built); built.catch(() => { if (ranked.get(mk) === built) ranked.delete(mk); }); }
+  }
+  return (await slicer)(page);
+}
+
+type Mine = { l: LibItem; w: number }[];
+/** Ranks the pool for one visit and returns the function that serves a page of it. */
+async function rank(type: MediaType, liked: Mine, mine: Mine, lib: LibItem[], region?: { country: string; services: number[] }): Promise<(page: number) => Promise<Out>> {
   const disliked = mine.filter((x) => x.w < 0).sort((a, b) => a.w - b.w).slice(0, 6);
   const [drawn, dislikedRaw] = await Promise.all([
     Promise.all(liked.map((x) => describe(x.l, x.w))), Promise.all(disliked.map((x) => describe(x.l, x.w))),
@@ -146,29 +171,34 @@ export async function forYou(type: BrowseType, page: number, lib: LibItem[], sal
   let order = rerank(scorePool([...pool.values()], like, dislike, year, without));
   {
     const front = order.slice(0, SHORTLIST);
-    // IMDb's score and each title's keywords + people, fetched side by side inside one time budget; what has not arrived is simply not used.
+    // Each title's keywords + people and its IMDb id are fetched side by side inside one short time budget; what has not arrived is simply not used
+    // (and, once the budget is over, not written either, so the list never changes under the ranking it was built with).
+    // IMDb scores: only those already stored are used; the rest are fetched from OMDb after the response (`after`) so the next visit has them. Page 1 never waits on OMDb.
+    let open = true;
     await withBudget(Promise.all([
+      each(front, 15, async (id) => {
+        const d = await detail(type, id).catch(() => null);
+        if (!d || !open) return;
+        const x = parseExtras(d, type), c = pool.get(id)!.cand;
+        // Keep a person already attached (it came from their filmography); add the billed ones from the credits.
+        const have = new Set((c.people ?? []).map((p) => p.id));
+        c.kw = x.kw; c.collection = x.collection; c.people = [...(c.people ?? []), ...x.people.filter((p) => !have.has(p.id))];
+      }),
       hasOmdbKey() ? (async () => {
         const imdbId = new Map<number, string | null>();
-        await Promise.all(chunks(front, 3).map(async (ids) => { for (const id of ids) imdbId.set(id, await getTitleImdbId(type, id)); }));
-        const got = await getImdbRatings([...imdbId.values()]);
-        for (const [id, tt] of imdbId) { const imdb = tt ? got.get(tt) : null; if (imdb) pool.get(id)!.cand.imdb = imdb; }
+        await each(front, 15, async (id) => { imdbId.set(id, await getTitleImdbId(type, id)); });
+        const { known, todo } = await peekImdbRatings([...imdbId.values()]);
+        if (todo.length) { try { after(() => getImdbRatings(todo).then(() => {}, () => {})); } catch { /* outside a request: nothing to warm */ } }
+        if (!open) return;
+        for (const [id, tt] of imdbId) { const imdb = tt ? known.get(tt) : null; if (imdb) pool.get(id)!.cand.imdb = imdb; }
       })() : null,
-      Promise.all(chunks(front, 3).map(async (ids) => {
-        for (const id of ids) {
-          const d = await detail(type, id).catch(() => null);
-          if (!d) continue;
-          const x = parseExtras(d, type), c = pool.get(id)!.cand;
-          // Keep a person already attached (it came from their filmography); add the billed ones from the credits.
-          const have = new Set((c.people ?? []).map((p) => p.id));
-          c.kw = x.kw; c.collection = x.collection; c.people = [...(c.people ?? []), ...x.people.filter((p) => !have.has(p.id))];
-        }
-      })),
-    ]), 3000);
+    ]), SECOND_PASS_MS);
+    open = false;
     const again = rerank(scorePool(front.map((id) => pool.get(id)!), like, dislike, year, without));
     order = [...again, ...order.slice(SHORTLIST)];
   }
   const poolPages = Math.ceil(order.length / PAGE);
+  return async (page: number): Promise<Out> => {
   if (page <= poolPages) return { items: order.slice((page - 1) * PAGE, page * PAGE).map((id) => withWhy(id)), more: true };
 
   // Past the pool: popular titles in the genres you lean towards.
@@ -177,4 +207,5 @@ export async function forYou(type: BrowseType, page: number, lib: LibItem[], sal
   const d = await tmdb(`/discover/${type}`, p, 3600);
   const items = ((d.results ?? []) as any[]).filter((r) => r.poster_path && !own.has(`${type}:${r.id}`) && !pool.has(r.id)).map((r) => browseItem(type, r));
   return { items, more: page - poolPages < Math.min(d.total_pages ?? 1, 200) };
+}
 }

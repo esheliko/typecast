@@ -121,6 +121,21 @@ export async function getImdbRatings(ids: (string | null | undefined)[]): Promis
   return out;
 }
 
+/**
+ * What is already stored for these ids, without ever calling OMDb: `known` holds every stored score (an old one still counts for ranking),
+ * `todo` the ids that are missing or old, for the caller to refresh in the background with `getImdbRatings`. One database read; never throws.
+ */
+export async function peekImdbRatings(ids: (string | null | undefined)[]): Promise<{ known: Map<string, ImdbRating | null>; todo: string[] }> {
+  const want = [...new Set(ids.filter((i): i is string => !!i && /^tt\d+$/.test(i)))];
+  const known = new Map<string, ImdbRating | null>(), rows = await readRows(want), now = Date.now(), todo: string[] = [];
+  for (const id of want) {
+    const row = rows.get(id);
+    if (row) known.set(id, toRating(row));
+    if (!row || !isFresh(row, now)) todo.push(id);
+  }
+  return { known, todo };
+}
+
 export async function getImdbRating(imdb: string | null | undefined): Promise<ImdbRating | null> {
   if (!imdb) return null;
   return (await getImdbRatings([imdb])).get(imdb) ?? null;

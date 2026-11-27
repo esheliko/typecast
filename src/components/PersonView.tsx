@@ -32,7 +32,7 @@ export default async function PersonView({ p, from }: { p: Awaited<ReturnType<ty
         {p.photo && <img className="sh-poster" src={img(p.photo, "w185")} alt="" />}
         <div style={{ minWidth: 0 }}>
           <h1 className="sh-title">{p.name} <GlimpseButton spec={personInTitleSpec(p.name, p.dept, from && { title: from.name, year: from.year, type: from.key.startsWith("tv") ? "tv" : "movie", key: from.key }, p.id)} /> {p.imdbId && <a className="imdb-link" href={`https://www.imdb.com/name/${p.imdbId}/`} target="_blank" rel="noopener noreferrer" aria-label="Open on IMDb" title="Open on IMDb">IMDb ↗</a>}</h1><div className="sh-meta">{p.dept}</div>
-          <Link className="btn sm gold" href={`/?view=connect&a=${p.id}`} style={{ marginTop: 12 }}>Connect with another person</Link>
+          <Link className="btn sm gold" href={`/?view=connect&a=${p.id}`} prefetch={false} style={{ marginTop: 12 }}>Connect with another person</Link>
         </div>
       </div>
       {p.bio && <p className="small muted" style={{ margin: "14px 0 0" }}>{p.bio}</p>}

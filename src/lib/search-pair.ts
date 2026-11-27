@@ -33,3 +33,17 @@ export function pickPair(l: string, r: string, hl: SearchHit[], hr: SearchHit[])
   const x = exactTitle(l, hl), y = exactTitle(r, hr);
   return x && y ? [x, y] : null;
 }
+
+/**
+ * The first guessed cut (most even first, the order of `cuts`) whose two sides are both an exact name, given the hits already fetched for every distinct side.
+ * Lets the caller fetch all sides side by side instead of one cut at a time while choosing exactly as the one-at-a-time loop did.
+ */
+export function pickCut(cuts: [string, string][], hitsOf: (side: string) => SearchHit[] | undefined): [SearchHit, SearchHit] | null {
+  for (const [l, r] of cuts) {
+    const hl = hitsOf(l), hr = hitsOf(r);
+    if (!hl || !hr) continue;
+    const got = pickPair(l, r, hl, hr);
+    if (got) return got;
+  }
+  return null;
+}

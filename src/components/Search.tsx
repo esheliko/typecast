@@ -13,6 +13,7 @@ import { ImdbRate } from "@/components/ImdbRate";
 import { FindAnswer, useActorFind } from "./who/FindAnswer";
 import GoogleLink from "./who/GoogleLink";
 import PairConnect from "./cast/PairConnect";
+import { warmSides } from "@/lib/pair-hits";
 import { splitPair, splitCandidates } from "@/lib/search-pair";
 
 type Coll = { id: number; name: string; pop?: number; votes?: number; items: BrowseItem[] };
@@ -65,6 +66,7 @@ export default function Search({ onActive }: { onActive: (on: boolean) => void }
     const ctl = new AbortController();
     setState("loading");
     const t = setTimeout(async () => {
+      warmSides(term); // a typed "A + B" starts looking up its sides now, not after this search has come back
       try {
         const r = await fetch(`/api/search?q=${encodeURIComponent(term)}${exact ? "&exact=1" : ""}`, { signal: ctl.signal });
         const j = await r.json();

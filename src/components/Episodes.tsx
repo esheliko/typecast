@@ -6,56 +6,17 @@ import { CreditRow } from "./CreditRow";
 import { aired, airsLabel, epCode, fmtDate, nextAfter, plural, prevEpisode, untilLabel, upTo } from "@/lib/episodes";
 import { useLib } from "./cast/LibState";
 import { SpoilerGate } from "./SpoilerGate";
-import { lineCacheKey, lineParams, markLine, pageFor, type HiddenLine, type SpoilerLine } from "@/lib/spoiler-line";
+import { lineCacheKey, lineParams, markLine, pageFor } from "@/lib/spoiler-line";
+import { loadFaces, loadImdbEps, loadSeason, startSeason, type Season } from "@/lib/season-load";
 import { usePageLine } from "./PageLine";
 import { img } from "@/lib/img";
 import { facesText, type EpisodeFaces } from "@/lib/episode-faces";
 import type { EnrichedMember, Episode, EpisodeLite, Status } from "@/lib/types";
 
-interface Season { name: string; air: string; episodes: (Episode & { hidden?: true })[]; /** The series is Watching in the library and later episodes were held back (docs/features/spoilers.md). */ hidden?: HiddenLine }
 interface EpCast { guests: EnrichedMember[]; cast: EnrichedMember[] }
-
-const seasonCache = new Map<string, Promise<Season>>();
-/**
- * `line` is the spoiler line the browser expects the server to use for this series (the saved place is in `Mark.progress`), `page` the /watching page when its
- * switch shows spoilers for this very title, `reveal` the gate's Show: together the exact cache key and the request, so a moved place is simply another entry.
- */
-function loadSeason(tv: number, s: number, line: SpoilerLine, page: { key: string; spoilersShown: boolean } | null, reveal: boolean): Promise<Season> {
-  const k = `${tv}:${s}:${lineCacheKey({ page, reveal, line })}`;
-  let p = seasonCache.get(k);
-  if (!p) {
-    const extra = new URLSearchParams(lineParams({ page, reveal })).toString();
-    p = fetch(`/api/season?tv=${tv}&s=${s}${extra ? `&${extra}` : ""}`).then(async (r) => { if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error ?? "Could not load this season."); return r.json(); });
-    p.catch(() => seasonCache.delete(k));
-    seasonCache.set(k, p);
-  }
-  return p;
-}
-
-/** The light per-season faces (top 3 per episode), asked when a season opens; the server applies the same line. Failing just means no faces. */
-const facesCache = new Map<string, Promise<EpisodeFaces[]>>();
-function loadFaces(tv: number, s: number, lk: string, page: { key: string; spoilersShown: boolean } | null, reveal: boolean): Promise<EpisodeFaces[]> {
-  const k = `${tv}:${s}:${lk}`;
-  let p = facesCache.get(k);
-  if (!p) {
-    const extra = new URLSearchParams(lineParams({ page, reveal })).toString();
-    p = fetch(`/api/season-faces?tv=${tv}&s=${s}${extra ? `&${extra}` : ""}`).then(async (r) => { if (!r.ok) throw new Error("faces failed"); return ((await r.json()).episodes ?? []) as EpisodeFaces[]; });
-    p.catch(() => facesCache.delete(k));
-    facesCache.set(k, p);
-  }
-  return p;
-}
 
 type P = { s: number; e: number } | null;
 const light = (c: EnrichedMember | Episode["guests"][number]): EnrichedMember => ({ hits: [], also: [], top: [], ...c });
-
-/** The season to open on: where you are up to (or the next season once that one is done), else the first. */
-function startSeason(seasons: { n: number; eps: number }[], p: P): number {
-  if (!p) return seasons[0]?.n ?? 1;
-  const cur = seasons.find((x) => x.n === p.s);
-  if (cur && p.e >= cur.eps) return seasons.find((x) => x.n > p.s)?.n ?? p.s;
-  return cur ? p.s : seasons[0]?.n ?? 1;
-}
 
 /**
  * Every season and episode of a series: names, air dates, runtimes, ratings, and per episode its plot, director, writers and
@@ -105,24 +66,23 @@ export default function Episodes({ item, seasons, progress, status, today, ended
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [item.id, s, lineTagKey, shown]);
 
-  // Faces per episode: after the season itself, so the list shows first. Another place or Show is another question; a failure leaves the rows plain.
+  // Faces per episode: asked at the same moment as the season itself (they were asked one after the other), and applied once the list is there. Another place or Show is another question; a failure leaves the rows plain.
   // IMDb's score per episode (one call per season); nothing shows until it arrives or when IMDb has none.
   const [imdbEps, setImdbEps] = useState<Record<number, number>>({});
   useEffect(() => {
     let live = true;
     setImdbEps({});
-    fetch(`/api/imdb?tv=${item.id}&s=${s}`).then((r) => (r.ok ? r.json() : { eps: {} }), () => ({ eps: {} })).then((d) => { if (live) setImdbEps(d.eps ?? {}); });
+    loadImdbEps(item.id, s).then((eps) => { if (live) setImdbEps(eps); });
     return () => { live = false; };
   }, [item.id, s]);
   const [faces, setFaces] = useState<Map<number, EpisodeFaces> | null>(null);
   useEffect(() => {
-    if (!data) return;
     let live = true;
     loadFaces(item.id, s, lineTagKey, reqPage, shown.has(s)).then((l) => { if (live) setFaces(new Map(l.map((f) => [f.e, f]))); }, () => { if (live) setFaces(null); });
     return () => { live = false; };
     // `lineTagKey` stands for the line and the page.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [item.id, s, lineTagKey, shown, !!data]);
+  }, [item.id, s, lineTagKey, shown]);
 
   // Once the asked-for episode is on screen, open it and bring it into view.
   useEffect(() => {
