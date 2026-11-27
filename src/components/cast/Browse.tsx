@@ -38,6 +38,8 @@ export interface BrowseProps {
   salt: number;
   /** First page from the server: of the filtered results when filtered, otherwise of the quick list. */
   first: Page | null;
+  /** "For you" only: the server's ranking of page 1, still being worked out when the page is sent (it arrives in the same response). Null resolves to the grid asking for it itself. */
+  firstStream?: Promise<Page | null> | null;
   genres: Record<BrowseType, Tag[]>;
   canFilterMine: boolean;
 }
@@ -54,7 +56,7 @@ function countFilters(q: BrowseQuery) {
 const SNAP = "tc:browse";
 interface Snap { url: string; salt: number; list: BrowseList; type: BrowseType; pages: Record<string, Page>; y: number; t: number }
 
-export default function Browse({ filters, filtered, list: initialList, salt: serverSalt, first, genres, canFilterMine }: BrowseProps) {
+export default function Browse({ filters, filtered, list: initialList, salt: serverSalt, first, firstStream, genres, canFilterMine }: BrowseProps) {
   const router = useRouter();
   // The "For you" seed. Kept in state (and in a snapshot while a title is open) so coming back never reshuffles the grid.
   const [salt, setSalt] = useState(serverSalt);
@@ -198,8 +200,21 @@ export default function Browse({ filters, filtered, list: initialList, salt: ser
 
   const data = pages[key] ?? (filtered ? first : null);
   // Load a quick list the first time it is picked; filtered results come from the server.
+  const streamed = useRef(false);
   useEffect(() => {
-    if (!pages[key] && !(filtered && first)) load(1);
+    if (!pages[key] && !(filtered && first)) {
+      if (firstStream && !streamed.current && key === serverKey) {
+        // The server is already ranking this very list: wait for it (the grid shows its skeleton) instead of asking again; if it has nothing, ask.
+        streamed.current = true;
+        const mine = ++seq.current;
+        setState("loading");
+        firstStream.then((pg) => {
+          if (pg) setPages((p) => (p[serverKey] ? p : { ...p, [serverKey]: pg }));
+          if (mine !== seq.current) return;
+          if (pg) setState("idle"); else load(1);
+        }, () => { if (mine === seq.current) load(1); });
+      } else load(1);
+    }
     else { seq.current++; setState("idle"); }
     // Deliberately keyed on `key` only: load/pages/first change on every fetch and must not retrigger this.
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -11,8 +11,10 @@ export async function GET(req: NextRequest) {
   const tv = +(p.get("tv") ?? 0), s = +(p.get("s") ?? 0);
   if (!tv || !(s >= 1)) return NextResponse.json({ error: "Missing show or season" }, { status: 400 });
   try {
+    // The cast is asked for while the spoiler line is worked out (nothing is sent unless the line allows it).
+    const castP = getSeasonCast(tv, s); castP.catch(() => {});
     const line = await lineFor(`tv:${tv}`, lineContextFrom((n) => p.get(n)));
-    return NextResponse.json(holdBackCast(await getSeasonCast(tv, s), line), { headers: { "Cache-Control": "private, max-age=0" } });
+    return NextResponse.json(holdBackCast(await castP, line), { headers: { "Cache-Control": "private, max-age=0" } });
   }
   catch (err) { const { body, status } = apiError(err, "api/season-cast"); return NextResponse.json(body, { status }); }
 }

@@ -23,6 +23,21 @@ export async function tmdb(path: string, params: Record<string, string> = {}, re
   for (const [k, v] of Object.entries(params)) u.searchParams.set(k, v);
   const headers: Record<string, string> = { accept: "application/json" };
   if (token.includes(".")) headers.Authorization = `Bearer ${token}`; else u.searchParams.set("api_key", token);
+  // The same question asked twice at once (the season list and its faces start together) is one request: Next's data cache only helps once the first answer
+  // has landed. The shared part is the raw text, so every caller parses its own copy.
+  const k = u.toString();
+  let pending = inflight.get(k);
+  if (!pending) {
+    pending = fetchText(u, headers, revalidate);
+    inflight.set(k, pending);
+    const drop = () => { if (inflight.get(k) === pending) inflight.delete(k); };
+    pending.then(drop, drop);
+  }
+  return JSON.parse(await pending);
+}
+
+const inflight = new Map<string, Promise<string>>();
+async function fetchText(u: URL, headers: Record<string, string>, revalidate: number): Promise<string> {
   let r: Response;
   try { r = await fetch(u, { headers, next: { revalidate } }); }
   catch { throw new TmdbError(502, "Cannot reach TMDB."); }
@@ -30,7 +45,7 @@ export async function tmdb(path: string, params: Record<string, string> = {}, re
   if (r.status === 404) throw new TmdbError(404, "Not found on TMDB.");
   if (r.status === 429) throw new TmdbError(429, "TMDB is busy. Try again in a moment.");
   if (!r.ok) throw new TmdbError(502, `TMDB returned ${r.status}.`);
-  return r.json();
+  try { return await r.text(); } catch { throw new TmdbError(502, "Cannot reach TMDB."); }
 }
 
 const yr = (d?: string) => (d ?? "").slice(0, 4);

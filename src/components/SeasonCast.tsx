@@ -31,6 +31,14 @@ export default function SeasonCast({ tv, seasons }: { tv: number; seasons: numbe
       .catch(() => live && setCache((c) => ({ ...c, [s]: "err" })));
     return () => { live = false; };
   }, [tv, s, have]);
+  // The second season is the likeliest first tap: once the first is in, ask for it quietly (answers are kept by `loadCast`, so a tap then finds it ready).
+  useEffect(() => {
+    if (!Array.isArray(have) || s !== seasons[0]) return;
+    const next = seasons[1];
+    if (next === undefined) return;
+    const t = setTimeout(() => { loadCast(tv, next).catch(() => {}); }, 300);
+    return () => clearTimeout(t);
+  }, [tv, s, have, seasons]);
   const list = Array.isArray(have) ? have : null;
   return (
     <details className="cw" style={{ marginTop: 18 }}>

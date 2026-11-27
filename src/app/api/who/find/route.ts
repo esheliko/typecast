@@ -27,18 +27,30 @@ export async function GET(req: NextRequest) {
   if (q.length < 3) return bad("Type a name");
   try {
     const param = (n: string) => req.nextUrl.searchParams.get(n);
-    let r = await solve(q, param);
-    if (!r) {
-      const fix = await suggestSpelling(q);
-      if (fix && fix.toLowerCase() !== q.toLowerCase()) r = await solve(fix.slice(0, 120), param);
-    }
+    // The spelling suggestion is asked for at once (it is only used when nothing else answers), and once it is known, and the plain text is still being worked on, the corrected text
+    // is worked on beside it: a miss no longer waits for the whole first chain before starting the second. The plain text keeps priority; the other run stops as soon as it is not needed.
+    const fixCtl: Stop = { dead: false }, mainCtl: Stop = { dead: false };
+    const fixP = suggestSpelling(q).then((f) => (f && f.toLowerCase() !== q.toLowerCase() ? f.slice(0, 120) : null), () => null);
+    let mainDone = false;
+    let fixRun: Promise<Record<string, unknown> | null> | null = null;
+    const startFix = (f: string) => (fixRun ??= solve(f, param, fixCtl).catch(() => null));
+    const mainP = solve(q, param, mainCtl).finally(() => { mainDone = true; });
+    mainP.catch(() => {});
+    void fixP.then((f) => { if (f && !mainDone) startFix(f); });
+    let r: Record<string, unknown> | null;
+    try { r = await mainP; } catch (e) { fixCtl.dead = true; throw e; }
+    if (r) fixCtl.dead = true;
+    else { const f = await fixP; if (f) r = await startFix(f); }
     return okWho(r ?? { person: null, matches: [] }, r ? 0 : 60);
   } catch (e) { return failWho(e); }
 }
 
 const words1 = (name: string) => name.trim().split(/\s+/).length === 1;
 
-async function solve(q: string, param: (n: string) => string | null): Promise<Record<string, unknown> | null> {
+/** Set when an answer from another run is already in: the run stops at its next stage instead of finishing work nobody will read. */
+type Stop = { dead: boolean };
+
+async function solve(q: string, param: (n: string) => string | null, ctl: Stop): Promise<Record<string, unknown> | null> {
   const sets = await Promise.all(nameWindows(q).map((t) => tmdb("/search/multi", { query: t, include_adult: "false" }, 60 * 60).then((d) => (d.results ?? []) as Multi[]).catch(() => [] as Multi[])));
   const seenP = new Set<number>(), seenT = new Set<string>();
   const people: { id: number; name: string; popularity?: number }[] = [], titles: { key: string; type: MediaType; id: number; title: string; year: string; poster: string | null; popularity?: number }[] = [];
@@ -55,9 +67,11 @@ async function solve(q: string, param: (n: string) => string | null): Promise<Re
   /** A title named anywhere in the text, then what is left: its cast, a relative of a character, or an episode. */
   const byTitle = async (): Promise<Record<string, unknown> | null> => {
     const t = splitTitleQuery(q, titles);
-    if (!t) return null;
+    if (!t || ctl.dead) return null;
     if (!t.rest.length) t.title = popularTitle(q, titles) ?? t.title;
     const head = { key: t.title.key, type: t.title.type, title: t.title.title, year: t.title.year, poster: t.title.poster };
+    // The cast and (when words are left over) Wikipedia's character blurbs are asked for together; the blurbs are only read once the cast is matched.
+    const blurbsP = t.rest.length ? castBlurbs(t.title.type, t.title.id, t.title.key, param) : undefined;
     const cast = await getCast(t.title.type, t.title.id, 2000).catch(() => []);
     const rel = findRelation(t.rest);
     if (rel) {
@@ -70,7 +84,7 @@ async function solve(q: string, param: (n: string) => string | null): Promise<Re
       if (main.length) return { person: null, title: head, people: main, matches: [], plain: true };
     }
     if (t.rest.length) titleOnly = { person: null, title: head, people: [], matches: [] };
-    const hit = matchCast(cast, t.rest, t.rest.length ? await castBlurbs(t.title.type, t.title.id, t.title.key, param) : undefined);
+    const hit = matchCast(cast, t.rest, blurbsP ? await blurbsP : undefined);
     if (hit.length) return { person: null, title: head, people: hit, matches: [] };
     if (t.title.type === "tv" && t.rest.length) {
       // No character fits: maybe it describes an episode ("asian restaurant" -> The Chinese Restaurant). Never for a series that is Watching with a spoiler line.
@@ -87,7 +101,7 @@ async function solve(q: string, param: (n: string) => string | null): Promise<Re
   // "himym lisa": a one-word actor name ("LISA") must not beat a named title that has that character.
   if (found && found.rest.length && words1(found.person.name)) { const a = await byTitle(); if (a) return a; titleOnly = null; }
   // "izzy stevens": TMDB lists some unknown person of that name, but it is a character of a famous show.
-  if (found && !found.rest.length && (found.person.popularity ?? 0) < 1 && restWords(q).length >= 2) { const a = await famousCharacter(restWords(q)); if (a) return { person: null, title: null, people: a, matches: [] }; }
+  if (found && !found.rest.length && (found.person.popularity ?? 0) < 1 && restWords(q).length >= 2) { const a = await famousCharacter(restWords(q), ctl); if (a) return { person: null, title: null, people: a, matches: [] }; }
   if (!found) {
     { const a = await byTitle(); if (a) return a; }
     // No title named, but "sheldon cooper mom": whose relative? Look for the character in the best matches, and in the other shows its actors appear as it.
@@ -98,12 +112,13 @@ async function solve(q: string, param: (n: string) => string | null): Promise<Re
       if (ans) return { person: null, title: null, people: ans, matches: [] };
     }
     // "meredith grey": no show named, but the words are one character of a well-known show.
-    if (!rel && restWords(q).length >= 2) { const a = await famousCharacter(restWords(q)); if (a) return { person: null, title: null, people: a, matches: [] }; }
+    if (!rel && restWords(q).length >= 2) { const a = await famousCharacter(restWords(q), ctl); if (a) return { person: null, title: null, people: a, matches: [] }; }
     found = splitActorQuery(q, people, { partial: true });
     // Still nothing and it is a relative ("ted sister"): the character may be in any well-known show, not only one the search named.
-    if (!found && rel) { const ans = await famousRelation(rel.anchor, rel.rel, rel.word); if (ans) return { person: null, title: null, people: ans, matches: [] }; }
+    if (!found && rel) { const ans = await famousRelation(rel.anchor, rel.rel, rel.word, ctl); if (ans) return { person: null, title: null, people: ans, matches: [] }; }
   }
   if (!found) return titleOnly;
+  if (ctl.dead) return null;
 
   const p = await loadWhoPerson(found.person.id);
   // "as criminal / lawyer": TMDB has no role text, so also look at what each of their best-known titles is about (its keywords).
@@ -163,25 +178,43 @@ async function relationAnswer(seeds: Show[], anchor: string[], rel: Relation, wo
   return out.length ? out : null;
 }
 
+/** The most-voted series (four pages of TMDB's list, asked together; the answers are cached a day). */
+async function topShows(): Promise<Show[]> {
+  const pages = await Promise.all([1, 2, 3, 4].map((page) => tmdb("/discover/tv", { sort_by: "vote_count.desc", page: String(page) }, DAY).catch(() => null)));
+  return pages.flatMap((d) => (d?.results ?? []) as { id: number; name: string }[]).map((r) => ({ key: `tv:${r.id}`, type: "tv" as const, id: r.id, title: r.name }));
+}
+
+/**
+ * Looks at the casts of `shows` eight at a time, in order, keeping the shows `look` finds something in. Stops early once `enough` says the hits so far cannot be beaten
+ * (a character billed first in a show cannot lose to a later show), or when another run has already answered; the result is the same as looking at every show.
+ */
+async function scanShows<H extends { i: number }>(shows: Show[], ctl: Stop, look: (s: Show) => Promise<H | null>, enough: (hits: H[]) => boolean): Promise<H[]> {
+  const hits: H[] = [];
+  for (let at = 0; at < shows.length && !ctl.dead; at += 8) {
+    const wave = await Promise.all(shows.slice(at, at + 8).map((s) => look(s).catch(() => null)));
+    for (const h of wave) if (h) hits.push(h);
+    if (enough(hits)) break;
+  }
+  return hits;
+}
+
 /**
  * "ted sister" names no show, and the search for "ted" finds Ted Lasso and the films: look through the casts of the most-voted series (How I Met Your Mother is one)
  * for a character with that name, and answer from the first show that has such a relative. Last resort, so only asked when nothing else answered.
  */
-async function famousRelation(anchor: string[], rel: Relation, word: string) {
-  const pages = await Promise.all([1, 2, 3, 4].map((page) => tmdb("/discover/tv", { sort_by: "vote_count.desc", page: String(page) }, DAY).catch(() => null)));
-  const shows: Show[] = pages.flatMap((d) => (d?.results ?? []) as { id: number; name: string }[]).map((r) => ({ key: `tv:${r.id}`, type: "tv" as const, id: r.id, title: r.name }));
+async function famousRelation(anchor: string[], rel: Relation, word: string, ctl: Stop) {
+  const shows = await topShows();
   // The show where the character is billed highest (Ted Mosby, the lead of HIMYM, before Ted Wheeler, a side part of Stranger Things).
-  const has = await pool(shows, 8, async (s) => { const i = (await getCast(s.type, s.id, 2000).catch(() => [])).findIndex((c) => roleHas(c.role, anchor)); return i < 0 ? null : { s, i }; });
-  for (const h of has.filter(Boolean).sort((a, b) => a!.i - b!.i).slice(0, 3)) { const ans = await relationAnswer([h!.s], anchor, rel, word); if (ans) return ans; }
+  const has = await scanShows(shows, ctl, async (s) => { const i = (await getCast(s.type, s.id, 2000).catch(() => [])).findIndex((c) => roleHas(c.role, anchor)); return i < 0 ? null : { s, i }; }, (h) => h.filter((x) => x.i === 0).length >= 3);
+  for (const h of has.sort((a, b) => a.i - b.i).slice(0, 3)) { if (ctl.dead) return null; const ans = await relationAnswer([h.s], anchor, rel, word); if (ans) return ans; }
   return null;
 }
 
 /** A character named with no show ("meredith grey", "izzy stevens"): the well-known series where it is billed highest, with the actors who play it. Null when no such character. */
-async function famousCharacter(anchor: string[]) {
-  const pages = await Promise.all([1, 2, 3, 4].map((page) => tmdb("/discover/tv", { sort_by: "vote_count.desc", page: String(page) }, DAY).catch(() => null)));
-  const shows: Show[] = pages.flatMap((d) => (d?.results ?? []) as { id: number; name: string }[]).map((r) => ({ key: `tv:${r.id}`, type: "tv" as const, id: r.id, title: r.name }));
-  const has = await pool(shows, 8, async (s) => { const cast = await getCast(s.type, s.id, 2000).catch(() => []); const i = cast.findIndex((c) => roleHas(c.role, anchor)); return i < 0 ? null : { s, i, hits: cast.filter((c) => roleHas(c.role, anchor)).slice(0, 3) }; });
-  const best = has.filter(Boolean).sort((a, b) => a!.i - b!.i)[0];
+async function famousCharacter(anchor: string[], ctl: Stop) {
+  const shows = await topShows();
+  const has = await scanShows(shows, ctl, async (s) => { const cast = await getCast(s.type, s.id, 2000).catch(() => []); const i = cast.findIndex((c) => roleHas(c.role, anchor)); return i < 0 ? null : { s, i, hits: cast.filter((c) => roleHas(c.role, anchor)).slice(0, 3) }; }, (h) => h.some((x) => x.i === 0));
+  const best = has.sort((a, b) => a.i - b.i)[0];
   return best ? best.hits.map((c) => ({ id: c.id, name: c.name, photo: c.photo, role: c.role, why: "", show: best.s.title, tkey: best.s.key, ttype: best.s.type })) : null;
 }
 
