@@ -467,6 +467,15 @@ test.describe("behaviour (signed in)", () => {
     }
   });
 
+  test("installed app start: /launch.html (manifest start_url) paints a skeleton and lands on Browse", async ({ page }) => {
+    const m = await (await page.request.get("/manifest.webmanifest")).json();
+    expect(m.start_url).toBe("/launch.html");
+    expect(m.id, "id must stay \"/\" so installed apps keep their identity").toBe("/");
+    await page.goto("/launch.html");
+    await page.waitForURL((u) => u.pathname === "/", { timeout: 30_000 });
+    await expect(page.locator('section[aria-label="Browse"]')).toBeVisible({ timeout: 30_000 });
+  });
+
   test("/api/export returns the library as JSON", async ({ page }) => {
     const r = await page.request.get("/api/export");
     expect(r.status()).toBe(200);
