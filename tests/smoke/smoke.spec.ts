@@ -135,6 +135,9 @@ test.describe("signed in", () => {
         expect(body).toMatch(/DTSTART;VALUE=DATE:\d{8}\r\n/);
       }
       await upcoming.getByRole("button", { name: /Upcoming/ }).click(); // leave it collapsed for the steps below
+      // Opening Upcoming folded Watch next (one panel open at a time, remembered): open it again, as the steps below expect.
+      const reopen = upnext.getByRole("button", { name: /^Watch next, \d+\. Show$/ });
+      if (await reopen.count()) { await reopen.click(); await expect(upnext.getByText("Breaking Bad").first()).toBeVisible(); }
     }
     // "On my services" toggle (shown only when the smoke user has services): filters to streamable picks or says nothing qualifies, and undoes cleanly.
     const mine = upnext.getByRole("button", { name: "On my services" });
