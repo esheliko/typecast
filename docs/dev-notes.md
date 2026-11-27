@@ -9,6 +9,7 @@
 ## speed
 
 - Speed: functions run in `bom1` (`vercel.json`) next to the Supabase project (ap-south-1); keep them together. Auth is checked with `getClaims()` (local JWT verification), not `getUser()`. Nothing in `app/(app)/layout.tsx` may await TMDB: the new-episode check runs in `<Recheck />` behind Suspense. Pages need a shaped skeleton in `loading.tsx` (`components/Skeletons.tsx`); pass `it={item}` to `TitleLink` so the popup can show the poster and title instantly.
+- Measuring and open speed ideas: `docs/perf.md` (`scripts/perf.mjs` times real UI flows; compare a PR preview against a preview of `main`, never against production).
 
 <a id="lint"></a>
 ## lint
