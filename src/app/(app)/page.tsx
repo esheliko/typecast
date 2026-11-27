@@ -7,7 +7,7 @@ import { browse, discover, genreList, getPerson, getTitle } from "@/lib/tmdb";
 import { newEpDetail } from "@/lib/new-episode";
 import type { BrowseList } from "@/lib/types";
 
-const LISTS: BrowseList[] = ["foryou", "trending", "popular", "top", "new", "soon"];
+const LISTS: BrowseList[] = ["foryou", "upcoming", "trending", "popular", "top", "new", "soon"];
 type SP = Promise<Record<string, string | string[] | undefined>>;
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? "";
 
@@ -44,7 +44,7 @@ export default async function Home({ searchParams }: { searchParams: SP }) {
   // The other lists and filtered results are quick and still arrive with the page.
   const firstP: Promise<Page | null> = plan.then(async ({ list }) => (filtered
     ? discover(filters, 1, (await profileP).country, (await profileP).services).then((r) => ({ items: r.items, page: r.page, more: r.page < r.totalPages, notice: r.notice }))
-    : list === "foryou" ? Promise.resolve(null)
+    : list === "foryou" || list === "upcoming" ? Promise.resolve(null) // ranked: the grid asks /api/browse
     : browse(list, filters.type, 1).then((r) => ({ ...r, page: 1 }))
   ).catch(() => null));
   const firstStream: Promise<Page | null> | null = filtered ? null : plan.then(async ({ lib, list }) => {

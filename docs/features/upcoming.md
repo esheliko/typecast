@@ -7,3 +7,10 @@
 ## Summary rule (moved from CLAUDE.md)
 
 - Upcoming (Library) lists unreleased films and next episodes; pure logic in `src/lib/upcoming.ts`, calendar feed at `/cal/<token>.ics` (never log the token). Fails soft. Details: `docs/features/upcoming.md` (read before changing this feature).
+
+## Upcoming picks ("You may like", Browse "Upcoming")
+
+- Unreleased films and new series NOT in the library that fit your taste. Pure ranking in `src/lib/upcoming-rank.ts` (unit tested): genre/theme/language fit with your For you profile, people you like (noisy-or), +0.45 for the next part of a film saga you liked, a little TMDB popularity ("hype"), minus fit with what you disliked. No quality term: unreleased titles have no votes.
+- Data in `src/lib/upcoming-picks.ts` (`upcomingPicks`): seeds are your 12 strongest library titles (same weights and detail cache as For you), candidates come from TMDB discover (due tomorrow..365 days, your top genres, two pages + most anticipated overall), the coming credits of your 6 strongest people, and the parts of your liked films' collections. The ranking is memoised per user/kind/library state for 10 minutes, so Browse pages and the Library share it.
+- Library: `libraryPicks` gives the best 6 across both kinds above `MIN_PICK`, shown as a "You may like" group at the bottom of the Upcoming panel (with "See all" to Browse). It gets a 2.5 s budget and fails soft; picks are not counted in the header number and never feed the row badges.
+- Browse: the "Upcoming" pill (`list=upcoming`, `/api/browse`, `upcomingPage`) pages through the same ranking; cards show "Out 14 Dec" (`dueLabel`) instead of the year. "Coming soon" stays as the generic most-anticipated list (its cards now show the release day too); with nothing to learn from, Upcoming falls back to it with a note.

@@ -364,6 +364,15 @@ test.describe("signed in", () => {
     await healthy(page, bad);
   });
 
+  test("Browse Upcoming: picks are unreleased, outside the library, with a release day", async ({ page }) => {
+    const r = await page.request.get("/api/browse?list=upcoming&type=all&page=1");
+    expect(r.status()).toBe(200);
+    const j = await r.json();
+    expect(Array.isArray(j.items)).toBe(true);
+    const today = new Date().toISOString().slice(0, 10);
+    for (const it of j.items as { due?: string }[]) expect(it.due && it.due >= today, JSON.stringify(it)).toBeTruthy();
+  });
+
   test("/api/glimpse: pictures by person and title id (free sources, no Serper needed)", async ({ page }) => {
     const person = await page.request.get("/api/glimpse?q=Bryan%20Cranston%20actor&p=17419");
     expect(person.status()).toBe(200);

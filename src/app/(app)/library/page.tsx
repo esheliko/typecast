@@ -9,14 +9,19 @@ import Upcoming, { UpcomingSkeleton } from "@/components/Upcoming";
 import { rankUpNext, realServices } from "@/lib/upnext";
 import { loadUpNext } from "@/lib/upnext-data";
 import { hasUpcomingCandidates, loadUpcoming } from "@/lib/upcoming-data";
+import { libraryPicks, pickEntry } from "@/lib/upcoming-picks";
+
 import { dayOf } from "@/lib/upcoming";
 import { tzOf } from "@/lib/today";
 import { isSort, isRatingFilter } from "@/lib/library-sort";
 import { isKind } from "@/lib/kind";
 import { SuggestionRows } from "@/components/cast/CreditList";
-import { getLibrary, getProfile } from "@/lib/library";
+import { currentUid, getLibrary, getProfile } from "@/lib/library";
 import { getTitle } from "@/lib/tmdb";
 import type { LibItem, Related, Status } from "@/lib/types";
+
+/** How long the Upcoming section waits for "you may like" picks before showing without them. */
+const PICKS_MS = 2500;
 
 export const metadata = { title: "Library" };
 
@@ -68,9 +73,14 @@ async function WatchNext({ lib, prefs }: { lib: LibItem[]; prefs: UiPrefs }) {
 async function UpcomingFromList({ lib, prefs }: { lib: LibItem[]; prefs: UiPrefs }) {
   try {
     const now = Date.now();
-    const profile = await getProfile();
-    const entries = await loadUpcoming(lib, profile, now);
-    return entries.length ? <Upcoming entries={entries} today={dayOf(now, tzOf(profile.country))} open={prefs.upOpen && prefs.unClosed} /> : null;
+    const [profile, uid] = await Promise.all([getProfile(), currentUid().catch(() => null)]);
+    const today = dayOf(now, tzOf(profile.country));
+    // Picks are a bonus on top: they get a short time budget (the ranking keeps going and is cached for the next visit) and fail soft.
+    let picks: Awaited<ReturnType<typeof libraryPicks>> = [];
+    const pickP = libraryPicks(lib, profile.country, uid ?? undefined).then((p) => { picks = p; }, (e) => console.error("Upcoming picks failed", e));
+    const [entries] = await Promise.all([loadUpcoming(lib, profile, now), Promise.race([pickP, new Promise((r) => setTimeout(r, PICKS_MS))])]);
+    const suggested = picks.map((p) => pickEntry(p, today)).filter((e): e is NonNullable<typeof e> => !!e);
+    return entries.length || suggested.length ? <Upcoming entries={entries} picks={suggested} today={today} open={prefs.upOpen && prefs.unClosed} /> : null;
   } catch (e) {
     console.error("Upcoming failed", e);
     return null;
@@ -97,7 +107,7 @@ export default async function Library({ searchParams }: { searchParams: Promise<
       ) : <><div className="page-head"><h1>Library</h1><Link href="/library/stats">Stats <span aria-hidden="true">›</span></Link></div><LibraryView items={lib} initial={filter} initialSort={isSort(s) ? s : "watched"} initialKind={isKind(k) && k !== "all" ? k : "all"} initialFlip={r === "1"} initialRating={isRatingFilter(rt) ? rt : u === "1" ? "none" : "any"}
         top={<div className="lib-top">
           <Suspense fallback={<UpNext picks={quickPicks(lib)} services="pending" prefs={prefs} />}><WatchNext lib={lib} prefs={prefs} /></Suspense>
-          <Suspense fallback={hasUpcomingCandidates(lib) ? <UpcomingSkeleton open={prefs.upOpen && prefs.unClosed} /> : null}><UpcomingFromList lib={lib} prefs={prefs} /></Suspense>
+          <Suspense fallback={hasUpcomingCandidates(lib) || lib.length >= 3 ? <UpcomingSkeleton open={prefs.upOpen && prefs.unClosed} /> : null}><UpcomingFromList lib={lib} prefs={prefs} /></Suspense>
         </div>} /></>}
       {lib.length > 0 && <Suspense fallback={null}><Suggestions lib={lib} /></Suspense>}
     </div>
